@@ -64,6 +64,58 @@ export async function getTVGenres() {
   return tmdbFetch('/genre/tv/list')
 }
 
+export async function getARProviders() {
+  const [movies, tv] = await Promise.all([
+    tmdbFetch('/watch/providers/movie', { watch_region: 'AR' }),
+    tmdbFetch('/watch/providers/tv', { watch_region: 'AR' }),
+  ])
+  const map = new Map<number, { provider_id: number; provider_name: string; logo_path: string }>()
+  for (const p of [...(movies.results ?? []), ...(tv.results ?? [])]) {
+    map.set(p.provider_id, p)
+  }
+  return Array.from(map.values())
+}
+
+export async function getProviderTopMovies(providerId: number) {
+  return tmdbFetch('/discover/movie', {
+    with_watch_providers: String(providerId),
+    watch_region: 'AR',
+    sort_by: 'popularity.desc',
+    'vote_count.gte': '10',
+  })
+}
+
+export async function getProviderTopTV(providerId: number) {
+  return tmdbFetch('/discover/tv', {
+    with_watch_providers: String(providerId),
+    watch_region: 'AR',
+    sort_by: 'popularity.desc',
+    'vote_count.gte': '10',
+  })
+}
+
+export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv', page = 1) {
+  const today = new Date().toISOString().split('T')[0]
+  if (type === 'movie') {
+    return tmdbFetch('/discover/movie', {
+      with_watch_providers: String(providerId),
+      watch_region: 'AR',
+      sort_by: 'release_date.desc',
+      'release_date.lte': today,
+      'vote_count.gte': '5',
+      page: String(page),
+    })
+  }
+  return tmdbFetch('/discover/tv', {
+    with_watch_providers: String(providerId),
+    watch_region: 'AR',
+    sort_by: 'first_air_date.desc',
+    'first_air_date.lte': today,
+    'vote_count.gte': '5',
+    page: String(page),
+  })
+}
+
 export async function getUpcomingMovies(page = 1) {
   return tmdbFetch('/movie/upcoming', { region: 'AR', page: String(page) })
 }

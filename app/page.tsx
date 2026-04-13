@@ -1,8 +1,10 @@
-import { getUpcomingMovies, getProviderMovies, getProviderTV } from '@/lib/tmdb'
+import { getUpcomingMovies, getProviderMovies, getProviderTV, getARProviders } from '@/lib/tmdb'
+import { ALL_PLATFORMS } from '@/lib/providers'
 import HeroCarousel from '@/components/HeroCarousel'
 import PlatformCarousel from '@/components/PlatformCarousel'
+import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 
-const PLATFORMS = [
+const CAROUSEL_PLATFORMS = [
   { id: 8,   name: 'Netflix',       color: '#E50914' },
   { id: 337, name: 'Disney+',       color: '#113CCF' },
   { id: 119, name: 'Amazon Prime',  color: '#00A8E0' },
@@ -49,20 +51,30 @@ function processProviderContent(
 }
 
 export default async function Home() {
-  const [upcomingData, platformData] = await Promise.all([
+  const [upcomingData, platformData, arProviders] = await Promise.all([
     getUpcomingMovies(),
     Promise.all(
-      PLATFORMS.map(p =>
+      CAROUSEL_PLATFORMS.map(p =>
         Promise.all([getProviderMovies(p.id), getProviderTV(p.id)])
       )
     ),
+    getARProviders(),
   ])
 
   const upcomingMovies = (upcomingData.results ?? [])
     .filter((m: { backdrop_path: string | null }) => m.backdrop_path)
     .slice(0, 10)
 
-  const platformContent = PLATFORMS.map((platform, i) => {
+  // Build logo map from TMDB providers
+  const logoMap = new Map<number, string>(
+    arProviders.map((p: { provider_id: number; logo_path: string }) => [p.provider_id, p.logo_path])
+  )
+  const platformsWithLogos = ALL_PLATFORMS.map(p => ({
+    ...p,
+    logoPath: logoMap.get(p.id) ?? null,
+  }))
+
+  const platformContent = CAROUSEL_PLATFORMS.map((platform, i) => {
     const [moviesData, tvData] = platformData[i]
     return {
       ...platform,
@@ -73,6 +85,8 @@ export default async function Home() {
   return (
     <>
       <HeroCarousel movies={upcomingMovies} />
+
+      <PlatformLogoStrip platforms={platformsWithLogos} />
 
       <div className="max-w-7xl mx-auto px-4 py-10">
         {platformContent.map(platform => (
