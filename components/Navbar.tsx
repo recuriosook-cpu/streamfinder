@@ -3,7 +3,7 @@
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect } from 'react'
-import { Search, Heart, LogOut, LogIn, Menu, X } from 'lucide-react'
+import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 
@@ -61,6 +61,10 @@ export default function Navbar() {
                 <Heart size={16} />
                 Favoritos
               </Link>
+              <Link href="/profile" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+                <UserCircle size={16} />
+                Mi perfil
+              </Link>
               <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <LogOut size={16} />
                 Salir
@@ -85,6 +89,9 @@ export default function Navbar() {
             <>
               <Link href="/favorites" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
                 <Heart size={16} /> Favoritos
+              </Link>
+              <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+                <UserCircle size={16} /> Mi perfil
               </Link>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir

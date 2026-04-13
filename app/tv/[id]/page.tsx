@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { ArrowLeft, Star, Tv, Calendar } from 'lucide-react'
 import ProviderBadge from '@/components/ProviderBadge'
 import FavoriteButton from '@/components/FavoriteButton'
+import WatchedButton from '@/components/WatchedButton'
+import WatchlistButton from '@/components/WatchlistButton'
+import RatingStars from '@/components/RatingStars'
+import HistoryTracker from '@/components/HistoryTracker'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,9 +22,18 @@ export default async function TVPage({ params }: Props) {
 
   const arProviders = watchData?.results?.AR ?? {}
   const backdrop = getBackdropUrl(show.backdrop_path)
+  const firstProvider = arProviders.flatrate?.[0]
+  const genreIds: number[] = show.genres?.map((g: { id: number }) => g.id) ?? []
 
   return (
     <div className="min-h-screen">
+      <HistoryTracker
+        mediaId={show.id}
+        mediaType="tv"
+        title={show.name}
+        posterPath={show.poster_path}
+      />
+
       {backdrop && (
         <div className="relative h-72 md:h-96 w-full">
           <Image src={backdrop} alt={show.name} fill className="object-cover" priority />
@@ -69,9 +82,13 @@ export default async function TVPage({ params }: Props) {
               )}
               {show.status && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
-                  show.status === 'Ended' || show.status === 'Canceled' ? 'bg-red-900 text-red-300' : 'bg-green-900 text-green-300'
+                  show.status === 'Ended' || show.status === 'Canceled'
+                    ? 'bg-red-900 text-red-300'
+                    : 'bg-green-900 text-green-300'
                 }`}>
-                  {show.status === 'Returning Series' ? 'En emisión' : show.status === 'Ended' ? 'Finalizada' : show.status}
+                  {show.status === 'Returning Series' ? 'En emisión'
+                    : show.status === 'Ended' ? 'Finalizada'
+                    : show.status}
                 </span>
               )}
             </div>
@@ -100,7 +117,33 @@ export default async function TVPage({ params }: Props) {
               </p>
             )}
 
-            <FavoriteButton
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <FavoriteButton
+                mediaId={show.id}
+                mediaType="tv"
+                title={show.name}
+                posterPath={show.poster_path}
+                genreIds={genreIds}
+                seasonsCount={show.number_of_seasons}
+                providerId={firstProvider?.provider_id}
+                providerName={firstProvider?.provider_name}
+              />
+              <WatchedButton
+                mediaId={show.id}
+                mediaType="tv"
+                title={show.name}
+                posterPath={show.poster_path}
+              />
+              <WatchlistButton
+                mediaId={show.id}
+                mediaType="tv"
+                title={show.name}
+                posterPath={show.poster_path}
+              />
+            </div>
+
+            <RatingStars
               mediaId={show.id}
               mediaType="tv"
               title={show.name}

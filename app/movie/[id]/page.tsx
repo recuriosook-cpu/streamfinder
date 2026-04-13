@@ -4,6 +4,10 @@ import Link from 'next/link'
 import { ArrowLeft, Star, Clock, Calendar } from 'lucide-react'
 import ProviderBadge from '@/components/ProviderBadge'
 import FavoriteButton from '@/components/FavoriteButton'
+import WatchedButton from '@/components/WatchedButton'
+import WatchlistButton from '@/components/WatchlistButton'
+import RatingStars from '@/components/RatingStars'
+import HistoryTracker from '@/components/HistoryTracker'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,9 +22,19 @@ export default async function MoviePage({ params }: Props) {
 
   const arProviders = watchData?.results?.AR ?? {}
   const backdrop = getBackdropUrl(movie.backdrop_path)
+  const firstProvider = arProviders.flatrate?.[0]
+  const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
 
   return (
     <div className="min-h-screen">
+      {/* Records visit to watch_history for logged-in users */}
+      <HistoryTracker
+        mediaId={movie.id}
+        mediaType="movie"
+        title={movie.title}
+        posterPath={movie.poster_path}
+      />
+
       {/* Backdrop */}
       {backdrop && (
         <div className="relative h-72 md:h-96 w-full">
@@ -91,7 +105,33 @@ export default async function MoviePage({ params }: Props) {
               </div>
             )}
 
-            <FavoriteButton
+            {/* Action buttons */}
+            <div className="flex flex-wrap gap-3 mb-4">
+              <FavoriteButton
+                mediaId={movie.id}
+                mediaType="movie"
+                title={movie.title}
+                posterPath={movie.poster_path}
+                genreIds={genreIds}
+                runtime={movie.runtime}
+                providerId={firstProvider?.provider_id}
+                providerName={firstProvider?.provider_name}
+              />
+              <WatchedButton
+                mediaId={movie.id}
+                mediaType="movie"
+                title={movie.title}
+                posterPath={movie.poster_path}
+              />
+              <WatchlistButton
+                mediaId={movie.id}
+                mediaType="movie"
+                title={movie.title}
+                posterPath={movie.poster_path}
+              />
+            </div>
+
+            <RatingStars
               mediaId={movie.id}
               mediaType="movie"
               title={movie.title}
