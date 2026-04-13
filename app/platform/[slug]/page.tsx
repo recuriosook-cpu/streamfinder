@@ -41,11 +41,12 @@ export default async function PlatformPage({ params }: { params: Promise<{ slug:
       getARProviders(),
     ])
 
-  // Logo from TMDB provider list
+  // Logo: prefer TMDB's AR provider list, fall back to hardcoded path
   const providerInfo = arProviders.find(
     (p: { provider_id: number }) => p.provider_id === platform.id
   )
-  const logoPath: string | null = (providerInfo as { logo_path?: string })?.logo_path ?? null
+  const logoPath: string | null =
+    (providerInfo as { logo_path?: string })?.logo_path ?? platform.fallbackLogoPath ?? null
 
   const topMovies: RawItem[] = (topMoviesData.results ?? []).slice(0, 10)
   const topTV: RawItem[] = (topTVData.results ?? []).slice(0, 10)

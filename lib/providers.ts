@@ -22,18 +22,28 @@ export const PROVIDER_FILTER_OPTIONS = [
   { id: 619, name: 'Star+' },
 ]
 
-// All platforms shown in the logo strip and platform pages
-export const ALL_PLATFORMS = [
-  { id: 8,   slug: 'netflix',        name: 'Netflix',            color: '#E50914' },
-  { id: 337, slug: 'disney-plus',    name: 'Disney+',            color: '#113CCF' },
-  { id: 119, slug: 'amazon-prime',   name: 'Amazon Prime Video', color: '#00A8E0' },
-  { id: 384, slug: 'max',            name: 'Max',                color: '#5822B4' },
-  { id: 531, slug: 'paramount-plus', name: 'Paramount+',         color: '#0064FF' },
-  { id: 350, slug: 'apple-tv-plus',  name: 'Apple TV+',          color: '#3A3A3C' },
-  { id: 11,  slug: 'mubi',           name: 'Mubi',               color: '#1C1C1C' },
-  { id: 457, slug: 'vix',            name: 'Vix',                color: '#E8500A' },
-  { id: 39,  slug: 'claro-video',    name: 'Claro Video',        color: '#DA0000' },
-  { id: 149, slug: 'movistar-tv',    name: 'Movistar TV',        color: '#019DF4' },
-] as const
+// All platforms shown in the logo strip and platform pages.
+// fallbackLogoPath: TMDB relative logo path used when getARProviders() doesn't return a logo
+// for this provider (some IDs aren't present in TMDB's AR region list).
+export interface PlatformConfig {
+  id: number
+  slug: string
+  name: string
+  color: string
+  fallbackLogoPath: string | null
+}
 
-export type Platform = typeof ALL_PLATFORMS[number] & { logoPath?: string | null }
+export const ALL_PLATFORMS: PlatformConfig[] = [
+  { id: 8,   slug: 'netflix',        name: 'Netflix',            color: '#E50914', fallbackLogoPath: '/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg' },
+  { id: 337, slug: 'disney-plus',    name: 'Disney+',            color: '#113CCF', fallbackLogoPath: '/7rwgEs15tFwyR9NPQ5vpzxTj19d.jpg'  },
+  { id: 119, slug: 'amazon-prime',   name: 'Amazon Prime Video', color: '#00A8E0', fallbackLogoPath: '/68MNrwlkpF7WnmNPXLah69CR5xh.jpg'  },
+  { id: 384, slug: 'max',            name: 'HBO Max',            color: '#5822B4', fallbackLogoPath: '/Ajqyt5aNxNGjmF9uOfxArGrdf3X.jpg'  },
+  { id: 531, slug: 'paramount-plus', name: 'Paramount+',         color: '#0064FF', fallbackLogoPath: '/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'  },
+  { id: 350, slug: 'apple-tv-plus',  name: 'Apple TV+',          color: '#3A3A3C', fallbackLogoPath: null                                },
+  { id: 11,  slug: 'mubi',           name: 'Mubi',               color: '#1C1C1C', fallbackLogoPath: null                                },
+  { id: 457, slug: 'vix',            name: 'Vix',                color: '#E8500A', fallbackLogoPath: null                                },
+  { id: 39,  slug: 'claro-video',    name: 'Claro Video',        color: '#DA0000', fallbackLogoPath: '/cDzkhgBxFKJMvdN94oGNvPBRmXo.jpg'  },
+  { id: 149, slug: 'movistar-tv',    name: 'Movistar TV',        color: '#019DF4', fallbackLogoPath: '/3aXj9cDFNTRjXUoIKHiKBcFvPcKx.jpg' },
+]
+
+export type Platform = PlatformConfig & { logoPath?: string | null }

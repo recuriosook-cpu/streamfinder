@@ -71,7 +71,9 @@ export default async function Home() {
   )
   const platformsWithLogos = ALL_PLATFORMS.map(p => ({
     ...p,
-    logoPath: logoMap.get(p.id) ?? null,
+    // TMDB's AR provider list doesn't always include every provider;
+    // fall back to the hardcoded path when it's missing.
+    logoPath: logoMap.get(p.id) ?? p.fallbackLogoPath ?? null,
   }))
 
   const platformContent = CAROUSEL_PLATFORMS.map((platform, i) => {
