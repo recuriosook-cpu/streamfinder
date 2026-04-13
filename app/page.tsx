@@ -1,91 +1,89 @@
-import { getPopularMovies, getPopularTV } from '@/lib/tmdb'
-import MediaCard from '@/components/MediaCard'
-import Link from 'next/link'
-import HomeFilters from '@/components/HomeFilters'
+import { getUpcomingMovies, getProviderMovies, getProviderTV } from '@/lib/tmdb'
+import HeroCarousel from '@/components/HeroCarousel'
+import PlatformCarousel from '@/components/PlatformCarousel'
 
-interface SearchParams {
-  genre?: string
-  provider?: string
-  tab?: string
+const PLATFORMS = [
+  { id: 8,   name: 'Netflix',       color: '#E50914' },
+  { id: 337, name: 'Disney+',       color: '#113CCF' },
+  { id: 119, name: 'Amazon Prime',  color: '#00A8E0' },
+  { id: 384, name: 'Max',           color: '#5822B4' },
+  { id: 531, name: 'Paramount+',    color: '#0064FF' },
+  { id: 350, name: 'Apple TV+',     color: '#444444' },
+]
+
+interface RawMovie {
+  id: number
+  title: string
+  poster_path: string | null
+  release_date: string
 }
 
-export default async function Home({ searchParams }: { searchParams: Promise<SearchParams> }) {
-  const sp = await searchParams
-  const tab = sp.tab ?? 'movies'
+interface RawTV {
+  id: number
+  name: string
+  poster_path: string | null
+  first_air_date: string
+}
 
-  const [moviesData, tvData] = await Promise.all([
-    getPopularMovies(),
-    getPopularTV(),
+function processProviderContent(
+  moviesData: { results?: RawMovie[] },
+  tvData: { results?: RawTV[] }
+) {
+  const movies = (moviesData.results ?? []).map(m => ({
+    id: m.id,
+    title: m.title,
+    posterPath: m.poster_path,
+    mediaType: 'movie' as const,
+    date: m.release_date ?? '',
+  }))
+  const tv = (tvData.results ?? []).map(t => ({
+    id: t.id,
+    title: t.name,
+    posterPath: t.poster_path,
+    mediaType: 'tv' as const,
+    date: t.first_air_date ?? '',
+  }))
+  return [...movies, ...tv]
+    .sort((a, b) => b.date.localeCompare(a.date))
+    .slice(0, 20)
+}
+
+export default async function Home() {
+  const [upcomingData, platformData] = await Promise.all([
+    getUpcomingMovies(),
+    Promise.all(
+      PLATFORMS.map(p =>
+        Promise.all([getProviderMovies(p.id), getProviderTV(p.id)])
+      )
+    ),
   ])
 
-  const movies = moviesData.results ?? []
-  const tvShows = tvData.results ?? []
+  const upcomingMovies = (upcomingData.results ?? [])
+    .filter((m: { backdrop_path: string | null }) => m.backdrop_path)
+    .slice(0, 10)
+
+  const platformContent = PLATFORMS.map((platform, i) => {
+    const [moviesData, tvData] = platformData[i]
+    return {
+      ...platform,
+      items: processProviderContent(moviesData, tvData),
+    }
+  })
 
   return (
-    <div className="max-w-7xl mx-auto px-4 py-8">
-      {/* Hero */}
-      <div className="mb-10 text-center">
-        <h1 className="text-4xl font-bold mb-3">
-          Encontrá dónde ver <span className="text-emerald-400">tus películas y series</span>
-        </h1>
-        <p className="text-zinc-400 text-lg">
-          Descubrí en qué plataformas de streaming están disponibles en Argentina
-        </p>
-      </div>
+    <>
+      <HeroCarousel movies={upcomingMovies} />
 
-      {/* Tabs */}
-      <div className="flex gap-4 mb-6 border-b border-zinc-800">
-        <Link
-          href="/?tab=movies"
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'movies' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-white'
-          }`}
-        >
-          Películas Populares
-        </Link>
-        <Link
-          href="/?tab=tv"
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'tv' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-white'
-          }`}
-        >
-          Series Populares
-        </Link>
-        <Link
-          href="/?tab=browse"
-          className={`pb-3 px-1 text-sm font-medium border-b-2 transition-colors ${
-            tab === 'browse' ? 'border-emerald-400 text-emerald-400' : 'border-transparent text-zinc-400 hover:text-white'
-          }`}
-        >
-          Explorar
-        </Link>
+      <div className="max-w-7xl mx-auto px-4 py-10">
+        {platformContent.map(platform => (
+          <PlatformCarousel
+            key={platform.id}
+            name={platform.name}
+            color={platform.color}
+            items={platform.items}
+          />
+        ))}
       </div>
-
-      {tab === 'browse' ? (
-        <HomeFilters />
-      ) : (
-        <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-          {(tab === 'tv' ? tvShows : movies).map((item: {
-            id: number
-            title?: string
-            name?: string
-            poster_path: string | null
-            vote_average: number
-            release_date?: string
-            first_air_date?: string
-          }) => (
-            <MediaCard
-              key={item.id}
-              id={item.id}
-              title={item.title ?? item.name ?? ''}
-              posterPath={item.poster_path}
-              rating={item.vote_average}
-              year={(item.release_date ?? item.first_air_date ?? '').slice(0, 4)}
-              mediaType={tab === 'tv' ? 'tv' : 'movie'}
-            />
-          ))}
-        </div>
-      )}
-    </div>
+    </>
   )
 }
