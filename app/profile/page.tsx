@@ -429,7 +429,7 @@ export default function ProfilePage() {
         {/* YA LO VI */}
         {activeTab === 'watched' && (
           watched.length === 0
-            ? <EmptyState icon={CheckCircle} text='Marcá películas y series como vistas con el botón "Marcar como visto".' />
+            ? <EmptyState icon={CheckCircle} text='Marcá películas y series con el botón "Ya la vi".' />
             : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                 {watched.map(item => (

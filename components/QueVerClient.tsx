@@ -129,18 +129,21 @@ function buildDiscoverUrl(p: Params): string {
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-const DEFAULT_PARAMS: Params = {
-  contentType: 'movies',
-  genres: [],
-  sortBy: 'popularity.desc',
-  yearFrom: '',
-  yearTo: '',
-  minScore: 0,
-  page: 1,
+interface Props {
+  initialGenre?: number
+  initialType?: ContentType
 }
 
-export default function QueVerClient() {
-  const [params, setParams] = useState<Params>(DEFAULT_PARAMS)
+export default function QueVerClient({ initialGenre, initialType }: Props) {
+  const [params, setParams] = useState<Params>({
+    contentType: initialType ?? 'movies',
+    genres: initialGenre ? [initialGenre] : [],
+    sortBy: 'popularity.desc',
+    yearFrom: '',
+    yearTo: '',
+    minScore: 0,
+    page: 1,
+  })
   const [items, setItems] = useState<ResultItem[]>([])
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)

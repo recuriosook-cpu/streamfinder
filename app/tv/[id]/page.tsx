@@ -125,9 +125,13 @@ export default async function TVPage({ params }: Props) {
             {show.genres?.length > 0 && (
               <div className="flex flex-wrap gap-2 mb-4">
                 {show.genres.map((g: { id: number; name: string }) => (
-                  <span key={g.id} className="text-xs bg-zinc-800 text-zinc-300 px-2 py-1 rounded-full">
+                  <Link
+                    key={g.id}
+                    href={`/que-ver?genre=${g.id}&type=series`}
+                    className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
+                  >
                     {g.name}
-                  </span>
+                  </Link>
                 ))}
               </div>
             )}

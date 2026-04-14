@@ -122,7 +122,7 @@ export default function WatchedButton({
         }`}
       >
         <CheckCircle size={18} fill={isWatched ? 'currentColor' : 'none'} />
-        {isWatched ? 'Ya lo vi' : 'Marcar como visto'}
+        {isWatched ? 'Ya la vi' : 'Ya la vi'}
       </button>
 
       {showPopup && (

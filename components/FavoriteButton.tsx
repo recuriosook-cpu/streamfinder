@@ -91,7 +91,7 @@ export default function FavoriteButton({
       }`}
     >
       <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
-      {isFav ? 'En favoritos' : 'Agregar a favoritos'}
+      {isFav ? 'Me gusta' : 'Me gusta'}
     </button>
   )
 }
