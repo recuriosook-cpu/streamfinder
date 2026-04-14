@@ -122,6 +122,8 @@ export default async function MoviePage({ params }: Props) {
                 mediaType="movie"
                 title={movie.title}
                 posterPath={movie.poster_path}
+                genreIds={genreIds}
+                runtime={movie.runtime}
               />
               <WatchlistButton
                 mediaId={movie.id}

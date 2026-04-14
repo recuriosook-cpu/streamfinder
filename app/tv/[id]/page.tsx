@@ -134,6 +134,8 @@ export default async function TVPage({ params }: Props) {
                 mediaType="tv"
                 title={show.name}
                 posterPath={show.poster_path}
+                genreIds={genreIds}
+                seasonsCount={show.number_of_seasons}
               />
               <WatchlistButton
                 mediaId={show.id}

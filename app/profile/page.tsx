@@ -27,6 +27,7 @@ const GENRE_MAP: Record<number, string> = {
 }
 
 type Tab = 'favorites' | 'history' | 'watched' | 'watchlist' | 'ratings' | 'stats'
+type StatsView = 'global' | 'year' | 'month'
 
 interface Favorite {
   id: string; media_id: number; media_type: 'movie' | 'tv'; title: string
@@ -40,6 +41,12 @@ interface HistoryEntry {
 interface MediaEntry {
   id: string; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null
+}
+interface WatchedEntry extends MediaEntry {
+  watched_at: string
+  genre_ids: number[]
+  runtime: number | null
+  seasons_count: number | null
 }
 interface RatingEntry extends MediaEntry { rating: number }
 
@@ -111,7 +118,7 @@ export default function ProfilePage() {
   const [profile, setProfile] = useState<{ username: string | null; avatar_url: string | null } | null>(null)
   const [favorites, setFavorites] = useState<Favorite[]>([])
   const [history, setHistory] = useState<HistoryEntry[]>([])
-  const [watched, setWatched] = useState<MediaEntry[]>([])
+  const [watched, setWatched] = useState<WatchedEntry[]>([])
   const [watchlist, setWatchlist] = useState<MediaEntry[]>([])
   const [ratings, setRatings] = useState<RatingEntry[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('favorites')
@@ -119,6 +126,7 @@ export default function ProfilePage() {
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
   const [editingUsername, setEditingUsername] = useState(false)
   const [usernameInput, setUsernameInput] = useState('')
+  const [statsView, setStatsView] = useState<StatsView>('global')
 
   useEffect(() => { loadAll() }, [])
 
@@ -172,12 +180,9 @@ export default function ProfilePage() {
 
   async function removeItem(table: string, id: string) {
     await supabase.from(table).delete().eq('id', id)
-    const setters: Record<string, (fn: (prev: MediaEntry[]) => MediaEntry[]) => void> = {
-      favorites: setFavorites as never,
-      watched: setWatched,
-      watchlist: setWatchlist,
-    }
-    setters[table]?.(prev => prev.filter(x => x.id !== id))
+    if (table === 'favorites') setFavorites(prev => prev.filter(x => x.id !== id))
+    if (table === 'watched') setWatched(prev => prev.filter(x => x.id !== id))
+    if (table === 'watchlist') setWatchlist(prev => prev.filter(x => x.id !== id))
     if (table === 'ratings') setRatings(prev => prev.filter(x => x.id !== id))
   }
 
@@ -192,34 +197,58 @@ export default function ProfilePage() {
     }).slice(0, 50)
   }, [history])
 
-  // Stats
+  // Stats — computed from watched list
   const stats = useMemo(() => {
-    const moviesCount = favorites.filter(f => f.media_type === 'movie').length
-    const tvCount = favorites.filter(f => f.media_type === 'tv').length
+    const moviesCount = watched.filter(w => w.media_type === 'movie').length
+    const tvCount = watched.filter(w => w.media_type === 'tv').length
 
     const genreCount: Record<number, number> = {}
-    for (const fav of favorites) {
-      for (const gid of (fav.genre_ids ?? [])) {
+    for (const w of watched) {
+      for (const gid of (w.genre_ids ?? [])) {
         genreCount[gid] = (genreCount[gid] ?? 0) + 1
       }
     }
     const topGenreEntry = Object.entries(genreCount).sort((a, b) => Number(b[1]) - Number(a[1]))[0]
     const topGenre = topGenreEntry ? GENRE_MAP[Number(topGenreEntry[0])] ?? `Género ${topGenreEntry[0]}` : null
 
-    const platformCount: Record<string, number> = {}
-    for (const fav of favorites) {
-      if (fav.provider_name) platformCount[fav.provider_name] = (platformCount[fav.provider_name] ?? 0) + 1
+    const movieMinutes = watched.filter(w => w.media_type === 'movie')
+      .reduce((sum, w) => sum + (w.runtime ?? 120), 0)
+    const tvMinutes = watched.filter(w => w.media_type === 'tv')
+      .reduce((sum, w) => sum + ((w.seasons_count ?? 1) * 10 * 45), 0)
+    const totalMinutes = movieMinutes + tvMinutes
+    const totalHours = Math.round(totalMinutes / 60)
+
+    // By year: { year: string, count: number, movies: number, tv: number }
+    const yearMap: Record<string, { movies: number; tv: number }> = {}
+    for (const w of watched) {
+      const year = new Date(w.watched_at).getFullYear().toString()
+      if (!yearMap[year]) yearMap[year] = { movies: 0, tv: 0 }
+      if (w.media_type === 'movie') yearMap[year].movies++
+      else yearMap[year].tv++
     }
-    const topPlatform = Object.entries(platformCount).sort((a, b) => Number(b[1]) - Number(a[1]))[0]?.[0] ?? null
+    const byYear = Object.entries(yearMap)
+      .sort((a, b) => Number(b[0]) - Number(a[0]))
+      .map(([year, counts]) => ({ year, ...counts, total: counts.movies + counts.tv }))
 
-    const movieMinutes = favorites.filter(f => f.media_type === 'movie')
-      .reduce((sum, f) => sum + (f.runtime ?? 120), 0)
-    const tvMinutes = favorites.filter(f => f.media_type === 'tv')
-      .reduce((sum, f) => sum + ((f.seasons_count ?? 1) * 10 * 45), 0)
-    const totalHours = Math.round((movieMinutes + tvMinutes) / 60)
+    // By month: { key: 'YYYY-MM', label: 'Enero 2025', movies: n, tv: n }
+    const monthMap: Record<string, { movies: number; tv: number }> = {}
+    for (const w of watched) {
+      const d = new Date(w.watched_at)
+      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+      if (!monthMap[key]) monthMap[key] = { movies: 0, tv: 0 }
+      if (w.media_type === 'movie') monthMap[key].movies++
+      else monthMap[key].tv++
+    }
+    const byMonth = Object.entries(monthMap)
+      .sort((a, b) => b[0].localeCompare(a[0]))
+      .map(([key, counts]) => {
+        const [y, m] = key.split('-')
+        const label = new Date(Number(y), Number(m) - 1, 1).toLocaleDateString('es-AR', { month: 'long', year: 'numeric' })
+        return { key, label: label.charAt(0).toUpperCase() + label.slice(1), ...counts, total: counts.movies + counts.tv }
+      })
 
-    return { moviesCount, tvCount, topGenre, topPlatform, totalHours }
-  }, [favorites])
+    return { moviesCount, tvCount, topGenre, totalHours, totalMinutes, byYear, byMonth }
+  }, [watched])
 
   if (loading) return <Spinner />
 
@@ -404,7 +433,16 @@ export default function ProfilePage() {
             : (
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                 {watched.map(item => (
-                  <PosterCard key={item.id} item={item} onRemove={() => removeItem('watched', item.id)} />
+                  <PosterCard
+                    key={item.id}
+                    item={item}
+                    onRemove={() => removeItem('watched', item.id)}
+                    extra={
+                      <p className="text-[10px] text-emerald-500 mt-0.5">
+                        {new Date(item.watched_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      </p>
+                    }
+                  />
                 ))}
               </div>
             )
@@ -460,59 +498,139 @@ export default function ProfilePage() {
 
         {/* ESTADÍSTICAS */}
         {activeTab === 'stats' && (
-          favorites.length === 0
-            ? <EmptyState icon={BarChart2} text="Agregá favoritos para ver tus estadísticas." />
+          watched.length === 0
+            ? <EmptyState icon={BarChart2} text='Marcá contenido como visto para ver tus estadísticas.' />
             : (
-              <div className="space-y-8">
-                {/* Primary stats */}
-                <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-                  {[
-                    { icon: Film, label: 'Películas en favoritos', value: stats.moviesCount, color: 'text-blue-400' },
-                    { icon: Tv, label: 'Series en favoritos', value: stats.tvCount, color: 'text-purple-400' },
-                    { icon: Clock, label: 'Horas estimadas', value: `~${stats.totalHours}h`, color: 'text-emerald-400' },
-                    { icon: Star, label: 'Calificaciones', value: ratings.length, color: 'text-yellow-400' },
-                  ].map(s => (
-                    <div key={s.label} className="bg-zinc-800/60 rounded-xl p-4 border border-zinc-700/50">
-                      <s.icon size={20} className={`${s.color} mb-2`} />
-                      <p className="text-2xl font-bold text-white">{s.value}</p>
-                      <p className="text-xs text-zinc-500 mt-0.5 leading-tight">{s.label}</p>
-                    </div>
+              <div className="space-y-6">
+                {/* View switcher */}
+                <div className="flex gap-2">
+                  {([
+                    { id: 'global', label: 'Global' },
+                    { id: 'year',   label: 'Por año' },
+                    { id: 'month',  label: 'Por mes' },
+                  ] as { id: StatsView; label: string }[]).map(v => (
+                    <button
+                      key={v.id}
+                      onClick={() => setStatsView(v.id)}
+                      className={`px-4 py-1.5 rounded-full text-sm font-medium transition-colors ${
+                        statsView === v.id
+                          ? 'bg-emerald-500 text-white'
+                          : 'bg-zinc-800 text-zinc-400 hover:text-white'
+                      }`}
+                    >
+                      {v.label}
+                    </button>
                   ))}
                 </div>
 
-                {/* Insights */}
-                <div className="grid sm:grid-cols-2 gap-4">
-                  <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Género más guardado</p>
-                    <p className="text-xl font-bold text-white">{stats.topGenre ?? '—'}</p>
-                  </div>
-                  <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50">
-                    <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Plataforma más frecuente</p>
-                    <p className="text-xl font-bold text-white">{stats.topPlatform ?? '—'}</p>
-                    {!stats.topPlatform && (
-                      <p className="text-xs text-zinc-600 mt-1">Abrí películas y agregá a favoritos desde una plataforma para ver esto.</p>
-                    )}
-                  </div>
-                </div>
+                {/* ── GLOBAL ── */}
+                {statsView === 'global' && (
+                  <div className="space-y-6">
+                    <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+                      {[
+                        { icon: Film,  label: 'Películas vistas',   value: stats.moviesCount, color: 'text-blue-400' },
+                        { icon: Tv,    label: 'Series vistas',       value: stats.tvCount,     color: 'text-purple-400' },
+                        { icon: Clock, label: 'Horas estimadas',     value: `~${stats.totalHours}h`, color: 'text-emerald-400' },
+                        { icon: Star,  label: 'Calificaciones',      value: ratings.length,    color: 'text-yellow-400' },
+                      ].map(s => (
+                        <div key={s.label} className="bg-zinc-800/60 rounded-xl p-4 border border-zinc-700/50">
+                          <s.icon size={20} className={`${s.color} mb-2`} />
+                          <p className="text-2xl font-bold text-white">{s.value}</p>
+                          <p className="text-xs text-zinc-500 mt-0.5 leading-tight">{s.label}</p>
+                        </div>
+                      ))}
+                    </div>
 
-                {/* Hours breakdown */}
-                <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50">
-                  <p className="text-xs text-zinc-500 uppercase tracking-wide mb-4">Estimación de horas de contenido</p>
-                  <div className="space-y-3">
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-zinc-300 flex items-center gap-2"><Film size={14} /> Películas ({stats.moviesCount} × ~2h)</span>
-                      <span className="text-sm font-medium text-blue-400">~{Math.round(stats.moviesCount * 2)}h</span>
-                    </div>
-                    <div className="flex justify-between items-center">
-                      <span className="text-sm text-zinc-300 flex items-center gap-2"><Tv size={14} /> Series ({stats.tvCount} × ~10 eps × 45 min/temporada)</span>
-                      <span className="text-sm font-medium text-purple-400">~{Math.round(favorites.filter(f => f.media_type === 'tv').reduce((s, f) => s + (f.seasons_count ?? 1) * 10 * 45, 0) / 60)}h</span>
-                    </div>
-                    <div className="border-t border-zinc-700 pt-3 flex justify-between items-center">
-                      <span className="text-sm font-semibold text-white">Total estimado</span>
-                      <span className="text-lg font-bold text-emerald-400">~{stats.totalHours}h</span>
+                    <div className="grid sm:grid-cols-2 gap-4">
+                      <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50">
+                        <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Género más visto</p>
+                        <p className="text-xl font-bold text-white">{stats.topGenre ?? '—'}</p>
+                        {!stats.topGenre && <p className="text-xs text-zinc-600 mt-1">Los géneros se registran al marcar como visto.</p>}
+                      </div>
+                      <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50">
+                        <p className="text-xs text-zinc-500 uppercase tracking-wide mb-1">Tiempo estimado de pantalla</p>
+                        <p className="text-xl font-bold text-emerald-400">~{stats.totalHours}h</p>
+                        <p className="text-xs text-zinc-500 mt-1">
+                          {stats.moviesCount} peli{stats.moviesCount !== 1 ? 's' : ''} + {stats.tvCount} serie{stats.tvCount !== 1 ? 's' : ''}
+                        </p>
+                      </div>
                     </div>
                   </div>
-                </div>
+                )}
+
+                {/* ── POR AÑO ── */}
+                {statsView === 'year' && (
+                  <div className="bg-zinc-800/60 rounded-xl p-5 border border-zinc-700/50 space-y-4">
+                    <p className="text-xs text-zinc-500 uppercase tracking-wide">Contenido visto por año</p>
+                    {stats.byYear.length === 0
+                      ? <p className="text-zinc-500 text-sm">Sin datos aún.</p>
+                      : (() => {
+                          const maxTotal = Math.max(...stats.byYear.map(y => y.total))
+                          return (
+                            <div className="space-y-3">
+                              {stats.byYear.map(y => (
+                                <div key={y.year}>
+                                  <div className="flex justify-between items-center mb-1">
+                                    <span className="text-sm font-semibold text-white">{y.year}</span>
+                                    <span className="text-xs text-zinc-400">{y.total} título{y.total !== 1 ? 's' : ''}</span>
+                                  </div>
+                                  <div className="flex gap-0.5 h-3 rounded overflow-hidden bg-zinc-700">
+                                    {y.movies > 0 && (
+                                      <div
+                                        className="bg-blue-500 h-full transition-all"
+                                        style={{ width: `${(y.movies / maxTotal) * 100}%` }}
+                                        title={`${y.movies} películas`}
+                                      />
+                                    )}
+                                    {y.tv > 0 && (
+                                      <div
+                                        className="bg-purple-500 h-full transition-all"
+                                        style={{ width: `${(y.tv / maxTotal) * 100}%` }}
+                                        title={`${y.tv} series`}
+                                      />
+                                    )}
+                                  </div>
+                                  <div className="flex gap-4 mt-1">
+                                    {y.movies > 0 && <span className="text-[10px] text-blue-400 flex items-center gap-1"><Film size={9} /> {y.movies} peli{y.movies !== 1 ? 's' : ''}</span>}
+                                    {y.tv > 0 && <span className="text-[10px] text-purple-400 flex items-center gap-1"><Tv size={9} /> {y.tv} serie{y.tv !== 1 ? 's' : ''}</span>}
+                                  </div>
+                                </div>
+                              ))}
+                            </div>
+                          )
+                        })()
+                    }
+                  </div>
+                )}
+
+                {/* ── POR MES ── */}
+                {statsView === 'month' && (
+                  <div className="space-y-3">
+                    {stats.byMonth.length === 0
+                      ? <p className="text-zinc-500 text-sm">Sin datos aún.</p>
+                      : stats.byMonth.map(m => (
+                          <div key={m.key} className="bg-zinc-800/60 rounded-xl px-5 py-4 border border-zinc-700/50">
+                            <div className="flex items-center justify-between">
+                              <p className="text-sm font-semibold text-white">{m.label}</p>
+                              <span className="text-xs bg-zinc-700 text-zinc-300 px-2 py-0.5 rounded-full">{m.total} título{m.total !== 1 ? 's' : ''}</span>
+                            </div>
+                            <div className="flex gap-4 mt-1.5">
+                              {m.movies > 0 && (
+                                <span className="text-xs text-blue-400 flex items-center gap-1">
+                                  <Film size={11} /> {m.movies} peli{m.movies !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                              {m.tv > 0 && (
+                                <span className="text-xs text-purple-400 flex items-center gap-1">
+                                  <Tv size={11} /> {m.tv} serie{m.tv !== 1 ? 's' : ''}
+                                </span>
+                              )}
+                            </div>
+                          </div>
+                        ))
+                    }
+                  </div>
+                )}
               </div>
             )
         )}
