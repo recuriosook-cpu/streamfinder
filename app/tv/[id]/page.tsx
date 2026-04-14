@@ -1,8 +1,10 @@
-import { getTVDetails, getTVProviders, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+import { getTVDetails, getTVProviders, getTVExternalIds, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+import { getOMDBRatings } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star, Tv, Calendar } from 'lucide-react'
 import StreamingSection from '@/components/StreamingSection'
+import RatingsSection from '@/components/RatingsSection'
 import FavoriteButton from '@/components/FavoriteButton'
 import WatchedButton from '@/components/WatchedButton'
 import WatchlistButton from '@/components/WatchlistButton'
@@ -15,10 +17,12 @@ interface Props {
 
 export default async function TVPage({ params }: Props) {
   const { id } = await params
-  const [show, watchData] = await Promise.all([
+  const [show, watchData, externalIds] = await Promise.all([
     getTVDetails(Number(id)),
     getTVProviders(Number(id)),
+    getTVExternalIds(Number(id)),
   ])
+  const omdb = await getOMDBRatings(externalIds?.imdb_id)
 
   const allProviders = watchData?.results ?? {}
   const backdrop = getBackdropUrl(show.backdrop_path)
@@ -154,6 +158,11 @@ export default async function TVPage({ params }: Props) {
           </div>
         </div>
 
+        <RatingsSection
+          tmdbScore={show.vote_average}
+          tmdbVotes={show.vote_count}
+          omdb={omdb}
+        />
         <StreamingSection results={allProviders} />
       </div>
     </div>

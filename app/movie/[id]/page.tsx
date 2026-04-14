@@ -1,8 +1,10 @@
 import { getMovieDetails, getMovieProviders, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+import { getOMDBRatings } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star, Clock, Calendar } from 'lucide-react'
 import StreamingSection from '@/components/StreamingSection'
+import RatingsSection from '@/components/RatingsSection'
 import FavoriteButton from '@/components/FavoriteButton'
 import WatchedButton from '@/components/WatchedButton'
 import WatchlistButton from '@/components/WatchlistButton'
@@ -19,6 +21,7 @@ export default async function MoviePage({ params }: Props) {
     getMovieDetails(Number(id)),
     getMovieProviders(Number(id)),
   ])
+  const omdb = await getOMDBRatings(movie.imdb_id)
 
   const allProviders = watchData?.results ?? {}
   const backdrop = getBackdropUrl(movie.backdrop_path)
@@ -142,6 +145,11 @@ export default async function MoviePage({ params }: Props) {
           </div>
         </div>
 
+        <RatingsSection
+          tmdbScore={movie.vote_average}
+          tmdbVotes={movie.vote_count}
+          omdb={omdb}
+        />
         <StreamingSection results={allProviders} />
       </div>
     </div>

@@ -40,6 +40,10 @@ export async function getTVDetails(id: number) {
   return tmdbFetch(`/tv/${id}`)
 }
 
+export async function getTVExternalIds(id: number) {
+  return tmdbFetch(`/tv/${id}/external_ids`)
+}
+
 export async function getMovieProviders(id: number) {
   return tmdbFetch(`/movie/${id}/watch/providers`)
 }
