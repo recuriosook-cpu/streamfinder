@@ -55,22 +55,23 @@ export type Platform = PlatformConfig & { logoPath?: string | null }
 // ── Per-provider search URLs ─────────────────────────────────────────────────
 
 const PROVIDER_URL_TEMPLATES: Record<number, (q: string) => string> = {
-  8:   q => `https://www.netflix.com/search?q=${q}`,
-  337: q => `https://www.disneyplus.com/search?q=${q}`,
-  119: q => `https://www.primevideo.com/search?phrase=${q}`,
-  384: q => `https://www.max.com/search?q=${q}`,
-  350: q => `https://tv.apple.com/search?term=${q}`,
-  531: q => `https://www.paramountplus.com/search/${q}`,
-  11:  q => `https://mubi.com/search/${q}`,
-  283: q => `https://www.crunchyroll.com/search?q=${q}`,
-  300: q => `https://pluto.tv/search?q=${q}`,
-  457: q => `https://www.vix.com/search?q=${q}`,
-  619: q => `https://www.disneyplus.com/search?q=${q}`,  // Star+ is Disney+ in LATAM
-  467: q => `https://www.directvgo.com/buscar?q=${q}`,
-  167: q => `https://www.clarovideo.com/search?q=${q}`,
-  339: q => `https://www.movistartv.com.ar/search?q=${q}`,
+  8:    q => `https://www.netflix.com/search?q=${q}`,
+  337:  q => `https://www.disneyplus.com/es-419/search?q=${q}`,
+  119:  q => `https://www.primevideo.com/search?phrase=${q}`,
+  384:  q => `https://www.max.com/es-ar/search?q=${q}`,
+  1899: q => `https://www.max.com/es-ar/search?q=${q}`,   // HBO Max legacy ID
+  350:  q => `https://tv.apple.com/search?term=${q}`,
+  531:  q => `https://www.paramountplus.com/ar/search/${q}/`,
+  11:   q => `https://mubi.com/es/search?q=${q}`,
+  283:  q => `https://www.crunchyroll.com/es/search?q=${q}`,
+  300:  q => `https://pluto.tv/es/search?q=${q}`,
+  457:  q => `https://www.vix.com/es/search?q=${q}`,
+  619:  q => `https://www.disneyplus.com/es-419/search?q=${q}`, // Star+ → Disney+ in LATAM
+  167:  q => `https://www.clarovideo.com/argentina/search?q=${q}`,
+  467:  q => `https://www.directvgo.com/buscar?q=${q}`,
+  339:  q => `https://www.movistartv.com.ar/search?q=${q}`,
   2302: q => `https://www.mercadoplay.com/search?q=${q}`,
-  491: q => `https://cine.ar/search?q=${q}`,
+  491:  q => `https://cine.ar/search?q=${q}`,
 }
 
 /**
