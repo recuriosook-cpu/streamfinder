@@ -1,4 +1,4 @@
-const OMDB_KEY = process.env.OMDB_API_KEY
+// ── Types ────────────────────────────────────────────────────────
 
 export interface OMDBRatings {
   imdbScore: string | null
@@ -8,41 +8,8 @@ export interface OMDBRatings {
   awards: string | null
 }
 
-const EMPTY: OMDBRatings = {
-  imdbScore: null, imdbVotes: null,
-  rtCritics: null, metacritic: null, awards: null,
-}
-
-export async function getOMDBRatings(imdbId: string | null | undefined): Promise<OMDBRatings> {
-  if (!OMDB_KEY || !imdbId) return EMPTY
-  try {
-    const res = await fetch(
-      `https://www.omdbapi.com/?apikey=${OMDB_KEY}&i=${imdbId}`,
-      { next: { revalidate: 86400 } },
-    )
-    if (!res.ok) return EMPTY
-    const data = await res.json()
-    if (data.Response === 'False') return EMPTY
-
-    const imdbScore  = data.imdbRating && data.imdbRating !== 'N/A' ? data.imdbRating : null
-    const imdbVotes  = data.imdbVotes  && data.imdbVotes  !== 'N/A' ? data.imdbVotes  : null
-    const rtEntry    = (data.Ratings as { Source: string; Value: string }[] | undefined)
-      ?.find(r => r.Source === 'Rotten Tomatoes')
-    const rtCritics  = rtEntry ? rtEntry.Value : null
-    const metaRaw    = data.Metascore
-    const metacritic = metaRaw && metaRaw !== 'N/A' ? Number(metaRaw) : null
-    const awards     = data.Awards && data.Awards !== 'N/A' ? (data.Awards as string) : null
-
-    return { imdbScore, imdbVotes, rtCritics, metacritic, awards }
-  } catch {
-    return EMPTY
-  }
-}
-
-// ── Awards parsing ───────────────────────────────────────────────
-
 export interface AwardEntry {
-  name: string        // "Oscar", "BAFTA", "Golden Globe", …
+  name: string
   wins: number
   nominations: number
   isOscar: boolean
@@ -53,10 +20,44 @@ export interface ParsedAwards {
   rawText: string
 }
 
-/** Map raw TMDB award strings to a canonical display name */
+// ── Fetch via internal API route ─────────────────────────────────
+// The actual OMDB_API_KEY lives in app/api/omdb/route.ts (server-only).
+// Calling through the API route ensures the key is never bundled into
+// client code, regardless of where getOMDBRatings is called from.
+
+const EMPTY: OMDBRatings = {
+  imdbScore: null, imdbVotes: null,
+  rtCritics: null, metacritic: null, awards: null,
+}
+
+function baseUrl(): string {
+  // Vercel sets VERCEL_URL (without protocol) for all deployments
+  if (process.env.VERCEL_URL) return `https://${process.env.VERCEL_URL}`
+  // Custom domain / local dev
+  if (process.env.NEXT_PUBLIC_APP_URL) return process.env.NEXT_PUBLIC_APP_URL
+  return 'http://localhost:3000'
+}
+
+export async function getOMDBRatings(
+  imdbId: string | null | undefined,
+): Promise<OMDBRatings> {
+  if (!imdbId) return EMPTY
+  try {
+    const res = await fetch(
+      `${baseUrl()}/api/omdb?imdbId=${encodeURIComponent(imdbId)}`,
+      { next: { revalidate: 86400 } },
+    )
+    if (!res.ok) return EMPTY
+    return (await res.json()) as OMDBRatings
+  } catch {
+    return EMPTY
+  }
+}
+
+// ── Awards parsing ────────────────────────────────────────────────
+
 function normalizeAwardName(raw: string): string {
   const s = raw.trim()
-  // Order matters: more specific patterns first
   if (/primetime emmy|emmy award|emmys?\b/i.test(s)) return 'Emmy'
   if (/oscar/i.test(s))                               return 'Oscar'
   if (/bafta/i.test(s))                               return 'BAFTA'
@@ -75,7 +76,6 @@ function normalizeAwardName(raw: string): string {
   if (/cannes/i.test(s))                              return 'Cannes'
   if (/venice/i.test(s))                              return 'Venecia'
   if (/berlin/i.test(s))                              return 'Berlín'
-  // Fallback: strip generic suffixes, keep meaningful words
   const cleaned = s
     .replace(/\b(Award|Awards|Film|Films|Ceremonies?)\b/gi, '')
     .replace(/\s+/g, ' ')
@@ -87,11 +87,9 @@ export function parseAwards(text: string | null): ParsedAwards | null {
   if (!text || text === 'N/A') return null
 
   const map = new Map<string, { wins: number; noms: number }>()
-
   const sentences = text.split(/\.(?:\s+|$)/).map(s => s.trim()).filter(Boolean)
 
   for (const sentence of sentences) {
-    // "Won X [Award name]"  (e.g. "Won 4 Oscars")
     const wonNum = sentence.match(/^Won (\d+) (.+)$/i)
     if (wonNum) {
       const name = normalizeAwardName(wonNum[2])
@@ -100,7 +98,6 @@ export function parseAwards(text: string | null): ParsedAwards | null {
       continue
     }
 
-    // "Won a/an [Award name]"  (e.g. "Won a Golden Globe")
     const wonArticle = sentence.match(/^Won an? (.+)$/i)
     if (wonArticle) {
       const name = normalizeAwardName(wonArticle[1])
@@ -109,7 +106,6 @@ export function parseAwards(text: string | null): ParsedAwards | null {
       continue
     }
 
-    // "Nominated for X [Award name]"
     const nomNum = sentence.match(/^Nominated for (\d+) (.+)$/i)
     if (nomNum) {
       const name = normalizeAwardName(nomNum[2])
@@ -118,7 +114,6 @@ export function parseAwards(text: string | null): ParsedAwards | null {
       continue
     }
 
-    // "Nominated for a/an [Award name]"
     const nomArticle = sentence.match(/^Nominated for an? (.+)$/i)
     if (nomArticle) {
       const name = normalizeAwardName(nomArticle[1])
@@ -127,8 +122,6 @@ export function parseAwards(text: string | null): ParsedAwards | null {
       continue
     }
 
-    // "Another X wins & Y nominations" OR "X wins & Y nominations"
-    // catch-all bucket for prizes OMDB doesn't name individually
     const otherMatch = sentence.match(/(?:Another )?(\d+) wins? & (\d+) nominations?/i)
     if (otherMatch) {
       const wins = Number(otherMatch[1])
@@ -144,13 +137,9 @@ export function parseAwards(text: string | null): ParsedAwards | null {
   if (map.size === 0) return null
 
   const entries: AwardEntry[] = Array.from(map.entries()).map(([name, { wins, noms }]) => ({
-    name,
-    wins,
-    nominations: noms,
-    isOscar: name === 'Oscar',
+    name, wins, nominations: noms, isOscar: name === 'Oscar',
   }))
 
-  // Sort: Oscar first, then by wins desc, nominations desc, "Otros" last
   entries.sort((a, b) => {
     if (a.isOscar && !b.isOscar) return -1
     if (!a.isOscar && b.isOscar) return 1
