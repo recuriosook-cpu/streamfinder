@@ -5,6 +5,10 @@ interface Props {
   awards: ParsedAwards
 }
 
+function plural(n: number, singular: string, plural: string) {
+  return `${n} ${n === 1 ? singular : plural}`
+}
+
 export default function AwardsSection({ awards }: Props) {
   const { entries } = awards
 
@@ -17,10 +21,16 @@ export default function AwardsSection({ awards }: Props) {
           const hasWins = entry.wins > 0
           const hasNoms = entry.nominations > 0
 
+          // Build the wins · nominations string
+          const parts: string[] = []
+          if (hasWins) parts.push(plural(entry.wins, 'ganado', 'ganados'))
+          if (hasNoms) parts.push(plural(entry.nominations, 'nominación', 'nominaciones'))
+          const summary = parts.join('  ·  ')
+
           return (
             <div
               key={entry.name}
-              className={`flex items-center gap-4 px-4 py-3 rounded-xl border transition-colors ${
+              className={`flex items-center gap-4 px-4 py-3 rounded-xl border ${
                 entry.isOscar
                   ? 'bg-yellow-500/10 border-yellow-500/25'
                   : hasWins
@@ -28,47 +38,28 @@ export default function AwardsSection({ awards }: Props) {
                   : 'bg-zinc-800/40 border-zinc-700/30'
               }`}
             >
-              {/* Icon */}
-              <div
-                className={`shrink-0 ${
-                  entry.isOscar
-                    ? 'text-yellow-400'
-                    : hasWins
-                    ? 'text-emerald-400'
-                    : 'text-zinc-500'
-                }`}
-              >
+              {/* Icon — gold trophy if won any, green star if nominated only */}
+              <div className={`shrink-0 ${
+                hasWins
+                  ? entry.isOscar ? 'text-yellow-400' : 'text-yellow-500'
+                  : 'text-emerald-500'
+              }`}>
                 {hasWins ? <Trophy size={18} /> : <Star size={18} />}
               </div>
 
               {/* Award name */}
-              <p
-                className={`flex-1 text-sm font-semibold leading-tight ${
-                  entry.isOscar ? 'text-yellow-200' : 'text-white'
-                }`}
-              >
+              <p className={`flex-1 text-sm font-semibold leading-tight ${
+                entry.isOscar ? 'text-yellow-200' : 'text-white'
+              }`}>
                 {entry.name}
               </p>
 
-              {/* Wins + nominations badges */}
-              <div className="flex items-center gap-2 shrink-0">
-                {hasWins && (
-                  <span
-                    className={`text-xs font-semibold px-2.5 py-0.5 rounded-full ${
-                      entry.isOscar
-                        ? 'bg-yellow-500/25 text-yellow-300'
-                        : 'bg-emerald-500/20 text-emerald-300'
-                    }`}
-                  >
-                    {entry.wins} ganado{entry.wins !== 1 ? 's' : ''}
-                  </span>
-                )}
-                {hasNoms && (
-                  <span className="text-xs font-medium px-2.5 py-0.5 rounded-full bg-zinc-700 text-zinc-400">
-                    {entry.nominations} nom.
-                  </span>
-                )}
-              </div>
+              {/* Wins · nominations — same line, right-aligned */}
+              <p className={`text-sm shrink-0 ${
+                entry.isOscar ? 'text-yellow-300' : hasWins ? 'text-zinc-200' : 'text-zinc-400'
+              }`}>
+                {summary}
+              </p>
             </div>
           )
         })}

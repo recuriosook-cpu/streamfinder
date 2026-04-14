@@ -91,26 +91,44 @@ export function parseAwards(text: string | null): ParsedAwards | null {
   const sentences = text.split(/\.(?:\s+|$)/).map(s => s.trim()).filter(Boolean)
 
   for (const sentence of sentences) {
-    // "Won X [Award name]"
-    const wonMatch = sentence.match(/^Won (\d+) (.+)$/i)
-    if (wonMatch) {
-      const name = normalizeAwardName(wonMatch[2])
+    // "Won X [Award name]"  (e.g. "Won 4 Oscars")
+    const wonNum = sentence.match(/^Won (\d+) (.+)$/i)
+    if (wonNum) {
+      const name = normalizeAwardName(wonNum[2])
       const cur = map.get(name) ?? { wins: 0, noms: 0 }
-      map.set(name, { ...cur, wins: cur.wins + Number(wonMatch[1]) })
+      map.set(name, { ...cur, wins: cur.wins + Number(wonNum[1]) })
+      continue
+    }
+
+    // "Won a/an [Award name]"  (e.g. "Won a Golden Globe")
+    const wonArticle = sentence.match(/^Won an? (.+)$/i)
+    if (wonArticle) {
+      const name = normalizeAwardName(wonArticle[1])
+      const cur = map.get(name) ?? { wins: 0, noms: 0 }
+      map.set(name, { ...cur, wins: cur.wins + 1 })
       continue
     }
 
     // "Nominated for X [Award name]"
-    const nomMatch = sentence.match(/^Nominated for (\d+) (.+)$/i)
-    if (nomMatch) {
-      const name = normalizeAwardName(nomMatch[2])
+    const nomNum = sentence.match(/^Nominated for (\d+) (.+)$/i)
+    if (nomNum) {
+      const name = normalizeAwardName(nomNum[2])
       const cur = map.get(name) ?? { wins: 0, noms: 0 }
-      map.set(name, { ...cur, noms: cur.noms + Number(nomMatch[1]) })
+      map.set(name, { ...cur, noms: cur.noms + Number(nomNum[1]) })
+      continue
+    }
+
+    // "Nominated for a/an [Award name]"
+    const nomArticle = sentence.match(/^Nominated for an? (.+)$/i)
+    if (nomArticle) {
+      const name = normalizeAwardName(nomArticle[1])
+      const cur = map.get(name) ?? { wins: 0, noms: 0 }
+      map.set(name, { ...cur, noms: cur.noms + 1 })
       continue
     }
 
     // "Another X wins & Y nominations" OR "X wins & Y nominations"
-    // (catch-all bucket for unnamed awards)
+    // catch-all bucket for prizes OMDB doesn't name individually
     const otherMatch = sentence.match(/(?:Another )?(\d+) wins? & (\d+) nominations?/i)
     if (otherMatch) {
       const wins = Number(otherMatch[1])
