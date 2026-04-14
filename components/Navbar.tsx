@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown } from 'lucide-react'
+import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -163,6 +163,10 @@ export default function Navbar() {
         </div>
 
         <div className="hidden md:flex items-center gap-3">
+          <Link href="/que-ver" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+            <Compass size={16} />
+            Qué ver
+          </Link>
           {user ? (
             <>
               <Link href="/favorites" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
@@ -193,6 +197,9 @@ export default function Navbar() {
 
       {menuOpen && (
         <div className="md:hidden bg-zinc-900 border-t border-zinc-800 px-4 py-3 flex flex-col gap-3">
+          <Link href="/que-ver" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+            <Compass size={16} /> Qué ver
+          </Link>
           {user ? (
             <>
               <Link href="/favorites" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
