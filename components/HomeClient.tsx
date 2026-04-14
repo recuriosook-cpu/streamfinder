@@ -27,6 +27,7 @@ interface PlatformLogo {
   name: string
   color: string
   logoPath: string | null
+  staticLogoUrl?: string | null
 }
 
 interface HeroMovie {

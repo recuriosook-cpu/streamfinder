@@ -27,7 +27,10 @@ export interface PlatformConfig {
   slug: string
   name: string
   color: string
+  /** TMDB-relative logo path (e.g. /abc123.jpg) — prepend image.tmdb.org/t/p/original */
   fallbackLogoPath: string | null
+  /** Full external logo URL for providers not indexed by TMDB */
+  staticLogoUrl?: string | null
 }
 
 export const ALL_PLATFORMS: PlatformConfig[] = [
@@ -48,6 +51,9 @@ export const ALL_PLATFORMS: PlatformConfig[] = [
   { id: 339,  slug: 'movistar-tv',    name: 'Movistar TV',        color: '#019DF4', fallbackLogoPath: '/tRNA2CRgA4XHvd7Mx9dH3sFtDVb.jpg'  },
   { id: 11,   slug: 'mubi',           name: 'Mubi',               color: '#1C1C1C', fallbackLogoPath: null                                },
   { id: 457,  slug: 'vix',            name: 'Vix',                color: '#E8500A', fallbackLogoPath: null                                },
+  // Providers not in TMDB — shown in logo strip only, no content carousel
+  { id: 9001, slug: 'flow',           name: 'Flow',               color: '#6B2D8B', fallbackLogoPath: null, staticLogoUrl: 'https://logo.clearbit.com/flow.com.ar'       },
+  { id: 9002, slug: 'telecentro-play',name: 'Telecentro Play',    color: '#FF6600', fallbackLogoPath: null, staticLogoUrl: 'https://logo.clearbit.com/telecentro.com.ar' },
 ]
 
 export type Platform = PlatformConfig & { logoPath?: string | null }

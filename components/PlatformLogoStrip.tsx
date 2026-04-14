@@ -12,6 +12,7 @@ interface PlatformWithLogo {
   name: string
   color: string
   logoPath: string | null | undefined
+  staticLogoUrl?: string | null
 }
 
 interface Props {
@@ -82,7 +83,15 @@ export default function PlatformLogoStrip({ platforms }: Props) {
           className={`flex gap-3 overflow-x-auto no-scrollbar pb-1 ${!showArrows ? 'justify-center' : ''}`}
         >
           {platforms.map(platform => {
-            const showLogo = !!platform.logoPath && !imgErrors.has(platform.id)
+            const notErrored = !imgErrors.has(platform.id)
+            const tmdbSrc = platform.logoPath
+              ? `https://image.tmdb.org/t/p/original${platform.logoPath}`
+              : null
+            const logoSrc = (tmdbSrc && notErrored)
+              ? tmdbSrc
+              : (platform.staticLogoUrl && notErrored)
+              ? platform.staticLogoUrl
+              : null
             return (
               <Link
                 key={platform.id}
@@ -91,13 +100,14 @@ export default function PlatformLogoStrip({ platforms }: Props) {
                 title={platform.name}
               >
                 <div className="w-16 h-16 rounded-xl overflow-hidden transition-transform duration-200 group-hover:scale-110 group-hover:ring-2 group-hover:ring-white/30 shadow-lg">
-                  {showLogo ? (
+                  {logoSrc ? (
                     <Image
-                      src={`https://image.tmdb.org/t/p/original${platform.logoPath}`}
+                      src={logoSrc}
                       alt={platform.name}
                       width={64}
                       height={64}
                       className="w-full h-full object-cover"
+                      unoptimized={!!platform.staticLogoUrl && !tmdbSrc}
                       onError={() => handleImgError(platform.id)}
                     />
                   ) : (

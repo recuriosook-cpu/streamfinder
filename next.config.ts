@@ -18,6 +18,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: 'flagcdn.com',
       },
+      {
+        // Company logos for providers not in TMDB
+        protocol: 'https',
+        hostname: 'logo.clearbit.com',
+      },
     ],
   },
 };
