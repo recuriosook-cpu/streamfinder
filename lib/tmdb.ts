@@ -64,10 +64,10 @@ export async function getTVGenres() {
   return tmdbFetch('/genre/tv/list')
 }
 
-export async function getARProviders() {
+export async function getRegionProviders(country = 'AR') {
   const [movies, tv] = await Promise.all([
-    tmdbFetch('/watch/providers/movie', { watch_region: 'AR' }),
-    tmdbFetch('/watch/providers/tv', { watch_region: 'AR' }),
+    tmdbFetch('/watch/providers/movie', { watch_region: country }),
+    tmdbFetch('/watch/providers/tv',    { watch_region: country }),
   ])
   const map = new Map<number, { provider_id: number; provider_name: string; logo_path: string }>()
   for (const p of [...(movies.results ?? []), ...(tv.results ?? [])]) {
@@ -76,30 +76,35 @@ export async function getARProviders() {
   return Array.from(map.values())
 }
 
-export async function getProviderTopMovies(providerId: number) {
+/** @deprecated Use getRegionProviders(country) */
+export async function getARProviders() {
+  return getRegionProviders('AR')
+}
+
+export async function getProviderTopMovies(providerId: number, country = 'AR') {
   return tmdbFetch('/discover/movie', {
     with_watch_providers: String(providerId),
-    watch_region: 'AR',
+    watch_region: country,
     sort_by: 'popularity.desc',
     'vote_count.gte': '10',
   })
 }
 
-export async function getProviderTopTV(providerId: number) {
+export async function getProviderTopTV(providerId: number, country = 'AR') {
   return tmdbFetch('/discover/tv', {
     with_watch_providers: String(providerId),
-    watch_region: 'AR',
+    watch_region: country,
     sort_by: 'popularity.desc',
     'vote_count.gte': '10',
   })
 }
 
-export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv', page = 1) {
+export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv', page = 1, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   if (type === 'movie') {
     return tmdbFetch('/discover/movie', {
       with_watch_providers: String(providerId),
-      watch_region: 'AR',
+      watch_region: country,
       sort_by: 'release_date.desc',
       'release_date.lte': today,
       'vote_count.gte': '5',
@@ -108,7 +113,7 @@ export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv
   }
   return tmdbFetch('/discover/tv', {
     with_watch_providers: String(providerId),
-    watch_region: 'AR',
+    watch_region: country,
     sort_by: 'first_air_date.desc',
     'first_air_date.lte': today,
     'vote_count.gte': '5',
@@ -116,26 +121,26 @@ export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv
   })
 }
 
-export async function getUpcomingMovies(page = 1) {
-  return tmdbFetch('/movie/upcoming', { region: 'AR', page: String(page) })
+export async function getUpcomingMovies(country = 'AR', page = 1) {
+  return tmdbFetch('/movie/upcoming', { region: country, page: String(page) })
 }
 
-export async function getProviderMovies(providerId: number) {
+export async function getProviderMovies(providerId: number, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   return tmdbFetch('/discover/movie', {
     with_watch_providers: String(providerId),
-    watch_region: 'AR',
+    watch_region: country,
     sort_by: 'release_date.desc',
     'release_date.lte': today,
     'vote_count.gte': '5',
   })
 }
 
-export async function getProviderTV(providerId: number) {
+export async function getProviderTV(providerId: number, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   return tmdbFetch('/discover/tv', {
     with_watch_providers: String(providerId),
-    watch_region: 'AR',
+    watch_region: country,
     sort_by: 'first_air_date.desc',
     'first_air_date.lte': today,
     'vote_count.gte': '5',

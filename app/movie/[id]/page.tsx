@@ -2,7 +2,7 @@ import { getMovieDetails, getMovieProviders, getBackdropUrl, getPosterUrl } from
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star, Clock, Calendar } from 'lucide-react'
-import ProviderBadge from '@/components/ProviderBadge'
+import StreamingSection from '@/components/StreamingSection'
 import FavoriteButton from '@/components/FavoriteButton'
 import WatchedButton from '@/components/WatchedButton'
 import WatchlistButton from '@/components/WatchlistButton'
@@ -20,9 +20,9 @@ export default async function MoviePage({ params }: Props) {
     getMovieProviders(Number(id)),
   ])
 
-  const arProviders = watchData?.results?.AR ?? {}
+  const allProviders = watchData?.results ?? {}
   const backdrop = getBackdropUrl(movie.backdrop_path)
-  const firstProvider = arProviders.flatrate?.[0]
+  const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
 
   return (
@@ -142,29 +142,7 @@ export default async function MoviePage({ params }: Props) {
           </div>
         </div>
 
-        {/* Streaming availability */}
-        <div className="mt-10">
-          <h2 className="text-xl font-bold mb-4">Disponible en streaming (Argentina)</h2>
-          {!arProviders.flatrate && !arProviders.rent && !arProviders.buy ? (
-            <p className="text-zinc-500">No hay información de streaming disponible para Argentina.</p>
-          ) : (
-            <div className="bg-zinc-900 rounded-xl p-6">
-              <ProviderBadge providers={arProviders.flatrate} label="Incluido en suscripción" />
-              <ProviderBadge providers={arProviders.rent} label="Alquiler" />
-              <ProviderBadge providers={arProviders.buy} label="Compra" />
-              {arProviders.link && (
-                <a
-                  href={arProviders.link}
-                  target="_blank"
-                  rel="noopener noreferrer"
-                  className="inline-block mt-2 text-sm text-emerald-400 hover:text-emerald-300"
-                >
-                  Ver más opciones en JustWatch →
-                </a>
-              )}
-            </div>
-          )}
-        </div>
+        <StreamingSection results={allProviders} />
       </div>
     </div>
   )
