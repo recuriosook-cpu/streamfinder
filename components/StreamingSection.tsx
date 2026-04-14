@@ -18,9 +18,10 @@ interface RegionData {
 
 interface Props {
   results: Record<string, RegionData>
+  title: string
 }
 
-export default function StreamingSection({ results }: Props) {
+export default function StreamingSection({ results, title }: Props) {
   const { country, countryData } = useCountry()
   const region = results[country] ?? {}
   const hasData = region.flatrate || region.rent || region.buy
@@ -39,9 +40,9 @@ export default function StreamingSection({ results }: Props) {
         </p>
       ) : (
         <div className="bg-zinc-900 rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" link={region.link} />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                link={region.link} />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  link={region.link} />
+          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" title={title} fallbackLink={region.link} />
+          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                title={title} fallbackLink={region.link} />
+          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  title={title} fallbackLink={region.link} />
         </div>
       )}
     </div>

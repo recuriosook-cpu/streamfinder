@@ -51,3 +51,33 @@ export const ALL_PLATFORMS: PlatformConfig[] = [
 ]
 
 export type Platform = PlatformConfig & { logoPath?: string | null }
+
+// ── Per-provider search URLs ─────────────────────────────────────────────────
+
+const PROVIDER_URL_TEMPLATES: Record<number, (q: string) => string> = {
+  8:   q => `https://www.netflix.com/search?q=${q}`,
+  337: q => `https://www.disneyplus.com/search?q=${q}`,
+  119: q => `https://www.primevideo.com/search?phrase=${q}`,
+  384: q => `https://www.max.com/search?q=${q}`,
+  350: q => `https://tv.apple.com/search?term=${q}`,
+  531: q => `https://www.paramountplus.com/search/${q}`,
+  11:  q => `https://mubi.com/search/${q}`,
+  283: q => `https://www.crunchyroll.com/search?q=${q}`,
+  300: q => `https://pluto.tv/search?q=${q}`,
+  457: q => `https://www.vix.com/search?q=${q}`,
+  619: q => `https://www.disneyplus.com/search?q=${q}`,  // Star+ is Disney+ in LATAM
+  467: q => `https://www.directvgo.com/buscar?q=${q}`,
+  167: q => `https://www.clarovideo.com/buscar?q=${q}`,
+  339: q => `https://www.movistar.com.ar/streaming?q=${q}`,
+  2302: q => `https://www.mercadoplay.com/search?q=${q}`,
+  491: q => `https://cine.ar/search?q=${q}`,
+}
+
+/**
+ * Returns a direct search URL for the given provider and title.
+ * Falls back to null if the provider has no known URL template.
+ */
+export function buildProviderUrl(providerId: number, title: string): string | null {
+  const fn = PROVIDER_URL_TEMPLATES[providerId]
+  return fn ? fn(encodeURIComponent(title)) : null
+}

@@ -186,7 +186,7 @@ export default async function MoviePage({ params }: Props) {
           tmdbVotes={movie.vote_count}
           omdb={omdb}
         />
-        <StreamingSection results={allProviders} />
+        <StreamingSection results={allProviders} title={movie.title} />
       </div>
     </div>
   )
