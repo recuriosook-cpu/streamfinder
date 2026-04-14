@@ -1,10 +1,13 @@
-import { getMovieDetails, getMovieProviders, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
-import { getOMDBRatings } from '@/lib/omdb'
+import { getMovieDetails, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star, Clock, Calendar } from 'lucide-react'
 import StreamingSection from '@/components/StreamingSection'
 import RatingsSection from '@/components/RatingsSection'
+import CastCarousel from '@/components/CastCarousel'
+import CrewSection from '@/components/CrewSection'
+import AwardsSection from '@/components/AwardsSection'
 import FavoriteButton from '@/components/FavoriteButton'
 import WatchedButton from '@/components/WatchedButton'
 import WatchlistButton from '@/components/WatchlistButton'
@@ -17,11 +20,41 @@ interface Props {
 
 export default async function MoviePage({ params }: Props) {
   const { id } = await params
-  const [movie, watchData] = await Promise.all([
+  const [movie, watchData, credits] = await Promise.all([
     getMovieDetails(Number(id)),
     getMovieProviders(Number(id)),
+    getMovieCredits(Number(id)),
   ])
   const omdb = await getOMDBRatings(movie.imdb_id)
+
+  // Cast: top 10 billed actors
+  const cast = (credits.cast ?? [])
+    .slice(0, 10)
+    .map((p: { id: number; name: string; character: string; profile_path: string | null }) => ({
+      id: p.id,
+      name: p.name,
+      character: p.character,
+      profilePath: p.profile_path,
+    }))
+
+  // Crew: director(s) + writers (Screenplay / Story / Writer)
+  const WRITER_JOBS = new Set(['Screenplay', 'Story', 'Writer', 'Novel', 'Characters'])
+  const directors = (credits.crew ?? [])
+    .filter((p: { job: string }) => p.job === 'Director')
+    .map((p: { id: number; name: string; job: string; profile_path: string | null }) => ({
+      id: p.id, name: p.name, job: 'Director', profilePath: p.profile_path,
+    }))
+  const writers = (credits.crew ?? [])
+    .filter((p: { job: string }) => WRITER_JOBS.has(p.job))
+    // deduplicate by person id
+    .filter((p: { id: number }, i: number, arr: { id: number }[]) => arr.findIndex(x => x.id === p.id) === i)
+    .slice(0, 3)
+    .map((p: { id: number; name: string; job: string; profile_path: string | null }) => ({
+      id: p.id, name: p.name, job: p.job, profilePath: p.profile_path,
+    }))
+  const crew = [...directors, ...writers]
+
+  const parsedAwards = parseAwards(omdb.awards)
 
   const allProviders = watchData?.results ?? {}
   const backdrop = getBackdropUrl(movie.backdrop_path)
@@ -145,6 +178,9 @@ export default async function MoviePage({ params }: Props) {
           </div>
         </div>
 
+        <CastCarousel cast={cast} />
+        <CrewSection crew={crew} />
+        {parsedAwards && <AwardsSection awards={parsedAwards} />}
         <RatingsSection
           tmdbScore={movie.vote_average}
           tmdbVotes={movie.vote_count}

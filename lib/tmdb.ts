@@ -44,6 +44,14 @@ export async function getTVExternalIds(id: number) {
   return tmdbFetch(`/tv/${id}/external_ids`)
 }
 
+export async function getMovieCredits(id: number) {
+  return tmdbFetch(`/movie/${id}/credits`)
+}
+
+export async function getTVCredits(id: number) {
+  return tmdbFetch(`/tv/${id}/credits`)
+}
+
 export async function getMovieProviders(id: number) {
   return tmdbFetch(`/movie/${id}/watch/providers`)
 }
