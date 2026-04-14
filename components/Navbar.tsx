@@ -96,11 +96,12 @@ export default function Navbar() {
         <div className="relative shrink-0" ref={countryRef}>
           <button
             onClick={() => setCountryOpen(v => !v)}
-            className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-sm text-zinc-300 hover:text-white px-3 py-2 rounded-lg transition-colors"
-            title="Cambiar país"
+            className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
+            title={`País: ${countryData.name}`}
           >
-            <span className="text-base leading-none">{countryData.flag}</span>
-            <span className="hidden sm:inline text-xs font-medium">{country}</span>
+            <span className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-lg leading-none shrink-0">
+              {countryData.flag}
+            </span>
             <ChevronDown size={12} className={`transition-transform ${countryOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -131,7 +132,9 @@ export default function Navbar() {
                           : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
-                      <span className="text-base leading-none w-6 text-center">{c.flag}</span>
+                      <span className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-base leading-none shrink-0">
+                        {c.flag}
+                      </span>
                       <span className="flex-1">{c.name}</span>
                       {c.code === country && (
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
