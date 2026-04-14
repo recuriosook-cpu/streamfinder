@@ -17,7 +17,7 @@ const CAROUSEL_PLATFORMS = [
   { id: 350, name: 'Apple TV+',    color: '#444444' },
   { id: 283, name: 'Crunchyroll',  color: '#F47521' },
   { id: 300, name: 'Pluto TV',     color: '#00C8FA' },
-  { id: 339, name: 'DIRECTV Go',   color: '#00A0D1' },
+  { id: 467, name: 'DIRECTV Go',   color: '#00A0D1' },
 ]
 
 interface RawMovie {
