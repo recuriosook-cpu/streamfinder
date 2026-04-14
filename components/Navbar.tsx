@@ -1,6 +1,7 @@
 'use client'
 
 import Link from 'next/link'
+import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
 import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown } from 'lucide-react'
@@ -8,6 +9,24 @@ import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
 import type { User } from '@supabase/supabase-js'
+
+function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
+  return (
+    <span
+      className="rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center"
+      style={{ width: size, height: size }}
+    >
+      <Image
+        src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
+        alt={code}
+        width={40}
+        height={30}
+        className="w-full h-full object-cover"
+        unoptimized
+      />
+    </span>
+  )
+}
 
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
@@ -99,9 +118,7 @@ export default function Navbar() {
             className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
             title={`País: ${countryData.name}`}
           >
-            <span className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-lg leading-none shrink-0">
-              {countryData.flag}
-            </span>
+            <FlagCircle code={country} />
             <ChevronDown size={12} className={`transition-transform ${countryOpen ? 'rotate-180' : ''}`} />
           </button>
 
@@ -132,9 +149,7 @@ export default function Navbar() {
                           : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
-                      <span className="w-7 h-7 rounded-full bg-zinc-700 flex items-center justify-center text-base leading-none shrink-0">
-                        {c.flag}
-                      </span>
+                      <FlagCircle code={c.code} size={26} />
                       <span className="flex-1">{c.name}</span>
                       {c.code === country && (
                         <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />

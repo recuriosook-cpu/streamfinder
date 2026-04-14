@@ -13,6 +13,11 @@ const nextConfig: NextConfig = {
         protocol: 'https',
         hostname: '*.supabase.co',
       },
+      {
+        // Flag images
+        protocol: 'https',
+        hostname: 'flagcdn.com',
+      },
     ],
   },
 };
