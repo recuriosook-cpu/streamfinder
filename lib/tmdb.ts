@@ -133,6 +133,14 @@ export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv
   })
 }
 
+export async function getPersonDetails(id: number) {
+  return tmdbFetch(`/person/${id}`)
+}
+
+export async function getPersonCredits(id: number) {
+  return tmdbFetch(`/person/${id}/combined_credits`)
+}
+
 export async function getUpcomingMovies(country = 'AR', page = 1) {
   return tmdbFetch('/movie/upcoming', { region: country, page: String(page) })
 }

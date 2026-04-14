@@ -2,6 +2,7 @@
 
 import { useRef } from 'react'
 import Image from 'next/image'
+import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
 export interface CastMember {
@@ -51,9 +52,13 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
           className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
         >
           {cast.map(person => (
-            <div key={person.id} className="shrink-0 w-24 flex flex-col items-center text-center">
+            <Link
+              key={person.id}
+              href={`/actor/${person.id}`}
+              className="shrink-0 w-24 flex flex-col items-center text-center group/actor"
+            >
               {/* Photo */}
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 mb-2 ring-2 ring-zinc-700">
+              <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-800 mb-2 ring-2 ring-zinc-700 group-hover/actor:ring-zinc-400 transition-all">
                 {person.profilePath ? (
                   <Image
                     src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}
@@ -67,14 +72,14 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
                 )}
               </div>
               {/* Name */}
-              <p className="text-xs font-semibold text-white leading-tight line-clamp-2">
+              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 group-hover/actor:text-zinc-300 transition-colors">
                 {person.name}
               </p>
               {/* Character */}
               <p className="text-[11px] text-zinc-500 leading-tight mt-0.5 line-clamp-2">
                 {person.character}
               </p>
-            </div>
+            </Link>
           ))}
         </div>
 
