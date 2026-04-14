@@ -1,8 +1,9 @@
 import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Calendar, MapPin } from 'lucide-react'
+import { Calendar, MapPin, Star } from 'lucide-react'
 import BackButton from '@/components/BackButton'
+import ActorFilmography from '@/components/ActorFilmography'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -18,6 +19,7 @@ interface Credit {
   release_date?: string
   first_air_date?: string
   popularity: number
+  vote_average: number
   vote_count: number
 }
 
@@ -48,16 +50,18 @@ export default async function ActorPage({ params }: Props) {
   const allCredits: Credit[] = (creditsData.cast ?? [])
     .filter((c: Credit) => c.poster_path && (c.title || c.name))
 
-  // "Conocido por": top 8 by popularity, no duplicates by id+media_type
+  // "Más valorado": top 4 by vote_average (min 20 votes to filter noise), unique by id+media_type
   const seen = new Set<string>()
-  const topCredits: Credit[] = []
-  const sorted = [...allCredits].sort((a, b) => b.popularity - a.popularity)
-  for (const c of sorted) {
+  const topRated: Credit[] = []
+  const byRating = [...allCredits]
+    .filter(c => c.vote_count >= 20)
+    .sort((a, b) => b.vote_average - a.vote_average)
+  for (const c of byRating) {
     const key = `${c.media_type}-${c.id}`
     if (!seen.has(key)) {
       seen.add(key)
-      topCredits.push(c)
-      if (topCredits.length === 8) break
+      topRated.push(c)
+      if (topRated.length === 4) break
     }
   }
 
@@ -157,12 +161,12 @@ export default async function ActorPage({ params }: Props) {
           </div>
         </div>
 
-        {/* Conocido por */}
-        {topCredits.length > 0 && (
+        {/* Más valorado */}
+        {topRated.length > 0 && (
           <section className="mb-10">
-            <h2 className="text-xl font-bold mb-4">Conocido por</h2>
-            <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 gap-4">
-              {topCredits.map(credit => {
+            <h2 className="text-xl font-bold mb-4">Más valorado</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              {topRated.map(credit => {
                 const title = credit.title ?? credit.name ?? ''
                 const year = (credit.release_date ?? credit.first_air_date ?? '').slice(0, 4)
                 const href = `/${credit.media_type}/${credit.id}`
@@ -180,16 +184,18 @@ export default async function ActorPage({ params }: Props) {
                           Serie
                         </span>
                       )}
+                      {/* Score badge */}
+                      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-900/90 rounded px-1.5 py-0.5">
+                        <Star size={10} className="text-yellow-400 shrink-0" fill="currentColor" />
+                        <span className="text-[11px] font-semibold text-white">
+                          {credit.vote_average.toFixed(1)}
+                        </span>
+                      </div>
                     </div>
                     <p className="text-xs font-semibold text-white leading-tight line-clamp-2 group-hover:text-zinc-300 transition-colors">
                       {title}
                     </p>
-                    {credit.character && (
-                      <p className="text-[11px] text-zinc-500 leading-tight mt-0.5 line-clamp-1">
-                        {credit.character}
-                      </p>
-                    )}
-                    {year && <p className="text-[11px] text-zinc-600 mt-0.5">{year}</p>}
+                    {year && <p className="text-[11px] text-zinc-500 mt-0.5">{year}</p>}
                   </Link>
                 )
               })}
@@ -199,39 +205,7 @@ export default async function ActorPage({ params }: Props) {
 
         {/* Filmografía completa */}
         {filmography.length > 0 && (
-          <section>
-            <h2 className="text-xl font-bold mb-4">
-              Filmografía
-              <span className="ml-2 text-sm font-normal text-zinc-500">{filmography.length} títulos</span>
-            </h2>
-            <div className="flex gap-4 overflow-x-auto no-scrollbar pb-2">
-              {filmography.map(credit => {
-                const title = credit.title ?? credit.name ?? ''
-                const year = (credit.release_date ?? credit.first_air_date ?? '').slice(0, 4)
-                const href = `/${credit.media_type}/${credit.id}`
-                return (
-                  <Link
-                    key={`${credit.media_type}-${credit.id}`}
-                    href={href}
-                    className="shrink-0 w-28 group"
-                  >
-                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1.5">
-                      <Image
-                        src={getPosterUrl(credit.poster_path, 'w185')}
-                        alt={title}
-                        fill
-                        className="object-cover transition-transform duration-300 group-hover:scale-105"
-                      />
-                    </div>
-                    <p className="text-xs font-medium text-white leading-tight line-clamp-2 group-hover:text-zinc-300 transition-colors">
-                      {title}
-                    </p>
-                    {year && <p className="text-[11px] text-zinc-500 mt-0.5">{year}</p>}
-                  </Link>
-                )
-              })}
-            </div>
-          </section>
+          <ActorFilmography credits={filmography} />
         )}
       </div>
     </div>
