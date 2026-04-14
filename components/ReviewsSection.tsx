@@ -5,22 +5,20 @@ import Link from 'next/link'
 import { Star, ThumbsUp, ThumbsDown, Heart, Pencil, Trash2, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 
-interface ReviewProfile { username: string | null; avatar_url: string | null }
-interface ReviewLike   { user_id: string }
+// ── Types ──────────────────────────────────────────────────────────────────
 
-interface Review {
-  id: string
-  user_id: string
-  media_id: number
-  media_type: 'movie' | 'tv'
-  title: string
-  poster_path: string | null
-  rating: number | null
-  body: string | null
-  recommended: boolean
-  created_at: string
-  profiles: ReviewProfile
-  review_likes: ReviewLike[]
+interface Profile { id: string; username: string | null; avatar_url: string | null }
+interface Like    { user_id: string }
+
+interface RawReview {
+  id: string; user_id: string; media_id: number; media_type: 'movie' | 'tv'
+  title: string; poster_path: string | null; rating: number | null
+  body: string | null; recommended: boolean; created_at: string
+  review_likes: Like[]
+}
+
+interface Review extends RawReview {
+  profile: Profile
 }
 
 interface Props {
@@ -30,19 +28,21 @@ interface Props {
   posterPath: string | null
 }
 
+// ── Component ──────────────────────────────────────────────────────────────
+
 export default function ReviewsSection({ mediaId, mediaType, title, posterPath }: Props) {
   const supabase = createClient()
 
-  const [reviews, setReviews]               = useState<Review[]>([])
-  const [currentUserId, setCurrentUserId]   = useState<string | null>(null)
-  const [loading, setLoading]               = useState(true)
-  const [showForm, setShowForm]             = useState(false)
-  const [editingId, setEditingId]           = useState<string | null>(null)
-  const [formRating, setFormRating]         = useState(0)
-  const [hoverRating, setHoverRating]       = useState(0)
-  const [formBody, setFormBody]             = useState('')
+  const [reviews, setReviews]                 = useState<Review[]>([])
+  const [currentUserId, setCurrentUserId]     = useState<string | null>(null)
+  const [loading, setLoading]                 = useState(true)
+  const [showForm, setShowForm]               = useState(false)
+  const [editingId, setEditingId]             = useState<string | null>(null)
+  const [formRating, setFormRating]           = useState(0)
+  const [hoverRating, setHoverRating]         = useState(0)
+  const [formBody, setFormBody]               = useState('')
   const [formRecommended, setFormRecommended] = useState(true)
-  const [submitting, setSubmitting]         = useState(false)
+  const [submitting, setSubmitting]           = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
@@ -51,13 +51,40 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   }, [mediaId, mediaType])
 
   async function loadReviews() {
-    const { data } = await supabase
+    setLoading(true)
+
+    // Step 1 — fetch the 10 most recent reviews + their like rows
+    const { data: raw, error } = await supabase
       .from('reviews')
-      .select('*, profiles(username, avatar_url), review_likes(user_id)')
+      .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, created_at, review_likes(user_id)')
       .eq('media_id', mediaId)
       .eq('media_type', mediaType)
       .order('created_at', { ascending: false })
-    setReviews((data as Review[]) ?? [])
+      .limit(10)
+
+    if (error || !raw) { setLoading(false); return }
+
+    // Step 2 — fetch author profiles in one query
+    const userIds = [...new Set((raw as RawReview[]).map(r => r.user_id))]
+    const profileMap: Record<string, Profile> = {}
+
+    if (userIds.length > 0) {
+      const { data: profiles } = await supabase
+        .from('profiles')
+        .select('id, username, avatar_url')
+        .in('id', userIds)
+      for (const p of (profiles ?? []) as Profile[]) {
+        profileMap[p.id] = p
+      }
+    }
+
+    // Step 3 — merge
+    const merged: Review[] = (raw as RawReview[]).map(r => ({
+      ...r,
+      profile: profileMap[r.user_id] ?? { id: r.user_id, username: null, avatar_url: null },
+    }))
+
+    setReviews(merged)
     setLoading(false)
   }
 
@@ -82,13 +109,13 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     if (!currentUserId || formRating === 0) return
     setSubmitting(true)
     const payload = {
-      user_id: currentUserId,
-      media_id: mediaId,
-      media_type: mediaType,
+      user_id:     currentUserId,
+      media_id:    mediaId,
+      media_type:  mediaType,
       title,
       poster_path: posterPath,
-      rating: formRating,
-      body: formBody.trim() || null,
+      rating:      formRating,
+      body:        formBody.trim() || null,
       recommended: formRecommended,
     }
     if (editingId) {
@@ -116,12 +143,16 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     if (liked) {
       await supabase.from('review_likes').delete().eq('review_id', reviewId).eq('user_id', currentUserId)
       setReviews(prev => prev.map(r =>
-        r.id === reviewId ? { ...r, review_likes: r.review_likes.filter(l => l.user_id !== currentUserId) } : r
+        r.id === reviewId
+          ? { ...r, review_likes: r.review_likes.filter(l => l.user_id !== currentUserId) }
+          : r
       ))
     } else {
       await supabase.from('review_likes').insert({ review_id: reviewId, user_id: currentUserId })
       setReviews(prev => prev.map(r =>
-        r.id === reviewId ? { ...r, review_likes: [...r.review_likes, { user_id: currentUserId }] } : r
+        r.id === reviewId
+          ? { ...r, review_likes: [...r.review_likes, { user_id: currentUserId }] }
+          : r
       ))
     }
   }
@@ -130,7 +161,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
   return (
     <div className="mt-10">
-      {/* Header */}
+      {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <MessageSquare size={19} />
@@ -149,10 +180,10 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         )}
       </div>
 
-      {/* Form */}
+      {/* ── Form ────────────────────────────────────────────────── */}
       {showForm && currentUserId && (
         <div className="bg-zinc-800/70 border border-zinc-700 rounded-xl p-5 mb-6">
-          {/* Star rating */}
+          {/* Star selector */}
           <div className="flex items-center gap-1.5 mb-4">
             <span className="text-sm text-zinc-400 mr-1">Nota:</span>
             {[1, 2, 3, 4, 5].map(s => (
@@ -166,9 +197,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                 <Star size={24} fill={s <= displayRating ? 'currentColor' : 'none'} />
               </button>
             ))}
-            {formRating > 0 && (
-              <span className="text-sm text-zinc-400 ml-1">{formRating}/5</span>
-            )}
+            {formRating > 0 && <span className="text-sm text-zinc-400 ml-1">{formRating}/5</span>}
           </div>
 
           {/* Recommended */}
@@ -219,10 +248,12 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         </div>
       )}
 
-      {/* List */}
+      {/* ── List ────────────────────────────────────────────────── */}
       {loading ? (
         <div className="space-y-4">
-          {[1, 2].map(i => <div key={i} className="h-28 bg-zinc-800/50 rounded-xl animate-pulse" />)}
+          {[1, 2, 3].map(i => (
+            <div key={i} className="h-28 bg-zinc-800/50 rounded-xl animate-pulse" />
+          ))}
         </div>
       ) : reviews.length === 0 ? (
         <p className="text-zinc-500 text-sm text-center py-10">
@@ -234,17 +265,18 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             const likeCount = review.review_likes.length
             const liked     = review.review_likes.some(l => l.user_id === currentUserId)
             const isOwn     = review.user_id === currentUserId
-            const username  = review.profiles?.username ?? 'Usuario'
+            const username  = review.profile.username ?? 'Usuario'
 
             return (
               <div key={review.id} className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-5">
-                {/* Review header */}
+                {/* Author row */}
                 <div className="flex items-start justify-between gap-3 mb-3">
                   <div className="flex items-center gap-3">
+                    {/* Avatar */}
                     <Link href={`/usuario/${username}`} className="shrink-0">
                       <div className="w-9 h-9 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 hover:ring-emerald-500 transition-all">
-                        {review.profiles?.avatar_url ? (
-                          <img src={review.profiles.avatar_url} alt={username} className="w-full h-full object-cover" />
+                        {review.profile.avatar_url ? (
+                          <img src={review.profile.avatar_url} alt={username} className="w-full h-full object-cover" />
                         ) : (
                           <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
                             {username[0]?.toUpperCase()}
@@ -252,6 +284,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                         )}
                       </div>
                     </Link>
+
+                    {/* Name + stars + badge */}
                     <div>
                       <Link href={`/usuario/${username}`} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors">
                         {username}
@@ -275,9 +309,12 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                     </div>
                   </div>
 
+                  {/* Date + actions */}
                   <div className="flex items-center gap-2 shrink-0">
                     <span className="text-xs text-zinc-600">
-                      {new Date(review.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(review.created_at).toLocaleDateString('es-AR', {
+                        day: 'numeric', month: 'short', year: 'numeric',
+                      })}
                     </span>
                     {isOwn && (
                       <>
@@ -292,10 +329,12 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                   </div>
                 </div>
 
+                {/* Body */}
                 {review.body && (
                   <p className="text-sm text-zinc-300 leading-relaxed mb-3 whitespace-pre-wrap">{review.body}</p>
                 )}
 
+                {/* Like button */}
                 <button
                   onClick={() => toggleLike(review.id)}
                   className={`flex items-center gap-1.5 text-xs transition-colors ${
@@ -303,8 +342,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                   }`}
                 >
                   <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
-                  {likeCount > 0 && <span>{likeCount} {likeCount === 1 ? 'me gusta' : 'me gusta'}</span>}
-                  {likeCount === 0 && <span>Me gusta</span>}
+                  <span>{likeCount > 0 ? `${likeCount} me gusta` : 'Me gusta'}</span>
                 </button>
               </div>
             )
