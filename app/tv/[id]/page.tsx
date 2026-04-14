@@ -191,7 +191,7 @@ export default async function TVPage({ params }: Props) {
           tmdbVotes={show.vote_count}
           omdb={omdb}
         />
-        <StreamingSection results={allProviders} title={show.name} />
+        <StreamingSection results={allProviders} originalTitle={show.original_name ?? show.name} />
       </div>
     </div>
   )

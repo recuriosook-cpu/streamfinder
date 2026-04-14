@@ -67,8 +67,8 @@ const PROVIDER_URL_TEMPLATES: Record<number, (q: string) => string> = {
   457: q => `https://www.vix.com/search?q=${q}`,
   619: q => `https://www.disneyplus.com/search?q=${q}`,  // Star+ is Disney+ in LATAM
   467: q => `https://www.directvgo.com/buscar?q=${q}`,
-  167: q => `https://www.clarovideo.com/buscar?q=${q}`,
-  339: q => `https://www.movistar.com.ar/streaming?q=${q}`,
+  167: q => `https://www.clarovideo.com/search?q=${q}`,
+  339: q => `https://www.movistartv.com.ar/search?q=${q}`,
   2302: q => `https://www.mercadoplay.com/search?q=${q}`,
   491: q => `https://cine.ar/search?q=${q}`,
 }

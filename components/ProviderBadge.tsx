@@ -10,19 +10,18 @@ interface Provider {
 interface Props {
   providers: Provider[]
   label: string
-  title: string
-  /** Fallback link (e.g. JustWatch page) for providers without a known URL template */
-  fallbackLink?: string | null
+  /** Original (English) title used to build the search URL */
+  originalTitle: string
 }
 
-export default function ProviderBadge({ providers, label, title, fallbackLink }: Props) {
+export default function ProviderBadge({ providers, label, originalTitle }: Props) {
   if (!providers?.length) return null
   return (
     <div className="mb-4">
       <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">{label}</p>
       <div className="flex flex-wrap gap-2">
         {providers.map(p => {
-          const href = buildProviderUrl(p.provider_id, title) ?? fallbackLink ?? null
+          const href = buildProviderUrl(p.provider_id, originalTitle)
           const badge = (
             <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2 py-1.5 transition-colors hover:bg-zinc-700">
               {p.logo_path && (
@@ -43,7 +42,7 @@ export default function ProviderBadge({ providers, label, title, fallbackLink }:
               href={href}
               target="_blank"
               rel="noopener noreferrer"
-              title={`Buscar en ${p.provider_name}`}
+              title={`Buscar "${originalTitle}" en ${p.provider_name}`}
             >
               {badge}
             </a>
