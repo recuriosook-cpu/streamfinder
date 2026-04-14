@@ -18,11 +18,9 @@ interface RegionData {
 
 interface Props {
   results: Record<string, RegionData>
-  /** Original (English) title — used to build per-provider search URLs */
-  originalTitle: string
 }
 
-export default function StreamingSection({ results, originalTitle }: Props) {
+export default function StreamingSection({ results }: Props) {
   const { country, countryData } = useCountry()
   const region = results[country] ?? {}
   const hasData = region.flatrate || region.rent || region.buy
@@ -41,9 +39,9 @@ export default function StreamingSection({ results, originalTitle }: Props) {
         </p>
       ) : (
         <div className="bg-zinc-900 rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" originalTitle={originalTitle} />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                originalTitle={originalTitle} />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  originalTitle={originalTitle} />
+          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" />
+          <ProviderBadge providers={region.rent ?? []}     label="Alquiler" />
+          <ProviderBadge providers={region.buy ?? []}      label="Compra" />
         </div>
       )}
     </div>
