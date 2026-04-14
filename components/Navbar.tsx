@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass } from 'lucide-react'
+import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -169,6 +169,10 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
+              <Link href="/siguiendo" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+                <Users size={16} />
+                Siguiendo
+              </Link>
               <Link href="/favorites" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <Heart size={16} />
                 Favoritos
@@ -202,6 +206,9 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
+              <Link href="/siguiendo" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+                <Users size={16} /> Siguiendo
+              </Link>
               <Link href="/favorites" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
                 <Heart size={16} /> Favoritos
               </Link>

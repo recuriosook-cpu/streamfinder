@@ -13,6 +13,7 @@ import WatchedButton from '@/components/WatchedButton'
 import WatchlistButton from '@/components/WatchlistButton'
 import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
+import ReviewsSection from '@/components/ReviewsSection'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -196,6 +197,12 @@ export default async function TVPage({ params }: Props) {
           omdb={omdb}
         />
         <StreamingSection results={allProviders} />
+        <ReviewsSection
+          mediaId={show.id}
+          mediaType="tv"
+          title={show.name}
+          posterPath={show.poster_path}
+        />
       </div>
     </div>
   )

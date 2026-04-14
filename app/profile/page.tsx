@@ -7,7 +7,7 @@ import { useRouter } from 'next/navigation'
 import {
   Heart, Clock, CheckCircle, Bookmark, Star,
   BarChart2, Pencil, Check, X, Camera, LogIn,
-  Film, Tv, Trash2,
+  Film, Tv, Trash2, MessageSquare, ThumbsUp, ThumbsDown,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
@@ -26,7 +26,7 @@ const GENRE_MAP: Record<number, string> = {
   10766: 'Telenovela', 10768: 'Guerra y política',
 }
 
-type Tab = 'favorites' | 'history' | 'watched' | 'watchlist' | 'ratings' | 'stats'
+type Tab = 'favorites' | 'history' | 'watched' | 'watchlist' | 'ratings' | 'stats' | 'reviews'
 type StatsView = 'global' | 'year' | 'month'
 
 interface Favorite {
@@ -49,6 +49,11 @@ interface WatchedEntry extends MediaEntry {
   seasons_count: number | null
 }
 interface RatingEntry extends MediaEntry { rating: number }
+interface ReviewEntry {
+  id: string; media_id: number; media_type: 'movie' | 'tv'; title: string
+  poster_path: string | null; rating: number | null; body: string | null
+  recommended: boolean; created_at: string
+}
 
 function Spinner() {
   return (
@@ -121,6 +126,7 @@ export default function ProfilePage() {
   const [watched, setWatched] = useState<WatchedEntry[]>([])
   const [watchlist, setWatchlist] = useState<MediaEntry[]>([])
   const [ratings, setRatings] = useState<RatingEntry[]>([])
+  const [myReviews, setMyReviews] = useState<ReviewEntry[]>([])
   const [activeTab, setActiveTab] = useState<Tab>('favorites')
   const [loading, setLoading] = useState(true)
   const [uploadingAvatar, setUploadingAvatar] = useState(false)
@@ -136,7 +142,7 @@ export default function ProfilePage() {
     setUser(u)
 
     const [
-      profileRes, favsRes, histRes, watchedRes, watchlistRes, ratingsRes,
+      profileRes, favsRes, histRes, watchedRes, watchlistRes, ratingsRes, reviewsRes,
     ] = await Promise.all([
       supabase.from('profiles').select('username,avatar_url').eq('id', u.id).maybeSingle(),
       supabase.from('favorites').select('*').eq('user_id', u.id).order('created_at', { ascending: false }),
@@ -144,6 +150,7 @@ export default function ProfilePage() {
       supabase.from('watched').select('*').eq('user_id', u.id).order('watched_at', { ascending: false }),
       supabase.from('watchlist').select('*').eq('user_id', u.id).order('added_at', { ascending: false }),
       supabase.from('ratings').select('*').eq('user_id', u.id).order('rated_at', { ascending: false }),
+      supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', u.id).order('created_at', { ascending: false }),
     ])
 
     setProfile(profileRes.data ?? { username: null, avatar_url: null })
@@ -152,6 +159,7 @@ export default function ProfilePage() {
     setWatched(watchedRes.data ?? [])
     setWatchlist(watchlistRes.data ?? [])
     setRatings(ratingsRes.data ?? [])
+    setMyReviews(reviewsRes.data ?? [])
     setLoading(false)
   }
 
@@ -268,12 +276,13 @@ export default function ProfilePage() {
   const displayName = profile?.username ?? user.email?.split('@')[0] ?? 'Usuario'
 
   const TABS: { id: Tab; label: string; icon: React.ElementType; count?: number }[] = [
-    { id: 'favorites', label: 'Favoritos', icon: Heart, count: favorites.length },
-    { id: 'history', label: 'Historial', icon: Clock, count: deduplicatedHistory.length },
-    { id: 'watched', label: 'Ya lo vi', icon: CheckCircle, count: watched.length },
-    { id: 'watchlist', label: 'Para ver', icon: Bookmark, count: watchlist.length },
-    { id: 'ratings', label: 'Mi ranking', icon: Star, count: ratings.length },
-    { id: 'stats', label: 'Estadísticas', icon: BarChart2 },
+    { id: 'favorites',  label: 'Favoritos',     icon: Heart,           count: favorites.length },
+    { id: 'history',    label: 'Historial',      icon: Clock,           count: deduplicatedHistory.length },
+    { id: 'watched',    label: 'Ya lo vi',       icon: CheckCircle,     count: watched.length },
+    { id: 'watchlist',  label: 'Para ver',       icon: Bookmark,        count: watchlist.length },
+    { id: 'ratings',    label: 'Mi ranking',     icon: Star,            count: ratings.length },
+    { id: 'reviews',    label: 'Mis reseñas',    icon: MessageSquare,   count: myReviews.length },
+    { id: 'stats',      label: 'Estadísticas',   icon: BarChart2 },
   ]
 
   return (
@@ -492,6 +501,59 @@ export default function ProfilePage() {
                     />
                   </div>
                 ))}
+              </div>
+            )
+        )}
+
+        {/* MIS RESEÑAS */}
+        {activeTab === 'reviews' && (
+          myReviews.length === 0
+            ? <EmptyState icon={MessageSquare} text='Todavía no escribiste reseñas. Entrá a una película o serie y dejá tu opinión.' />
+            : (
+              <div className="space-y-4">
+                {myReviews.map(review => {
+                  const href = review.media_type === 'movie' ? `/movie/${review.media_id}` : `/tv/${review.media_id}`
+                  return (
+                    <div key={review.id} className="flex gap-4 bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+                      <Link href={href} className="shrink-0">
+                        <div className="relative w-14 aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800">
+                          {review.poster_path ? (
+                            <Image src={getPosterUrl(review.poster_path)} alt={review.title} fill className="object-cover" sizes="56px" />
+                          ) : (
+                            <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs">?</div>
+                          )}
+                        </div>
+                      </Link>
+                      <div className="flex-1 min-w-0">
+                        <div className="flex items-start justify-between gap-2 mb-1.5">
+                          <Link href={href} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors line-clamp-1">
+                            {review.title}
+                          </Link>
+                          <span className="text-xs text-zinc-600 shrink-0">
+                            {new Date(review.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                          </span>
+                        </div>
+                        <div className="flex flex-wrap items-center gap-2 mb-2">
+                          {review.rating && (
+                            <div className="flex items-center gap-0.5">
+                              {[1,2,3,4,5].map(s => (
+                                <Star key={s} size={11} className="text-yellow-400" fill={s <= review.rating! ? 'currentColor' : 'none'} />
+                              ))}
+                            </div>
+                          )}
+                          <span className={`text-xs px-2 py-0.5 rounded-full ${review.recommended ? 'bg-emerald-900/60 text-emerald-400' : 'bg-red-900/60 text-red-400'}`}>
+                            {review.recommended
+                              ? <><ThumbsUp className="inline w-3 h-3 mr-1" />Recomendada</>
+                              : <><ThumbsDown className="inline w-3 h-3 mr-1" />No recomendada</>}
+                          </span>
+                        </div>
+                        {review.body && (
+                          <p className="text-xs text-zinc-400 line-clamp-2 leading-relaxed">{review.body}</p>
+                        )}
+                      </div>
+                    </div>
+                  )
+                })}
               </div>
             )
         )}
