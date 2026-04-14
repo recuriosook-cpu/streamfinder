@@ -39,19 +39,9 @@ export default function StreamingSection({ results }: Props) {
         </p>
       ) : (
         <div className="bg-zinc-900 rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler" />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra" />
-          {region.link && (
-            <a
-              href={region.link}
-              target="_blank"
-              rel="noopener noreferrer"
-              className="inline-block mt-2 text-sm text-emerald-400 hover:text-emerald-300"
-            >
-              Ver más opciones en JustWatch →
-            </a>
-          )}
+          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" link={region.link} />
+          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                link={region.link} />
+          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  link={region.link} />
         </div>
       )}
     </div>

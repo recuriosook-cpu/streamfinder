@@ -9,28 +9,44 @@ interface Provider {
 interface Props {
   providers: Provider[]
   label: string
+  link?: string | null
 }
 
-export default function ProviderBadge({ providers, label }: Props) {
+export default function ProviderBadge({ providers, label, link }: Props) {
   if (!providers?.length) return null
   return (
     <div className="mb-4">
       <p className="text-xs text-zinc-400 uppercase tracking-wider mb-2">{label}</p>
       <div className="flex flex-wrap gap-2">
-        {providers.map(p => (
-          <div key={p.provider_id} className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2 py-1">
-            {p.logo_path && (
-              <Image
-                src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
-                alt={p.provider_name}
-                width={24}
-                height={24}
-                className="rounded"
-              />
-            )}
-            <span className="text-xs text-white">{p.provider_name}</span>
-          </div>
-        ))}
+        {providers.map(p => {
+          const badge = (
+            <div className="flex items-center gap-1.5 bg-zinc-800 rounded-lg px-2 py-1.5 transition-colors hover:bg-zinc-700">
+              {p.logo_path && (
+                <Image
+                  src={`https://image.tmdb.org/t/p/w45${p.logo_path}`}
+                  alt={p.provider_name}
+                  width={24}
+                  height={24}
+                  className="rounded"
+                />
+              )}
+              <span className="text-xs text-white">{p.provider_name}</span>
+            </div>
+          )
+          return link ? (
+            <a
+              key={p.provider_id}
+              href={link}
+              target="_blank"
+              rel="noopener noreferrer"
+              title={`Ver en ${p.provider_name}`}
+            >
+              {badge}
+            </a>
+          ) : (
+            <div key={p.provider_id}>{badge}</div>
+          )
+        })}
       </div>
     </div>
   )
