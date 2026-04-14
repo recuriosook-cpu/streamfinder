@@ -4,6 +4,7 @@ import { useRef, useEffect, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import { useCountry } from '@/context/CountryContext'
 
 interface PlatformWithLogo {
   id: number
@@ -20,6 +21,7 @@ interface Props {
 const SCROLL_AMOUNT = 320
 
 export default function PlatformLogoStrip({ platforms }: Props) {
+  const { countryData } = useCountry()
   const scrollRef = useRef<HTMLDivElement>(null)
   // Only show arrows when logos don't all fit on screen
   const [showArrows, setShowArrows] = useState(false)
@@ -52,7 +54,7 @@ export default function PlatformLogoStrip({ platforms }: Props) {
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-4">
           <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
-            Plataformas disponibles en Argentina
+            Plataformas disponibles en {countryData.name}
           </p>
           {/* Arrows only render when logos overflow the container */}
           {showArrows && (
