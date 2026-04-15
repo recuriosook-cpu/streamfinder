@@ -28,8 +28,8 @@ export default function AuthPage() {
       if (error) {
         setError('Email o contraseña incorrectos')
       } else {
-        router.push('/')
-        router.refresh()
+        // Go to /profile which redirects to /usuario/[username]
+        router.replace('/profile')
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
