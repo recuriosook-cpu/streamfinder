@@ -5,8 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import {
   UserPlus, UserCheck, Star, Plus, X,
-  Search as SearchIcon, Settings, CheckCircle, MessageSquare,
-  ThumbsUp, ThumbsDown,
+  Search as SearchIcon, CheckCircle,
+  ThumbsUp, ThumbsDown, Pencil, Check,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
@@ -49,7 +49,7 @@ interface TmdbResult {
   title?: string; name?: string; poster_path: string | null
 }
 
-type Tab = 'perfil' | 'actividad' | 'yavi' | 'resenas' | 'paraVer' | 'megusta'
+type Tab = 'perfil' | 'yavi' | 'resenas' | 'paraVer'
 
 // ── Design helpers ─────────────────────────────────────────────────────────
 
@@ -98,11 +98,7 @@ function PosterLink({
   )
 }
 
-function ReviewCard({
-  review, showAuthor = false,
-}: {
-  review: ReviewItem; showAuthor?: boolean
-}) {
+function ReviewCard({ review }: { review: ReviewItem }) {
   const href = `/${review.media_type}/${review.media_id}`
   return (
     <div className="flex gap-4 py-4 border-b border-zinc-800 last:border-0">
@@ -122,11 +118,6 @@ function ReviewCard({
             {new Date(review.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
           </span>
         </div>
-        {showAuthor && review.author?.username && (
-          <Link href={`/usuario/${review.author.username}`} className="text-xs text-zinc-500 hover:text-white transition-colors block mb-1">
-            @{review.author.username}
-          </Link>
-        )}
         <div className="flex flex-wrap items-center gap-2 mb-1.5">
           {review.rating && (
             <div className="flex items-center gap-0.5">
@@ -138,7 +129,10 @@ function ReviewCard({
           <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
             review.recommended ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
           }`}>
-            {review.recommended ? '👍 Recomendada' : '👎 No recomendada'}
+            {review.recommended
+              ? <><ThumbsUp size={9} className="inline mr-1" />Recomendada</>
+              : <><ThumbsDown size={9} className="inline mr-1" />No recomendada</>
+            }
           </span>
         </div>
         {review.body && (
@@ -156,17 +150,20 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const loadedTabs    = useRef<Set<Tab>>(new Set(['perfil']))
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
+  // ── Local profile state (updates after inline edit) ────────────
+  const [localProfile, setLocalProfile] = useState(profile)
+
   // ── Identity & follow ──────────────────────────────────────────
-  const [currentUserId,  setCurrentUserId]  = useState<string | null | undefined>(undefined)
-  const [isFollowing,    setIsFollowing]    = useState(false)
-  const [followsMe,      setFollowsMe]      = useState(false)
-  const [followBusy,     setFollowBusy]     = useState(false)
+  const [currentUserId, setCurrentUserId] = useState<string | null | undefined>(undefined)
+  const [isFollowing,   setIsFollowing]   = useState(false)
+  const [followsMe,     setFollowsMe]     = useState(false)
+  const [followBusy,    setFollowBusy]    = useState(false)
 
   // ── Stats ──────────────────────────────────────────────────────
   const [followersCount, setFollowersCount] = useState(0)
   const [followingCount, setFollowingCount] = useState(0)
   const [moviesWatched,  setMoviesWatched]  = useState(0)
-  const [watchedThisYear, setWatchedThisYear] = useState(0)
+  const [seriesWatched,  setSeriesWatched]  = useState(0)
 
   // ── Pinned favorites ───────────────────────────────────────────
   const [pinned,        setPinned]        = useState<(PinnedSlot | null)[]>([null, null, null, null, null])
@@ -179,23 +176,25 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [activeTab, setActiveTab] = useState<Tab>('perfil')
 
   // ── Data ───────────────────────────────────────────────────────
-  const [recentWatched,  setRecentWatched]  = useState<WatchedItem[]>([])
+  const [recentWatched,    setRecentWatched]    = useState<WatchedItem[]>([])
   const [watchlistPreview, setWatchlistPreview] = useState<WatchlistItem[]>([])
-  const [watchlistCount, setWatchlistCount] = useState(0)
-  const [allActivity,    setAllActivity]    = useState<({ kind: 'review'; date: string; data: ReviewItem } | { kind: 'watched'; date: string; data: WatchedItem })[]>([])
-  const [allWatched,     setAllWatched]     = useState<WatchedItem[]>([])
-  const [allReviews,     setAllReviews]     = useState<ReviewItem[]>([])
-  const [allWatchlist,   setAllWatchlist]   = useState<WatchlistItem[]>([])
-  const [likedReviews,   setLikedReviews]   = useState<ReviewItem[]>([])
+  const [watchlistCount,   setWatchlistCount]   = useState(0)
+  const [allWatched,       setAllWatched]       = useState<WatchedItem[]>([])
+  const [allReviews,       setAllReviews]       = useState<ReviewItem[]>([])
+  const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
+
+  // ── Inline edit ────────────────────────────────────────────────
+  const [isEditing,  setIsEditing]  = useState(false)
+  const [editName,   setEditName]   = useState(profile.display_name ?? '')
+  const [editBio,    setEditBio]    = useState(profile.bio ?? '')
+  const [editSaving, setEditSaving] = useState(false)
 
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
-    const thisYear = new Date().getFullYear()
-
     async function init() {
       const [
         authRes, followersRes, followingRes,
-        moviesRes, thisYearRes,
+        moviesRes, seriesRes,
         pinnedRes, recentWatchedRes,
         wlCountRes, wlPreviewRes,
       ] = await Promise.all([
@@ -203,9 +202,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
         supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
-        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).gte('watched_at', `${thisYear}-01-01`),
+        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
-        supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at').eq('user_id', profile.id).order('watched_at', { ascending: false }).limit(4),
+        supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at').eq('user_id', profile.id).order('watched_at', { ascending: false }).limit(8),
         supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
@@ -215,19 +214,17 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setFollowersCount(followersRes.count ?? 0)
       setFollowingCount(followingRes.count ?? 0)
       setMoviesWatched(moviesRes.count ?? 0)
-      setWatchedThisYear(thisYearRes.count ?? 0)
+      setSeriesWatched(seriesRes.count ?? 0)
       setRecentWatched(recentWatchedRes.data ?? [])
       setWatchlistCount(wlCountRes.count ?? 0)
       setWatchlistPreview(wlPreviewRes.data ?? [])
 
-      // Pinned slots
       const slots: (PinnedSlot | null)[] = [null, null, null, null, null]
       for (const p of pinnedRes.data ?? []) {
         if (p.slot >= 1 && p.slot <= 5) slots[p.slot - 1] = p as PinnedSlot
       }
       setPinned(slots)
 
-      // Follow state (only if logged in and viewing someone else)
       if (uid && uid !== profile.id) {
         const [fwdRes, bwdRes] = await Promise.all([
           supabase.from('follows').select('follower_id').eq('follower_id', uid).eq('following_id', profile.id).maybeSingle(),
@@ -246,50 +243,23 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     if (loadedTabs.current.has(activeTab)) return
     loadedTabs.current.add(activeTab)
 
-    if (activeTab === 'actividad') loadActividad()
     if (activeTab === 'yavi') {
-      supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at').eq('user_id', profile.id).order('watched_at', { ascending: false })
+      supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at')
+        .eq('user_id', profile.id).order('watched_at', { ascending: false })
         .then(({ data }) => setAllWatched(data ?? []))
     }
     if (activeTab === 'resenas') {
-      supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false })
+      supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at')
+        .eq('user_id', profile.id).order('created_at', { ascending: false })
         .then(({ data }) => setAllReviews(data ?? []))
     }
     if (activeTab === 'paraVer') {
-      supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false })
+      supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at')
+        .eq('user_id', profile.id).order('added_at', { ascending: false })
         .then(({ data }) => setAllWatchlist(data ?? []))
     }
-    if (activeTab === 'megusta') loadLikedReviews()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
-
-  async function loadActividad() {
-    const [reviewsRes, watchedRes] = await Promise.all([
-      supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(50),
-      supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at').eq('user_id', profile.id).order('watched_at', { ascending: false }).limit(50),
-    ])
-    const merged = [
-      ...(reviewsRes.data ?? []).map(r => ({ kind: 'review' as const, date: r.created_at, data: r as ReviewItem })),
-      ...(watchedRes.data  ?? []).map(w => ({ kind: 'watched' as const, date: w.watched_at, data: w as WatchedItem })),
-    ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime())
-    setAllActivity(merged)
-  }
-
-  async function loadLikedReviews() {
-    const { data: likes } = await supabase.from('review_likes').select('review_id').eq('user_id', profile.id)
-    if (!likes?.length) { setLikedReviews([]); return }
-    const { data: reviews } = await supabase.from('reviews')
-      .select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,created_at')
-      .in('id', likes.map((l: { review_id: string }) => l.review_id))
-      .order('created_at', { ascending: false })
-    if (!reviews?.length) { setLikedReviews([]); return }
-    const authorIds = [...new Set(reviews.map((r: { user_id: string }) => r.user_id))]
-    const { data: profiles } = await supabase.from('profiles').select('id,username,avatar_url').in('id', authorIds)
-    const pmap = Object.fromEntries((profiles ?? []).map((p: { id: string; username: string | null; avatar_url: string | null }) => [p.id, p]))
-    setLikedReviews(reviews.map((r: ReviewItem & { user_id: string }) => ({
-      ...r, author: pmap[r.user_id] ?? { username: null, avatar_url: null },
-    })))
-  }
 
   // ── Follow toggle ──────────────────────────────────────────────
   async function toggleFollow() {
@@ -305,6 +275,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setFollowersCount(c => c + 1)
     }
     setFollowBusy(false)
+  }
+
+  // ── Inline profile edit ────────────────────────────────────────
+  async function saveProfile() {
+    if (!currentUserId || currentUserId !== profile.id || editSaving) return
+    setEditSaving(true)
+    const display_name = editName.trim() || null
+    const bio          = editBio.trim()  || null
+    await supabase.from('profiles').update({ display_name, bio }).eq('id', profile.id)
+    setLocalProfile(p => ({ ...p, display_name, bio }))
+    setEditSaving(false)
+    setIsEditing(false)
   }
 
   // ── Pinned favorites search ────────────────────────────────────
@@ -346,16 +328,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
   // ── Derived ────────────────────────────────────────────────────
   const isOwner     = currentUserId === profile.id
-  const displayName = profile.display_name ?? profile.username ?? 'Usuario'
+  const displayName = localProfile.display_name ?? localProfile.username ?? 'Usuario'
   const hasPinned   = pinned.some(Boolean)
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'perfil',    label: 'Perfil'    },
-    { id: 'actividad', label: 'Actividad' },
-    { id: 'yavi',      label: 'Ya vi'     },
-    { id: 'resenas',   label: 'Reseñas'   },
-    { id: 'paraVer',   label: 'Para ver'  },
-    { id: 'megusta',   label: 'Me gusta'  },
+    { id: 'perfil',  label: 'Perfil'   },
+    { id: 'yavi',    label: 'Ya vi'    },
+    { id: 'resenas', label: 'Reseñas'  },
+    { id: 'paraVer', label: 'Para ver' },
   ]
 
   // ── Render ─────────────────────────────────────────────────────
@@ -370,8 +350,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             {/* Avatar */}
             <div className="shrink-0">
               <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-zinc-700 ring-4 ring-zinc-700">
-                {profile.avatar_url ? (
-                  <Image src={profile.avatar_url} alt={displayName} width={112} height={112} className="w-full h-full object-cover" unoptimized />
+                {localProfile.avatar_url ? (
+                  <Image src={localProfile.avatar_url} alt={displayName} width={112} height={112} className="w-full h-full object-cover" unoptimized />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-zinc-500">
                     {displayName[0]?.toUpperCase()}
@@ -383,7 +363,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             {/* Info */}
             <div className="flex-1 min-w-0 text-center sm:text-left">
 
-              {/* Name row */}
+              {/* Name + badge row */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
                 {followsMe && (
@@ -393,22 +373,22 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 )}
               </div>
 
-              <p className="text-zinc-500 text-sm mb-2">@{profile.username}</p>
+              <p className="text-zinc-500 text-sm mb-3">@{localProfile.username}</p>
 
-              {profile.bio && (
-                <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-4">{profile.bio}</p>
+              {localProfile.bio && (
+                <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-4">{localProfile.bio}</p>
               )}
 
               {/* Stats */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-5 mb-4">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-6 gap-y-2 mb-5">
                 {[
-                  { value: moviesWatched,   label: 'Películas' },
-                  { value: watchedThisYear, label: 'Este año'  },
-                  { value: followingCount,  label: 'Siguiendo' },
-                  { value: followersCount,  label: 'Seguidores'},
+                  { value: moviesWatched, label: 'Películas'  },
+                  { value: seriesWatched, label: 'Series'     },
+                  { value: followingCount, label: 'Siguiendo' },
+                  { value: followersCount, label: 'Seguidores'},
                 ].map((s, i) => (
-                  <div key={s.label} className="flex items-center gap-5">
-                    {i > 0 && <span className="text-zinc-700 hidden sm:block">·</span>}
+                  <div key={s.label} className="flex items-center gap-6">
+                    {i > 0 && <span className="text-zinc-700 hidden sm:block select-none">·</span>}
                     <div className="text-center sm:text-left">
                       <p className="text-xl font-bold text-white leading-none">{s.value}</p>
                       <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide">{s.label}</p>
@@ -419,17 +399,17 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
               {/* Action button */}
               {currentUserId === undefined ? null : isOwner ? (
-                <Link
-                  href="/profile"
+                <button
+                  onClick={() => { setEditName(localProfile.display_name ?? ''); setEditBio(localProfile.bio ?? ''); setIsEditing(true) }}
                   className="inline-flex items-center gap-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
                 >
-                  <Settings size={14} /> Editar perfil
-                </Link>
+                  <Pencil size={13} /> Editar perfil
+                </button>
               ) : currentUserId ? (
                 <button
                   onClick={toggleFollow}
                   disabled={followBusy}
-                  className={`inline-flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
+                  className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
                     isFollowing
                       ? 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300'
                       : 'bg-emerald-500 hover:bg-emerald-600 text-white'
@@ -439,7 +419,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </button>
               ) : (
-                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white px-4 py-2 rounded-lg transition-colors">
+                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg transition-colors">
                   <UserPlus size={14} /> Seguir
                 </Link>
               )}
@@ -455,7 +435,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-4 sm:px-5 py-3 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-emerald-400 text-white'
                   : 'border-transparent text-zinc-500 hover:text-zinc-300'
@@ -545,17 +525,17 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   <SectionLabel>Actividad reciente</SectionLabel>
                   {recentWatched.length > 0 && (
                     <button
-                      onClick={() => setActiveTab('actividad')}
+                      onClick={() => setActiveTab('yavi')}
                       className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors"
                     >
-                      Ver toda la actividad →
+                      Ver todo →
                     </button>
                   )}
                 </div>
                 {recentWatched.length === 0 ? (
                   <p className="text-zinc-600 text-sm">Sin actividad reciente.</p>
                 ) : (
-                  <div className="grid grid-cols-4 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
                     {recentWatched.map(w => (
                       <PosterLink
                         key={w.id}
@@ -572,7 +552,6 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
             {/* Sidebar */}
             <aside className="space-y-8">
-              {/* Para ver */}
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <SectionLabel>Para ver</SectionLabel>
@@ -605,42 +584,6 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           </div>
         )}
 
-        {/* ── ACTIVIDAD ── */}
-        {activeTab === 'actividad' && (
-          allActivity.length === 0 ? (
-            <EmptyCard>Sin actividad todavía.</EmptyCard>
-          ) : (
-            <div>
-              {allActivity.map((entry, i) => {
-                if (entry.kind === 'review') {
-                  return <ReviewCard key={`rev-${entry.data.id}`} review={entry.data} />
-                }
-                const w = entry.data as WatchedItem
-                return (
-                  <div key={`wat-${w.id}-${i}`} className="flex items-center gap-4 py-3 border-b border-zinc-800 last:border-0">
-                    <PosterLink
-                      mediaId={w.media_id} mediaType={w.media_type}
-                      posterPath={w.poster_path} title={w.title} width="w-10"
-                    />
-                    <div className="flex-1 min-w-0">
-                      <div className="flex items-center gap-1.5 mb-0.5">
-                        <CheckCircle size={11} className="text-emerald-500 shrink-0" />
-                        <span className="text-xs text-zinc-500">Marcó como visto</span>
-                      </div>
-                      <Link href={`/${w.media_type}/${w.media_id}`} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors line-clamp-1">
-                        {w.title}
-                      </Link>
-                    </div>
-                    <span className="text-[11px] text-zinc-600 shrink-0">
-                      {new Date(w.watched_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-                    </span>
-                  </div>
-                )
-              })}
-            </div>
-          )
-        )}
-
         {/* ── YA VI ── */}
         {activeTab === 'yavi' && (
           allWatched.length === 0 ? (
@@ -648,7 +591,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           ) : (
             <>
               <p className="text-xs text-zinc-600 mb-4">{allWatched.length} título{allWatched.length !== 1 ? 's' : ''}</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                 {allWatched.map(w => (
                   <PosterLink key={w.id} mediaId={w.media_id} mediaType={w.media_type} posterPath={w.poster_path} title={w.title} />
                 ))}
@@ -675,7 +618,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           ) : (
             <>
               <p className="text-xs text-zinc-600 mb-4">{allWatchlist.length} título{allWatchlist.length !== 1 ? 's' : ''}</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                 {allWatchlist.map(w => (
                   <PosterLink key={w.id} mediaId={w.media_id} mediaType={w.media_type} posterPath={w.poster_path} title={w.title} />
                 ))}
@@ -683,18 +626,71 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             </>
           )
         )}
-
-        {/* ── ME GUSTA ── */}
-        {activeTab === 'megusta' && (
-          likedReviews.length === 0 ? (
-            <EmptyCard>Sin reseñas que le gusten todavía.</EmptyCard>
-          ) : (
-            <div>
-              {likedReviews.map(r => <ReviewCard key={r.id} review={r} showAuthor />)}
-            </div>
-          )
-        )}
       </div>
+
+      {/* ── INLINE EDIT MODAL ──────────────────────────────────── */}
+      {isEditing && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setIsEditing(false) }}
+        >
+          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+              <p className="text-sm font-semibold text-white">Editar perfil</p>
+              <button onClick={() => setIsEditing(false)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="px-5 py-5 space-y-4">
+              <div>
+                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                  Nombre a mostrar
+                </label>
+                <input
+                  value={editName}
+                  onChange={e => setEditName(e.target.value)}
+                  placeholder={localProfile.username ?? 'Tu nombre'}
+                  maxLength={50}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                />
+              </div>
+              <div>
+                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                  Bio
+                </label>
+                <textarea
+                  value={editBio}
+                  onChange={e => setEditBio(e.target.value)}
+                  placeholder="Contá algo sobre vos..."
+                  maxLength={200}
+                  rows={3}
+                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors resize-none"
+                />
+                <p className="text-[11px] text-zinc-600 text-right mt-1">{editBio.length}/200</p>
+              </div>
+            </div>
+            <div className="px-5 pb-5 flex justify-end gap-3">
+              <button
+                onClick={() => setIsEditing(false)}
+                className="text-sm text-zinc-400 hover:text-white px-4 py-2 transition-colors"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={saveProfile}
+                disabled={editSaving}
+                className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-5 py-2 rounded-lg transition-colors"
+              >
+                {editSaving
+                  ? <div className="w-3.5 h-3.5 border border-white/40 border-t-white rounded-full animate-spin" />
+                  : <Check size={14} />
+                }
+                Guardar
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── PINNED FAVORITES SEARCH MODAL ──────────────────────── */}
       {searchingSlot !== null && (
