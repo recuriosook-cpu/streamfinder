@@ -324,7 +324,17 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setIsFollowing(false)
       setFollowersCount(c => c - 1)
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: profile.id })
+      const { error } = await supabase
+        .from('follows')
+        .insert({ follower_id: currentUserId, following_id: profile.id })
+      if (!error) {
+        // Notify the followed user — done client-side since DB triggers are unavailable
+        await supabase.from('notifications').insert({
+          user_id:  profile.id,
+          actor_id: currentUserId,
+          type:     'follow',
+        })
+      }
       setIsFollowing(true)
       setFollowersCount(c => c + 1)
     }
@@ -382,7 +392,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     if (nowFollowing) {
       await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
     } else {
-      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
+      const { error } = await supabase
+        .from('follows')
+        .insert({ follower_id: currentUserId, following_id: targetId })
+      if (!error) {
+        await supabase.from('notifications').insert({
+          user_id:  targetId,
+          actor_id: currentUserId,
+          type:     'follow',
+        })
+      }
     }
   }
 

@@ -78,9 +78,15 @@ CREATE POLICY "Users update own notifications"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- Service role / triggers bypass RLS (SECURITY DEFINER).
--- anon + authenticated need no INSERT policy because all
--- inserts come from triggers only.
+-- Authenticated users can insert notifications where they are the actor.
+-- This is used by client-side follow/like actions as a fallback when
+-- DB triggers are unavailable.
+DROP POLICY IF EXISTS "Authenticated users insert notifications" ON notifications;
+CREATE POLICY "Authenticated users insert notifications"
+  ON notifications
+  FOR INSERT
+  TO authenticated
+  WITH CHECK (auth.uid() = actor_id);
 
 
 -- ── SECTION 4: TRIGGER — new follow ─────────────────────────────
@@ -200,7 +206,14 @@ SELECT item, status FROM (
       ) THEN '✓ OK' ELSE '✗ MISSING — review like trigger not created' END
     ),
     (
-      '6. ratings SELECT policy',
+      '6. notifications INSERT policy',
+      CASE WHEN EXISTS (
+        SELECT 1 FROM pg_policies
+         WHERE tablename = 'notifications' AND cmd = 'INSERT'
+      ) THEN '✓ OK' ELSE '✗ MISSING — users cannot insert notifications' END
+    ),
+    (
+      '7. ratings SELECT policy',
       CASE WHEN EXISTS (
         SELECT 1 FROM pg_policies
          WHERE tablename = 'ratings' AND cmd = 'SELECT'
