@@ -30,13 +30,13 @@ function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
 
 interface NotifItem {
   id: string
-  type: 'follow' | 'review_like'
+  type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply'
   read: boolean
   created_at: string
   actor_id: string
   review_id: string | null
   review_title: string | null
-  // Populated from the reviews table for review_like notifications
+  // Populated from the reviews table for review_like / review_comment / comment_reply
   media_id?: number
   media_type?: string
   actor: { username: string | null; display_name: string | null; avatar_url: string | null } | null
@@ -109,9 +109,9 @@ export default function Navbar() {
       .in('id', actorIds)
     const actorMap = Object.fromEntries((actors ?? []).map(a => [a.id, a]))
 
-    // Fetch media_id / media_type for review_like notifications so we can navigate
+    // Fetch media_id / media_type for review_like / review_comment / comment_reply
     const reviewIds = rows
-      .filter(r => r.type === 'review_like' && r.review_id)
+      .filter(r => r.review_id && ['review_like', 'review_comment', 'comment_reply'].includes(r.type))
       .map(r => r.review_id as string)
     let reviewMediaMap: Record<string, { media_id: number; media_type: string }> = {}
     if (reviewIds.length > 0) {
@@ -147,7 +147,7 @@ export default function Navbar() {
     // Navigate to the relevant page
     if (n.type === 'follow' && n.actor?.username) {
       router.push(`/usuario/${n.actor.username}`)
-    } else if (n.type === 'review_like' && n.media_id && n.media_type) {
+    } else if (['review_like', 'review_comment', 'comment_reply'].includes(n.type) && n.media_id && n.media_type) {
       router.push(`/${n.media_type}/${n.media_id}`)
     }
   }
@@ -360,6 +360,12 @@ export default function Navbar() {
                                   )}
                                   {n.type === 'review_like' && (
                                     <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                  )}
+                                  {n.type === 'review_comment' && (
+                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                  )}
+                                  {n.type === 'comment_reply' && (
+                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-emerald-400">{n.review_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>

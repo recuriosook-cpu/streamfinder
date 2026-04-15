@@ -6,10 +6,11 @@ import Link from 'next/link'
 import {
   UserPlus, UserCheck, Star, Plus, X,
   Search as SearchIcon, CheckCircle,
-  ThumbsUp, ThumbsDown, Pencil, Check,
+  Pencil, Check,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import ReviewCard from '@/components/ReviewCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -27,10 +28,11 @@ interface PinnedSlot {
 }
 
 interface ReviewItem {
-  id: string; user_id?: string; media_id: number; media_type: 'movie' | 'tv'
+  id: string; user_id: string; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null
   rating: number | null; body: string | null; recommended: boolean
   created_at: string
+  review_likes?: { user_id: string }[]
   author?: { username: string | null; avatar_url: string | null }
 }
 
@@ -114,51 +116,6 @@ function PosterLink({
         {overlay}
       </div>
     </Link>
-  )
-}
-
-function ReviewCard({ review }: { review: ReviewItem }) {
-  const href = `/${review.media_type}/${review.media_id}`
-  return (
-    <div className="flex gap-4 py-4 border-b border-zinc-800 last:border-0">
-      <Link href={href} className="shrink-0">
-        <div className="relative w-12 aspect-[2/3] rounded-md overflow-hidden bg-zinc-800">
-          {review.poster_path && (
-            <Image src={getPosterUrl(review.poster_path, 'w92')} alt={review.title} fill className="object-cover" sizes="48px" />
-          )}
-        </div>
-      </Link>
-      <div className="flex-1 min-w-0">
-        <div className="flex items-start justify-between gap-2 mb-1">
-          <Link href={href} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors line-clamp-1">
-            {review.title}
-          </Link>
-          <span className="text-[11px] text-zinc-600 shrink-0">
-            {new Date(review.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
-          </span>
-        </div>
-        <div className="flex flex-wrap items-center gap-2 mb-1.5">
-          {review.rating && (
-            <div className="flex items-center gap-0.5">
-              {[1, 2, 3, 4, 5].map(s => (
-                <Star key={s} size={11} className="text-yellow-400" fill={s <= review.rating! ? 'currentColor' : 'none'} />
-              ))}
-            </div>
-          )}
-          <span className={`text-[11px] px-2 py-0.5 rounded-full font-medium ${
-            review.recommended ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
-          }`}>
-            {review.recommended
-              ? <><ThumbsUp size={9} className="inline mr-1" />Recomendada</>
-              : <><ThumbsDown size={9} className="inline mr-1" />No recomendada</>
-            }
-          </span>
-        </div>
-        {review.body && (
-          <p className="text-xs text-zinc-400 line-clamp-3 leading-relaxed">{review.body}</p>
-        )}
-      </div>
-    </div>
   )
 }
 
@@ -301,9 +258,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .then(({ data }) => setAllWatched(data ?? []))
     }
     if (activeTab === 'resenas') {
-      supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at')
+      supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,created_at,review_likes(user_id)')
         .eq('user_id', profile.id).order('created_at', { ascending: false })
-        .then(({ data }) => setAllReviews(data ?? []))
+        .then(({ data }) => setAllReviews((data ?? []) as ReviewItem[]))
     }
     if (activeTab === 'paraVer') {
       supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at')
@@ -401,6 +358,29 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           type:     'follow',
         })
       }
+    }
+  }
+
+  // ── Review like toggle (Reseñas tab) ──────────────────────────
+  async function toggleReviewLike(reviewId: string) {
+    if (!currentUserId) return
+    const review = allReviews.find(r => r.id === reviewId)
+    if (!review) return
+    const liked = review.review_likes?.some(l => l.user_id === currentUserId) ?? false
+    if (liked) {
+      await supabase.from('review_likes').delete().eq('review_id', reviewId).eq('user_id', currentUserId)
+      setAllReviews(prev => prev.map(r =>
+        r.id === reviewId
+          ? { ...r, review_likes: (r.review_likes ?? []).filter(l => l.user_id !== currentUserId) }
+          : r
+      ))
+    } else {
+      await supabase.from('review_likes').insert({ review_id: reviewId, user_id: currentUserId })
+      setAllReviews(prev => prev.map(r =>
+        r.id === reviewId
+          ? { ...r, review_likes: [...(r.review_likes ?? []), { user_id: currentUserId }] }
+          : r
+      ))
     }
   }
 
@@ -793,8 +773,30 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           allReviews.length === 0 ? (
             <EmptyCard>Sin reseñas todavía.</EmptyCard>
           ) : (
-            <div>
-              {allReviews.map(r => <ReviewCard key={r.id} review={r} />)}
+            <div className="space-y-4">
+              {allReviews.map(r => (
+                <ReviewCard
+                  key={r.id}
+                  id={r.id}
+                  authorId={profile.id}
+                  authorUsername={localProfile.username ?? 'Usuario'}
+                  authorDisplayName={localProfile.display_name}
+                  authorAvatarUrl={localProfile.avatar_url}
+                  mediaId={r.media_id}
+                  mediaType={r.media_type}
+                  mediaTitle={r.title}
+                  mediaPosterPath={r.poster_path}
+                  rating={r.rating}
+                  recommended={r.recommended}
+                  body={r.body}
+                  date={r.created_at}
+                  likeCount={r.review_likes?.length ?? 0}
+                  likedByCurrentUser={r.review_likes?.some(l => l.user_id === currentUserId) ?? false}
+                  isOwn={isOwner}
+                  currentUserId={currentUserId ?? null}
+                  onLike={() => toggleReviewLike(r.id)}
+                />
+              ))}
             </div>
           )
         )}

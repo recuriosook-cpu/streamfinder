@@ -1,13 +1,13 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import Link from 'next/link'
-import { Star, ThumbsUp, ThumbsDown, Heart, Pencil, Trash2, MessageSquare } from 'lucide-react'
+import { Star, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import ReviewCard from '@/components/ReviewCard'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-interface Profile { id: string; username: string | null; avatar_url: string | null }
+interface Profile { id: string; username: string | null; display_name: string | null; avatar_url: string | null }
 interface Like    { user_id: string }
 
 interface RawReview {
@@ -71,7 +71,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     if (userIds.length > 0) {
       const { data: profiles } = await supabase
         .from('profiles')
-        .select('id, username, avatar_url')
+        .select('id, username, display_name, avatar_url')
         .in('id', userIds)
       for (const p of (profiles ?? []) as Profile[]) {
         profileMap[p.id] = p
@@ -261,92 +261,31 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         </p>
       ) : (
         <div className="space-y-4">
-          {reviews.map(review => {
-            const likeCount = review.review_likes.length
-            const liked     = review.review_likes.some(l => l.user_id === currentUserId)
-            const isOwn     = review.user_id === currentUserId
-            const username  = review.profile.username ?? 'Usuario'
-
-            return (
-              <div key={review.id} className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-5">
-                {/* Author row */}
-                <div className="flex items-start justify-between gap-3 mb-3">
-                  <div className="flex items-center gap-3">
-                    {/* Avatar */}
-                    <Link href={`/usuario/${username}`} className="shrink-0">
-                      <div className="w-9 h-9 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 hover:ring-emerald-500 transition-all">
-                        {review.profile.avatar_url ? (
-                          <img src={review.profile.avatar_url} alt={username} className="w-full h-full object-cover" />
-                        ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
-                            {username[0]?.toUpperCase()}
-                          </div>
-                        )}
-                      </div>
-                    </Link>
-
-                    {/* Name + stars + badge */}
-                    <div>
-                      <Link href={`/usuario/${username}`} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors">
-                        {username}
-                      </Link>
-                      <div className="flex flex-wrap items-center gap-2 mt-0.5">
-                        {review.rating && (
-                          <div className="flex items-center gap-0.5">
-                            {[1, 2, 3, 4, 5].map(s => (
-                              <Star key={s} size={11} className="text-yellow-400" fill={s <= review.rating! ? 'currentColor' : 'none'} />
-                            ))}
-                          </div>
-                        )}
-                        <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
-                          review.recommended
-                            ? 'bg-emerald-900/60 text-emerald-400'
-                            : 'bg-red-900/60 text-red-400'
-                        }`}>
-                          {review.recommended ? '👍 Recomendada' : '👎 No recomendada'}
-                        </span>
-                      </div>
-                    </div>
-                  </div>
-
-                  {/* Date + actions */}
-                  <div className="flex items-center gap-2 shrink-0">
-                    <span className="text-xs text-zinc-600">
-                      {new Date(review.created_at).toLocaleDateString('es-AR', {
-                        day: 'numeric', month: 'short', year: 'numeric',
-                      })}
-                    </span>
-                    {isOwn && (
-                      <>
-                        <button onClick={() => openForm(review)} className="text-zinc-500 hover:text-white transition-colors" title="Editar">
-                          <Pencil size={13} />
-                        </button>
-                        <button onClick={() => deleteReview(review.id)} className="text-zinc-500 hover:text-red-400 transition-colors" title="Eliminar">
-                          <Trash2 size={13} />
-                        </button>
-                      </>
-                    )}
-                  </div>
-                </div>
-
-                {/* Body */}
-                {review.body && (
-                  <p className="text-sm text-zinc-300 leading-relaxed mb-3 whitespace-pre-wrap">{review.body}</p>
-                )}
-
-                {/* Like button */}
-                <button
-                  onClick={() => toggleLike(review.id)}
-                  className={`flex items-center gap-1.5 text-xs transition-colors ${
-                    liked ? 'text-red-400' : 'text-zinc-500 hover:text-red-400'
-                  }`}
-                >
-                  <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
-                  <span>{likeCount > 0 ? `${likeCount} me gusta` : 'Me gusta'}</span>
-                </button>
-              </div>
-            )
-          })}
+          {reviews.map(review => (
+            <ReviewCard
+              key={review.id}
+              id={review.id}
+              authorId={review.user_id}
+              authorUsername={review.profile.username ?? 'Usuario'}
+              authorDisplayName={review.profile.display_name}
+              authorAvatarUrl={review.profile.avatar_url}
+              mediaId={review.media_id}
+              mediaType={review.media_type}
+              mediaTitle={review.title}
+              mediaPosterPath={review.poster_path}
+              rating={review.rating}
+              recommended={review.recommended}
+              body={review.body}
+              date={review.created_at}
+              likeCount={review.review_likes.length}
+              likedByCurrentUser={review.review_likes.some(l => l.user_id === currentUserId)}
+              isOwn={review.user_id === currentUserId}
+              currentUserId={currentUserId}
+              onLike={() => toggleLike(review.id)}
+              onEdit={review.user_id === currentUserId ? () => openForm(review) : undefined}
+              onDelete={review.user_id === currentUserId ? () => deleteReview(review.id) : undefined}
+            />
+          ))}
         </div>
       )}
     </div>
