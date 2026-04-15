@@ -9,6 +9,7 @@ export interface BirthdayPerson {
   profilePath: string | null
   age:         number
   popularity:  number
+  deceased:    boolean
 }
 
 export async function GET() {
@@ -42,22 +43,29 @@ export async function GET() {
   const birthdays: BirthdayPerson[] = details
     .map((d, i) => {
       const local = todayEntries[i]
+      const birthYear = Number(local.birthday.split('-')[0])
       if (!d) {
         // TMDB unavailable — return local data with placeholder
         return {
           id:          local.id,
           name:        local.name,
           profilePath: null,
-          age:         year - Number(local.birthday.split('-')[0]),
+          age:         year - birthYear,
           popularity:  0,
+          deceased:    false,
         }
       }
+      const deceased = !!(d.deathday as string | null)
+      const age = deceased
+        ? Number((d.deathday as string).split('-')[0]) - birthYear
+        : year - birthYear
       return {
         id:          d.id  as number,
         name:        d.name as string,
         profilePath: (d.profile_path as string | null) ?? null,
-        age:         year - Number(local.birthday.split('-')[0]),
+        age,
         popularity:  (d.popularity as number) ?? 0,
+        deceased,
       }
     })
     .sort((a, b) => b.popularity - a.popularity)

@@ -10,6 +10,7 @@ interface BirthdayPerson {
   profilePath: string | null
   age:         number
   popularity:  number
+  deceased:    boolean
 }
 
 const SCROLL_AMOUNT = 400
@@ -138,7 +139,7 @@ export default function BirthdayCarousel() {
                 </div>
                 {/* Age badge */}
                 <div className="absolute bottom-1.5 right-1.5 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-tight">
-                  {person.age} años
+                  {person.deceased ? `† ${person.age} años` : `Cumple ${person.age}`}
                 </div>
               </div>
 
