@@ -44,6 +44,18 @@ interface WatchlistItem {
   title: string; poster_path: string | null; added_at: string
 }
 
+interface RatingItem {
+  id: string; media_id: number; media_type: 'movie' | 'tv'
+  title: string; poster_path: string | null
+  rating: number; rated_at: string
+}
+
+interface ActivityItem {
+  kind: 'review' | 'rating'
+  date: string
+  data: ReviewItem | RatingItem
+}
+
 interface TmdbResult {
   id: number; media_type: 'movie' | 'tv'
   title?: string; name?: string; poster_path: string | null
@@ -183,7 +195,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [activeTab, setActiveTab] = useState<Tab>('perfil')
 
   // ── Data ───────────────────────────────────────────────────────
-  const [recentWatched,    setRecentWatched]    = useState<WatchedItem[]>([])
+  const [recentActivity,   setRecentActivity]   = useState<ActivityItem[]>([])
   const [watchlistPreview, setWatchlistPreview] = useState<WatchlistItem[]>([])
   const [watchlistCount,   setWatchlistCount]   = useState(0)
   const [allWatched,       setAllWatched]       = useState<WatchedItem[]>([])
@@ -205,7 +217,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       const [
         authRes, followersRes, followingRes,
         moviesRes, seriesRes,
-        pinnedRes, recentWatchedRes,
+        pinnedRes, recentReviewsRes, recentRatingsRes,
         wlCountRes, wlPreviewRes,
       ] = await Promise.all([
         supabase.auth.getUser(),
@@ -214,19 +226,21 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
-        supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at').eq('user_id', profile.id).order('watched_at', { ascending: false }).limit(8),
+        supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
+        supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
         supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
 
-      // Log RLS errors so they're visible in browser console
-      if (followersRes.error)    console.error('[profile] follows (followers):', followersRes.error)
-      if (followingRes.error)    console.error('[profile] follows (following):', followingRes.error)
-      if (moviesRes.error)       console.error('[profile] watched movies:', moviesRes.error)
-      if (seriesRes.error)       console.error('[profile] watched series:', seriesRes.error)
-      if (recentWatchedRes.error) console.error('[profile] recent watched:', recentWatchedRes.error)
-      if (wlCountRes.error)      console.error('[profile] watchlist count:', wlCountRes.error)
-      if (wlPreviewRes.error)    console.error('[profile] watchlist preview:', wlPreviewRes.error)
+      // Log RLS errors to browser console for debugging
+      if (followersRes.error)      console.error('[profile] follows (followers):', followersRes.error)
+      if (followingRes.error)      console.error('[profile] follows (following):', followingRes.error)
+      if (moviesRes.error)         console.error('[profile] watched movies:', moviesRes.error)
+      if (seriesRes.error)         console.error('[profile] watched series:', seriesRes.error)
+      if (recentReviewsRes.error)  console.error('[profile] recent reviews:', recentReviewsRes.error)
+      if (recentRatingsRes.error)  console.error('[profile] recent ratings:', recentRatingsRes.error)
+      if (wlCountRes.error)        console.error('[profile] watchlist count:', wlCountRes.error)
+      if (wlPreviewRes.error)      console.error('[profile] watchlist preview:', wlPreviewRes.error)
 
       const uid = authRes.data.user?.id ?? null
       setCurrentUserId(uid)
@@ -234,9 +248,23 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setFollowingCount(followingRes.count ?? 0)
       setMoviesWatched(moviesRes.count ?? 0)
       setSeriesWatched(seriesRes.count ?? 0)
-      setRecentWatched(recentWatchedRes.data ?? [])
       setWatchlistCount(wlCountRes.count ?? 0)
       setWatchlistPreview(wlPreviewRes.data ?? [])
+
+      // Merge reviews + ratings sorted by date → recent activity
+      const acts: ActivityItem[] = [
+        ...(recentReviewsRes.data ?? []).map(r => ({
+          kind: 'review' as const,
+          date: r.created_at,
+          data: r as ReviewItem,
+        })),
+        ...(recentRatingsRes.data ?? []).map(r => ({
+          kind: 'rating' as const,
+          date: r.rated_at,
+          data: r as RatingItem,
+        })),
+      ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8)
+      setRecentActivity(acts)
 
       const slots: (PinnedSlot | null)[] = [null, null, null, null, null]
       for (const p of pinnedRes.data ?? []) {
@@ -569,28 +597,59 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <section>
                 <div className="flex items-center justify-between mb-3">
                   <SectionLabel>Actividad reciente</SectionLabel>
-                  {recentWatched.length > 0 && (
+                  {recentActivity.length > 0 && (
                     <button
-                      onClick={() => setActiveTab('yavi')}
+                      onClick={() => setActiveTab('resenas')}
                       className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors"
                     >
-                      Ver todo →
+                      Ver reseñas →
                     </button>
                   )}
                 </div>
-                {recentWatched.length === 0 ? (
+                {recentActivity.length === 0 ? (
                   <p className="text-zinc-600 text-sm">Sin actividad reciente.</p>
                 ) : (
-                  <div className="grid grid-cols-4 sm:grid-cols-8 gap-2">
-                    {recentWatched.map(w => (
-                      <PosterLink
-                        key={w.id}
-                        mediaId={w.media_id}
-                        mediaType={w.media_type}
-                        posterPath={w.poster_path}
-                        title={w.title}
-                      />
-                    ))}
+                  <div className="divide-y divide-zinc-800/60">
+                    {recentActivity.map((item, i) => {
+                      const d    = item.data
+                      const href = `/${d.media_type}/${d.media_id}`
+                      const date = new Date(item.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                      return (
+                        <div key={`${item.kind}-${d.id}-${i}`} className="flex items-start gap-3 py-3">
+                          {/* Poster */}
+                          <Link href={href} className="shrink-0">
+                            <div className="relative w-10 aspect-[2/3] rounded overflow-hidden bg-zinc-800">
+                              {d.poster_path && (
+                                <Image src={getPosterUrl(d.poster_path, 'w92')} alt={d.title} fill className="object-cover" sizes="40px" />
+                              )}
+                            </div>
+                          </Link>
+                          {/* Info */}
+                          <div className="flex-1 min-w-0 pt-0.5">
+                            <div className="flex items-start justify-between gap-2">
+                              <Link href={href} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors line-clamp-1">
+                                {d.title}
+                              </Link>
+                              <span className="text-[11px] text-zinc-600 shrink-0">{date}</span>
+                            </div>
+                            {/* Stars */}
+                            {d.rating != null && (
+                              <div className="flex items-center gap-0.5 mt-1">
+                                {[1,2,3,4,5].map(s => (
+                                  <Star key={s} size={10} className="text-yellow-400" fill={s <= d.rating! ? 'currentColor' : 'none'} />
+                                ))}
+                              </div>
+                            )}
+                            {/* Review excerpt */}
+                            {item.kind === 'review' && (item.data as ReviewItem).body && (
+                              <p className="text-xs text-zinc-500 line-clamp-2 mt-1 leading-relaxed">
+                                {(item.data as ReviewItem).body}
+                              </p>
+                            )}
+                          </div>
+                        </div>
+                      )
+                    })}
                   </div>
                 )}
               </section>

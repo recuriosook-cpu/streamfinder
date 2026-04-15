@@ -73,6 +73,17 @@ DO $$ BEGIN
   END IF;
 END $$;
 
+-- ── ratings ──────────────────────────────────────────────────
+DO $$ BEGIN
+  IF NOT EXISTS (
+    SELECT 1 FROM pg_policies WHERE tablename='ratings'
+    AND policyname='Ratings are publicly readable'
+  ) THEN
+    CREATE POLICY "Ratings are publicly readable"
+      ON ratings FOR SELECT USING (true);
+  END IF;
+END $$;
+
 -- ── pinned_favorites ──────────────────────────────────────────────
 DO $$ BEGIN
   IF NOT EXISTS (

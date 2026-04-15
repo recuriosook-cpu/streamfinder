@@ -66,7 +66,7 @@ export default function WatchedButton({
   const insertWatched = async (watchedAt: string) => {
     if (!userId) return
     setLoading(true)
-    await supabase.from('watched').insert({
+    const { error } = await supabase.from('watched').insert({
       user_id: userId,
       media_id: mediaId,
       media_type: mediaType,
@@ -77,6 +77,11 @@ export default function WatchedButton({
       seasons_count: seasonsCount ?? null,
       watched_at: watchedAt,
     })
+    if (error) {
+      console.error('[WatchedButton] insert error:', error)
+      setLoading(false)
+      return
+    }
     setIsWatched(true)
     setShowPopup(false)
     setShowDatePicker(false)
