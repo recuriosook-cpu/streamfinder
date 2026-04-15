@@ -1,6 +1,6 @@
 'use client'
 
-import { useState } from 'react'
+import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { LogIn, UserPlus, Eye, EyeOff } from 'lucide-react'
@@ -14,7 +14,8 @@ export default function AuthPage() {
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const router = useRouter()
-  const supabase = createClient()
+  // Stable client — not recreated on every render
+  const supabase = useRef(createClient()).current
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()

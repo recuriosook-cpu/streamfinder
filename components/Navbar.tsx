@@ -37,7 +37,7 @@ export default function Navbar() {
   const countryRef = useRef<HTMLDivElement>(null)
   const countrySearchRef = useRef<HTMLInputElement>(null)
   const router = useRouter()
-  const supabase = createClient()
+  const supabase = useRef(createClient()).current
   const { country, countryData, setCountry } = useCountry()
 
   useEffect(() => {
