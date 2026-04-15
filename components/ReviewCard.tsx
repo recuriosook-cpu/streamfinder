@@ -36,6 +36,7 @@ export interface ReviewCardProps {
   mediaType: 'movie' | 'tv'
   mediaTitle: string
   mediaPosterPath?: string | null
+  showPoster?: boolean   // default true — pass false on movie/tv detail pages
   // Review content
   rating?: number | null
   recommended: boolean
@@ -53,7 +54,7 @@ export interface ReviewCardProps {
 
 export default function ReviewCard({
   id, authorId, authorUsername, authorDisplayName, authorAvatarUrl,
-  mediaId, mediaType, mediaTitle, mediaPosterPath,
+  mediaId, mediaType, mediaTitle, mediaPosterPath, showPoster = true,
   rating, recommended, body, date,
   likeCount, likedByCurrentUser, isOwn, currentUserId,
   onLike, onEdit, onDelete,
@@ -242,9 +243,9 @@ export default function ReviewCard({
             <p className="text-[11px] text-zinc-600 mt-1">{formattedDate}</p>
           </div>
 
-          {/* Right column: poster + owner actions */}
+          {/* Right column: poster (optional) + owner actions */}
           <div className="flex flex-col items-end gap-2 shrink-0">
-            {mediaPosterPath && (
+            {showPoster && mediaPosterPath && (
               <Link href={`/${mediaType}/${mediaId}`}>
                 <div className="relative w-10 aspect-[2/3] rounded-md overflow-hidden bg-zinc-800 ring-1 ring-zinc-700 hover:ring-emerald-500 transition-all">
                   <Image

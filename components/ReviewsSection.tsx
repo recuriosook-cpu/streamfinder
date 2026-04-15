@@ -273,6 +273,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
               mediaType={review.media_type}
               mediaTitle={review.title}
               mediaPosterPath={review.poster_path}
+              showPoster={false}
               rating={review.rating}
               recommended={review.recommended}
               body={review.body}

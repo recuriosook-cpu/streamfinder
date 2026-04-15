@@ -189,7 +189,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
-        supabase.from('reviews').select('id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
+        supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
         supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
         supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
@@ -666,7 +666,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   <div className="divide-y divide-zinc-800/60">
                     {recentActivity.map((item, i) => {
                       const d    = item.data
-                      const href = `/${d.media_type}/${d.media_id}`
+                      const href = item.kind === 'review' ? `/review/${d.id}` : `/${d.media_type}/${d.media_id}`
                       const date = new Date(item.date).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
                       return (
                         <div key={`${item.kind}-${d.id}-${i}`} className="flex items-start gap-3 py-3">
