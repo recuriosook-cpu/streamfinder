@@ -688,14 +688,23 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               </Link>
                               <span className="text-[11px] text-zinc-600 shrink-0">{date}</span>
                             </div>
-                            {/* Stars */}
-                            {d.rating != null && (
-                              <div className="flex items-center gap-0.5 mt-1">
-                                {[1,2,3,4,5].map(s => (
-                                  <Star key={s} size={10} className="text-yellow-400" fill={s <= d.rating! ? 'currentColor' : 'none'} />
-                                ))}
-                              </div>
-                            )}
+                            {/* Kind badge + stars row */}
+                            <div className="flex items-center gap-2 mt-1 flex-wrap">
+                              <span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
+                                item.kind === 'review'
+                                  ? 'bg-emerald-900/40 text-emerald-400'
+                                  : 'bg-yellow-900/40 text-yellow-400'
+                              }`}>
+                                {item.kind === 'review' ? 'Reseña' : 'Valoración'}
+                              </span>
+                              {d.rating != null && (
+                                <div className="flex items-center gap-0.5">
+                                  {[1,2,3,4,5].map(s => (
+                                    <Star key={s} size={10} className="text-yellow-400" fill={s <= d.rating! ? 'currentColor' : 'none'} />
+                                  ))}
+                                </div>
+                              )}
+                            </div>
                             {/* Review excerpt */}
                             {item.kind === 'review' && (item.data as ReviewItem).body && (
                               <p className="text-xs text-zinc-500 line-clamp-2 mt-1 leading-relaxed">

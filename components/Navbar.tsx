@@ -45,9 +45,10 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
-  const [notifOpen, setNotifOpen] = useState(false)
-  const [notifs, setNotifs] = useState<NotifItem[]>([])
-  const [unreadCount, setUnreadCount] = useState(0)
+  const [notifOpen,    setNotifOpen]    = useState(false)
+  const [notifLoading, setNotifLoading] = useState(false)
+  const [notifs,       setNotifs]       = useState<NotifItem[]>([])
+  const [unreadCount,  setUnreadCount]  = useState(0)
   const countryRef = useRef<HTMLDivElement>(null)
   const countrySearchRef = useRef<HTMLInputElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
@@ -80,13 +81,16 @@ export default function Navbar() {
   async function openNotifications() {
     if (!user) return
     setNotifOpen(true)
-    const { data: rows } = await supabase
+    setNotifLoading(true)
+    setNotifs([])
+    const { data: rows, error } = await supabase
       .from('notifications')
       .select('id, type, read, created_at, actor_id, review_id, review_title')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(15)
-    if (!rows?.length) { setNotifs([]); return }
+    if (error) console.error('[notifications] fetch error:', error)
+    if (!rows?.length) { setNotifLoading(false); return }
     const actorIds = [...new Set(rows.map(r => r.actor_id))]
     const { data: actors } = await supabase
       .from('profiles')
@@ -94,6 +98,7 @@ export default function Navbar() {
       .in('id', actorIds)
     const actorMap = Object.fromEntries((actors ?? []).map(a => [a.id, a]))
     setNotifs(rows.map(r => ({ ...r, actor: actorMap[r.actor_id] ?? null })) as NotifItem[])
+    setNotifLoading(false)
     const unreadIds = rows.filter(r => !r.read).map(r => r.id)
     if (unreadIds.length > 0) {
       await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
@@ -271,7 +276,11 @@ export default function Navbar() {
                       </button>
                     </div>
                     <div className="overflow-y-auto max-h-80">
-                      {notifs.length === 0 ? (
+                      {notifLoading ? (
+                        <div className="flex justify-center py-8">
+                          <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : notifs.length === 0 ? (
                         <p className="text-zinc-500 text-sm text-center py-8">Sin notificaciones.</p>
                       ) : (
                         notifs.map(n => {
