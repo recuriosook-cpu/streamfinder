@@ -1,8 +1,9 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
-import { LogIn, UserPlus, Eye, EyeOff, CheckCircle } from 'lucide-react'
+import { LogIn, UserPlus, Eye, EyeOff } from 'lucide-react'
 
 export default function AuthPage() {
   const [mode, setMode] = useState<'login' | 'register'>('login')
@@ -12,32 +13,27 @@ export default function AuthPage() {
   const [loading, setLoading] = useState(false)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
-  const [sessionInfo, setSessionInfo] = useState<string | null>(null)
-  // Stable client — not recreated on every render
+  const router = useRouter()
   const supabase = useRef(createClient()).current
-
-  // Listen for auth state changes and report them
-  useEffect(() => {
-    const { data: { subscription } } = supabase.auth.onAuthStateChange((event, session) => {
-      setSessionInfo(`Evento: ${event} | Usuario: ${session?.user?.email ?? 'ninguno'} | ID: ${session?.user?.id?.slice(0, 8) ?? '—'}`)
-    })
-    return () => subscription.unsubscribe()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault()
     setLoading(true)
     setError('')
     setMessage('')
-    setSessionInfo(null)
 
     if (mode === 'login') {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setError(`Error: ${error.message} (status: ${error.status})`)
+        setError('Email o contraseña incorrectos')
       } else {
-        // NO redirect — just show confirmation so we can isolate login vs redirect issues
-        setMessage(`Login exitoso — usuario: ${data.user?.email} | sesión: ${data.session ? 'presente' : 'ausente'}`)
+        // Fetch username directly — avoids the /profile race condition
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('username')
+          .eq('id', data.user.id)
+          .maybeSingle()
+        router.replace(profile?.username ? `/usuario/${profile.username}` : '/profile')
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password })
@@ -126,14 +122,8 @@ export default function AuthPage() {
             </div>
           )}
           {message && (
-            <div className="bg-emerald-900/40 border border-emerald-800 text-emerald-300 text-sm px-3 py-2.5 rounded-lg flex items-start gap-2">
-              <CheckCircle size={16} className="shrink-0 mt-0.5" />
-              <span>{message}</span>
-            </div>
-          )}
-          {sessionInfo && (
-            <div className="bg-zinc-800 border border-zinc-600 text-zinc-300 text-xs px-3 py-2.5 rounded-lg font-mono break-all">
-              {sessionInfo}
+            <div className="bg-emerald-900/40 border border-emerald-800 text-emerald-300 text-sm px-3 py-2.5 rounded-lg">
+              {message}
             </div>
           )}
 

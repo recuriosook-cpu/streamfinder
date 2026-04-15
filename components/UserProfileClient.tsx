@@ -165,7 +165,7 @@ function ReviewCard({ review }: { review: ReviewItem }) {
 // ── Main component ─────────────────────────────────────────────────────────
 
 export default function UserProfileClient({ profile }: { profile: PublicProfile }) {
-  const supabase      = createClient()
+  const supabase      = useRef(createClient()).current
   const loadedTabs    = useRef<Set<Tab>>(new Set(['perfil']))
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
 
