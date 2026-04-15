@@ -5,7 +5,6 @@ import HeroCarousel from '@/components/HeroCarousel'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import BirthdayCarousel from '@/components/BirthdayCarousel'
-import type { BirthdayPerson } from '@/components/BirthdayCarousel'
 import { useCountry } from '@/context/CountryContext'
 
 interface PlatformItem {
@@ -78,7 +77,6 @@ export default function HomeClient() {
   const { country } = useCountry()
   const [data, setData] = useState<HomeData | null>(null)
   const [loading, setLoading] = useState(true)
-  const [birthdays, setBirthdays] = useState<BirthdayPerson[] | null>(null)
   const prevCountry = useRef<string | null>(null)
 
   // Fetch platform content (depends on selected country)
@@ -94,14 +92,6 @@ export default function HomeClient() {
       })
       .catch(() => setLoading(false))
   }, [country])
-
-  // Fetch birthdays once on mount (country-independent)
-  useEffect(() => {
-    fetch('/api/birthdays-today')
-      .then(r => r.json())
-      .then((d: { birthdays: BirthdayPerson[] }) => setBirthdays(d.birthdays))
-      .catch(() => setBirthdays([]))
-  }, [])
 
   if (loading || !data) return <HomeSkeleton />
 
@@ -119,23 +109,8 @@ export default function HomeClient() {
           />
         ))}
 
-        {/* Birthday carousel — loaded independently, shown once ready */}
-        {birthdays === null ? (
-          // Skeleton while fetching
-          <section className="mb-10">
-            <div className="h-6 w-48 bg-zinc-800 rounded mb-4 animate-pulse" />
-            <div className="flex gap-4 overflow-hidden">
-              {Array.from({ length: 7 }).map((_, i) => (
-                <div key={i} className="shrink-0 w-28">
-                  <div className="aspect-[2/3] bg-zinc-800 rounded-lg mb-2 animate-pulse" />
-                  <div className="h-3 bg-zinc-800 rounded animate-pulse" />
-                </div>
-              ))}
-            </div>
-          </section>
-        ) : (
-          <BirthdayCarousel people={birthdays} />
-        )}
+        {/* Birthday carousel — self-contained, handles its own fetch */}
+        <BirthdayCarousel />
       </div>
     </>
   )

@@ -1,4 +1,5 @@
 import { NextResponse } from 'next/server'
+import { BIRTHDAYS } from '@/lib/celebrity-birthdays'
 
 const KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -12,58 +13,57 @@ export interface BirthdayPerson {
 
 export async function GET() {
   const now   = new Date()
-  const month = now.getMonth() + 1   // 1-indexed (1=Jan … 12=Dec)
+  const month = now.getMonth() + 1   // 1-indexed
   const day   = now.getDate()
   const year  = now.getFullYear()
 
-  // ── Step 1: Fetch pages 1, 2, 3 of popular people in parallel ──
-  const pageResults = await Promise.all(
-    [1, 2, 3].map(page =>
-      fetch(
-        `https://api.themoviedb.org/3/person/popular?api_key=${KEY}&language=es-AR&page=${page}`
-      )
-        .then(r => r.json())
-        .catch(() => ({ results: [] }))
-    )
-  )
+  // ── Step 1: Filter local index by today's month + day ─────────────────
+  const todayEntries = BIRTHDAYS.filter(c => {
+    const parts = c.birthday.split('-')
+    return Number(parts[1]) === month && Number(parts[2]) === day
+  })
 
-  // Flatten to one array of ~60 people
-  const people = pageResults.flatMap(
-    p => (p.results ?? []) as Array<{ id: number; popularity: number }>
-  )
+  if (todayEntries.length === 0) {
+    return NextResponse.json({ birthdays: [] })
+  }
 
-  // ── Step 2: Fetch all ~60 person details simultaneously ─────────
-  // The Next.js server has no browser-style rate limits, so 60
-  // parallel outbound fetches to TMDB complete in one round-trip.
+  // ── Step 2: Fetch TMDB details only for today's matches (usually 1-5) ──
   const details = await Promise.all(
-    people.map(p =>
+    todayEntries.map(c =>
       fetch(
-        `https://api.themoviedb.org/3/person/${p.id}?api_key=${KEY}&language=es-AR`
+        `https://api.themoviedb.org/3/person/${c.id}?api_key=${KEY}&language=es-AR`
       )
-        .then(r => r.json())
+        .then(r => r.ok ? r.json() : null)
         .catch(() => null)
     )
   )
 
-  // ── Step 3: Filter by today's month + day (ignore year) ─────────
-  // TMDB birthday format: "YYYY-MM-DD"
+  // ── Step 3: Shape results, falling back to local name if TMDB fails ────
   const birthdays: BirthdayPerson[] = details
-    .filter(p => {
-      if (!p?.birthday) return false
-      const parts = p.birthday.split('-')
-      if (parts.length < 3) return false
-      const [, m, d] = parts.map(Number)
-      return m === month && d === day
+    .map((d, i) => {
+      const local = todayEntries[i]
+      if (!d) {
+        // TMDB unavailable — return local data with placeholder
+        return {
+          id:          local.id,
+          name:        local.name,
+          profilePath: null,
+          age:         year - Number(local.birthday.split('-')[0]),
+          popularity:  0,
+        }
+      }
+      return {
+        id:          d.id  as number,
+        name:        d.name as string,
+        profilePath: (d.profile_path as string | null) ?? null,
+        age:         year - Number(local.birthday.split('-')[0]),
+        popularity:  (d.popularity as number) ?? 0,
+      }
     })
-    .map(p => ({
-      id:          p.id  as number,
-      name:        p.name as string,
-      profilePath: (p.profile_path as string | null) ?? null,
-      age:         year - Number(p.birthday.split('-')[0]),
-      popularity:  p.popularity as number,
-    }))
     .sort((a, b) => b.popularity - a.popularity)
-    .slice(0, 20)
 
-  return NextResponse.json({ birthdays })
+  return NextResponse.json(
+    { birthdays },
+    { headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=3600' } }
+  )
 }

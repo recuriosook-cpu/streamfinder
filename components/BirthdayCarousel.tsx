@@ -1,21 +1,49 @@
 'use client'
 
-import { useRef } from 'react'
-import Image from 'next/image'
+import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 
-export interface BirthdayPerson {
-  id: number
-  name: string
+interface BirthdayPerson {
+  id:          number
+  name:        string
   profilePath: string | null
-  age: number
+  age:         number
+  popularity:  number
 }
 
 const SCROLL_AMOUNT = 400
 
-export default function BirthdayCarousel({ people }: { people: BirthdayPerson[] }) {
+const PLACEHOLDER =
+  'data:image/svg+xml;utf8,' +
+  encodeURIComponent(
+    '<svg xmlns="http://www.w3.org/2000/svg" width="185" height="278" viewBox="0 0 185 278">' +
+    '<rect width="185" height="278" fill="%2327272a"/>' +
+    '<circle cx="92" cy="100" r="40" fill="%2352525b"/>' +
+    '<ellipse cx="92" cy="210" rx="65" ry="50" fill="%2352525b"/>' +
+    '</svg>'
+  )
+
+export default function BirthdayCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null)
+  const [people,  setPeople]  = useState<BirthdayPerson[] | null>(null)
+  const [error,   setError]   = useState<string | null>(null)
+
+  useEffect(() => {
+    fetch('/api/birthdays-today')
+      .then(r => {
+        if (!r.ok) throw new Error(`HTTP ${r.status}`)
+        return r.json()
+      })
+      .then((data: { birthdays: BirthdayPerson[] }) => {
+        console.log('[BirthdayCarousel] response:', data)
+        setPeople(data.birthdays ?? [])
+      })
+      .catch(err => {
+        console.error('[BirthdayCarousel] fetch error:', err)
+        setError(String(err))
+      })
+  }, [])
 
   const scroll = (dir: 'left' | 'right') =>
     scrollRef.current?.scrollBy({
@@ -23,14 +51,40 @@ export default function BirthdayCarousel({ people }: { people: BirthdayPerson[] 
       behavior: 'smooth',
     })
 
+  // ── Loading ──────────────────────────────────────────────────────────────
+  if (people === null && !error) {
+    return (
+      <section className="mb-10">
+        <div className="h-6 w-48 bg-zinc-800 rounded mb-4 animate-pulse" />
+        <div className="flex gap-4 overflow-hidden">
+          {Array.from({ length: 7 }).map((_, i) => (
+            <div key={i} className="shrink-0 w-28">
+              <div className="aspect-[2/3] bg-zinc-800 rounded-lg mb-2 animate-pulse" />
+              <div className="h-3 bg-zinc-800 rounded animate-pulse" />
+            </div>
+          ))}
+        </div>
+      </section>
+    )
+  }
+
+  // ── Error (visible in dev/prod for debugging) ─────────────────────────────
+  if (error) {
+    return (
+      <section className="mb-10">
+        <h2 className="text-xl font-bold text-white mb-2">🎂 Cumplen años hoy</h2>
+        <p className="text-red-400 text-sm">Error cargando cumpleaños: {error}</p>
+      </section>
+    )
+  }
+
+  // ── Render ────────────────────────────────────────────────────────────────
   return (
     <section className="mb-10">
       {/* Header */}
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold text-white">
-          🎂 Cumplen años hoy
-        </h2>
-        {people.length > 0 && (
+        <h2 className="text-xl font-bold text-white">🎂 Cumplen años hoy</h2>
+        {people!.length > 0 && (
           <div className="flex gap-2">
             <button
               onClick={() => scroll('left')}
@@ -50,7 +104,7 @@ export default function BirthdayCarousel({ people }: { people: BirthdayPerson[] 
         )}
       </div>
 
-      {people.length === 0 ? (
+      {people!.length === 0 ? (
         <p className="text-zinc-500 text-sm">
           No encontramos cumpleaños famosos para hoy.
         </p>
@@ -59,7 +113,7 @@ export default function BirthdayCarousel({ people }: { people: BirthdayPerson[] 
           ref={scrollRef}
           className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
         >
-          {people.map(person => (
+          {people!.map(person => (
             <Link
               key={person.id}
               href={`/actor/${person.id}`}
@@ -67,19 +121,17 @@ export default function BirthdayCarousel({ people }: { people: BirthdayPerson[] 
             >
               {/* Photo */}
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
-                {person.profilePath ? (
-                  <Image
-                    src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}
-                    alt={person.name}
-                    fill
-                    className="object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                    sizes="112px"
-                  />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs text-center px-2">
-                    Sin foto
-                  </div>
-                )}
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img
+                  src={
+                    person.profilePath
+                      ? `https://image.tmdb.org/t/p/w185${person.profilePath}`
+                      : PLACEHOLDER
+                  }
+                  alt={person.name}
+                  onError={e => { e.currentTarget.src = PLACEHOLDER }}
+                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                />
                 {/* Age badge */}
                 <div className="absolute bottom-1.5 right-1.5 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-tight">
                   {person.age} años
