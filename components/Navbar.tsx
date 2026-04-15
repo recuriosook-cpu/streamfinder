@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users } from 'lucide-react'
+import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, UserPlus } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -28,25 +28,90 @@ function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
   )
 }
 
+interface NotifItem {
+  id: string
+  type: 'follow' | 'review_like'
+  read: boolean
+  created_at: string
+  actor_id: string
+  review_id: string | null
+  review_title: string | null
+  actor: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+}
+
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [query, setQuery] = useState('')
   const [menuOpen, setMenuOpen] = useState(false)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
+  const [notifOpen, setNotifOpen] = useState(false)
+  const [notifs, setNotifs] = useState<NotifItem[]>([])
+  const [unreadCount, setUnreadCount] = useState(0)
   const countryRef = useRef<HTMLDivElement>(null)
   const countrySearchRef = useRef<HTMLInputElement>(null)
+  const notifRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = useRef(createClient()).current
   const { country, countryData, setCountry } = useCountry()
 
   useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUser(data.user))
+    supabase.auth.getUser().then(({ data }) => {
+      setUser(data.user)
+      if (data.user) fetchUnreadCount(data.user.id)
+    })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
+      if (session?.user) fetchUnreadCount(session.user.id)
+      else { setUnreadCount(0); setNotifs([]) }
     })
     return () => subscription.unsubscribe()
-  }, [])
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  async function fetchUnreadCount(uid: string) {
+    const { count } = await supabase
+      .from('notifications')
+      .select('*', { count: 'exact', head: true })
+      .eq('user_id', uid)
+      .eq('read', false)
+    setUnreadCount(count ?? 0)
+  }
+
+  async function openNotifications() {
+    if (!user) return
+    setNotifOpen(true)
+    const { data: rows } = await supabase
+      .from('notifications')
+      .select('id, type, read, created_at, actor_id, review_id, review_title')
+      .eq('user_id', user.id)
+      .order('created_at', { ascending: false })
+      .limit(15)
+    if (!rows?.length) { setNotifs([]); return }
+    const actorIds = [...new Set(rows.map(r => r.actor_id))]
+    const { data: actors } = await supabase
+      .from('profiles')
+      .select('id, username, display_name, avatar_url')
+      .in('id', actorIds)
+    const actorMap = Object.fromEntries((actors ?? []).map(a => [a.id, a]))
+    setNotifs(rows.map(r => ({ ...r, actor: actorMap[r.actor_id] ?? null })) as NotifItem[])
+    const unreadIds = rows.filter(r => !r.read).map(r => r.id)
+    if (unreadIds.length > 0) {
+      await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
+      setUnreadCount(0)
+    }
+  }
+
+  // Close notification dropdown when clicking outside
+  useEffect(() => {
+    if (!notifOpen) return
+    const handler = (e: MouseEvent) => {
+      if (notifRef.current && !notifRef.current.contains(e.target as Node)) {
+        setNotifOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [notifOpen])
 
   // Close country dropdown when clicking outside
   useEffect(() => {
@@ -181,6 +246,82 @@ export default function Navbar() {
                 <UserCircle size={16} />
                 Mi perfil
               </Link>
+
+              {/* Notification bell */}
+              <div className="relative" ref={notifRef}>
+                <button
+                  onClick={notifOpen ? () => setNotifOpen(false) : openNotifications}
+                  className="relative flex items-center text-zinc-300 hover:text-white transition-colors p-1"
+                  title="Notificaciones"
+                >
+                  <Bell size={18} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </button>
+
+                {notifOpen && (
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+                      <p className="text-sm font-semibold text-white">Notificaciones</p>
+                      <button onClick={() => setNotifOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
+                        <X size={14} />
+                      </button>
+                    </div>
+                    <div className="overflow-y-auto max-h-80">
+                      {notifs.length === 0 ? (
+                        <p className="text-zinc-500 text-sm text-center py-8">Sin notificaciones.</p>
+                      ) : (
+                        notifs.map(n => {
+                          const actor  = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
+                          const time   = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                          const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
+                          return (
+                            <div
+                              key={n.id}
+                              className={`flex items-start gap-3 px-4 py-3 border-b border-zinc-700/50 last:border-0 ${!n.read ? 'bg-zinc-700/30' : ''}`}
+                            >
+                              <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
+                                {n.actor?.avatar_url ? (
+                                  <img src={n.actor.avatar_url} alt={actor} className="w-full h-full object-cover" />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
+                                    {initials}
+                                  </div>
+                                )}
+                              </div>
+                              <div className="flex-1 min-w-0">
+                                <p className="text-sm text-zinc-200 leading-snug">
+                                  {n.type === 'follow' && (
+                                    <><span className="font-semibold text-white">{actor}</span> te empezó a seguir</>
+                                  )}
+                                  {n.type === 'review_like' && (
+                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                  )}
+                                </p>
+                                <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>
+                              </div>
+                              {n.actor?.username && (
+                                <Link
+                                  href={`/usuario/${n.actor.username}`}
+                                  onClick={() => setNotifOpen(false)}
+                                  className="shrink-0 mt-0.5 text-zinc-600 hover:text-emerald-400 transition-colors"
+                                  title={`Ver perfil de ${actor}`}
+                                >
+                                  <UserPlus size={14} />
+                                </Link>
+                              )}
+                            </div>
+                          )
+                        })
+                      )}
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <button onClick={handleLogout} className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <LogOut size={16} />
                 Salir
@@ -215,6 +356,20 @@ export default function Navbar() {
               <Link href="/profile" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
                 <UserCircle size={16} /> Mi perfil
               </Link>
+              <button
+                onClick={() => { setMenuOpen(false); openNotifications() }}
+                className="flex items-center gap-2 text-sm text-zinc-300 text-left"
+              >
+                <span className="relative">
+                  <Bell size={16} />
+                  {unreadCount > 0 && (
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                      {unreadCount > 9 ? '9+' : unreadCount}
+                    </span>
+                  )}
+                </span>
+                Notificaciones {unreadCount > 0 && <span className="text-red-400">({unreadCount})</span>}
+              </button>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir
               </button>

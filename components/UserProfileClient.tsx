@@ -211,6 +211,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [editBio,    setEditBio]    = useState(profile.bio ?? '')
   const [editSaving, setEditSaving] = useState(false)
 
+  // ── Follow list modal ──────────────────────────────────────────
+  const [followListMode,    setFollowListMode]    = useState<'followers' | 'following' | null>(null)
+  const [followList,        setFollowList]        = useState<PublicProfile[]>([])
+  const [followListBusy,    setFollowListBusy]    = useState(false)
+  const [followingInList,   setFollowingInList]   = useState<Set<string>>(new Set())
+
   // ── Initial load ───────────────────────────────────────────────
   useEffect(() => {
     async function init() {
@@ -337,6 +343,49 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     setIsEditing(false)
   }
 
+  // ── Follow list modal ─────────────────────────────────────────
+  async function loadFollowList(mode: 'followers' | 'following') {
+    setFollowListMode(mode)
+    setFollowList([])
+    setFollowingInList(new Set())
+    setFollowListBusy(true)
+    const isFollowers = mode === 'followers'
+    const { data: rows } = await supabase
+      .from('follows')
+      .select(isFollowers ? 'follower_id' : 'following_id')
+      .eq(isFollowers ? 'following_id' : 'follower_id', profile.id)
+    const ids: string[] = (rows ?? []).map(
+      (r: Record<string, string>) => isFollowers ? r.follower_id : r.following_id
+    )
+    if (ids.length === 0) { setFollowListBusy(false); return }
+    const [profilesRes, followingRes] = await Promise.all([
+      supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', ids),
+      currentUserId
+        ? supabase.from('follows').select('following_id').eq('follower_id', currentUserId).in('following_id', ids)
+        : Promise.resolve({ data: [] as { following_id: string }[] }),
+    ])
+    setFollowList((profilesRes.data ?? []) as PublicProfile[])
+    setFollowingInList(new Set(
+      (followingRes.data ?? []).map((r: { following_id: string }) => r.following_id)
+    ))
+    setFollowListBusy(false)
+  }
+
+  async function toggleFollowInList(targetId: string) {
+    if (!currentUserId || currentUserId === targetId) return
+    const nowFollowing = followingInList.has(targetId)
+    setFollowingInList(prev => {
+      const next = new Set(prev)
+      nowFollowing ? next.delete(targetId) : next.add(targetId)
+      return next
+    })
+    if (nowFollowing) {
+      await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', targetId)
+    } else {
+      await supabase.from('follows').insert({ follower_id: currentUserId, following_id: targetId })
+    }
+  }
+
   // ── Pinned favorites search ────────────────────────────────────
   useEffect(() => {
     if (debounceTimer.current) clearTimeout(debounceTimer.current)
@@ -405,11 +454,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const hasPinned   = pinned.some(Boolean)
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'perfil',  label: 'Perfil'        },
-    { id: 'yavi',    label: 'Ya vi'         },
-    { id: 'resenas', label: 'Reseñas'       },
-    { id: 'paraVer', label: 'Para ver'      },
-    { id: 'stats',   label: 'Estadísticas'  },
+    { id: 'perfil',  label: 'Perfil'       },
+    { id: 'yavi',    label: 'Ya vi'        },
+    { id: 'resenas', label: 'Reseñas'      },
+    { id: 'paraVer', label: 'Para ver'     },
+    ...(isOwner ? [{ id: 'stats' as Tab, label: 'Estadísticas' }] : []),
   ]
 
   // ── Render ─────────────────────────────────────────────────────
@@ -456,17 +505,24 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Stats */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-6 gap-y-2 mb-5">
                 {[
-                  { value: moviesWatched, label: 'Películas'  },
-                  { value: seriesWatched, label: 'Series'     },
-                  { value: followingCount, label: 'Siguiendo' },
-                  { value: followersCount, label: 'Seguidores'},
+                  { value: moviesWatched,  label: 'Películas',  onClick: undefined },
+                  { value: seriesWatched,  label: 'Series',     onClick: undefined },
+                  { value: followingCount, label: 'Siguiendo',  onClick: () => loadFollowList('following') },
+                  { value: followersCount, label: 'Seguidores', onClick: () => loadFollowList('followers') },
                 ].map((s, i) => (
                   <div key={s.label} className="flex items-center gap-6">
                     {i > 0 && <span className="text-zinc-700 hidden sm:block select-none">·</span>}
-                    <div className="text-center sm:text-left">
-                      <p className="text-xl font-bold text-white leading-none">{s.value}</p>
-                      <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide">{s.label}</p>
-                    </div>
+                    {s.onClick ? (
+                      <button onClick={s.onClick} className="text-center sm:text-left group cursor-pointer">
+                        <p className="text-xl font-bold text-white leading-none group-hover:text-emerald-400 transition-colors">{s.value}</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide group-hover:text-zinc-400 transition-colors">{s.label}</p>
+                      </button>
+                    ) : (
+                      <div className="text-center sm:text-left">
+                        <p className="text-xl font-bold text-white leading-none">{s.value}</p>
+                        <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide">{s.label}</p>
+                      </div>
+                    )}
                   </div>
                 ))}
               </div>
@@ -783,6 +839,75 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           </div>
         )}
       </div>
+
+      {/* ── FOLLOW LIST MODAL ─────────────────────────────────── */}
+      {followListMode && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget) setFollowListMode(null) }}
+        >
+          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+              <p className="text-sm font-semibold text-white">
+                {followListMode === 'followers' ? 'Seguidores' : 'Siguiendo'}
+              </p>
+              <button onClick={() => setFollowListMode(null)} className="text-zinc-500 hover:text-white transition-colors">
+                <X size={18} />
+              </button>
+            </div>
+            <div className="overflow-y-auto flex-1 px-3 py-3">
+              {followListBusy ? (
+                <div className="flex justify-center py-10">
+                  <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                </div>
+              ) : followList.length === 0 ? (
+                <p className="text-zinc-500 text-sm text-center py-10">
+                  Sin {followListMode === 'followers' ? 'seguidores' : 'seguidos'} todavía.
+                </p>
+              ) : (
+                <div className="space-y-0.5">
+                  {followList.map(u => {
+                    const name    = u.display_name ?? u.username ?? 'Usuario'
+                    const isMe    = currentUserId === u.id
+                    const isFwg   = followingInList.has(u.id)
+                    return (
+                      <div key={u.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-zinc-800 transition-colors">
+                        <Link href={`/usuario/${u.username}`} onClick={() => setFollowListMode(null)} className="flex items-center gap-3 flex-1 min-w-0">
+                          <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+                            {u.avatar_url ? (
+                              <Image src={u.avatar_url} alt={name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-500">
+                                {name[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-medium text-white truncate">{name}</p>
+                            <p className="text-xs text-zinc-500 truncate">@{u.username}</p>
+                          </div>
+                        </Link>
+                        {!isMe && currentUserId && (
+                          <button
+                            onClick={() => toggleFollowInList(u.id)}
+                            className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
+                              isFwg
+                                ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
+                                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                            }`}
+                          >
+                            {isFwg ? 'Siguiendo' : 'Seguir'}
+                          </button>
+                        )}
+                      </div>
+                    )
+                  })}
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* ── INLINE EDIT MODAL ──────────────────────────────────── */}
       {isEditing && (
