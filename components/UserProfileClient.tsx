@@ -257,18 +257,17 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setWatchlistCount(wlCountRes.count ?? 0)
       setWatchlistPreview(wlPreviewRes.data ?? [])
 
-      // Merge reviews + ratings sorted by date → recent activity
+      // Merge reviews + ratings, deduplicating by media_id:
+      // If a review exists for a given media_id, the review card already shows
+      // stars (review.rating) — skip any standalone rating for the same content.
+      const reviews = (recentReviewsRes.data ?? []) as ReviewItem[]
+      const ratings  = (recentRatingsRes.data ?? []) as RatingItem[]
+      const reviewedIds = new Set(reviews.map(r => r.media_id))
+      const standaloneRatings = ratings.filter(r => !reviewedIds.has(r.media_id))
+
       const acts: ActivityItem[] = [
-        ...(recentReviewsRes.data ?? []).map(r => ({
-          kind: 'review' as const,
-          date: r.created_at,
-          data: r as ReviewItem,
-        })),
-        ...(recentRatingsRes.data ?? []).map(r => ({
-          kind: 'rating' as const,
-          date: r.rated_at,
-          data: r as RatingItem,
-        })),
+        ...reviews.map(r => ({ kind: 'review' as const, date: r.created_at, data: r })),
+        ...standaloneRatings.map(r => ({ kind: 'rating' as const, date: r.rated_at, data: r })),
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8)
       setRecentActivity(acts)
 

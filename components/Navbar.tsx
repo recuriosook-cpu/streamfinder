@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef } from 'react'
-import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, UserPlus } from 'lucide-react'
+import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -36,6 +36,9 @@ interface NotifItem {
   actor_id: string
   review_id: string | null
   review_title: string | null
+  // Populated from the reviews table for review_like notifications
+  media_id?: number
+  media_type?: string
   actor: { username: string | null; display_name: string | null; avatar_url: string | null } | null
 }
 
@@ -105,12 +108,47 @@ export default function Navbar() {
       .select('id, username, display_name, avatar_url')
       .in('id', actorIds)
     const actorMap = Object.fromEntries((actors ?? []).map(a => [a.id, a]))
-    setNotifs(rows.map(r => ({ ...r, actor: actorMap[r.actor_id] ?? null })) as NotifItem[])
+
+    // Fetch media_id / media_type for review_like notifications so we can navigate
+    const reviewIds = rows
+      .filter(r => r.type === 'review_like' && r.review_id)
+      .map(r => r.review_id as string)
+    let reviewMediaMap: Record<string, { media_id: number; media_type: string }> = {}
+    if (reviewIds.length > 0) {
+      const { data: reviewRows } = await supabase
+        .from('reviews')
+        .select('id, media_id, media_type')
+        .in('id', reviewIds)
+      reviewMediaMap = Object.fromEntries(
+        (reviewRows ?? []).map(rv => [rv.id, { media_id: rv.media_id, media_type: rv.media_type }])
+      )
+    }
+
+    setNotifs(rows.map(r => ({
+      ...r,
+      actor: actorMap[r.actor_id] ?? null,
+      ...(r.review_id ? reviewMediaMap[r.review_id] ?? {} : {}),
+    })) as NotifItem[])
     setNotifLoading(false)
     const unreadIds = rows.filter(r => !r.read).map(r => r.id)
     if (unreadIds.length > 0) {
       await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
       setUnreadCount(0)
+    }
+  }
+
+  function handleNotifClick(n: NotifItem) {
+    setNotifOpen(false)
+    // Mark individual notification as read (fire-and-forget)
+    if (!n.read) {
+      supabase.from('notifications').update({ read: true }).eq('id', n.id)
+      setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
+    }
+    // Navigate to the relevant page
+    if (n.type === 'follow' && n.actor?.username) {
+      router.push(`/usuario/${n.actor.username}`)
+    } else if (n.type === 'review_like' && n.media_id && n.media_type) {
+      router.push(`/${n.media_type}/${n.media_id}`)
     }
   }
 
@@ -297,13 +335,14 @@ export default function Navbar() {
                         <p className="text-zinc-500 text-sm text-center py-8">Sin notificaciones.</p>
                       ) : (
                         notifs.map(n => {
-                          const actor  = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
-                          const time   = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                          const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
+                          const time     = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
                           const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
                           return (
-                            <div
+                            <button
                               key={n.id}
-                              className={`flex items-start gap-3 px-4 py-3 border-b border-zinc-700/50 last:border-0 ${!n.read ? 'bg-zinc-700/30' : ''}`}
+                              onClick={() => handleNotifClick(n)}
+                              className={`w-full flex items-start gap-3 px-4 py-3 border-b border-zinc-700/50 last:border-0 text-left transition-colors hover:bg-zinc-700/50 ${!n.read ? 'bg-zinc-700/30' : ''}`}
                             >
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
                                 {n.actor?.avatar_url ? (
@@ -325,17 +364,10 @@ export default function Navbar() {
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>
                               </div>
-                              {n.actor?.username && (
-                                <Link
-                                  href={`/usuario/${n.actor.username}`}
-                                  onClick={() => setNotifOpen(false)}
-                                  className="shrink-0 mt-0.5 text-zinc-600 hover:text-emerald-400 transition-colors"
-                                  title={`Ver perfil de ${actor}`}
-                                >
-                                  <UserPlus size={14} />
-                                </Link>
+                              {!n.read && (
+                                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
                               )}
-                            </div>
+                            </button>
                           )
                         })
                       )}
