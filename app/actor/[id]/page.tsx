@@ -1,4 +1,5 @@
 import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
+import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
@@ -42,10 +43,26 @@ function age(birthday: string | null | undefined, deathday: string | null | unde
 
 export default async function ActorPage({ params }: Props) {
   const { id } = await params
-  const [person, creditsData] = await Promise.all([
-    getPersonDetails(Number(id)),
-    getPersonCredits(Number(id)),
-  ])
+
+  // If TMDB returns 404 or any error, show a "not found" page instead of crashing
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let person: any = null
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  let creditsData: any = { cast: [] }
+
+  try {
+    person = await getPersonDetails(Number(id))
+  } catch {
+    notFound()
+  }
+
+  if (!person?.name) notFound()
+
+  try {
+    creditsData = await getPersonCredits(Number(id))
+  } catch {
+    // Credits unavailable — show page without filmography
+  }
 
   const allCredits: Credit[] = (creditsData.cast ?? [])
     .filter((c: Credit) => c.poster_path && (c.title || c.name))

@@ -14,16 +14,6 @@ interface BirthdayPerson {
 
 const SCROLL_AMOUNT = 400
 
-const PLACEHOLDER =
-  'data:image/svg+xml;utf8,' +
-  encodeURIComponent(
-    '<svg xmlns="http://www.w3.org/2000/svg" width="185" height="278" viewBox="0 0 185 278">' +
-    '<rect width="185" height="278" fill="%2327272a"/>' +
-    '<circle cx="92" cy="100" r="40" fill="%2352525b"/>' +
-    '<ellipse cx="92" cy="210" rx="65" ry="50" fill="%2352525b"/>' +
-    '</svg>'
-  )
-
 export default function BirthdayCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [people,  setPeople]  = useState<BirthdayPerson[] | null>(null)
@@ -121,17 +111,31 @@ export default function BirthdayCarousel() {
             >
               {/* Photo */}
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
-                {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img
-                  src={
-                    person.profilePath
-                      ? `https://image.tmdb.org/t/p/w185${person.profilePath}`
-                      : PLACEHOLDER
-                  }
-                  alt={person.name}
-                  onError={e => { e.currentTarget.src = PLACEHOLDER }}
-                  className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
-                />
+                {person.profilePath ? (
+                  // eslint-disable-next-line @next/next/no-img-element
+                  <img
+                    src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}
+                    alt={person.name}
+                    onError={e => {
+                      // Hide broken image and show initial placeholder
+                      e.currentTarget.style.display = 'none'
+                      const parent = e.currentTarget.parentElement
+                      if (parent) {
+                        const el = parent.querySelector('[data-initial]') as HTMLElement | null
+                        if (el) el.style.display = 'flex'
+                      }
+                    }}
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
+                  />
+                ) : null}
+                {/* Initial placeholder — shown when no photo or photo fails to load */}
+                <div
+                  data-initial
+                  style={{ display: person.profilePath ? 'none' : 'flex' }}
+                  className="absolute inset-0 items-center justify-center bg-zinc-700 text-zinc-300 text-3xl font-bold select-none"
+                >
+                  {person.name.charAt(0).toUpperCase()}
+                </div>
                 {/* Age badge */}
                 <div className="absolute bottom-1.5 right-1.5 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-tight">
                   {person.age} años
