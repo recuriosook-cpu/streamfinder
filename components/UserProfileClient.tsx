@@ -72,6 +72,24 @@ interface StatsData {
   seriesYear: number
 }
 
+interface PersonStat {
+  id: number
+  name: string
+  profilePath: string | null
+  count: number
+}
+
+interface RichStats {
+  tooFew:       boolean
+  totalMinutes: number
+  minutesMonth: number
+  minutesYear:  number
+  topGenres:    { name: string; count: number }[]
+  topActor:     PersonStat | null
+  topActress:   PersonStat | null
+  topDirector:  PersonStat | null
+}
+
 // ── Design helpers ─────────────────────────────────────────────────────────
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
@@ -160,7 +178,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
 
   // ── Stats tab data ─────────────────────────────────────────────
-  const [statsData, setStatsData] = useState<StatsData | null>(null)
+  const [statsData,  setStatsData]  = useState<StatsData | null>(null)
+  const [richStats,  setRichStats]  = useState<RichStats | null>(null)
+  const [richBusy,   setRichBusy]   = useState(false)
 
   // ── Inline edit ────────────────────────────────────────────────
   const [isEditing,  setIsEditing]  = useState(false)
@@ -444,6 +464,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       moviesYear:  mYear.count  ?? 0,
       seriesYear:  sYear.count  ?? 0,
     })
+
+    // ── Rich stats (genres, hours, people) — heavier, separate state ───
+    setRichBusy(true)
+    try {
+      const res  = await fetch(`/api/user-stats?userId=${profile.id}`)
+      const data = await res.json() as RichStats
+      setRichStats(data)
+    } catch {
+      // ignore — rich stats section won't render
+    } finally {
+      setRichBusy(false)
+    }
   }
 
   // ── Derived ────────────────────────────────────────────────────
@@ -826,43 +858,178 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </div>
             ) : (
               <div className="space-y-8">
-                {/* Period breakdown */}
-                <div className="grid grid-cols-3 gap-4">
-                  {[
-                    { label: 'Este mes',  movies: statsData.moviesMonth, series: statsData.seriesMonth },
-                    { label: 'Este año',  movies: statsData.moviesYear,  series: statsData.seriesYear  },
-                    { label: 'Total',     movies: moviesWatched,         series: seriesWatched         },
-                  ].map(period => (
-                    <div key={period.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                      <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-3">{period.label}</p>
-                      <div className="space-y-2.5">
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-zinc-400">Películas</span>
-                          <span className="text-lg font-bold text-white">{period.movies}</span>
+
+                {/* ── Period breakdown ────────────────────────────── */}
+                <div>
+                  <SectionLabel>Contenido visto</SectionLabel>
+                  <div className="grid grid-cols-3 gap-4">
+                    {[
+                      {
+                        label:   'Este mes',
+                        movies:  statsData.moviesMonth,
+                        series:  statsData.seriesMonth,
+                        minutes: richStats?.minutesMonth,
+                      },
+                      {
+                        label:   'Este año',
+                        movies:  statsData.moviesYear,
+                        series:  statsData.seriesYear,
+                        minutes: richStats?.minutesYear,
+                      },
+                      {
+                        label:   'Total',
+                        movies:  moviesWatched,
+                        series:  seriesWatched,
+                        minutes: richStats?.totalMinutes,
+                      },
+                    ].map(period => (
+                      <div key={period.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                        <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-3">{period.label}</p>
+                        <div className="space-y-2.5">
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-400">Películas</span>
+                            <span className="text-lg font-bold text-white">{period.movies}</span>
+                          </div>
+                          <div className="w-full bg-zinc-800 rounded-full h-1">
+                            <div
+                              className="bg-emerald-500 h-1 rounded-full transition-all"
+                              style={{ width: period.movies + period.series > 0 ? `${(period.movies / (period.movies + period.series)) * 100}%` : '0%' }}
+                            />
+                          </div>
+                          <div className="flex items-center justify-between">
+                            <span className="text-xs text-zinc-400">Series</span>
+                            <span className="text-lg font-bold text-white">{period.series}</span>
+                          </div>
+                          <div className="w-full bg-zinc-800 rounded-full h-1">
+                            <div
+                              className="bg-sky-500 h-1 rounded-full transition-all"
+                              style={{ width: period.movies + period.series > 0 ? `${(period.series / (period.movies + period.series)) * 100}%` : '0%' }}
+                            />
+                          </div>
+                          <p className="text-xs text-zinc-600 pt-0.5 border-t border-zinc-800">
+                            {period.movies + period.series} total
+                          </p>
+                          {/* Hours — show only once richStats loaded */}
+                          {period.minutes !== undefined && period.minutes > 0 && (
+                            <p className="text-[11px] text-zinc-500">
+                              {Math.floor(period.minutes / 60)}h {period.minutes % 60}min
+                            </p>
+                          )}
                         </div>
-                        <div className="w-full bg-zinc-800 rounded-full h-1">
-                          <div
-                            className="bg-emerald-500 h-1 rounded-full transition-all"
-                            style={{ width: period.movies + period.series > 0 ? `${(period.movies / (period.movies + period.series)) * 100}%` : '0%' }}
-                          />
-                        </div>
-                        <div className="flex items-center justify-between">
-                          <span className="text-xs text-zinc-400">Series</span>
-                          <span className="text-lg font-bold text-white">{period.series}</span>
-                        </div>
-                        <div className="w-full bg-zinc-800 rounded-full h-1">
-                          <div
-                            className="bg-sky-500 h-1 rounded-full transition-all"
-                            style={{ width: period.movies + period.series > 0 ? `${(period.series / (period.movies + period.series)) * 100}%` : '0%' }}
-                          />
-                        </div>
-                        <p className="text-xs text-zinc-600 pt-0.5 border-t border-zinc-800">
-                          {period.movies + period.series} total
-                        </p>
                       </div>
-                    </div>
-                  ))}
+                    ))}
+                  </div>
                 </div>
+
+                {/* ── Rich stats ──────────────────────────────────── */}
+                {richBusy && (
+                  <div className="flex items-center gap-3 text-zinc-500 text-sm py-4">
+                    <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                    Calculando estadísticas…
+                  </div>
+                )}
+
+                {!richBusy && richStats && !richStats.tooFew && (
+                  <>
+                    {/* ── Horas vistas ──────────────────────────── */}
+                    {richStats.totalMinutes > 0 && (
+                      <div>
+                        <SectionLabel>Horas vistas en total</SectionLabel>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex items-end gap-3">
+                          <span className="text-5xl font-black text-white leading-none">
+                            {Math.floor(richStats.totalMinutes / 60)}
+                            <span className="text-2xl font-bold text-emerald-400 ml-1">h</span>
+                          </span>
+                          <span className="text-2xl font-bold text-zinc-400 leading-none mb-0.5">
+                            {richStats.totalMinutes % 60}
+                            <span className="text-base font-semibold ml-1">min</span>
+                          </span>
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Géneros más vistos ────────────────────── */}
+                    {richStats.topGenres.length > 0 && (
+                      <div>
+                        <SectionLabel>Géneros más vistos</SectionLabel>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                          {richStats.topGenres.map((g, i) => {
+                            const max = richStats.topGenres[0].count
+                            const pct = Math.round((g.count / max) * 100)
+                            return (
+                              <div key={g.name}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-sm font-medium text-white">
+                                    {i === 0 && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                    {g.name}
+                                  </span>
+                                  <span className="text-xs text-zinc-500">{g.count} título{g.count !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                  <div
+                                    className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Personas favoritas ────────────────────── */}
+                    {(richStats.topActor || richStats.topActress || richStats.topDirector) && (
+                      <div>
+                        <SectionLabel>Personas favoritas</SectionLabel>
+                        <div className="space-y-3">
+                          {(
+                            [
+                              { label: 'Actor favorito',    person: richStats.topActor    },
+                              { label: 'Actriz favorita',   person: richStats.topActress  },
+                              { label: 'Director favorito', person: richStats.topDirector },
+                            ] as { label: string; person: PersonStat | null }[]
+                          ).filter(row => row.person !== null).map(({ label, person }) => (
+                            <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
+                              {/* Circular photo */}
+                              <div className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-zinc-700">
+                                {person!.profilePath ? (
+                                  // eslint-disable-next-line @next/next/no-img-element
+                                  <img
+                                    src={`https://image.tmdb.org/t/p/w185${person!.profilePath}`}
+                                    alt={person!.name}
+                                    className="w-full h-full object-cover object-top"
+                                  />
+                                ) : (
+                                  <div className="w-full h-full flex items-center justify-center text-xl font-bold text-zinc-500">
+                                    {person!.name.charAt(0).toUpperCase()}
+                                  </div>
+                                )}
+                              </div>
+                              {/* Info */}
+                              <div className="flex-1 min-w-0">
+                                <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-0.5">{label}</p>
+                                <p className="text-base font-bold text-white truncate">{person!.name}</p>
+                                <p className="text-xs text-zinc-400 mt-0.5">
+                                  Apareció en {person!.count} título{person!.count !== 1 ? 's' : ''} que viste
+                                </p>
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+                  </>
+                )}
+
+                {!richBusy && richStats?.tooFew && (
+                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
+                    <p className="text-zinc-400 text-sm">
+                      Mirá más contenido para ver tus estadísticas detalladas.
+                    </p>
+                  </div>
+                )}
+
               </div>
             )}
           </div>
