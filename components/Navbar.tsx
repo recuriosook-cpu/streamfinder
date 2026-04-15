@@ -47,6 +47,7 @@ export default function Navbar() {
   const [countrySearch, setCountrySearch] = useState('')
   const [notifOpen,    setNotifOpen]    = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
+  const [notifError,   setNotifError]   = useState<string | null>(null)
   const [notifs,       setNotifs]       = useState<NotifItem[]>([])
   const [unreadCount,  setUnreadCount]  = useState(0)
   const countryRef = useRef<HTMLDivElement>(null)
@@ -70,11 +71,12 @@ export default function Navbar() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   async function fetchUnreadCount(uid: string) {
-    const { count } = await supabase
+    const { count, error } = await supabase
       .from('notifications')
       .select('*', { count: 'exact', head: true })
       .eq('user_id', uid)
       .eq('read', false)
+    if (error) console.error('[notifications] unread count error:', error.message)
     setUnreadCount(count ?? 0)
   }
 
@@ -82,6 +84,7 @@ export default function Navbar() {
     if (!user) return
     setNotifOpen(true)
     setNotifLoading(true)
+    setNotifError(null)
     setNotifs([])
     const { data: rows, error } = await supabase
       .from('notifications')
@@ -89,7 +92,12 @@ export default function Navbar() {
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(15)
-    if (error) console.error('[notifications] fetch error:', error)
+    if (error) {
+      console.error('[notifications] fetch error:', error.message)
+      setNotifError(error.message)
+      setNotifLoading(false)
+      return
+    }
     if (!rows?.length) { setNotifLoading(false); return }
     const actorIds = [...new Set(rows.map(r => r.actor_id))]
     const { data: actors } = await supabase
@@ -279,6 +287,11 @@ export default function Navbar() {
                       {notifLoading ? (
                         <div className="flex justify-center py-8">
                           <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                        </div>
+                      ) : notifError ? (
+                        <div className="px-4 py-6 text-center">
+                          <p className="text-red-400 text-xs font-medium mb-1">Error al cargar notificaciones</p>
+                          <p className="text-zinc-600 text-[11px] font-mono break-all">{notifError}</p>
                         </div>
                       ) : notifs.length === 0 ? (
                         <p className="text-zinc-500 text-sm text-center py-8">Sin notificaciones.</p>
