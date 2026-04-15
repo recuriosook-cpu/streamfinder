@@ -97,7 +97,7 @@ export default function HomeClient() {
 
   // Fetch birthdays once on mount (country-independent)
   useEffect(() => {
-    fetch('/api/birthdays')
+    fetch('/api/birthdays-today')
       .then(r => r.json())
       .then((d: { birthdays: BirthdayPerson[] }) => setBirthdays(d.birthdays))
       .catch(() => setBirthdays([]))
