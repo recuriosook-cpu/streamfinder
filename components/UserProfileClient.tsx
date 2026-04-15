@@ -49,7 +49,14 @@ interface TmdbResult {
   title?: string; name?: string; poster_path: string | null
 }
 
-type Tab = 'perfil' | 'yavi' | 'resenas' | 'paraVer'
+type Tab = 'perfil' | 'yavi' | 'resenas' | 'paraVer' | 'stats'
+
+interface StatsData {
+  moviesMonth: number
+  seriesMonth: number
+  moviesYear: number
+  seriesYear: number
+}
 
 // ── Design helpers ─────────────────────────────────────────────────────────
 
@@ -183,6 +190,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [allReviews,       setAllReviews]       = useState<ReviewItem[]>([])
   const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
 
+  // ── Stats tab data ─────────────────────────────────────────────
+  const [statsData, setStatsData] = useState<StatsData | null>(null)
+
   // ── Inline edit ────────────────────────────────────────────────
   const [isEditing,  setIsEditing]  = useState(false)
   const [editName,   setEditName]   = useState(profile.display_name ?? '')
@@ -208,6 +218,15 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
+
+      // Log RLS errors so they're visible in browser console
+      if (followersRes.error)    console.error('[profile] follows (followers):', followersRes.error)
+      if (followingRes.error)    console.error('[profile] follows (following):', followingRes.error)
+      if (moviesRes.error)       console.error('[profile] watched movies:', moviesRes.error)
+      if (seriesRes.error)       console.error('[profile] watched series:', seriesRes.error)
+      if (recentWatchedRes.error) console.error('[profile] recent watched:', recentWatchedRes.error)
+      if (wlCountRes.error)      console.error('[profile] watchlist count:', wlCountRes.error)
+      if (wlPreviewRes.error)    console.error('[profile] watchlist preview:', wlPreviewRes.error)
 
       const uid = authRes.data.user?.id ?? null
       setCurrentUserId(uid)
@@ -258,6 +277,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .eq('user_id', profile.id).order('added_at', { ascending: false })
         .then(({ data }) => setAllWatchlist(data ?? []))
     }
+    if (activeTab === 'stats') loadStats()
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [activeTab])
 
@@ -326,16 +346,42 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     setPinned(prev => { const n = [...prev]; n[slot - 1] = null; return n })
   }
 
+  // ── Stats load ────────────────────────────────────────────────
+  async function loadStats() {
+    const now       = new Date()
+    const thisYear  = now.getFullYear()
+    const thisMonth = `${thisYear}-${String(now.getMonth() + 1).padStart(2, '0')}-01`
+
+    const [mMonth, sMonth, mYear, sYear] = await Promise.all([
+      supabase.from('watched').select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id).eq('media_type', 'movie').gte('watched_at', thisMonth),
+      supabase.from('watched').select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id).eq('media_type', 'tv').gte('watched_at', thisMonth),
+      supabase.from('watched').select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id).eq('media_type', 'movie').gte('watched_at', `${thisYear}-01-01`),
+      supabase.from('watched').select('*', { count: 'exact', head: true })
+        .eq('user_id', profile.id).eq('media_type', 'tv').gte('watched_at', `${thisYear}-01-01`),
+    ])
+
+    setStatsData({
+      moviesMonth: mMonth.count ?? 0,
+      seriesMonth: sMonth.count ?? 0,
+      moviesYear:  mYear.count  ?? 0,
+      seriesYear:  sYear.count  ?? 0,
+    })
+  }
+
   // ── Derived ────────────────────────────────────────────────────
   const isOwner     = currentUserId === profile.id
   const displayName = localProfile.display_name ?? localProfile.username ?? 'Usuario'
   const hasPinned   = pinned.some(Boolean)
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'perfil',  label: 'Perfil'   },
-    { id: 'yavi',    label: 'Ya vi'    },
-    { id: 'resenas', label: 'Reseñas'  },
-    { id: 'paraVer', label: 'Para ver' },
+    { id: 'perfil',  label: 'Perfil'        },
+    { id: 'yavi',    label: 'Ya vi'         },
+    { id: 'resenas', label: 'Reseñas'       },
+    { id: 'paraVer', label: 'Para ver'      },
+    { id: 'stats',   label: 'Estadísticas'  },
   ]
 
   // ── Render ─────────────────────────────────────────────────────
@@ -625,6 +671,57 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </div>
             </>
           )
+        )}
+
+        {/* ── ESTADÍSTICAS ── */}
+        {activeTab === 'stats' && (
+          <div className="max-w-2xl">
+            {statsData === null ? (
+              <div className="flex justify-center py-20">
+                <div className="w-7 h-7 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+              </div>
+            ) : (
+              <div className="space-y-8">
+                {/* Period breakdown */}
+                <div className="grid grid-cols-3 gap-4">
+                  {[
+                    { label: 'Este mes',  movies: statsData.moviesMonth, series: statsData.seriesMonth },
+                    { label: 'Este año',  movies: statsData.moviesYear,  series: statsData.seriesYear  },
+                    { label: 'Total',     movies: moviesWatched,         series: seriesWatched         },
+                  ].map(period => (
+                    <div key={period.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
+                      <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-3">{period.label}</p>
+                      <div className="space-y-2.5">
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-zinc-400">Películas</span>
+                          <span className="text-lg font-bold text-white">{period.movies}</span>
+                        </div>
+                        <div className="w-full bg-zinc-800 rounded-full h-1">
+                          <div
+                            className="bg-emerald-500 h-1 rounded-full transition-all"
+                            style={{ width: period.movies + period.series > 0 ? `${(period.movies / (period.movies + period.series)) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs text-zinc-400">Series</span>
+                          <span className="text-lg font-bold text-white">{period.series}</span>
+                        </div>
+                        <div className="w-full bg-zinc-800 rounded-full h-1">
+                          <div
+                            className="bg-sky-500 h-1 rounded-full transition-all"
+                            style={{ width: period.movies + period.series > 0 ? `${(period.series / (period.movies + period.series)) * 100}%` : '0%' }}
+                          />
+                        </div>
+                        <p className="text-xs text-zinc-600 pt-0.5 border-t border-zinc-800">
+                          {period.movies + period.series} total
+                        </p>
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+          </div>
         )}
       </div>
 
