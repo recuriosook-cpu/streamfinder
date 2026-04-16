@@ -5,6 +5,8 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Star } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
+import { ALL_PLATFORMS } from '@/lib/providers'
+import { useCountry } from '@/context/CountryContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -17,6 +19,8 @@ interface Params {
   yearFrom: string
   yearTo: string
   minScore: number
+  provider: number | null
+  watchRegion: string
   page: number
 }
 
@@ -32,10 +36,10 @@ interface ResultItem {
 // ── Static data ────────────────────────────────────────────────────────────
 
 const CONTENT_TYPES: { id: ContentType; label: string }[] = [
-  { id: 'movies',     label: 'Películas'   },
-  { id: 'docs',       label: 'Documentales'},
-  { id: 'series',     label: 'Series'      },
-  { id: 'miniseries', label: 'Miniseries'  },
+  { id: 'movies',     label: 'Películas'    },
+  { id: 'docs',       label: 'Documentales' },
+  { id: 'series',     label: 'Series'       },
+  { id: 'miniseries', label: 'Miniseries'   },
 ]
 
 const MOVIE_GENRES = [
@@ -59,25 +63,25 @@ const MOVIE_GENRES = [
 ]
 
 const TV_GENRES = [
-  { id: 10759, name: 'Acción y aventura'      },
-  { id: 16,    name: 'Animación'              },
-  { id: 35,    name: 'Comedia'               },
-  { id: 80,    name: 'Crimen'               },
-  { id: 18,    name: 'Drama'                },
-  { id: 10751, name: 'Familia'              },
-  { id: 10762, name: 'Infantil'             },
-  { id: 9648,  name: 'Misterio'             },
-  { id: 10764, name: 'Reality'              },
-  { id: 10765, name: 'Sci-Fi y fantasía'    },
-  { id: 53,    name: 'Thriller'             },
-  { id: 10768, name: 'Guerra y política'    },
-  { id: 37,    name: 'Western'              },
+  { id: 10759, name: 'Acción y aventura'   },
+  { id: 16,    name: 'Animación'           },
+  { id: 35,    name: 'Comedia'             },
+  { id: 80,    name: 'Crimen'             },
+  { id: 18,    name: 'Drama'              },
+  { id: 10751, name: 'Familia'            },
+  { id: 10762, name: 'Infantil'           },
+  { id: 9648,  name: 'Misterio'           },
+  { id: 10764, name: 'Reality'            },
+  { id: 10765, name: 'Sci-Fi y fantasía'  },
+  { id: 53,    name: 'Thriller'           },
+  { id: 10768, name: 'Guerra y política'  },
+  { id: 37,    name: 'Western'            },
 ]
 
 const SORT_OPTIONS = [
-  { value: 'popularity.desc',          label: 'Más populares'   },
-  { value: 'vote_average.desc',        label: 'Mejor puntuados' },
-  { value: 'primary_release_date.desc',label: 'Más recientes'   },
+  { value: 'popularity.desc',           label: 'Más populares'   },
+  { value: 'vote_average.desc',         label: 'Mejor puntuados' },
+  { value: 'primary_release_date.desc', label: 'Más recientes'   },
 ]
 
 // ── URL builder ────────────────────────────────────────────────────────────
@@ -99,9 +103,7 @@ function buildDiscoverUrl(p: Params): string {
   url.searchParams.set('sort_by', sort)
 
   // Minimum votes when sorting by rating (avoids 10/10 with 3 votes)
-  if (sort === 'vote_average.desc') {
-    url.searchParams.set('vote_count.gte', '50')
-  }
+  if (sort === 'vote_average.desc') url.searchParams.set('vote_count.gte', '50')
 
   // Min score
   if (p.minScore > 0) {
@@ -124,6 +126,12 @@ function buildDiscoverUrl(p: Params): string {
   if (p.contentType === 'series')     url.searchParams.set('with_type', '6')
   if (p.contentType === 'miniseries') url.searchParams.set('with_type', '2')
 
+  // Streaming platform filter
+  if (p.provider !== null) {
+    url.searchParams.set('with_watch_providers', String(p.provider))
+    url.searchParams.set('watch_region', p.watchRegion)
+  }
+
   return url.toString()
 }
 
@@ -135,26 +143,38 @@ interface Props {
 }
 
 export default function QueVerClient({ initialGenre, initialType }: Props) {
+  const { country } = useCountry()
+
   const [params, setParams] = useState<Params>({
     contentType: initialType ?? 'movies',
-    genres: initialGenre ? [initialGenre] : [],
-    sortBy: 'popularity.desc',
-    yearFrom: '',
-    yearTo: '',
-    minScore: 0,
-    page: 1,
+    genres:      initialGenre ? [initialGenre] : [],
+    sortBy:      'popularity.desc',
+    yearFrom:    '',
+    yearTo:      '',
+    minScore:    0,
+    provider:    null,
+    watchRegion: country,
+    page:        1,
   })
-  const [items, setItems] = useState<ResultItem[]>([])
+
+  const [items,   setItems]   = useState<ResultItem[]>([])
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
-  const [total, setTotal] = useState(0)
+  const [total,   setTotal]   = useState(0)
+  // Track logo errors so we fall back to colored tile
+  const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef  = useRef(false)
   const hasMoreRef  = useRef(true)
 
-  useEffect(() => { loadingRef.current = loading },  [loading])
-  useEffect(() => { hasMoreRef.current = hasMore },  [hasMore])
+  useEffect(() => { loadingRef.current = loading }, [loading])
+  useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
+
+  // Keep watchRegion in sync with selected country
+  useEffect(() => {
+    setParams(p => p.watchRegion === country ? p : { ...p, watchRegion: country, page: 1 })
+  }, [country])
 
   // Fetch whenever params change
   useEffect(() => {
@@ -215,9 +235,16 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
         : [...params.genres, id],
     })
 
+  const toggleProvider = (id: number) =>
+    updateFilter({ provider: params.provider === id ? null : id })
+
   const genreList = (params.contentType === 'series' || params.contentType === 'miniseries')
     ? TV_GENRES
     : MOVIE_GENRES
+
+  const hasActiveFilters =
+    params.genres.length > 0 || params.yearFrom || params.yearTo ||
+    params.minScore > 0 || params.provider !== null
 
   return (
     <div className="min-h-screen">
@@ -240,6 +267,43 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 {ct.label}
               </button>
             ))}
+          </div>
+
+          {/* Platform strip */}
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-0.5">
+            {ALL_PLATFORMS.map(p => {
+              const selected  = params.provider === p.id
+              const showLogo  = !!p.fallbackLogoPath && !logoErrors.has(p.id)
+              return (
+                <button
+                  key={p.id}
+                  onClick={() => toggleProvider(p.id)}
+                  title={p.name}
+                  className={`shrink-0 w-11 h-11 rounded-xl overflow-hidden transition-all duration-150 ${
+                    selected
+                      ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-zinc-900 scale-105'
+                      : 'opacity-70 hover:opacity-100 hover:scale-105'
+                  }`}
+                >
+                  {showLogo ? (
+                    // eslint-disable-next-line @next/next/no-img-element
+                    <img
+                      src={`https://image.tmdb.org/t/p/original${p.fallbackLogoPath}`}
+                      alt={p.name}
+                      className="w-full h-full object-cover"
+                      onError={() => setLogoErrors(prev => new Set(prev).add(p.id))}
+                    />
+                  ) : (
+                    <div
+                      className="w-full h-full flex items-center justify-center text-white font-bold text-[9px] text-center px-0.5 leading-tight"
+                      style={{ backgroundColor: p.color }}
+                    >
+                      {p.name}
+                    </div>
+                  )}
+                </button>
+              )
+            })}
           </div>
 
           {/* Genre chips */}
@@ -309,9 +373,11 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             </div>
 
             {/* Reset */}
-            {(params.genres.length > 0 || params.yearFrom || params.yearTo || params.minScore > 0) && (
+            {hasActiveFilters && (
               <button
-                onClick={() => updateFilter({ genres: [], yearFrom: '', yearTo: '', minScore: 0 })}
+                onClick={() => updateFilter({
+                  genres: [], yearFrom: '', yearTo: '', minScore: 0, provider: null,
+                })}
                 className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline"
               >
                 Limpiar filtros
