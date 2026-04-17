@@ -1,4 +1,6 @@
 export const CELEBRITY_BIRTHDAYS = [
+  { id: 9278, name: 'Jennifer Garner', birthday: '1972-04-17', popularity: 80 },
+  { id: 47983, name: 'Victoria Beckham', birthday: '1974-04-17', popularity: 75 },
   { id: 1397778, name: 'Anya Taylor-Joy', birthday: '1996-04-16', popularity: 93 },
   { id: 1590797, name: 'Sadie Sink', birthday: '2002-04-16', popularity: 85 },
   { id: 78029, name: 'Martin Lawrence', birthday: '1965-04-16', popularity: 78 },
