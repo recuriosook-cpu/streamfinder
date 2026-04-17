@@ -3,12 +3,20 @@
 import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, Heart, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
 import type { User } from '@supabase/supabase-js'
+
+const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+
+interface SearchResult {
+  movies: Array<{ id: number; title: string; poster_path: string | null; release_date?: string }>
+  tv:     Array<{ id: number; name:  string; poster_path: string | null; first_air_date?: string }>
+  people: Array<{ id: number; name:  string; profile_path: string | null; known_for_department: string | null }>
+}
 
 function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
   return (
@@ -45,6 +53,11 @@ interface NotifItem {
 export default function Navbar() {
   const [user, setUser] = useState<User | null>(null)
   const [query, setQuery] = useState('')
+  const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
+  const [searchOpen, setSearchOpen] = useState(false)
+  const [searchLoading, setSearchLoading] = useState(false)
+  const searchRef = useRef<HTMLDivElement>(null)
+  const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
@@ -184,11 +197,58 @@ export default function Navbar() {
     }
   }, [countryOpen])
 
+  // Close search dropdown when clicking outside
+  useEffect(() => {
+    if (!searchOpen) return
+    const handler = (e: MouseEvent) => {
+      if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
+        setSearchOpen(false)
+      }
+    }
+    document.addEventListener('mousedown', handler)
+    return () => document.removeEventListener('mousedown', handler)
+  }, [searchOpen])
+
+  const fetchSuggestions = useCallback(async (q: string) => {
+    if (!q.trim()) { setSearchResults(null); setSearchOpen(false); return }
+    setSearchLoading(true)
+    const base = 'https://api.themoviedb.org/3'
+    const params = `api_key=${TMDB_KEY}&language=es-AR&query=${encodeURIComponent(q)}&page=1`
+    try {
+      const [moviesRes, tvRes, peopleRes] = await Promise.all([
+        fetch(`${base}/search/movie?${params}`).then(r => r.ok ? r.json() : { results: [] }),
+        fetch(`${base}/search/tv?${params}`).then(r => r.ok ? r.json() : { results: [] }),
+        fetch(`${base}/search/person?${params}`).then(r => r.ok ? r.json() : { results: [] }),
+      ])
+      setSearchResults({
+        movies: (moviesRes.results ?? []).slice(0, 5),
+        tv:     (tvRes.results     ?? []).slice(0, 5),
+        people: (peopleRes.results ?? []).slice(0, 5),
+      })
+      setSearchOpen(true)
+    } catch {
+      setSearchResults(null)
+    } finally {
+      setSearchLoading(false)
+    }
+  }, [])
+
+  const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const val = e.target.value
+    setQuery(val)
+    if (debounceRef.current) clearTimeout(debounceRef.current)
+    if (!val.trim()) { setSearchResults(null); setSearchOpen(false); return }
+    debounceRef.current = setTimeout(() => fetchSuggestions(val), 300)
+  }
+
+  const closeSearch = () => { setSearchOpen(false); setSearchResults(null) }
+
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
       router.push(`/search?q=${encodeURIComponent(query.trim())}`)
       setQuery('')
+      closeSearch()
       setMenuOpen(false)
     }
   }
@@ -217,15 +277,154 @@ export default function Navbar() {
           StreamFinder
         </Link>
 
-        <form onSubmit={handleSearch} className="flex-1 flex items-center bg-zinc-800 rounded-lg px-3 py-2 gap-2">
-          <Search size={16} className="text-zinc-400 shrink-0" />
-          <input
-            value={query}
-            onChange={e => setQuery(e.target.value)}
-            placeholder="Buscar películas y series..."
-            className="bg-transparent text-sm outline-none text-white placeholder-zinc-500 flex-1 min-w-0"
-          />
-        </form>
+        {/* Search box + live dropdown */}
+        <div className="flex-1 relative" ref={searchRef}>
+          <form onSubmit={handleSearch} className="flex items-center bg-zinc-800 rounded-lg px-3 py-2 gap-2">
+            <Search size={16} className="text-zinc-400 shrink-0" />
+            <input
+              value={query}
+              onChange={handleQueryChange}
+              onFocus={() => { if (searchResults) setSearchOpen(true) }}
+              placeholder="Buscar películas, series y personas..."
+              className="bg-transparent text-sm outline-none text-white placeholder-zinc-500 flex-1 min-w-0"
+            />
+            {searchLoading && (
+              <div className="w-3.5 h-3.5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin shrink-0" />
+            )}
+          </form>
+
+          {/* Dropdown */}
+          {searchOpen && searchResults && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+
+              {/* ── People ──────────────────────────────────── */}
+              {searchResults.people.length > 0 && (
+                <div>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Personas</p>
+                  {searchResults.people.map(p => (
+                    <Link
+                      key={p.id}
+                      href={`/actor/${p.id}`}
+                      onClick={closeSearch}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+                        {p.profile_path ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`https://image.tmdb.org/t/p/w45${p.profile_path}`}
+                            alt={p.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
+                            {p.name.charAt(0).toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{p.name}</p>
+                        {p.known_for_department && (
+                          <p className="text-xs text-zinc-500 truncate">{p.known_for_department}</p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* ── Movies ──────────────────────────────────── */}
+              {searchResults.movies.length > 0 && (
+                <div>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Películas</p>
+                  {searchResults.movies.map(m => (
+                    <Link
+                      key={m.id}
+                      href={`/movie/${m.id}`}
+                      onClick={closeSearch}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
+                        {m.poster_path ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`https://image.tmdb.org/t/p/w45${m.poster_path}`}
+                            alt={m.title}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                            <Search size={12} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{m.title}</p>
+                        {m.release_date && (
+                          <p className="text-xs text-zinc-500">{m.release_date.slice(0, 4)}</p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* ── TV ──────────────────────────────────────── */}
+              {searchResults.tv.length > 0 && (
+                <div>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Series</p>
+                  {searchResults.tv.map(t => (
+                    <Link
+                      key={t.id}
+                      href={`/tv/${t.id}`}
+                      onClick={closeSearch}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
+                        {t.poster_path ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={`https://image.tmdb.org/t/p/w45${t.poster_path}`}
+                            alt={t.name}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-600">
+                            <Search size={12} />
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{t.name}</p>
+                        {t.first_air_date && (
+                          <p className="text-xs text-zinc-500">{t.first_air_date.slice(0, 4)}</p>
+                        )}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
+
+              {/* No results */}
+              {searchResults.movies.length === 0 && searchResults.tv.length === 0 && searchResults.people.length === 0 && (
+                <p className="text-zinc-500 text-sm text-center py-6">Sin resultados</p>
+              )}
+
+              {/* Ver todos los resultados */}
+              <div className="border-t border-zinc-700/50 px-4 py-2.5">
+                <button
+                  onClick={() => {
+                    router.push(`/search?q=${encodeURIComponent(query.trim())}`)
+                    closeSearch()
+                  }}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors w-full text-center"
+                >
+                  Ver todos los resultados →
+                </button>
+              </div>
+            </div>
+          )}
+        </div>
 
         {/* Country selector */}
         <div className="relative shrink-0" ref={countryRef}>
