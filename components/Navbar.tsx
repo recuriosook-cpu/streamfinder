@@ -16,6 +16,7 @@ interface SearchResult {
   movies: Array<{ id: number; title: string; poster_path: string | null; release_date?: string }>
   tv:     Array<{ id: number; name:  string; poster_path: string | null; first_air_date?: string }>
   people: Array<{ id: number; name:  string; profile_path: string | null; known_for_department: string | null }>
+  users:  Array<{ id: string; username: string | null; display_name: string | null; avatar_url: string | null }>
 }
 
 function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
@@ -215,15 +216,21 @@ export default function Navbar() {
     const base = 'https://api.themoviedb.org/3'
     const params = `api_key=${TMDB_KEY}&language=es-AR&query=${encodeURIComponent(q)}&page=1`
     try {
-      const [moviesRes, tvRes, peopleRes] = await Promise.all([
+      const [moviesRes, tvRes, peopleRes, usersRes] = await Promise.all([
         fetch(`${base}/search/movie?${params}`).then(r => r.ok ? r.json() : { results: [] }),
         fetch(`${base}/search/tv?${params}`).then(r => r.ok ? r.json() : { results: [] }),
         fetch(`${base}/search/person?${params}`).then(r => r.ok ? r.json() : { results: [] }),
+        supabase
+          .from('profiles')
+          .select('id, username, display_name, avatar_url')
+          .or(`username.ilike.%${q.trim()}%,display_name.ilike.%${q.trim()}%`)
+          .limit(3),
       ])
       setSearchResults({
         movies: (moviesRes.results ?? []).slice(0, 5),
         tv:     (tvRes.results     ?? []).slice(0, 5),
         people: (peopleRes.results ?? []).slice(0, 5),
+        users:  (usersRes.data     ?? []),
       })
       setSearchOpen(true)
     } catch {
@@ -231,7 +238,7 @@ export default function Navbar() {
     } finally {
       setSearchLoading(false)
     }
-  }, [])
+  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
@@ -285,7 +292,7 @@ export default function Navbar() {
               value={query}
               onChange={handleQueryChange}
               onFocus={() => { if (searchResults) setSearchOpen(true) }}
-              placeholder="Buscar películas, series y personas..."
+              placeholder="Buscar películas, series, personas y usuarios..."
               className="bg-transparent text-sm outline-none text-white placeholder-zinc-500 flex-1 min-w-0"
             />
             {searchLoading && (
@@ -296,6 +303,40 @@ export default function Navbar() {
           {/* Dropdown */}
           {searchOpen && searchResults && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+
+              {/* ── Users ───────────────────────────────────── */}
+              {searchResults.users.length > 0 && (
+                <div>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Usuarios</p>
+                  {searchResults.users.map(u => (
+                    <Link
+                      key={u.id}
+                      href={`/usuario/${u.username}`}
+                      onClick={closeSearch}
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                    >
+                      <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+                        {u.avatar_url ? (
+                          // eslint-disable-next-line @next/next/no-img-element
+                          <img
+                            src={u.avatar_url}
+                            alt={u.display_name ?? u.username ?? ''}
+                            className="w-full h-full object-cover"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
+                            {(u.display_name ?? u.username ?? '?')[0]?.toUpperCase()}
+                          </div>
+                        )}
+                      </div>
+                      <div className="min-w-0">
+                        <p className="text-sm text-white truncate">{u.display_name ?? u.username}</p>
+                        {u.username && <p className="text-xs text-zinc-500 truncate">@{u.username}</p>}
+                      </div>
+                    </Link>
+                  ))}
+                </div>
+              )}
 
               {/* ── People ──────────────────────────────────── */}
               {searchResults.people.length > 0 && (
@@ -406,7 +447,7 @@ export default function Navbar() {
               )}
 
               {/* No results */}
-              {searchResults.movies.length === 0 && searchResults.tv.length === 0 && searchResults.people.length === 0 && (
+              {searchResults.movies.length === 0 && searchResults.tv.length === 0 && searchResults.people.length === 0 && searchResults.users.length === 0 && (
                 <p className="text-zinc-500 text-sm text-center py-6">Sin resultados</p>
               )}
 
