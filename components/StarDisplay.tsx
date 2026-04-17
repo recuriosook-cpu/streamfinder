@@ -1,6 +1,8 @@
 import { Star } from 'lucide-react'
 
-// Exported so interactive components (RatingStars, ReviewsSection) can reuse it
+// Exported so interactive components (RatingStars, ReviewsSection) can reuse it.
+// All three states wrap in the same inline-flex span so they have identical
+// dimensions and flex-alignment behaviour when placed in a flex row.
 export function StarIcon({
   fill,
   size,
@@ -11,22 +13,32 @@ export function StarIcon({
   color?: string
 }) {
   if (fill === 'full') {
-    return <Star size={size} className={color} fill="currentColor" strokeWidth={0} />
+    return (
+      <span style={{ display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
+        <Star size={size} className={color} fill="currentColor" strokeWidth={0} />
+      </span>
+    )
   }
+
   if (fill === 'half') {
     return (
-      <span className="relative inline-flex" style={{ width: size, height: size }}>
+      <span style={{ position: 'relative', display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
+        {/* grey empty star underneath */}
         <Star size={size} className="text-zinc-600" fill="none" strokeWidth={1.5} />
-        <span
-          className="absolute inset-y-0 left-0 overflow-hidden"
-          style={{ width: '50%' }}
-        >
-          <Star size={size} className={color} fill="currentColor" strokeWidth={0} />
+        {/* yellow filled star clipped to left half */}
+        <span style={{ position: 'absolute', top: 0, left: 0, width: '50%', height: '100%', overflow: 'hidden', display: 'flex' }}>
+          <Star size={size} className={color} fill="currentColor" strokeWidth={0} style={{ flexShrink: 0 }} />
         </span>
       </span>
     )
   }
-  return <Star size={size} className="text-zinc-600" fill="none" strokeWidth={1.5} />
+
+  // empty
+  return (
+    <span style={{ display: 'inline-flex', width: size, height: size, flexShrink: 0 }}>
+      <Star size={size} className="text-zinc-600" fill="none" strokeWidth={1.5} />
+    </span>
+  )
 }
 
 interface Props {

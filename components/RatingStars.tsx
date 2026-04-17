@@ -75,6 +75,7 @@ export default function RatingStars({
         title,
         poster_path: posterPath,
         rating:      newValue,
+        rated_at:    new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
     }
     setRating(newValue)
