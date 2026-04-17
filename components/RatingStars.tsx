@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect } from 'react'
+import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { StarIcon } from '@/components/StarDisplay'
@@ -24,51 +24,59 @@ export default function RatingStars({
   initialRating,
   onChange,
 }: Props) {
+  const supabase = useRef(createClient()).current
+  const router   = useRouter()
+
   const [rating,  setRating]  = useState(initialRating ?? 0)
   const [hover,   setHover]   = useState(0)
   const [userId,  setUserId]  = useState<string | null>(null)
-  const [loading, setLoading] = useState(!initialRating)
-  const router   = useRouter()
-  const supabase = createClient()
+  const [loading, setLoading] = useState(true)
 
+  // Single init effect: always fetch userId; fetch stored rating only when
+  // no initialRating is provided (i.e. on movie/tv detail pages).
   useEffect(() => {
-    if (initialRating !== undefined) return
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
+      const { data: { user }, error: authErr } = await supabase.auth.getUser()
+      if (authErr) console.error('[RatingStars] auth.getUser:', authErr)
       if (!user) { setLoading(false); return }
+
       setUserId(user.id)
-      const { data } = await supabase
+
+      if (initialRating !== undefined) {
+        // Parent already supplied the value — just capture the userId and stop.
+        setRating(initialRating)
+        setLoading(false)
+        return
+      }
+
+      // Fetch the existing rating from the DB
+      const { data, error } = await supabase
         .from('ratings')
         .select('rating')
         .eq('user_id', user.id)
         .eq('media_id', mediaId)
         .eq('media_type', mediaType)
         .maybeSingle()
+
+      if (error) console.error('[RatingStars] fetch rating:', error)
       if (data) setRating(data.rating)
       setLoading(false)
     }
     init()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [mediaId, mediaType, initialRating])
-
-  useEffect(() => {
-    if (initialRating === undefined) return
-    supabase.auth.getUser().then(({ data: { user } }) => {
-      setUserId(user?.id ?? null)
-      setLoading(false)
-    })
-  // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [initialRating])
+  }, [mediaId, mediaType])
 
   const handleRate = async (value: number) => {
     if (!userId) { router.push('/auth'); return }
     const newValue = value === rating ? 0 : value
     setLoading(true)
+
     if (newValue === 0) {
-      await supabase.from('ratings').delete()
+      const { error } = await supabase.from('ratings').delete()
         .eq('user_id', userId).eq('media_id', mediaId).eq('media_type', mediaType)
+      if (error) console.error('[RatingStars] delete rating:', error)
     } else {
-      await supabase.from('ratings').upsert({
+      const { error } = await supabase.from('ratings').upsert({
         user_id:    userId,
         media_id:   mediaId,
         media_type: mediaType,
@@ -77,7 +85,9 @@ export default function RatingStars({
         rating:      newValue,
         rated_at:    new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
+      if (error) console.error('[RatingStars] upsert rating:', error)
     }
+
     setRating(newValue)
     onChange?.(newValue)
     setLoading(false)

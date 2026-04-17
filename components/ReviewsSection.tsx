@@ -118,12 +118,22 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       rating:      formRating,
       body:        formBody.trim() || null,
       recommended: formRecommended,
+      created_at:  new Date().toISOString(),
     }
+
+    let error
     if (editingId) {
-      await supabase.from('reviews').update(payload).eq('id', editingId)
+      ;({ error } = await supabase.from('reviews').update(payload).eq('id', editingId))
     } else {
-      await supabase.from('reviews').upsert(payload, { onConflict: 'user_id,media_id,media_type' })
+      ;({ error } = await supabase.from('reviews').upsert(payload, { onConflict: 'user_id,media_id,media_type' }))
     }
+
+    if (error) {
+      console.error('[submitReview]', error)
+      setSubmitting(false)
+      return
+    }
+
     setShowForm(false)
     setEditingId(null)
     await loadReviews()
