@@ -95,5 +95,4 @@ export const CELEBRITY_BIRTHDAYS = [
   { id: 172069, name: 'Chadwick Boseman', birthday: '1976-11-29', popularity: 88 },
   { id: 2157, name: 'Robin Williams', birthday: '1951-07-21', popularity: 90 },
   { id: 3149, name: 'Marilyn Monroe', birthday: '1926-06-01', popularity: 90 },
-  { id: 9278, name: 'Jennifer Garner', birthday: '1972-04-17', popularity: 80 },
 ]
