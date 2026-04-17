@@ -34,16 +34,9 @@ function VerifiedBadge() {
 function InstagramIcon() {
   return (
     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
-      <defs>
-        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
-          <stop offset="0%" stopColor="#F58529"/>
-          <stop offset="50%" stopColor="#DD2A7B"/>
-          <stop offset="100%" stopColor="#8134AF"/>
-        </linearGradient>
-      </defs>
-      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="url(#ig-grad)" strokeWidth="2" fill="none"/>
-      <circle cx="12" cy="12" r="4" stroke="url(#ig-grad)" strokeWidth="2" fill="none"/>
-      <circle cx="17.5" cy="6.5" r="1" fill="url(#ig-grad)"/>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="4" stroke="currentColor" strokeWidth="2" fill="none"/>
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor"/>
     </svg>
   )
 }
@@ -75,6 +68,7 @@ export interface PublicProfile {
   instagram_username?: string | null
   tiktok_username?: string | null
   x_username?: string | null
+  username_changed_at?: string | null
 }
 
 interface PinnedSlot {
@@ -198,6 +192,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const supabase      = useRef(createClient()).current
   const loadedTabs    = useRef<Set<Tab>>(new Set(['perfil']))
   const debounceTimer = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const fileInputRef  = useRef<HTMLInputElement>(null)
 
   // ── Local profile state (updates after inline edit) ────────────
   const [localProfile, setLocalProfile] = useState(profile)
@@ -248,6 +243,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [usernameError,    setUsernameError]    = useState<string | null>(null)
   const [usernameChecking, setUsernameChecking] = useState(false)
   const [editSaving,       setEditSaving]       = useState(false)
+  const [avatarFile,       setAvatarFile]       = useState<File | null>(null)
+  const [avatarPreview,    setAvatarPreview]    = useState<string | null>(null)
 
   // ── Follow list modal ──────────────────────────────────────────
   const [followListMode,    setFollowListMode]    = useState<'followers' | 'following' | null>(null)
@@ -386,6 +383,15 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setUsernameError('Solo letras, números y guión bajo (3-30 caracteres)')
       return
     }
+    // Rate limit: once per 30 days
+    if (profile.username_changed_at) {
+      const nextAvailable = new Date(new Date(profile.username_changed_at).getTime() + 30 * 24 * 60 * 60 * 1000)
+      if (new Date() < nextAvailable) {
+        const formatted = nextAvailable.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })
+        setUsernameError(`Solo podés cambiar tu @ una vez por mes. Próximo cambio disponible el ${formatted}`)
+        return
+      }
+    }
     setUsernameChecking(true)
     const { data } = await supabase
       .from('profiles')
@@ -408,7 +414,27 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     const instagram_username = editInstagram.replace(/^@/, '').trim() || null
     const tiktok_username    = editTiktok.replace(/^@/, '').trim()    || null
     const x_username         = editX.replace(/^@/, '').trim()         || null
+    const usernameChanged    = newUsername !== profile.username
 
+    // Avatar upload — separate call as per spec
+    let newAvatarUrl = localProfile.avatar_url
+    if (avatarFile) {
+      const extension = avatarFile.name.split('.').pop() ?? 'jpg'
+      const { error } = await supabase.storage
+        .from('avatars')
+        .upload(`${currentUserId}/avatar.${extension}`, avatarFile, { upsert: true })
+      if (error) {
+        console.error('[avatar upload]', error)
+      } else {
+        const { data: { publicUrl } } = supabase.storage
+          .from('avatars')
+          .getPublicUrl(`${currentUserId}/avatar.${extension}`)
+        newAvatarUrl = publicUrl + '?t=' + Date.now()
+        await supabase.from('profiles').update({ avatar_url: newAvatarUrl }).eq('id', profile.id)
+      }
+    }
+
+    // Main profile update
     await supabase.from('profiles').update({
       display_name,
       bio,
@@ -416,6 +442,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       instagram_username,
       tiktok_username,
       x_username,
+      ...(usernameChanged ? { username_changed_at: new Date().toISOString() } : {}),
     }).eq('id', profile.id)
 
     setLocalProfile(p => ({
@@ -426,7 +453,10 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       instagram_username,
       tiktok_username,
       x_username,
+      avatar_url: newAvatarUrl,
     }))
+    setAvatarFile(null)
+    setAvatarPreview(null)
     setEditSaving(false)
     setIsEditing(false)
   }
@@ -712,6 +742,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     setEditTiktok(localProfile.tiktok_username ?? '')
                     setEditX(localProfile.x_username ?? '')
                     setUsernameError(null)
+                    setAvatarFile(null)
+                    setAvatarPreview(null)
                     setIsEditing(true)
                   }}
                   className="inline-flex items-center gap-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
@@ -1272,6 +1304,50 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </button>
             </div>
             <div className="px-5 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+
+              {/* Avatar */}
+              <div className="flex flex-col items-center gap-2 pb-1">
+                <div className="w-20 h-20 rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-600 shrink-0">
+                  {(avatarPreview ?? localProfile.avatar_url) ? (
+                    <Image
+                      src={avatarPreview ?? localProfile.avatar_url!}
+                      alt="avatar"
+                      width={80}
+                      height={80}
+                      className="w-full h-full object-cover"
+                      unoptimized
+                    />
+                  ) : (
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-500">
+                      {displayName[0]?.toUpperCase()}
+                    </div>
+                  )}
+                </div>
+                <button
+                  type="button"
+                  onClick={() => fileInputRef.current?.click()}
+                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                >
+                  Cambiar foto
+                </button>
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  accept="image/*"
+                  className="hidden"
+                  onChange={e => {
+                    const file = e.target.files?.[0]
+                    if (!file) return
+                    if (file.size > 5 * 1024 * 1024) {
+                      alert('La imagen no puede superar los 5 MB')
+                      return
+                    }
+                    setAvatarFile(file)
+                    setAvatarPreview(URL.createObjectURL(file))
+                  }}
+                />
+              </div>
+
               {/* Username */}
               <div>
                 <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
@@ -1334,7 +1410,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {/* Instagram */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0"><InstagramIcon /></span>
+                    <span className="shrink-0 text-zinc-400"><InstagramIcon /></span>
                     <input
                       value={editInstagram}
                       onChange={e => setEditInstagram(e.target.value)}
@@ -1346,7 +1422,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
                   {/* TikTok */}
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-white"><TikTokIcon /></span>
+                    <span className="shrink-0 text-zinc-400"><TikTokIcon /></span>
                     <input
                       value={editTiktok}
                       onChange={e => setEditTiktok(e.target.value)}
@@ -1358,7 +1434,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
                   {/* X */}
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-white"><XIcon /></span>
+                    <span className="shrink-0 text-zinc-400"><XIcon /></span>
                     <input
                       value={editX}
                       onChange={e => setEditX(e.target.value)}
