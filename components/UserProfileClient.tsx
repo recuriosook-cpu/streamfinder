@@ -12,6 +12,58 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import ReviewCard from '@/components/ReviewCard'
 
+// ── Constants ──────────────────────────────────────────────────────────────
+
+const VERIFIED_USERS = ['Ferlageok']
+
+// ── Verified badge ─────────────────────────────────────────────────────────
+
+function VerifiedBadge() {
+  return (
+    <span title="Cuenta verificada" className="inline-flex shrink-0 cursor-default">
+      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
+        <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
+        <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+      </svg>
+    </span>
+  )
+}
+
+// ── Social icons ───────────────────────────────────────────────────────────
+
+function InstagramIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <defs>
+        <linearGradient id="ig-grad" x1="0%" y1="100%" x2="100%" y2="0%">
+          <stop offset="0%" stopColor="#F58529"/>
+          <stop offset="50%" stopColor="#DD2A7B"/>
+          <stop offset="100%" stopColor="#8134AF"/>
+        </linearGradient>
+      </defs>
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5" stroke="url(#ig-grad)" strokeWidth="2" fill="none"/>
+      <circle cx="12" cy="12" r="4" stroke="url(#ig-grad)" strokeWidth="2" fill="none"/>
+      <circle cx="17.5" cy="6.5" r="1" fill="url(#ig-grad)"/>
+    </svg>
+  )
+}
+
+function TikTokIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="none" xmlns="http://www.w3.org/2000/svg">
+      <path d="M19.59 6.69a4.83 4.83 0 0 1-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 0 1-2.88 2.5 2.89 2.89 0 0 1-2.89-2.89 2.89 2.89 0 0 1 2.89-2.89c.28 0 .54.04.79.1V9.01a6.35 6.35 0 0 0-.79-.05 6.34 6.34 0 0 0-6.34 6.34 6.34 6.34 0 0 0 6.34 6.34 6.34 6.34 0 0 0 6.33-6.34V9.02a8.28 8.28 0 0 0 4.84 1.54V7.12a4.85 4.85 0 0 1-1.07-.43z" fill="currentColor"/>
+    </svg>
+  )
+}
+
+function XIcon() {
+  return (
+    <svg width="20" height="20" viewBox="0 0 24 24" fill="currentColor" xmlns="http://www.w3.org/2000/svg">
+      <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.261 5.635L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z"/>
+    </svg>
+  )
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 export interface PublicProfile {
@@ -20,6 +72,9 @@ export interface PublicProfile {
   display_name: string | null
   bio: string | null
   avatar_url: string | null
+  instagram_username?: string | null
+  tiktok_username?: string | null
+  x_username?: string | null
 }
 
 interface PinnedSlot {
@@ -183,10 +238,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [richBusy,   setRichBusy]   = useState(false)
 
   // ── Inline edit ────────────────────────────────────────────────
-  const [isEditing,  setIsEditing]  = useState(false)
-  const [editName,   setEditName]   = useState(profile.display_name ?? '')
-  const [editBio,    setEditBio]    = useState(profile.bio ?? '')
-  const [editSaving, setEditSaving] = useState(false)
+  const [isEditing,        setIsEditing]        = useState(false)
+  const [editName,         setEditName]         = useState(profile.display_name ?? '')
+  const [editBio,          setEditBio]          = useState(profile.bio ?? '')
+  const [editUsername,     setEditUsername]     = useState(profile.username ?? '')
+  const [editInstagram,    setEditInstagram]    = useState(profile.instagram_username ?? '')
+  const [editTiktok,       setEditTiktok]       = useState(profile.tiktok_username ?? '')
+  const [editX,            setEditX]            = useState(profile.x_username ?? '')
+  const [usernameError,    setUsernameError]    = useState<string | null>(null)
+  const [usernameChecking, setUsernameChecking] = useState(false)
+  const [editSaving,       setEditSaving]       = useState(false)
 
   // ── Follow list modal ──────────────────────────────────────────
   const [followListMode,    setFollowListMode]    = useState<'followers' | 'following' | null>(null)
@@ -318,13 +379,54 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   }
 
   // ── Inline profile edit ────────────────────────────────────────
+  async function checkUsername(val: string) {
+    const trimmed = val.trim()
+    if (!trimmed || trimmed === profile.username) { setUsernameError(null); return }
+    if (!/^[a-zA-Z0-9_]{3,30}$/.test(trimmed)) {
+      setUsernameError('Solo letras, números y guión bajo (3-30 caracteres)')
+      return
+    }
+    setUsernameChecking(true)
+    const { data } = await supabase
+      .from('profiles')
+      .select('id')
+      .eq('username', trimmed)
+      .neq('id', profile.id)
+      .maybeSingle()
+    setUsernameChecking(false)
+    setUsernameError(data ? 'Este nombre de usuario ya está en uso' : null)
+  }
+
   async function saveProfile() {
     if (!currentUserId || currentUserId !== profile.id || editSaving) return
+    if (usernameError) return
     setEditSaving(true)
-    const display_name = editName.trim() || null
-    const bio          = editBio.trim()  || null
-    await supabase.from('profiles').update({ display_name, bio }).eq('id', profile.id)
-    setLocalProfile(p => ({ ...p, display_name, bio }))
+
+    const newUsername  = editUsername.trim() || profile.username
+    const display_name = editName.trim()     || null
+    const bio          = editBio.trim()      || null
+    const instagram_username = editInstagram.replace(/^@/, '').trim() || null
+    const tiktok_username    = editTiktok.replace(/^@/, '').trim()    || null
+    const x_username         = editX.replace(/^@/, '').trim()         || null
+
+    await supabase.from('profiles').update({
+      display_name,
+      bio,
+      username: newUsername,
+      instagram_username,
+      tiktok_username,
+      x_username,
+    }).eq('id', profile.id)
+
+    setLocalProfile(p => ({
+      ...p,
+      display_name,
+      bio,
+      username: newUsername,
+      instagram_username,
+      tiktok_username,
+      x_username,
+    }))
     setEditSaving(false)
     setIsEditing(false)
   }
@@ -517,8 +619,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             <div className="flex-1 min-w-0 text-center sm:text-left">
 
               {/* Name + badge row */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mb-1">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
+                {localProfile.username && VERIFIED_USERS.includes(localProfile.username) && (
+                  <VerifiedBadge />
+                )}
                 {followsMe && (
                   <span className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-400 px-2.5 py-1 rounded-full">
                     Te sigue
@@ -530,6 +635,45 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
               {localProfile.bio && (
                 <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-4">{localProfile.bio}</p>
+              )}
+
+              {/* Social links */}
+              {(localProfile.instagram_username || localProfile.tiktok_username || localProfile.x_username) && (
+                <div className="flex items-center justify-center sm:justify-start gap-3 mb-4">
+                  {localProfile.instagram_username && (
+                    <a
+                      href={`https://instagram.com/${localProfile.instagram_username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`@${localProfile.instagram_username} en Instagram`}
+                      className="text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <InstagramIcon />
+                    </a>
+                  )}
+                  {localProfile.tiktok_username && (
+                    <a
+                      href={`https://tiktok.com/@${localProfile.tiktok_username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`@${localProfile.tiktok_username} en TikTok`}
+                      className="text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <TikTokIcon />
+                    </a>
+                  )}
+                  {localProfile.x_username && (
+                    <a
+                      href={`https://x.com/${localProfile.x_username}`}
+                      target="_blank"
+                      rel="noopener noreferrer"
+                      title={`@${localProfile.x_username} en X`}
+                      className="text-zinc-400 hover:text-white transition-colors"
+                    >
+                      <XIcon />
+                    </a>
+                  )}
+                </div>
               )}
 
               {/* Stats */}
@@ -560,7 +704,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Action button */}
               {currentUserId === undefined ? null : isOwner ? (
                 <button
-                  onClick={() => { setEditName(localProfile.display_name ?? ''); setEditBio(localProfile.bio ?? ''); setIsEditing(true) }}
+                  onClick={() => {
+                    setEditName(localProfile.display_name ?? '')
+                    setEditBio(localProfile.bio ?? '')
+                    setEditUsername(localProfile.username ?? '')
+                    setEditInstagram(localProfile.instagram_username ?? '')
+                    setEditTiktok(localProfile.tiktok_username ?? '')
+                    setEditX(localProfile.x_username ?? '')
+                    setUsernameError(null)
+                    setIsEditing(true)
+                  }}
                   className="inline-flex items-center gap-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   <Pencil size={13} /> Editar perfil
@@ -1118,7 +1271,33 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 <X size={18} />
               </button>
             </div>
-            <div className="px-5 py-5 space-y-4">
+            <div className="px-5 py-5 space-y-4 max-h-[60vh] overflow-y-auto">
+              {/* Username */}
+              <div>
+                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                  Nombre de usuario (@)
+                </label>
+                <div className="relative">
+                  <input
+                    value={editUsername}
+                    onChange={e => { setEditUsername(e.target.value); setUsernameError(null) }}
+                    onBlur={() => checkUsername(editUsername)}
+                    placeholder="tu_usuario"
+                    maxLength={30}
+                    className={`w-full bg-zinc-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors ${
+                      usernameError ? 'border-red-500' : 'border-zinc-700 focus:border-emerald-500'
+                    }`}
+                  />
+                  {usernameChecking && (
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-zinc-500 border-t-emerald-400 rounded-full animate-spin" />
+                  )}
+                </div>
+                {usernameError && (
+                  <p className="text-[11px] text-red-400 mt-1">{usernameError}</p>
+                )}
+              </div>
+
+              {/* Display name */}
               <div>
                 <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
                   Nombre a mostrar
@@ -1131,6 +1310,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                 />
               </div>
+
+              {/* Bio */}
               <div>
                 <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
                   Bio
@@ -1145,8 +1326,51 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 />
                 <p className="text-[11px] text-zinc-600 text-right mt-1">{editBio.length}/200</p>
               </div>
+
+              {/* Social divider */}
+              <div className="border-t border-zinc-800 pt-1">
+                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-3">Redes sociales</p>
+
+                {/* Instagram */}
+                <div className="space-y-3">
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0"><InstagramIcon /></span>
+                    <input
+                      value={editInstagram}
+                      onChange={e => setEditInstagram(e.target.value)}
+                      placeholder="@usuario"
+                      maxLength={60}
+                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                    />
+                  </div>
+
+                  {/* TikTok */}
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-white"><TikTokIcon /></span>
+                    <input
+                      value={editTiktok}
+                      onChange={e => setEditTiktok(e.target.value)}
+                      placeholder="@usuario"
+                      maxLength={60}
+                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                    />
+                  </div>
+
+                  {/* X */}
+                  <div className="flex items-center gap-2">
+                    <span className="shrink-0 text-white"><XIcon /></span>
+                    <input
+                      value={editX}
+                      onChange={e => setEditX(e.target.value)}
+                      placeholder="@usuario"
+                      maxLength={60}
+                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                    />
+                  </div>
+                </div>
+              </div>
             </div>
-            <div className="px-5 pb-5 flex justify-end gap-3">
+            <div className="px-5 pb-5 flex justify-end gap-3 border-t border-zinc-800 pt-4">
               <button
                 onClick={() => setIsEditing(false)}
                 className="text-sm text-zinc-400 hover:text-white px-4 py-2 transition-colors"
@@ -1155,7 +1379,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </button>
               <button
                 onClick={saveProfile}
-                disabled={editSaving}
+                disabled={editSaving || !!usernameError || usernameChecking}
                 className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-5 py-2 rounded-lg transition-colors"
               >
                 {editSaving

@@ -18,7 +18,7 @@ export default async function UserProfilePage({ params }: Props) {
 
   const { data: profile } = await supabase
     .from('profiles')
-    .select('id, username, display_name, bio, avatar_url')
+    .select('id, username, display_name, bio, avatar_url, instagram_username, tiktok_username, x_username')
     .eq('username', username)
     .maybeSingle()
 
