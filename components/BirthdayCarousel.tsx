@@ -21,7 +21,10 @@ export default function BirthdayCarousel() {
   const [error,   setError]   = useState<string | null>(null)
 
   useEffect(() => {
-    fetch('/api/birthdays-today')
+    const today = new Date()
+    const month = today.getMonth() + 1
+    const day   = today.getDate()
+    fetch(`/api/birthdays-today?month=${month}&day=${day}`)
       .then(r => {
         if (!r.ok) throw new Error(`HTTP ${r.status}`)
         return r.json()

@@ -12,11 +12,14 @@ export interface BirthdayPerson {
   deceased:    boolean
 }
 
-export async function GET() {
-  const now   = new Date()
-  const month = now.getMonth() + 1   // 1-indexed
-  const day   = now.getDate()
-  const year  = now.getFullYear()
+export async function GET(request: Request) {
+  // Use the client's local date (passed as query params) to avoid UTC offset issues
+  const { searchParams } = new URL(request.url)
+  const month = parseInt(searchParams.get('month') ?? '0', 10)
+  const day   = parseInt(searchParams.get('day')   ?? '0', 10)
+  const year  = new Date().getFullYear()
+
+  if (!month || !day) return NextResponse.json({ birthdays: [] })
 
   // ── Step 1: Filter local index by today's month + day ─────────────────
   const todayEntries = BIRTHDAYS.filter(c => {
