@@ -3,9 +3,11 @@
 import { useState, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Star, Heart, MessageSquare, Pencil, Trash2, Send, X } from 'lucide-react'
+import { Heart, MessageSquare, Pencil, Trash2, Send, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
+import StarDisplay from '@/components/StarDisplay'
 
 // ── Comment types ──────────────────────────────────────────────────────────
 
@@ -203,12 +205,15 @@ export default function ReviewCard({
 
           {/* Name + media title + meta */}
           <div className="flex-1 min-w-0">
-            <Link
-              href={`/usuario/${authorUsername}`}
-              className="text-sm font-bold text-white hover:text-emerald-400 transition-colors"
-            >
-              {displayName}
-            </Link>
+            <div className="flex items-center gap-1">
+              <Link
+                href={`/usuario/${authorUsername}`}
+                className="text-sm font-bold text-white hover:text-emerald-400 transition-colors"
+              >
+                {displayName}
+              </Link>
+              {isVerified(authorUsername) && <VerifiedBadge />}
+            </div>
             <Link
               href={`/${mediaType}/${mediaId}`}
               className="block text-sm font-semibold text-zinc-300 hover:text-emerald-400 transition-colors mt-0.5 line-clamp-1"
@@ -219,17 +224,7 @@ export default function ReviewCard({
             {/* Stars + recommended */}
             <div className="flex flex-wrap items-center gap-x-2 gap-y-1 mt-1.5">
               {rating != null && (
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <Star
-                      key={s}
-                      size={12}
-                      className="text-emerald-400"
-                      fill={s <= rating ? 'currentColor' : 'none'}
-                      strokeWidth={1.5}
-                    />
-                  ))}
-                </div>
+                <StarDisplay rating={rating} size={12} color="text-emerald-400" />
               )}
               <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                 recommended
@@ -401,13 +396,14 @@ export default function ReviewCard({
                           </div>
                         </Link>
                         <div className="flex-1 min-w-0">
-                          <div className="flex items-baseline gap-1.5 flex-wrap">
+                          <div className="flex items-center gap-1 flex-wrap">
                             <Link
                               href={`/usuario/${comment.author?.username ?? ''}`}
                               className="text-xs font-semibold text-white hover:text-emerald-400 transition-colors"
                             >
                               {cName}
                             </Link>
+                            {isVerified(comment.author?.username) && <VerifiedBadge size={12} />}
                             <span className="text-[10px] text-zinc-600">{cDate}</span>
                           </div>
                           <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
@@ -444,13 +440,14 @@ export default function ReviewCard({
                                   </div>
                                 </Link>
                                 <div className="flex-1 min-w-0">
-                                  <div className="flex items-baseline gap-1.5 flex-wrap">
+                                  <div className="flex items-center gap-1 flex-wrap">
                                     <Link
                                       href={`/usuario/${reply.author?.username ?? ''}`}
                                       className="text-xs font-semibold text-white hover:text-emerald-400 transition-colors"
                                     >
                                       {rName}
                                     </Link>
+                                    {isVerified(reply.author?.username) && <VerifiedBadge size={12} />}
                                     <span className="text-[10px] text-zinc-600">{rDate}</span>
                                   </div>
                                   <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>

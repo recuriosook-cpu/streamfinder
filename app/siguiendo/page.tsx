@@ -4,9 +4,11 @@ import { useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Star, ThumbsUp, ThumbsDown, Users, Heart, LogIn } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, Users, Heart, LogIn } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
+import StarDisplay from '@/components/StarDisplay'
 
 interface ActivityReview {
   id: string
@@ -142,9 +144,12 @@ export default function SiguiendoPage() {
                     </div>
                   </Link>
                   <div>
-                    <Link href={`/usuario/${username}`} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors">
-                      {username}
-                    </Link>
+                    <div className="flex items-center gap-1">
+                      <Link href={`/usuario/${username}`} className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors">
+                        {username}
+                      </Link>
+                      {isVerified(username) && <VerifiedBadge />}
+                    </div>
                     <p className="text-xs text-zinc-500">
                       {new Date(review.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })}
                     </p>
@@ -170,11 +175,7 @@ export default function SiguiendoPage() {
 
                     <div className="flex flex-wrap items-center gap-2 mb-2">
                       {review.rating && (
-                        <div className="flex items-center gap-0.5">
-                          {[1, 2, 3, 4, 5].map(s => (
-                            <Star key={s} size={12} className="text-yellow-400" fill={s <= review.rating! ? 'currentColor' : 'none'} />
-                          ))}
-                        </div>
+                        <StarDisplay rating={review.rating} size={12} />
                       )}
                       <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${
                         review.recommended ? 'bg-emerald-900/60 text-emerald-400' : 'bg-red-900/60 text-red-400'

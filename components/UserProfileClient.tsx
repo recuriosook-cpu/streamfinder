@@ -4,30 +4,15 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import {
-  UserPlus, UserCheck, Star, Plus, X,
+  UserPlus, UserCheck, Plus, X,
   Search as SearchIcon, CheckCircle,
   Pencil, Check,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import ReviewCard from '@/components/ReviewCard'
-
-// ── Constants ──────────────────────────────────────────────────────────────
-
-const VERIFIED_USERS = ['Ferlageok']
-
-// ── Verified badge ─────────────────────────────────────────────────────────
-
-function VerifiedBadge() {
-  return (
-    <span title="Cuenta verificada" className="inline-flex shrink-0 cursor-default">
-      <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-        <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
-        <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-      </svg>
-    </span>
-  )
-}
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
+import StarDisplay from '@/components/StarDisplay'
 
 // ── Social icons ───────────────────────────────────────────────────────────
 
@@ -651,8 +636,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Name + badge row */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
-                {localProfile.username && VERIFIED_USERS.includes(localProfile.username) && (
-                  <VerifiedBadge />
+                {isVerified(localProfile.username) && (
+                  <VerifiedBadge size={20} />
                 )}
                 {followsMe && (
                   <span className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-400 px-2.5 py-1 rounded-full">
@@ -913,11 +898,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                 {item.kind === 'review' ? 'Reseña' : 'Valoración'}
                               </span>
                               {d.rating != null && (
-                                <div className="flex items-center gap-0.5">
-                                  {[1,2,3,4,5].map(s => (
-                                    <Star key={s} size={10} className="text-yellow-400" fill={s <= d.rating! ? 'currentColor' : 'none'} />
-                                  ))}
-                                </div>
+                                <StarDisplay rating={d.rating} size={10} />
                               )}
                             </div>
                             {/* Review excerpt */}

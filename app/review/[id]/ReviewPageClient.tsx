@@ -4,9 +4,11 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Star, Heart, MessageSquare, Send, X } from 'lucide-react'
+import { ArrowLeft, Heart, MessageSquare, Send, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
+import StarDisplay from '@/components/StarDisplay'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -239,12 +241,15 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                   </div>
                 </Link>
                 <div className="flex-1 min-w-0 pt-0.5">
-                  <Link
-                    href={`/usuario/${review.authorUsername}`}
-                    className="text-base font-bold text-white hover:text-emerald-400 transition-colors"
-                  >
-                    {displayName}
-                  </Link>
+                  <div className="flex items-center gap-1">
+                    <Link
+                      href={`/usuario/${review.authorUsername}`}
+                      className="text-base font-bold text-white hover:text-emerald-400 transition-colors"
+                    >
+                      {displayName}
+                    </Link>
+                    {isVerified(review.authorUsername) && <VerifiedBadge />}
+                  </div>
                   <p className="text-xs text-zinc-500">@{review.authorUsername}</p>
                 </div>
               </div>
@@ -281,17 +286,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
             {/* Stars + recommended */}
             <div className="flex flex-wrap items-center gap-3 mb-2">
               {review.rating != null && (
-                <div className="flex items-center gap-0.5">
-                  {[1, 2, 3, 4, 5].map(s => (
-                    <Star
-                      key={s}
-                      size={16}
-                      className="text-emerald-400"
-                      fill={s <= review.rating! ? 'currentColor' : 'none'}
-                      strokeWidth={1.5}
-                    />
-                  ))}
-                </div>
+                <StarDisplay rating={review.rating} size={16} color="text-emerald-400" />
               )}
               <span className={`inline-flex items-center text-xs px-2 py-1 rounded-full font-medium ${
                 review.recommended ? 'bg-emerald-900/50 text-emerald-400' : 'bg-red-900/50 text-red-400'
@@ -418,13 +413,14 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                               </div>
                             </Link>
                             <div className="flex-1 min-w-0">
-                              <div className="flex items-baseline gap-2 flex-wrap">
+                              <div className="flex items-center gap-1 flex-wrap">
                                 <Link
                                   href={`/usuario/${comment.author?.username ?? ''}`}
                                   className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
                                 >
                                   {cName}
                                 </Link>
+                                {isVerified(comment.author?.username) && <VerifiedBadge size={14} />}
                                 <span className="text-xs text-zinc-600">{cDate}</span>
                               </div>
                               <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
@@ -461,13 +457,14 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                       </div>
                                     </Link>
                                     <div className="flex-1 min-w-0">
-                                      <div className="flex items-baseline gap-2 flex-wrap">
+                                      <div className="flex items-center gap-1 flex-wrap">
                                         <Link
                                           href={`/usuario/${reply.author?.username ?? ''}`}
                                           className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
                                         >
                                           {rName}
                                         </Link>
+                                        {isVerified(reply.author?.username) && <VerifiedBadge size={14} />}
                                         <span className="text-xs text-zinc-600">{rDate}</span>
                                       </div>
                                       <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>

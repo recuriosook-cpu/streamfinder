@@ -1,9 +1,10 @@
 'use client'
 
 import { useState, useEffect } from 'react'
-import { Star, ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
+import { ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import ReviewCard from '@/components/ReviewCard'
+import { StarIcon } from '@/components/StarDisplay'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -186,17 +187,28 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           {/* Star selector */}
           <div className="flex items-center gap-1.5 mb-4">
             <span className="text-sm text-zinc-400 mr-1">Nota:</span>
-            {[1, 2, 3, 4, 5].map(s => (
-              <button
-                key={s}
-                onClick={() => setFormRating(s)}
-                onMouseEnter={() => setHoverRating(s)}
-                onMouseLeave={() => setHoverRating(0)}
-                className="text-yellow-400 transition-transform hover:scale-110"
-              >
-                <Star size={24} fill={s <= displayRating ? 'currentColor' : 'none'} />
-              </button>
-            ))}
+            {[1, 2, 3, 4, 5].map(s => {
+              const fill: 'full' | 'half' | 'empty' =
+                displayRating >= s ? 'full' : displayRating >= s - 0.5 ? 'half' : 'empty'
+              return (
+                <button
+                  key={s}
+                  type="button"
+                  onMouseMove={e => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setHoverRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
+                  }}
+                  onMouseLeave={() => setHoverRating(0)}
+                  onClick={e => {
+                    const rect = e.currentTarget.getBoundingClientRect()
+                    setFormRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
+                  }}
+                  className="transition-transform hover:scale-110"
+                >
+                  <StarIcon fill={fill} size={24} />
+                </button>
+              )
+            })}
             {formRating > 0 && <span className="text-sm text-zinc-400 ml-1">{formRating}/5</span>}
           </div>
 
