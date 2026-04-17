@@ -2,7 +2,7 @@ export const CELEBRITY_BIRTHDAYS = [
   { id: 1397778, name: 'Anya Taylor-Joy', birthday: '1996-04-16', popularity: 93 },
   { id: 1590797, name: 'Sadie Sink', birthday: '2002-04-16', popularity: 85 },
   { id: 78029, name: 'Martin Lawrence', birthday: '1965-04-16', popularity: 78 },
-  { id: 10515, name: 'Charlie Chaplin', birthday: '1889-04-16', popularity: 72 },
+  { id: 13848, name: 'Charlie Chaplin', birthday: '1889-04-16', popularity: 72 },
   { id: 10990, name: 'Emma Watson', birthday: '1990-04-15', popularity: 90 },
   { id: 3945, name: 'Emma Thompson', birthday: '1959-04-15', popularity: 84 },
   { id: 19397, name: 'Seth Rogen', birthday: '1982-04-15', popularity: 82 },
