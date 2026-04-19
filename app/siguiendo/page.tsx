@@ -4,7 +4,7 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Users, LogIn, Heart, MessageCircle, Zap, Trophy } from 'lucide-react'
+import { Users, LogIn, Heart, MessageCircle, Zap, Trophy, Bookmark, BarChart2, Plus, Check } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
@@ -47,6 +47,33 @@ interface ActivityItem {
   posterPath: string | null
   rating?: number | null
 }
+
+interface WatchlistActivity {
+  key: string
+  type: 'watchlist'
+  userId: string
+  sortTime: string
+  mediaId: number
+  mediaType: string
+  title: string
+  posterPath: string | null
+}
+
+interface SharedStatActivity {
+  key: string
+  type: 'shared_stat'
+  userId: string
+  sortTime: string
+  statId: string
+  statType: string
+  statTitle: string
+  statValue: string
+  statDetail: string | null
+  statImageUrl: string | null
+  likes: { user_id: string }[]
+}
+
+type FeedItem = ActivityItem | WatchlistActivity | SharedStatActivity
 
 interface CompatItem {
   userId: string
@@ -285,6 +312,180 @@ function ActivityCard({
   )
 }
 
+function WatchlistCard({
+  item,
+  profiles,
+  currentUserId,
+  onAdd,
+}: {
+  item: WatchlistActivity
+  profiles: Map<string, Profile>
+  currentUserId: string
+  onAdd: (mediaId: number, mediaType: string, title: string, posterPath: string | null) => Promise<boolean>
+}) {
+  const profile = profiles.get(item.userId)
+  const username = profile?.username ?? 'Usuario'
+  const mediaHref = `/${item.mediaType}/${item.mediaId}`
+  const [added, setAdded] = useState(false)
+  const [adding, setAdding] = useState(false)
+
+  async function handleAdd() {
+    if (added || adding) return
+    setAdding(true)
+    const ok = await onAdd(item.mediaId, item.mediaType, item.title, item.posterPath)
+    if (ok) setAdded(true)
+    setAdding(false)
+  }
+
+  return (
+    <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+      <div className="flex items-center gap-2.5 mb-3">
+        <Link href={`/usuario/${username}`}>
+          {profile ? <UserAvatar profile={profile} /> : (
+            <div className="w-9 h-9 rounded-full bg-zinc-700 shrink-0" />
+          )}
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 flex-wrap">
+            <Link
+              href={`/usuario/${username}`}
+              className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
+            >
+              {username}
+            </Link>
+            {isVerified(username) && <VerifiedBadge />}
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-blue-900/50 text-blue-400">
+              Para ver
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500">{timeAgo(item.sortTime)}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-3">
+        <Link href={mediaHref} className="shrink-0">
+          <div className="relative w-14 aspect-[2/3] rounded-lg overflow-hidden bg-zinc-700">
+            {item.posterPath ? (
+              <Image
+                src={getPosterUrl(item.posterPath, 'w92')}
+                alt={item.title}
+                fill
+                className="object-cover"
+                sizes="56px"
+              />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs text-center p-1">
+                Sin imagen
+              </div>
+            )}
+          </div>
+        </Link>
+
+        <div className="flex-1 min-w-0">
+          <Link
+            href={mediaHref}
+            className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors line-clamp-1 block mb-1"
+          >
+            {item.title}
+          </Link>
+          <p className="text-xs text-zinc-500 mb-3">{username} quiere ver esto</p>
+          {item.userId !== currentUserId && (
+            <button
+              onClick={handleAdd}
+              disabled={added || adding}
+              className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
+              style={{
+                backgroundColor: added ? 'rgba(29,185,84,0.15)' : 'rgba(59,130,246,0.15)',
+                color: added ? '#1DB954' : '#60a5fa',
+              }}
+            >
+              {added ? <Check size={12} /> : <Plus size={12} />}
+              {added ? 'Agregado' : 'Agregar a mi lista'}
+            </button>
+          )}
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function SharedStatCard({
+  item,
+  profiles,
+  currentUserId,
+  onToggleLike,
+}: {
+  item: SharedStatActivity
+  profiles: Map<string, Profile>
+  currentUserId: string
+  onToggleLike: (statId: string) => void
+}) {
+  const profile = profiles.get(item.userId)
+  const username = profile?.username ?? 'Usuario'
+  const liked = item.likes.some(l => l.user_id === currentUserId)
+  const likeCount = item.likes.length
+
+  return (
+    <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+      <div className="flex items-center gap-2.5 mb-3">
+        <Link href={`/usuario/${username}`}>
+          {profile ? <UserAvatar profile={profile} /> : (
+            <div className="w-9 h-9 rounded-full bg-zinc-700 shrink-0" />
+          )}
+        </Link>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1 flex-wrap">
+            <Link
+              href={`/usuario/${username}`}
+              className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
+            >
+              {username}
+            </Link>
+            {isVerified(username) && <VerifiedBadge />}
+            <span className="text-xs px-2 py-0.5 rounded-full font-medium bg-purple-900/50 text-purple-400">
+              Estadística
+            </span>
+          </div>
+          <p className="text-xs text-zinc-500">{timeAgo(item.sortTime)}</p>
+        </div>
+      </div>
+
+      <div className="flex gap-3 items-center bg-zinc-900/60 rounded-xl p-3 border border-zinc-700/30">
+        {item.statImageUrl ? (
+          <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 bg-zinc-700">
+            <Image src={item.statImageUrl} alt={item.statValue} fill className="object-cover" sizes="56px" />
+          </div>
+        ) : (
+          <div className="w-14 h-14 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
+            <BarChart2 size={22} className="text-zinc-500" />
+          </div>
+        )}
+        <div className="flex-1 min-w-0">
+          <p className="text-xs text-zinc-500 mb-0.5">{item.statTitle}</p>
+          <p className="text-base font-bold leading-tight" style={{ color: '#1DB954' }}>
+            {item.statValue}
+          </p>
+          {item.statDetail && (
+            <p className="text-xs text-zinc-400 mt-0.5">{item.statDetail}</p>
+          )}
+        </div>
+      </div>
+
+      <div className="flex items-center gap-4 mt-2.5">
+        <button
+          onClick={() => onToggleLike(item.statId)}
+          className={`flex items-center gap-1.5 text-xs transition-colors ${
+            liked ? 'text-red-400' : 'text-zinc-500 hover:text-red-400'
+          }`}
+        >
+          <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
+          {likeCount > 0 ? `${likeCount} me gusta` : 'Me gusta'}
+        </button>
+      </div>
+    </div>
+  )
+}
+
 function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string, Profile> }) {
   const profile = profiles.get(item.userId)
   const username = profile?.username ?? 'Usuario'
@@ -404,7 +605,7 @@ export default function SiguiendoPage() {
   const [profiles, setProfiles] = useState<Map<string, Profile>>(new Map())
 
   // Activity
-  const [activityItems, setActivityItems] = useState<ActivityItem[]>([])
+  const [activityItems, setActivityItems] = useState<FeedItem[]>([])
   const [activityLoading, setActivityLoading] = useState(false)
   const [visibleCount, setVisibleCount] = useState(PAGE_SIZE)
 
@@ -455,7 +656,7 @@ export default function SiguiendoPage() {
     setActivityLoading(true)
 
     async function loadActivity() {
-      const [reviewsRes, watchedRes, ratingsRes] = await Promise.all([
+      const [reviewsRes, watchedRes, ratingsRes, watchlistRes, sharedStatsRes] = await Promise.all([
         supabase
           .from('reviews')
           .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, created_at, review_likes(user_id)')
@@ -474,6 +675,18 @@ export default function SiguiendoPage() {
           .in('user_id', followingIds)
           .order('rated_at', { ascending: false })
           .limit(50),
+        supabase
+          .from('watchlist')
+          .select('id, user_id, media_id, media_type, title, poster_path, added_at')
+          .in('user_id', followingIds)
+          .order('added_at', { ascending: false })
+          .limit(30),
+        supabase
+          .from('shared_stats')
+          .select('id, user_id, stat_type, stat_title, stat_value, stat_detail, stat_image_url, created_at, shared_stat_likes(user_id)')
+          .in('user_id', followingIds)
+          .order('created_at', { ascending: false })
+          .limit(30),
       ])
 
       // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -518,8 +731,36 @@ export default function SiguiendoPage() {
         rating: r.rating,
       }))
 
-      const merged = [...reviewItems, ...watchedItems, ...ratingItems]
-        .sort((a, b) => b.sortTime.localeCompare(a.sortTime))
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const watchlistItems: WatchlistActivity[] = ((watchlistRes.data ?? []) as any[]).map(w => ({
+        key: `watchlist-${w.id}`,
+        type: 'watchlist' as const,
+        userId: w.user_id,
+        sortTime: w.added_at,
+        mediaId: w.media_id,
+        mediaType: w.media_type,
+        title: w.title,
+        posterPath: w.poster_path,
+      }))
+
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const sharedStatItems: SharedStatActivity[] = ((sharedStatsRes.data ?? []) as any[]).map(s => ({
+        key: `shared_stat-${s.id}`,
+        type: 'shared_stat' as const,
+        userId: s.user_id,
+        sortTime: s.created_at,
+        statId: s.id,
+        statType: s.stat_type,
+        statTitle: s.stat_title,
+        statValue: s.stat_value,
+        statDetail: s.stat_detail,
+        statImageUrl: s.stat_image_url,
+        likes: s.shared_stat_likes ?? [],
+      }))
+
+      const merged: FeedItem[] = [
+        ...reviewItems, ...watchedItems, ...ratingItems, ...watchlistItems, ...sharedStatItems,
+      ].sort((a, b) => b.sortTime.localeCompare(a.sortTime))
 
       setActivityItems(merged)
       setActivityLoading(false)
@@ -708,21 +949,59 @@ export default function SiguiendoPage() {
   // ── Toggle like ────────────────────────────────────────────────────────────
   async function toggleLike(reviewId: string) {
     if (!currentUserId) return
-    const item = activityItems.find(i => i.reviewId === reviewId)
-    if (!item || item.type !== 'review') return
-    const liked = item.likes?.some(l => l.user_id === currentUserId)
+    const item = activityItems.find(i => i.type === 'review' && (i as ActivityItem).reviewId === reviewId) as ActivityItem | undefined
+    if (!item) return
+    const liked = item.likes?.some((l: { user_id: string }) => l.user_id === currentUserId)
     if (liked) {
       await supabase.from('review_likes').delete().eq('review_id', reviewId).eq('user_id', currentUserId)
       setActivityItems(prev => prev.map(i =>
-        i.reviewId === reviewId
-          ? { ...i, likes: (i.likes ?? []).filter(l => l.user_id !== currentUserId) }
+        i.type === 'review' && (i as ActivityItem).reviewId === reviewId
+          ? { ...i, likes: ((i as ActivityItem).likes ?? []).filter((l: { user_id: string }) => l.user_id !== currentUserId) } as ActivityItem
           : i,
       ))
     } else {
       await supabase.from('review_likes').insert({ review_id: reviewId, user_id: currentUserId })
       setActivityItems(prev => prev.map(i =>
-        i.reviewId === reviewId
-          ? { ...i, likes: [...(i.likes ?? []), { user_id: currentUserId }] }
+        i.type === 'review' && (i as ActivityItem).reviewId === reviewId
+          ? { ...i, likes: [...((i as ActivityItem).likes ?? []), { user_id: currentUserId }] } as ActivityItem
+          : i,
+      ))
+    }
+  }
+
+  // ── Add to watchlist ───────────────────────────────────────────────────────
+  async function addToMyWatchlist(
+    mediaId: number,
+    mediaType: string,
+    title: string,
+    posterPath: string | null,
+  ): Promise<boolean> {
+    if (!currentUserId) return false
+    const { error } = await supabase
+      .from('watchlist')
+      .upsert({ user_id: currentUserId, media_id: mediaId, media_type: mediaType, title, poster_path: posterPath },
+        { onConflict: 'user_id,media_id,media_type' })
+    return !error
+  }
+
+  // ── Toggle stat like ───────────────────────────────────────────────────────
+  async function toggleStatLike(statId: string) {
+    if (!currentUserId) return
+    const item = activityItems.find(i => i.type === 'shared_stat' && (i as SharedStatActivity).statId === statId) as SharedStatActivity | undefined
+    if (!item) return
+    const liked = item.likes.some(l => l.user_id === currentUserId)
+    if (liked) {
+      await supabase.from('shared_stat_likes').delete().eq('stat_id', statId).eq('user_id', currentUserId)
+      setActivityItems(prev => prev.map(i =>
+        i.type === 'shared_stat' && (i as SharedStatActivity).statId === statId
+          ? { ...i, likes: (i as SharedStatActivity).likes.filter(l => l.user_id !== currentUserId) } as SharedStatActivity
+          : i,
+      ))
+    } else {
+      await supabase.from('shared_stat_likes').insert({ stat_id: statId, user_id: currentUserId })
+      setActivityItems(prev => prev.map(i =>
+        i.type === 'shared_stat' && (i as SharedStatActivity).statId === statId
+          ? { ...i, likes: [...(i as SharedStatActivity).likes, { user_id: currentUserId }] } as SharedStatActivity
           : i,
       ))
     }
@@ -824,15 +1103,35 @@ export default function SiguiendoPage() {
           ) : (
             <>
               <div className="space-y-4">
-                {visibleItems.map(item => (
-                  <ActivityCard
-                    key={item.key}
-                    item={item}
-                    currentUserId={currentUserId}
-                    profiles={profiles}
-                    onToggleLike={toggleLike}
-                  />
-                ))}
+                {visibleItems.map(item => {
+                  if (item.type === 'watchlist') return (
+                    <WatchlistCard
+                      key={item.key}
+                      item={item as WatchlistActivity}
+                      profiles={profiles}
+                      currentUserId={currentUserId}
+                      onAdd={addToMyWatchlist}
+                    />
+                  )
+                  if (item.type === 'shared_stat') return (
+                    <SharedStatCard
+                      key={item.key}
+                      item={item as SharedStatActivity}
+                      profiles={profiles}
+                      currentUserId={currentUserId}
+                      onToggleLike={toggleStatLike}
+                    />
+                  )
+                  return (
+                    <ActivityCard
+                      key={item.key}
+                      item={item as ActivityItem}
+                      currentUserId={currentUserId}
+                      profiles={profiles}
+                      onToggleLike={toggleLike}
+                    />
+                  )
+                })}
               </div>
               {visibleCount < activityItems.length && (
                 <button

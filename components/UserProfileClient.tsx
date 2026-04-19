@@ -6,7 +6,7 @@ import Link from 'next/link'
 import {
   UserPlus, UserCheck, Plus, X,
   Search as SearchIcon, CheckCircle,
-  Pencil, Check,
+  Pencil, Check, Share2,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
@@ -213,9 +213,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
 
   // ── Stats tab data ─────────────────────────────────────────────
-  const [statsData,  setStatsData]  = useState<StatsData | null>(null)
-  const [richStats,  setRichStats]  = useState<RichStats | null>(null)
-  const [richBusy,   setRichBusy]   = useState(false)
+  const [statsData,    setStatsData]    = useState<StatsData | null>(null)
+  const [richStats,    setRichStats]    = useState<RichStats | null>(null)
+  const [richBusy,     setRichBusy]     = useState(false)
+  const [weeklyMinutes, setWeeklyMinutes] = useState(0)
+  const [sharedToast,  setSharedToast]  = useState<string | null>(null)
 
   // ── Inline edit ────────────────────────────────────────────────
   const [isEditing,        setIsEditing]        = useState(false)
@@ -582,6 +584,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       seriesYear:  sYear.count  ?? 0,
     })
 
+    // ── Weekly minutes ─────────────────────────────────────────────
+    const weekAgo = new Date(now.getTime() - 7 * 24 * 60 * 60 * 1000).toISOString()
+    supabase
+      .from('watched')
+      .select('runtime')
+      .eq('user_id', profile.id)
+      .gte('watched_at', weekAgo)
+      .then(({ data }) => {
+        const mins = (data ?? []).reduce((acc: number, r: { runtime: number | null }) => acc + (r.runtime ?? 0), 0)
+        setWeeklyMinutes(mins)
+      })
+
     // ── Rich stats (genres, hours, people) — heavier, separate state ───
     setRichBusy(true)
     try {
@@ -593,6 +607,27 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     } finally {
       setRichBusy(false)
     }
+  }
+
+  // ── Share statistic ────────────────────────────────────────────
+  async function shareStatistic(
+    statType: string,
+    statTitle: string,
+    statValue: string,
+    statDetail?: string,
+    statImageUrl?: string,
+  ) {
+    if (!currentUserId) return
+    await supabase.from('shared_stats').insert({
+      user_id:       currentUserId,
+      stat_type:     statType,
+      stat_title:    statTitle,
+      stat_value:    statValue,
+      stat_detail:   statDetail ?? null,
+      stat_image_url: statImageUrl ?? null,
+    })
+    setSharedToast('¡Estadística compartida en tu feed!')
+    setTimeout(() => setSharedToast(null), 3000)
   }
 
   // ── Derived ────────────────────────────────────────────────────
@@ -1101,15 +1136,38 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {richStats.totalMinutes > 0 && (
                       <div>
                         <SectionLabel>Horas vistas en total</SectionLabel>
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 flex items-end gap-3">
-                          <span className="text-5xl font-black text-white leading-none">
-                            {Math.floor(richStats.totalMinutes / 60)}
-                            <span className="text-2xl font-bold text-emerald-400 ml-1">h</span>
-                          </span>
-                          <span className="text-2xl font-bold text-zinc-400 leading-none mb-0.5">
-                            {richStats.totalMinutes % 60}
-                            <span className="text-base font-semibold ml-1">min</span>
-                          </span>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                          <div className="flex items-end justify-between gap-3">
+                            <div className="flex items-end gap-3">
+                              <span className="text-5xl font-black text-white leading-none">
+                                {Math.floor(richStats.totalMinutes / 60)}
+                                <span className="text-2xl font-bold text-emerald-400 ml-1">h</span>
+                              </span>
+                              <span className="text-2xl font-bold text-zinc-400 leading-none mb-0.5">
+                                {richStats.totalMinutes % 60}
+                                <span className="text-base font-semibold ml-1">min</span>
+                              </span>
+                            </div>
+                            {isOwner && (
+                              <button
+                                onClick={() => shareStatistic(
+                                  'watch_hours_total',
+                                  `Horas vistas en total por ${localProfile.username}`,
+                                  `${Math.floor(richStats.totalMinutes / 60)}h ${richStats.totalMinutes % 60}min`,
+                                  weeklyMinutes > 0 ? `Esta semana: ${Math.floor(weeklyMinutes / 60)}h ${weeklyMinutes % 60}min` : undefined,
+                                )}
+                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-emerald-700"
+                              >
+                                <Share2 size={13} />
+                                Compartir
+                              </button>
+                            )}
+                          </div>
+                          {weeklyMinutes > 0 && (
+                            <p className="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-800">
+                              Esta semana: {Math.floor(weeklyMinutes / 60)}h {weeklyMinutes % 60}min
+                            </p>
+                          )}
                         </div>
                       </div>
                     )}
@@ -1117,7 +1175,23 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {/* ── Géneros más vistos ────────────────────── */}
                     {richStats.topGenres.length > 0 && (
                       <div>
-                        <SectionLabel>Géneros más vistos</SectionLabel>
+                        <div className="flex items-center justify-between mb-3">
+                          <SectionLabel>Géneros más vistos</SectionLabel>
+                          {isOwner && (
+                            <button
+                              onClick={() => shareStatistic(
+                                'top_genre',
+                                `Género favorito de ${localProfile.username}`,
+                                richStats.topGenres[0].name,
+                                `Visto en ${richStats.topGenres[0].count} título${richStats.topGenres[0].count !== 1 ? 's' : ''}`,
+                              )}
+                              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-emerald-700 mb-3"
+                            >
+                              <Share2 size={13} />
+                              Compartir
+                            </button>
+                          )}
+                        </div>
                         <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
                           {richStats.topGenres.map((g, i) => {
                             const max = richStats.topGenres[0].count
@@ -1155,33 +1229,55 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               { label: 'Actriz favorita',   person: richStats.topActress  },
                               { label: 'Director favorito', person: richStats.topDirector },
                             ] as { label: string; person: PersonStat | null }[]
-                          ).filter(row => row.person !== null).map(({ label, person }) => (
-                            <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                              {/* Circular photo */}
-                              <div className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-zinc-700">
-                                {person!.profilePath ? (
-                                  // eslint-disable-next-line @next/next/no-img-element
-                                  <img
-                                    src={`https://image.tmdb.org/t/p/w185${person!.profilePath}`}
-                                    alt={person!.name}
-                                    className="w-full h-full object-cover object-top"
-                                  />
-                                ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xl font-bold text-zinc-500">
-                                    {person!.name.charAt(0).toUpperCase()}
-                                  </div>
+                          ).filter(row => row.person !== null).map(({ label, person }) => {
+                            const statTypeMap: Record<string, string> = {
+                              'Actor favorito':    'top_actor',
+                              'Actriz favorita':   'top_actress',
+                              'Director favorito': 'top_director',
+                            }
+                            return (
+                              <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
+                                {/* Circular photo */}
+                                <div className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-zinc-700">
+                                  {person!.profilePath ? (
+                                    // eslint-disable-next-line @next/next/no-img-element
+                                    <img
+                                      src={`https://image.tmdb.org/t/p/w185${person!.profilePath}`}
+                                      alt={person!.name}
+                                      className="w-full h-full object-cover object-top"
+                                    />
+                                  ) : (
+                                    <div className="w-full h-full flex items-center justify-center text-xl font-bold text-zinc-500">
+                                      {person!.name.charAt(0).toUpperCase()}
+                                    </div>
+                                  )}
+                                </div>
+                                {/* Info */}
+                                <div className="flex-1 min-w-0">
+                                  <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-0.5">{label}</p>
+                                  <p className="text-base font-bold text-white truncate">{person!.name}</p>
+                                  <p className="text-xs text-zinc-400 mt-0.5">
+                                    Apareció en {person!.count} título{person!.count !== 1 ? 's' : ''} que viste
+                                  </p>
+                                </div>
+                                {isOwner && (
+                                  <button
+                                    onClick={() => shareStatistic(
+                                      statTypeMap[label] ?? 'top_actor',
+                                      `${label} de ${localProfile.username}`,
+                                      person!.name,
+                                      `Apareció en ${person!.count} título${person!.count !== 1 ? 's' : ''} que viste`,
+                                      person!.profilePath ? `https://image.tmdb.org/t/p/w185${person!.profilePath}` : undefined,
+                                    )}
+                                    className="shrink-0 flex items-center gap-1 text-xs text-zinc-500 hover:text-emerald-400 transition-colors p-2 rounded-lg border border-zinc-700 hover:border-emerald-700"
+                                    title="Compartir"
+                                  >
+                                    <Share2 size={13} />
+                                  </button>
                                 )}
                               </div>
-                              {/* Info */}
-                              <div className="flex-1 min-w-0">
-                                <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-0.5">{label}</p>
-                                <p className="text-base font-bold text-white truncate">{person!.name}</p>
-                                <p className="text-xs text-zinc-400 mt-0.5">
-                                  Apareció en {person!.count} título{person!.count !== 1 ? 's' : ''} que viste
-                                </p>
-                              </div>
-                            </div>
-                          ))}
+                            )
+                          })}
                         </div>
                       </div>
                     )}
@@ -1513,6 +1609,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               ) : null}
             </div>
           </div>
+        </div>
+      )}
+
+      {/* ── SHARED TOAST ───────────────────────────────────────── */}
+      {sharedToast && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-zinc-900 border border-emerald-700/60 rounded-full shadow-2xl text-sm font-medium text-emerald-400 flex items-center gap-2 animate-fade-in-up pointer-events-none">
+          <Share2 size={14} />
+          {sharedToast}
         </div>
       )}
     </div>
