@@ -1,7 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
-import HeroCarousel from '@/components/HeroCarousel'
+import MoodRecommender from '@/components/MoodRecommender'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import BirthdayCarousel from '@/components/BirthdayCarousel'
@@ -30,17 +30,7 @@ interface PlatformLogo {
   logoPath: string | null
 }
 
-interface HeroMovie {
-  id: number
-  title: string
-  overview: string
-  backdrop_path: string | null
-  poster_path: string | null
-  release_date: string
-}
-
 interface HomeData {
-  upcomingMovies: HeroMovie[]
   platformsWithLogos: PlatformLogo[]
   platformContent: PlatformData[]
 }
@@ -48,8 +38,8 @@ interface HomeData {
 function HomeSkeleton() {
   return (
     <div className="animate-pulse">
-      {/* Hero skeleton */}
-      <div className="h-72 md:h-[480px] bg-zinc-800 w-full" />
+      {/* Mood recommender skeleton */}
+      <div className="h-72 md:h-80 bg-zinc-900 w-full" />
       {/* Logo strip skeleton */}
       <div className="h-20 bg-zinc-900 border-y border-zinc-800 flex items-center justify-center gap-6 px-6">
         {Array.from({ length: 7 }).map((_, i) => (
@@ -97,7 +87,7 @@ export default function HomeClient() {
 
   return (
     <>
-      <HeroCarousel movies={data.upcomingMovies} />
+      <MoodRecommender />
       <PlatformLogoStrip platforms={data.platformsWithLogos} />
       <div className="max-w-7xl mx-auto px-4 py-10">
         {data.platformContent.map(platform => (
