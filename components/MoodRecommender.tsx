@@ -232,20 +232,14 @@ export default function MoodRecommender() {
     return () => subscription.unsubscribe()
   }, [])
 
-  function guardedClick(cb: () => void) {
-    if (!user) { setShowAuthModal(true); return }
-    cb()
-  }
-
-  async function fetchRecommendations() {
-    if (!companyKey || !user) return
+  async function fetchRecommendations(selectedCompany: string) {
     setLoading(true)
     setRecommendations(null)
     try {
       const res = await fetch('/api/mood-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moodKey, durationKey, companyKey, userId: user.id, country }),
+        body: JSON.stringify({ moodKey, durationKey, companyKey: selectedCompany, userId: user!.id, country }),
       })
       const data = await res.json()
       setRecommendations(data.recommendations ?? [])
@@ -254,6 +248,12 @@ export default function MoodRecommender() {
     } finally {
       setLoading(false)
     }
+  }
+
+  function selectOption(key: string, setter: (v: string) => void, onAdvance: (key: string) => void) {
+    if (!user) { setShowAuthModal(true); return }
+    setter(key)
+    setTimeout(() => onAdvance(key), 300)
   }
 
   function reset() {
@@ -316,7 +316,7 @@ export default function MoodRecommender() {
                     label={m.label}
                     sub={m.sub}
                     selected={moodKey === m.key}
-                    onClick={() => guardedClick(() => setMoodKey(m.key))}
+                    onClick={() => selectOption(m.key, setMoodKey, () => setStep(2))}
                   />
                 ))}
               </div>
@@ -332,7 +332,7 @@ export default function MoodRecommender() {
                     label={d.label}
                     sub={d.sub}
                     selected={durationKey === d.key}
-                    onClick={() => guardedClick(() => setDurationKey(d.key))}
+                    onClick={() => selectOption(d.key, setDurationKey, () => setStep(3))}
                   />
                 ))}
               </div>
@@ -348,46 +348,23 @@ export default function MoodRecommender() {
                     label={c.label}
                     sub={c.sub}
                     selected={companyKey === c.key}
-                    onClick={() => guardedClick(() => setCompanyKey(c.key))}
+                    onClick={() => selectOption(c.key, setCompanyKey, fetchRecommendations)}
                   />
                 ))}
               </div>
             )}
 
-            {/* Navigation */}
-            <div className="flex items-center justify-between mt-5">
-              {step > 1 ? (
+            {/* Back link */}
+            {step > 1 && (
+              <div className="mt-5">
                 <button
                   onClick={() => setStep(s => s - 1)}
                   className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
                 >
                   ← Volver
                 </button>
-              ) : <span />}
-
-              {step < 3 ? (
-                <button
-                  disabled={step === 1 ? !moodKey : !durationKey}
-                  onClick={() => setStep(s => s + 1)}
-                  className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
-                  style={{ backgroundColor: '#1DB954' }}
-                >
-                  Siguiente →
-                </button>
-              ) : (
-                <button
-                  disabled={!companyKey}
-                  onClick={fetchRecommendations}
-                  className="px-7 py-3 rounded-xl font-bold text-base text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
-                  style={{
-                    backgroundColor: companyKey ? '#1DB954' : '#1DB954',
-                    boxShadow: companyKey ? '0 0 20px rgba(29,185,84,0.35)' : 'none',
-                  }}
-                >
-                  Ver mis recomendaciones 🎬
-                </button>
-              )}
-            </div>
+              </div>
+            )}
           </>
         )}
 
