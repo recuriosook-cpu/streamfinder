@@ -10,28 +10,28 @@ import type { User } from '@supabase/supabase-js'
 // ── Step data ─────────────────────────────────────────────────────────────────
 
 const MOODS = [
-  { id: 'reírme (comedia, humor)',        label: 'Para reírme',       sub: 'Comedia · Humor' },
-  { id: 'emocionarme (drama, historia)',  label: 'Para emocionarme',  sub: 'Drama · Historia' },
-  { id: 'asustarme (terror, suspenso)',   label: 'Para asustarme',    sub: 'Terror · Suspenso' },
-  { id: 'pensar (sci-fi, thriller)',      label: 'Para pensar',       sub: 'Sci-fi · Thriller' },
-  { id: 'adrenalina (acción, aventura)',  label: 'Adrenalina',        sub: 'Acción · Aventura' },
-  { id: 'algo tranquilo (romance, documental)', label: 'Algo tranquilo', sub: 'Romance · Documental' },
+  { key: 'laugh',  emoji: '😂', label: 'Para reírme',      sub: 'Comedia · Humor' },
+  { key: 'cry',    emoji: '🥺', label: 'Para emocionarme', sub: 'Drama · Historia' },
+  { key: 'scare',  emoji: '😱', label: 'Para asustarme',   sub: 'Terror · Suspenso' },
+  { key: 'think',  emoji: '🤯', label: 'Para pensar',      sub: 'Sci-fi · Thriller' },
+  { key: 'action', emoji: '⚡', label: 'Adrenalina',       sub: 'Acción · Aventura' },
+  { key: 'calm',   emoji: '☁️', label: 'Algo tranquilo',   sub: 'Romance · Documental' },
 ]
 
 const DURATIONS = [
-  { id: 'menos de 1 hora y 30 minutos', label: 'Menos de 1h30' },
-  { id: '1 hora 30 minutos a 2 horas 30 minutos', label: '1h30 a 2h30' },
-  { id: 'más de 2 horas 30 minutos', label: 'Más de 2h30' },
-  { id: 'una serie completa', label: 'Una serie' },
-  { id: 'una miniserie', label: 'Miniserie' },
-  { id: 'cualquier duración', label: 'Lo que sea' },
+  { key: 'short',      emoji: '⏱',  label: 'Menos de 1h30', sub: 'Algo rápido' },
+  { key: 'medium',     emoji: '🕑',  label: '1h30 a 2h30',   sub: 'Una peli normal' },
+  { key: 'long',       emoji: '🕒',  label: 'Más de 2h30',   sub: 'Algo épico' },
+  { key: 'series',     emoji: '📺',  label: 'Una serie',     sub: 'Varios episodios' },
+  { key: 'miniseries', emoji: '🎬',  label: 'Miniserie',     sub: 'Historia completa' },
+  { key: 'any',        emoji: '🎯',  label: 'Lo que sea',    sub: 'Sin restricción' },
 ]
 
 const COMPANIES = [
-  { id: 'solo/a', label: 'Solo/a' },
-  { id: 'en pareja', label: 'En pareja' },
-  { id: 'en familia', label: 'En familia' },
-  { id: 'con amigos', label: 'Con amigos' },
+  { key: 'solo',    emoji: '🙋',      label: 'Solo/a',      sub: 'A mi ritmo' },
+  { key: 'couple',  emoji: '👫',      label: 'En pareja',   sub: 'Algo para dos' },
+  { key: 'family',  emoji: '👨‍👩‍👧',  label: 'En familia',  sub: 'Apto para todos' },
+  { key: 'friends', emoji: '👥',      label: 'Con amigos',  sub: 'Para el grupo' },
 ]
 
 // ── Types ─────────────────────────────────────────────────────────────────────
@@ -47,20 +47,28 @@ interface Recommendation {
   poster_path: string | null
 }
 
-// ── Progress bar ──────────────────────────────────────────────────────────────
+// ── Sub-components ────────────────────────────────────────────────────────────
 
 function ProgressBar({ step }: { step: number }) {
   return (
-    <div className="flex items-center justify-center gap-3 mb-8">
+    <div className="flex items-center justify-center gap-2 mb-8">
       {[1, 2, 3].map(n => (
-        <div key={n} className="flex items-center gap-3">
-          <div
-            className="w-3 h-3 rounded-full transition-all duration-300"
-            style={{ backgroundColor: step >= n ? '#1DB954' : '#3f3f46' }}
-          />
+        <div key={n} className="flex items-center gap-2">
+          <div className="flex items-center gap-1.5">
+            <div
+              className="w-2.5 h-2.5 rounded-full transition-all duration-400"
+              style={{ backgroundColor: step >= n ? '#1DB954' : '#52525b' }}
+            />
+            <span
+              className="text-xs font-medium transition-colors duration-300"
+              style={{ color: step >= n ? '#1DB954' : '#71717a' }}
+            >
+              Paso {n}
+            </span>
+          </div>
           {n < 3 && (
             <div
-              className="w-12 h-0.5 transition-all duration-300"
+              className="w-10 h-px transition-all duration-400"
               style={{ backgroundColor: step > n ? '#1DB954' : '#3f3f46' }}
             />
           )}
@@ -70,19 +78,47 @@ function ProgressBar({ step }: { step: number }) {
   )
 }
 
-// ── Skeleton cards ────────────────────────────────────────────────────────────
+function OptionCard({
+  emoji,
+  label,
+  sub,
+  selected,
+  onClick,
+}: {
+  emoji: string
+  label: string
+  sub: string
+  selected: boolean
+  onClick: () => void
+}) {
+  return (
+    <button
+      onClick={onClick}
+      className="flex flex-col items-center justify-center gap-2 py-5 px-3 rounded-2xl border-2 transition-all duration-200 cursor-pointer text-center"
+      style={{
+        backgroundColor: selected ? 'rgba(29,185,84,0.08)' : 'rgba(39,39,42,0.8)',
+        borderColor: selected ? '#1DB954' : '#3f3f46',
+      }}
+    >
+      <span className="text-4xl leading-none select-none">{emoji}</span>
+      <span className="text-white font-semibold text-sm leading-tight">{label}</span>
+      <span className="text-zinc-500 text-xs">{sub}</span>
+    </button>
+  )
+}
 
 function SkeletonCards() {
   return (
-    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-6">
+    <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex gap-3 bg-zinc-800 rounded-xl p-3 animate-pulse">
-          <div className="w-20 shrink-0 aspect-[2/3] bg-zinc-700 rounded-lg" />
+        <div key={i} className="flex gap-3 bg-zinc-800/60 rounded-2xl p-3 animate-pulse">
+          <div className="w-20 shrink-0 aspect-[2/3] bg-zinc-700 rounded-xl" />
           <div className="flex-1 space-y-2 py-1">
             <div className="h-4 bg-zinc-700 rounded w-3/4" />
             <div className="h-3 bg-zinc-700 rounded w-1/3" />
             <div className="h-3 bg-zinc-700 rounded w-full" />
             <div className="h-3 bg-zinc-700 rounded w-5/6" />
+            <div className="h-3 bg-zinc-700 rounded w-4/6 mt-1" />
           </div>
         </div>
       ))}
@@ -90,13 +126,11 @@ function SkeletonCards() {
   )
 }
 
-// ── Result cards ──────────────────────────────────────────────────────────────
-
 function ResultCard({ rec }: { rec: Recommendation }) {
   const href = `/${rec.media_type === 'movie' ? 'movie' : 'tv'}/${rec.tmdb_id}`
   return (
-    <div className="flex gap-3 bg-zinc-800 rounded-xl p-3">
-      <div className="w-20 shrink-0 aspect-[2/3] relative rounded-lg overflow-hidden bg-zinc-700">
+    <div className="flex gap-3 bg-zinc-800/70 border border-zinc-700/50 rounded-2xl p-3 hover:border-zinc-600 transition-colors">
+      <div className="w-20 shrink-0 aspect-[2/3] relative rounded-xl overflow-hidden bg-zinc-700">
         {rec.poster_path ? (
           <Image
             src={`https://image.tmdb.org/t/p/w185${rec.poster_path}`}
@@ -112,46 +146,49 @@ function ResultCard({ rec }: { rec: Recommendation }) {
         )}
       </div>
       <div className="flex-1 min-w-0">
-        <p className="font-semibold text-white text-sm leading-tight line-clamp-2">
-          {rec.title} <span className="text-zinc-400 font-normal">({rec.year})</span>
+        <p className="font-bold text-white text-sm leading-tight line-clamp-2">
+          {rec.title}{' '}
+          <span className="text-zinc-400 font-normal">({rec.year})</span>
         </p>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
-          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">{rec.platform}</span>
-          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">{rec.duration}</span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300 font-medium">
+            {rec.platform}
+          </span>
+          <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300">
+            {rec.duration}
+          </span>
         </div>
-        <p className="text-xs text-zinc-400 mt-1.5 line-clamp-3">{rec.reason}</p>
+        <p className="text-xs text-zinc-400 mt-2 line-clamp-3 leading-relaxed">{rec.reason}</p>
         <Link
           href={href}
-          className="inline-block mt-2 text-xs font-medium px-3 py-1 rounded-full bg-zinc-700 hover:bg-zinc-600 text-white transition-colors"
+          className="inline-block mt-2.5 text-xs font-semibold px-3 py-1 rounded-full transition-colors"
+          style={{ backgroundColor: 'rgba(29,185,84,0.15)', color: '#1DB954' }}
         >
-          Ver detalles
+          Ver detalles →
         </Link>
       </div>
     </div>
   )
 }
 
-// ── Auth modal ────────────────────────────────────────────────────────────────
-
 function AuthModal({ onClose }: { onClose: () => void }) {
   return (
-    <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
-      onClick={onClose}
-    >
-      <div className="absolute inset-0 bg-black/60" />
+    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
+      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className="relative bg-zinc-900 border border-zinc-700 rounded-2xl p-6 max-w-sm w-full text-center shadow-2xl"
+        className="relative bg-zinc-900 border border-zinc-700 rounded-2xl p-7 max-w-sm w-full text-center shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
-        <div className="text-3xl mb-3">🎬</div>
-        <h3 className="text-lg font-bold text-white mb-2">Iniciá sesión para usar el recomendador</h3>
-        <p className="text-zinc-400 text-sm mb-5">
-          Personalizamos las sugerencias según lo que ya viste.
+        <div className="text-4xl mb-3">🎬</div>
+        <h3 className="text-lg font-bold text-white mb-2">
+          Iniciá sesión para usar el recomendador
+        </h3>
+        <p className="text-zinc-400 text-sm mb-6">
+          Personalizamos las sugerencias según lo que ya viste y tus gustos.
         </p>
         <Link
           href="/auth"
-          className="block w-full py-2.5 rounded-xl font-semibold text-sm text-white transition-colors"
+          className="block w-full py-3 rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90"
           style={{ backgroundColor: '#1DB954' }}
         >
           Iniciar sesión
@@ -176,9 +213,9 @@ export default function MoodRecommender() {
   const [showAuthModal, setShowAuthModal] = useState(false)
 
   const [step, setStep] = useState(1)
-  const [mood, setMood] = useState('')
-  const [duration, setDuration] = useState('')
-  const [company, setCompany] = useState('')
+  const [moodKey, setMoodKey] = useState('')
+  const [durationKey, setDurationKey] = useState('')
+  const [companyKey, setCompanyKey] = useState('')
 
   const [loading, setLoading] = useState(false)
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null)
@@ -195,28 +232,20 @@ export default function MoodRecommender() {
     return () => subscription.unsubscribe()
   }, [])
 
-  function handleOptionClick(cb: () => void) {
-    if (!user) {
-      setShowAuthModal(true)
-      return
-    }
+  function guardedClick(cb: () => void) {
+    if (!user) { setShowAuthModal(true); return }
     cb()
   }
 
-  async function fetchRecommendations(selectedCompany: string) {
+  async function fetchRecommendations() {
+    if (!companyKey || !user) return
     setLoading(true)
     setRecommendations(null)
     try {
       const res = await fetch('/api/mood-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          mood,
-          duration,
-          company: selectedCompany,
-          userId: user!.id,
-          country,
-        }),
+        body: JSON.stringify({ moodKey, durationKey, companyKey, userId: user.id, country }),
       })
       const data = await res.json()
       setRecommendations(data.recommendations ?? [])
@@ -228,116 +257,146 @@ export default function MoodRecommender() {
   }
 
   function reset() {
-    setStep(1)
-    setMood('')
-    setDuration('')
-    setCompany('')
-    setRecommendations(null)
-    setLoading(false)
+    setStep(1); setMoodKey(''); setDurationKey(''); setCompanyKey('')
+    setRecommendations(null); setLoading(false)
   }
 
   const isGuest = authChecked && !user
 
+  const stepTitle = ['¿Cómo te sentís hoy?', '¿Cuánto tiempo tenés?', '¿Con quién vas a ver?']
+  const currentTitle = stepTitle[step - 1] ?? ''
+
   return (
-    <div className="relative w-full bg-zinc-950">
+    <div className="relative w-full" style={{ background: 'linear-gradient(160deg, #111113 0%, #0d0d0f 50%, #111113 100%)' }}>
+
+      {/* Subtle decorative glow */}
+      <div
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 opacity-20 pointer-events-none blur-3xl"
+        style={{ background: 'radial-gradient(ellipse, #1DB954 0%, transparent 70%)' }}
+      />
+
       {/* Guest overlay */}
       {isGuest && (
         <div
           className="absolute inset-0 z-10 cursor-pointer"
-          style={{ background: 'rgba(9,9,11,0.55)' }}
+          style={{ background: 'rgba(5,5,7,0.6)', backdropFilter: 'blur(1px)' }}
           onClick={() => setShowAuthModal(true)}
         />
       )}
 
       {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
-      <div className="max-w-2xl mx-auto px-4 py-10">
-        <div className="text-center mb-2">
-          <h2 className="text-2xl font-bold text-white">¿Qué querés ver hoy?</h2>
-          <p className="text-zinc-400 text-sm mt-1">Te recomendamos algo perfecto para este momento</p>
+      <div className="relative max-w-2xl mx-auto px-4 py-10">
+
+        {/* Header */}
+        <div className="text-center mb-7">
+          <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
+            Recomendador por estado de ánimo
+          </h2>
+          <p className="text-zinc-400 text-sm mt-2">
+            Respondé 3 preguntas y te decimos exactamente qué ver hoy
+          </p>
         </div>
 
         {/* Progress */}
-        {!recommendations && !loading && (
-          <div className="mt-6">
-            <ProgressBar step={step} />
-          </div>
-        )}
+        {!recommendations && !loading && <ProgressBar step={step} />}
 
-        {/* Step 1 — Mood */}
-        {!loading && !recommendations && step === 1 && (
-          <div>
-            <p className="text-center text-zinc-300 font-medium mb-4">¿Cómo te sentís hoy?</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {MOODS.map(m => (
-                <button
-                  key={m.id}
-                  onClick={() => handleOptionClick(() => { setMood(m.id); setStep(2) })}
-                  className="flex flex-col items-center justify-center gap-1 py-4 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 transition-all text-center group"
-                >
-                  <span className="text-white font-semibold text-sm group-hover:text-white">{m.label}</span>
-                  <span className="text-zinc-500 text-xs">{m.sub}</span>
-                </button>
-              ))}
-            </div>
-          </div>
-        )}
+        {/* Step question + options */}
+        {!loading && !recommendations && (
+          <>
+            <p className="text-center text-zinc-200 font-semibold text-base mb-4">{currentTitle}</p>
 
-        {/* Step 2 — Duration */}
-        {!loading && !recommendations && step === 2 && (
-          <div>
-            <p className="text-center text-zinc-300 font-medium mb-4">¿Cuánto tiempo tenés?</p>
-            <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {DURATIONS.map(d => (
-                <button
-                  key={d.id}
-                  onClick={() => handleOptionClick(() => { setDuration(d.id); setStep(3) })}
-                  className="py-4 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 transition-all text-white font-semibold text-sm"
-                >
-                  {d.label}
-                </button>
-              ))}
-            </div>
-            <button
-              onClick={() => setStep(1)}
-              className="mt-4 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
-            >
-              ← Volver
-            </button>
-          </div>
-        )}
+            {/* Step 1 — Mood */}
+            {step === 1 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {MOODS.map(m => (
+                  <OptionCard
+                    key={m.key}
+                    emoji={m.emoji}
+                    label={m.label}
+                    sub={m.sub}
+                    selected={moodKey === m.key}
+                    onClick={() => guardedClick(() => setMoodKey(m.key))}
+                  />
+                ))}
+              </div>
+            )}
 
-        {/* Step 3 — Company */}
-        {!loading && !recommendations && step === 3 && (
-          <div>
-            <p className="text-center text-zinc-300 font-medium mb-4">¿Con quién vas a ver?</p>
-            <div className="grid grid-cols-2 gap-3">
-              {COMPANIES.map(c => (
+            {/* Step 2 — Duration */}
+            {step === 2 && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
+                {DURATIONS.map(d => (
+                  <OptionCard
+                    key={d.key}
+                    emoji={d.emoji}
+                    label={d.label}
+                    sub={d.sub}
+                    selected={durationKey === d.key}
+                    onClick={() => guardedClick(() => setDurationKey(d.key))}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Step 3 — Company */}
+            {step === 3 && (
+              <div className="grid grid-cols-2 gap-3">
+                {COMPANIES.map(c => (
+                  <OptionCard
+                    key={c.key}
+                    emoji={c.emoji}
+                    label={c.label}
+                    sub={c.sub}
+                    selected={companyKey === c.key}
+                    onClick={() => guardedClick(() => setCompanyKey(c.key))}
+                  />
+                ))}
+              </div>
+            )}
+
+            {/* Navigation */}
+            <div className="flex items-center justify-between mt-5">
+              {step > 1 ? (
                 <button
-                  key={c.id}
-                  onClick={() => handleOptionClick(() => {
-                    setCompany(c.id)
-                    fetchRecommendations(c.id)
-                  })}
-                  className="py-5 px-3 rounded-xl bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 hover:border-zinc-500 transition-all text-white font-semibold text-sm"
+                  onClick={() => setStep(s => s - 1)}
+                  className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
                 >
-                  {c.label}
+                  ← Volver
                 </button>
-              ))}
+              ) : <span />}
+
+              {step < 3 ? (
+                <button
+                  disabled={step === 1 ? !moodKey : !durationKey}
+                  onClick={() => setStep(s => s + 1)}
+                  className="px-5 py-2.5 rounded-xl font-semibold text-sm text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed"
+                  style={{ backgroundColor: '#1DB954' }}
+                >
+                  Siguiente →
+                </button>
+              ) : (
+                <button
+                  disabled={!companyKey}
+                  onClick={fetchRecommendations}
+                  className="px-7 py-3 rounded-xl font-bold text-base text-white transition-all disabled:opacity-30 disabled:cursor-not-allowed shadow-lg"
+                  style={{
+                    backgroundColor: companyKey ? '#1DB954' : '#1DB954',
+                    boxShadow: companyKey ? '0 0 20px rgba(29,185,84,0.35)' : 'none',
+                  }}
+                >
+                  Ver mis recomendaciones 🎬
+                </button>
+              )}
             </div>
-            <button
-              onClick={() => setStep(2)}
-              className="mt-4 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
-            >
-              ← Volver
-            </button>
-          </div>
+          </>
         )}
 
         {/* Loading */}
         {loading && (
           <div>
-            <p className="text-center text-zinc-400 text-sm mt-6 mb-2">La IA está eligiendo lo mejor para vos…</p>
+            <p className="text-center text-zinc-400 text-sm mt-2 mb-1">
+              Buscando lo mejor para vos…
+            </p>
             <SkeletonCards />
           </div>
         )}
@@ -345,11 +404,13 @@ export default function MoodRecommender() {
         {/* Results */}
         {!loading && recommendations && (
           <div>
-            <p className="text-center text-zinc-300 font-medium mt-2 mb-4">
+            <p className="text-center text-white font-semibold text-base mb-4">
               Estas son tus recomendaciones 🎬
             </p>
             {recommendations.length === 0 ? (
-              <p className="text-center text-zinc-500 text-sm">No se pudieron obtener recomendaciones. Intentá de nuevo.</p>
+              <p className="text-center text-zinc-500 text-sm py-6">
+                No se pudieron obtener recomendaciones. Intentá de nuevo.
+              </p>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {recommendations.map((rec, i) => (
