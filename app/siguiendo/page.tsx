@@ -54,7 +54,23 @@ interface CompatItem {
   sharedGenreId: number | null
 }
 
+interface Achievement {
+  id: string
+  emoji: string
+  name: string
+  description: string
+  current: number
+  target: number
+  completed: boolean
+}
+
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+async function runConcurrently(tasks: (() => Promise<void>)[], limit: number) {
+  let i = 0
+  const worker = async () => { while (i < tasks.length) await tasks[i++]() }
+  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
+}
 
 function timeAgo(dateStr: string): string {
   const diff = Date.now() - new Date(dateStr).getTime()
@@ -311,6 +327,42 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
   )
 }
 
+function AchievementCard({ a }: { a: Achievement }) {
+  const pct = Math.min(Math.round((a.current / a.target) * 100), 100)
+  return (
+    <div className={`flex items-start gap-3.5 rounded-xl p-4 border transition-colors ${
+      a.completed ? 'bg-emerald-950/30 border-emerald-800/40' : 'bg-zinc-800/50 border-zinc-700/40'
+    }`}>
+      <div
+        className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
+        style={{ backgroundColor: a.completed ? 'rgba(29,185,84,0.15)' : 'rgba(39,39,42,0.6)' }}
+      >
+        {a.emoji}
+      </div>
+      <div className="flex-1 min-w-0">
+        <div className="flex items-center justify-between gap-2 mb-0.5">
+          <p className="font-semibold text-sm text-white leading-tight">{a.name}</p>
+          {a.completed && (
+            <span className="text-xs font-semibold text-emerald-400 shrink-0">¡Completado!</span>
+          )}
+        </div>
+        <p className="text-xs text-zinc-500 mb-2 leading-snug">{a.description}</p>
+        <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
+          <div
+            className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${pct}%`, backgroundColor: '#1DB954' }}
+          />
+        </div>
+        <p className="text-xs" style={{ color: a.completed ? '#1DB954' : '#71717a' }}>
+          {a.completed
+            ? `✓ ${a.current} de ${a.target}`
+            : `${a.current} de ${a.target} · Faltan ${a.target - a.current}`}
+        </p>
+      </div>
+    </div>
+  )
+}
+
 function TabButton({
   active,
   onClick,
@@ -360,6 +412,11 @@ export default function SiguiendoPage() {
   const [compatItems, setCompatItems] = useState<CompatItem[]>([])
   const [compatLoading, setCompatLoading] = useState(false)
   const [compatLoaded, setCompatLoaded] = useState(false)
+
+  // Achievements
+  const [achievements, setAchievements] = useState<Achievement[]>([])
+  const [achievementsLoading, setAchievementsLoading] = useState(false)
+  const [achievementsLoaded, setAchievementsLoaded] = useState(false)
 
   // ── Step 1: auth + follows + profiles ──────────────────────────────────────
   useEffect(() => {
@@ -529,6 +586,124 @@ export default function SiguiendoPage() {
   useEffect(() => {
     if (tab === 'compat' && !compatLoaded) loadCompat()
   }, [tab, compatLoaded, loadCompat])
+
+  // ── Achievements (lazy) ────────────────────────────────────────────────────
+  const loadAchievements = useCallback(async () => {
+    if (!currentUserId) { setAchievementsLoaded(true); return }
+    setAchievementsLoading(true)
+    const uid = currentUserId
+
+    // --- Parallel Supabase queries ---
+    const [
+      totalRes, moviesRes, tvRes,
+      reviewsRes, followingRes, followersRes,
+      reviewBodiesRes, watchedItemsRes,
+    ] = await Promise.all([
+      supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('media_type', 'movie'),
+      supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', uid).eq('media_type', 'tv'),
+      supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('user_id', uid),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid),
+      supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', uid),
+      supabase.from('reviews').select('body').eq('user_id', uid),
+      supabase.from('watched').select('media_id, media_type, genre_ids').eq('user_id', uid).limit(200),
+    ])
+
+    const totalWatched  = totalRes.count ?? 0
+    const totalMovies   = moviesRes.count ?? 0
+    const totalTV       = tvRes.count ?? 0
+    const totalReviews  = reviewsRes.count ?? 0
+    const totalFollowing = followingRes.count ?? 0
+    const totalFollowers = followersRes.count ?? 0
+    const longReviews   = (reviewBodiesRes.data ?? []).filter(r => (r.body?.length ?? 0) >= 200).length
+
+    type WRow = { media_id: number; media_type: string; genre_ids: number[] | null }
+    const watchedRows = (watchedItemsRes.data ?? []) as WRow[]
+
+    // --- Collect items that need TMDB (missing genre_ids OR is a movie) ---
+    const toFetch = new Map<string, { media_id: number; media_type: string }>()
+    for (const row of watchedRows) {
+      const key = `${row.media_type}:${row.media_id}`
+      if ((row.genre_ids?.length ?? 0) === 0 || row.media_type === 'movie') {
+        toFetch.set(key, { media_id: row.media_id, media_type: row.media_type })
+      }
+    }
+
+    // --- Fetch TMDB with concurrency 5, capped at 80 ---
+    type TmdbData = { genre_ids: number[]; original_language?: string; release_date?: string }
+    const tmdbCache = new Map<string, TmdbData>()
+    const fetchList = [...toFetch.values()].slice(0, 80)
+
+    await runConcurrently(fetchList.map(({ media_id, media_type }) => async () => {
+      const key = `${media_type}:${media_id}`
+      try {
+        const res = await fetch(`https://api.themoviedb.org/3/${media_type}/${media_id}?api_key=${TMDB_KEY}&language=es-AR`)
+        if (!res.ok) return
+        const d = await res.json()
+        tmdbCache.set(key, {
+          genre_ids: d.genre_ids ?? d.genres?.map((g: { id: number }) => g.id) ?? [],
+          original_language: d.original_language,
+          release_date: d.release_date ?? d.first_air_date,
+        })
+      } catch { /* skip */ }
+    }), 5)
+
+    // --- Genre counts ---
+    const genreCounts: Record<number, number> = {}
+    for (const row of watchedRows) {
+      const genres = (row.genre_ids?.length ?? 0) > 0
+        ? row.genre_ids!
+        : (tmdbCache.get(`${row.media_type}:${row.media_id}`)?.genre_ids ?? [])
+      for (const gid of genres) genreCounts[gid] = (genreCounts[gid] ?? 0) + 1
+    }
+
+    // --- Unique languages (movies only) ---
+    const langs = new Set<string>()
+    for (const row of watchedRows.filter(r => r.media_type === 'movie')) {
+      const lang = tmdbCache.get(`movie:${row.media_id}`)?.original_language
+      if (lang) langs.add(lang)
+    }
+
+    // --- Classics (movies before 1980) ---
+    let classics = 0
+    for (const row of watchedRows.filter(r => r.media_type === 'movie')) {
+      const rd = tmdbCache.get(`movie:${row.media_id}`)?.release_date
+      if (rd && rd < '1980-01-01') classics++
+    }
+
+    // --- Build + sort ---
+    const raw: Achievement[] = [
+      { id: 'first',      emoji: '🎬', name: 'Primera vez',              description: 'Marcá tu primera película o serie como vista',     current: Math.min(totalWatched, 1),           target: 1   },
+      { id: 'ten',        emoji: '🍿', name: 'Cinéfilo en progreso',      description: 'Ver 10 películas',                                  current: Math.min(totalMovies, 10),           target: 10  },
+      { id: 'hundred',    emoji: '🏆', name: 'Centenar de películas',     description: 'Ver 100 películas',                                 current: Math.min(totalMovies, 100),          target: 100 },
+      { id: 'critic',     emoji: '⭐', name: 'Crítico nato',              description: 'Escribir 5 reseñas',                               current: Math.min(totalReviews, 5),           target: 5   },
+      { id: 'tvfan',      emoji: '📺', name: 'Seriéfilo',                 description: 'Ver 5 series completas',                           current: Math.min(totalTV, 5),                target: 5   },
+      { id: 'world',      emoji: '🌍', name: 'Viajero del cine',          description: 'Ver películas de 5 idiomas/países distintos',      current: Math.min(langs.size, 5),             target: 5   },
+      { id: 'drama',      emoji: '🎭', name: 'Amante del drama',          description: 'Ver 20 dramas',                                    current: Math.min(genreCounts[18] ?? 0, 20),  target: 20  },
+      { id: 'comedy',     emoji: '😂', name: 'Rey de la comedia',         description: 'Ver 20 comedias',                                  current: Math.min(genreCounts[35] ?? 0, 20),  target: 20  },
+      { id: 'horror',     emoji: '👻', name: 'Valiente',                  description: 'Ver 10 películas de terror',                       current: Math.min(genreCounts[27] ?? 0, 10),  target: 10  },
+      { id: 'scifi',      emoji: '🤖', name: 'Explorador del futuro',     description: 'Ver 10 películas de ciencia ficción',              current: Math.min(genreCounts[878] ?? 0, 10), target: 10  },
+      { id: 'thriller',   emoji: '🕵️', name: 'Maestro del suspenso',     description: 'Ver 10 thrillers',                                 current: Math.min(genreCounts[53] ?? 0, 10),  target: 10  },
+      { id: 'classic',    emoji: '🎞️', name: 'Clásico imprescindible',   description: 'Ver 5 películas anteriores a 1980',                current: Math.min(classics, 5),               target: 5   },
+      { id: 'social',     emoji: '❤️', name: 'Social',                   description: 'Seguir a 5 usuarios',                             current: Math.min(totalFollowing, 5),          target: 5   },
+      { id: 'writer',     emoji: '✍️', name: 'Narrador',                 description: 'Escribir una reseña de más de 200 caracteres',    current: Math.min(longReviews, 1),             target: 1   },
+      { id: 'influencer', emoji: '🌟', name: 'Influencer',               description: 'Conseguir 10 seguidores',                         current: Math.min(totalFollowers, 10),         target: 10  },
+    ].map(a => ({ ...a, completed: a.current >= a.target }))
+
+    raw.sort((a, b) => {
+      if (a.completed !== b.completed) return a.completed ? -1 : 1
+      return (b.current / b.target) - (a.current / a.target)
+    })
+
+    setAchievements(raw)
+    setAchievementsLoading(false)
+    setAchievementsLoaded(true)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [currentUserId])
+
+  useEffect(() => {
+    if (tab === 'achievements' && !achievementsLoaded) loadAchievements()
+  }, [tab, achievementsLoaded, loadAchievements])
 
   // ── Toggle like ────────────────────────────────────────────────────────────
   async function toggleLike(reviewId: string) {
@@ -713,11 +888,46 @@ export default function SiguiendoPage() {
 
       {/* ── Logros ── */}
       {tab === 'achievements' && (
-        <div className="text-center py-20">
-          <Trophy size={44} className="mx-auto text-zinc-700 mb-3" />
-          <p className="text-white font-semibold text-base mb-1">Logros</p>
-          <p className="text-zinc-500 text-sm">Próximamente</p>
-        </div>
+        <>
+          {achievementsLoading ? (
+            <div className="space-y-3">
+              {Array.from({ length: 6 }).map((_, i) => (
+                <div key={i} className="flex gap-3.5 bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4 animate-pulse">
+                  <div className="w-12 h-12 rounded-full bg-zinc-700 shrink-0" />
+                  <div className="flex-1 space-y-2 pt-1">
+                    <div className="h-3.5 bg-zinc-700 rounded w-1/3" />
+                    <div className="h-2.5 bg-zinc-700 rounded w-2/3" />
+                    <div className="h-1.5 bg-zinc-700 rounded-full w-full mt-3" />
+                    <div className="h-2.5 bg-zinc-700 rounded w-1/4" />
+                  </div>
+                </div>
+              ))}
+            </div>
+          ) : (
+            <>
+              <div className="flex items-center justify-between mb-4">
+                <p className="text-xs text-zinc-500">
+                  {achievements.filter(a => a.completed).length} de {achievements.length} logros completados
+                </p>
+                <span className="text-xs font-semibold text-emerald-400">
+                  {achievements.filter(a => a.completed).length}/{achievements.length}
+                </span>
+              </div>
+              {achievements.filter(a => a.completed).length > 0 && (
+                <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-2">Completados</p>
+              )}
+              <div className="space-y-3">
+                {achievements.filter(a => a.completed).map(a => <AchievementCard key={a.id} a={a} />)}
+              </div>
+              {achievements.filter(a => !a.completed).length > 0 && (
+                <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mt-5 mb-2">En progreso</p>
+              )}
+              <div className="space-y-3">
+                {achievements.filter(a => !a.completed).map(a => <AchievementCard key={a.id} a={a} />)}
+              </div>
+            </>
+          )}
+        </>
       )}
     </div>
   )
