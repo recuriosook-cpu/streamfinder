@@ -15,15 +15,6 @@ import StarDisplay from '@/components/StarDisplay'
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const PAGE_SIZE = 20
 
-const GENRE_MAP: Record<number, string> = {
-  28: 'Acción', 12: 'Aventura', 16: 'Animación', 35: 'Comedia',
-  80: 'Crimen', 99: 'Documental', 18: 'Drama', 10751: 'Familia',
-  14: 'Fantasía', 36: 'Historia', 27: 'Terror', 10402: 'Música',
-  9648: 'Misterio', 10749: 'Romance', 878: 'Ciencia ficción',
-  53: 'Suspenso', 10752: 'Bélica', 37: 'Western',
-  10759: 'Acción y aventura', 10765: 'Sci-Fi y fantasía',
-}
-
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Profile {
@@ -78,7 +69,8 @@ type FeedItem = ActivityItem | WatchlistActivity | SharedStatActivity
 interface CompatItem {
   userId: string
   score: number
-  sharedGenreId: number | null
+  sharedCount: number
+  friendTotal: number
 }
 
 interface Achievement {
@@ -112,63 +104,9 @@ function timeAgo(dateStr: string): string {
   return new Date(dateStr).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
 }
 
-function jaccardScore(a: Set<number>, b: Set<number>): number {
-  if (a.size === 0 || b.size === 0) return 0
-  const inter = [...a].filter(x => b.has(x)).length
-  const union = new Set([...a, ...b]).size
-  return Math.round((inter / union) * 100)
-}
-
-function topGenreSet(
-  items: { genre_ids: number[] | null }[],
-  n = 5,
-): { top: Set<number>; counts: Record<number, number> } {
-  const counts: Record<number, number> = {}
-  for (const item of items) {
-    for (const gid of item.genre_ids ?? []) {
-      counts[gid] = (counts[gid] ?? 0) + 1
-    }
-  }
-  const top = new Set(
-    Object.entries(counts)
-      .sort((a, b) => b[1] - a[1])
-      .slice(0, n)
-      .map(([id]) => Number(id)),
-  )
-  return { top, counts }
-}
-
-async function fetchGenreIds(mediaType: string, mediaId: number): Promise<number[]> {
-  try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/${mediaType}/${mediaId}?api_key=${TMDB_KEY}&language=es-AR`,
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.genre_ids ?? data.genres?.map((g: { id: number }) => g.id) ?? []) as number[]
-  } catch { return [] }
-}
-
-// fetch genre_ids for items missing them (max `limit` TMDB calls)
-async function enrichGenres(
-  items: { media_id: number; media_type: string; genre_ids: number[] | null }[],
-  limit = 10,
-): Promise<{ genre_ids: number[] | null }[]> {
-  let tmdbCalls = 0
-  return Promise.all(
-    items.map(async item => {
-      if ((item.genre_ids?.length ?? 0) > 0) return item
-      if (tmdbCalls >= limit) return item
-      tmdbCalls++
-      const ids = await fetchGenreIds(item.media_type, item.media_id)
-      return { ...item, genre_ids: ids }
-    }),
-  )
-}
-
 function compatColor(score: number): string {
-  if (score >= 70) return '#1DB954'
-  if (score >= 40) return '#F59E0B'
+  if (score >= 60) return '#1DB954'
+  if (score >= 30) return '#F59E0B'
   return '#EF4444'
 }
 
@@ -490,13 +428,11 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
   const profile = profiles.get(item.userId)
   const username = profile?.username ?? 'Usuario'
   const color = compatColor(item.score)
-  const genreName = item.sharedGenreId ? GENRE_MAP[item.sharedGenreId] : null
-  const label =
-    item.score === 0 ? 'Sin datos suficientes'
-    : genreName ? `Ambos aman ${genreName}`
-    : item.score >= 70 ? 'Gustos muy similares'
-    : item.score >= 40 ? 'Algunos gustos en común'
-    : 'Gustos muy diferentes'
+  const label = item.friendTotal === 0
+    ? 'Este usuario todavía no marcó nada como visto'
+    : item.sharedCount === 0
+    ? 'Todavía no vieron nada en común'
+    : `Vieron ${item.sharedCount} título${item.sharedCount !== 1 ? 's' : ''} en común`
 
   return (
     <Link
@@ -779,42 +715,56 @@ export default function SiguiendoPage() {
     }
     setCompatLoading(true)
 
-    // Fetch current user's watched
-    const { data: myWatched } = await supabase
-      .from('watched')
-      .select('media_id, media_type, genre_ids')
-      .eq('user_id', currentUserId)
-      .order('watched_at', { ascending: false })
-      .limit(50)
+    // Fetch current user's watched + ratings
+    const [myWatchedRes, myRatingsRes] = await Promise.all([
+      supabase.from('watched').select('media_id, media_type').eq('user_id', currentUserId),
+      supabase.from('ratings').select('media_id, media_type, rating').eq('user_id', currentUserId),
+    ])
 
-    const myEnriched = await enrichGenres(
-      (myWatched ?? []) as { media_id: number; media_type: string; genre_ids: number[] | null }[],
-      15,
+    const mySet = new Set(
+      (myWatchedRes.data ?? []).map((w: { media_id: number; media_type: string }) => `${w.media_type}:${w.media_id}`)
     )
-    const { top: myTop, counts: myCounts } = topGenreSet(myEnriched)
+    const myRatingMap = new Map<string, number>()
+    for (const r of myRatingsRes.data ?? []) {
+      myRatingMap.set(`${r.media_type}:${r.media_id}`, r.rating)
+    }
 
-    // Fetch each friend's watched and calculate score
+    // Calculate score for each friend using media overlap only (no TMDB calls)
     const results = await Promise.all(
       followingIds.map(async (friendId) => {
-        const { data: friendWatched } = await supabase
-          .from('watched')
-          .select('media_id, media_type, genre_ids')
-          .eq('user_id', friendId)
-          .order('watched_at', { ascending: false })
-          .limit(30)
+        const [friendWatchedRes, friendRatingsRes] = await Promise.all([
+          supabase.from('watched').select('media_id, media_type').eq('user_id', friendId),
+          supabase.from('ratings').select('media_id, media_type, rating').eq('user_id', friendId),
+        ])
 
-        const friendEnriched = await enrichGenres(
-          (friendWatched ?? []) as { media_id: number; media_type: string; genre_ids: number[] | null }[],
-          10,
+        const friendWatched = friendWatchedRes.data ?? []
+        const friendSet = new Set(
+          friendWatched.map((w: { media_id: number; media_type: string }) => `${w.media_type}:${w.media_id}`)
         )
-        const { top: friendTop } = topGenreSet(friendEnriched)
-        const score = jaccardScore(myTop, friendTop)
 
-        // Find best shared genre (highest count in my history that's also in friend's top)
-        const shared = [...myTop].filter(g => friendTop.has(g))
-        const bestShared = shared.sort((a, b) => (myCounts[b] ?? 0) - (myCounts[a] ?? 0))[0] ?? null
+        if (friendSet.size === 0) {
+          return { userId: friendId, score: 0, sharedCount: 0, friendTotal: 0 }
+        }
 
-        return { userId: friendId, score, sharedGenreId: bestShared }
+        const sharedCount = [...mySet].filter(k => friendSet.has(k)).length
+        const unionSize = new Set([...mySet, ...friendSet]).size
+        let rawScore = unionSize > 0 ? (sharedCount / unionSize) * 100 : 0
+
+        // Ratings similarity bonus: +5% per 3 matching ratings (diff ≤ 1 star)
+        const friendRatingMap = new Map<string, number>()
+        for (const r of friendRatingsRes.data ?? []) {
+          friendRatingMap.set(`${r.media_type}:${r.media_id}`, r.rating)
+        }
+        let similarRatings = 0
+        for (const [key, myRating] of myRatingMap) {
+          const friendRating = friendRatingMap.get(key)
+          if (friendRating !== undefined && Math.abs(myRating - friendRating) <= 1) similarRatings++
+        }
+        rawScore += Math.floor(similarRatings / 3) * 5
+
+        const score = Math.min(99, Math.max(5, Math.round(rawScore)))
+
+        return { userId: friendId, score, sharedCount, friendTotal: friendSet.size }
       }),
     )
 
