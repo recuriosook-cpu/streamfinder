@@ -60,7 +60,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     // Step 1 — fetch the 10 most recent reviews + their like rows
     const { data: raw, error } = await supabase
       .from('reviews')
-      .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, has_spoiler, created_at, review_likes(user_id)')
+      .select('*, review_likes(user_id)')
       .eq('media_id', mediaId)
       .eq('media_type', mediaType)
       .order('created_at', { ascending: false })
@@ -344,7 +344,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
               showPoster={false}
               rating={review.rating}
               recommended={review.recommended}
-              hasSpoiler={review.has_spoiler}
+              hasSpoiler={review.has_spoiler ?? false}
               body={review.body}
               date={review.created_at}
               likeCount={review.review_likes.length}
