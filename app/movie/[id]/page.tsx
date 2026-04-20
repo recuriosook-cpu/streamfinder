@@ -14,6 +14,38 @@ import WatchlistButton from '@/components/WatchlistButton'
 import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
+import TrailerSection from '@/components/TrailerSection'
+import SimilarTitles from '@/components/SimilarTitles'
+
+const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+
+async function getTrailerKey(id: number, type: 'movie' | 'tv'): Promise<string | null> {
+  try {
+    const r1 = await fetch(`https://api.themoviedb.org/3/${type}/${id}/videos?api_key=${TMDB_KEY}&language=es-AR`, { next: { revalidate: 3600 } })
+    if (r1.ok) {
+      const d1 = await r1.json()
+      // eslint-disable-next-line @typescript-eslint/no-explicit-any
+      const t1 = (d1.results ?? []).find((v: any) => v.type === 'Trailer' && v.site === 'YouTube')
+      if (t1) return t1.key as string
+    }
+    const r2 = await fetch(`https://api.themoviedb.org/3/${type}/${id}/videos?api_key=${TMDB_KEY}&language=en-US`, { next: { revalidate: 3600 } })
+    if (!r2.ok) return null
+    const d2 = await r2.json()
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const t2 = (d2.results ?? []).find((v: any) => v.type === 'Trailer' && v.site === 'YouTube')
+    return t2?.key ?? null
+  } catch { return null }
+}
+
+// eslint-disable-next-line @typescript-eslint/no-explicit-any
+async function getSimilar(id: number, type: 'movie' | 'tv'): Promise<any[]> {
+  try {
+    const res = await fetch(`https://api.themoviedb.org/3/${type}/${id}/similar?api_key=${TMDB_KEY}&language=es-AR`, { next: { revalidate: 3600 } })
+    if (!res.ok) return []
+    const data = await res.json()
+    return (data.results ?? []).slice(0, 10)
+  } catch { return [] }
+}
 
 interface Props {
   params: Promise<{ id: string }>
@@ -21,10 +53,13 @@ interface Props {
 
 export default async function MoviePage({ params }: Props) {
   const { id } = await params
-  const [movie, watchData, credits] = await Promise.all([
-    getMovieDetails(Number(id)),
-    getMovieProviders(Number(id)),
-    getMovieCredits(Number(id)),
+  const numId = Number(id)
+  const [movie, watchData, credits, trailerKey, similar] = await Promise.all([
+    getMovieDetails(numId),
+    getMovieProviders(numId),
+    getMovieCredits(numId),
+    getTrailerKey(numId, 'movie'),
+    getSimilar(numId, 'movie'),
   ])
   const omdb = await getOMDBRatings(movie.imdb_id)
 
@@ -183,6 +218,7 @@ export default async function MoviePage({ params }: Props) {
           </div>
         </div>
 
+        {trailerKey && <TrailerSection videoKey={trailerKey} />}
         <CastCarousel cast={cast} />
         <CrewSection crew={crew} />
         {parsedAwards && <AwardsSection awards={parsedAwards} />}
@@ -198,6 +234,7 @@ export default async function MoviePage({ params }: Props) {
           title={movie.title}
           posterPath={movie.poster_path}
         />
+        <SimilarTitles items={similar} mediaType="movie" />
       </div>
     </div>
   )
