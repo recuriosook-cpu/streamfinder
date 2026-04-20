@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
+import ShareDropdown from '@/components/ShareDropdown'
 import { addPoints } from '@/lib/points'
 
 // Render text with @mentions as green links
@@ -362,6 +363,37 @@ export default function ReviewCard({
                 : 'Comentar'}
             </span>
           </button>
+
+          {(() => {
+            const BASE = 'https://streamfinder-lilac.vercel.app'
+            const reviewUrl = `${BASE}/review/${id}`
+            const excerpt = body ? body.slice(0, 100).trim() : ''
+            const ratingStr = rating ? `⭐${rating}/5` : ''
+            const waText = encodeURIComponent(
+              `${authorUsername} opinó sobre "${mediaTitle}": "${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}" ${ratingStr}\n👉 ${reviewUrl}`
+            )
+            const tweetText = encodeURIComponent(
+              `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en #StreamFinder\n"${body ? body.slice(0, 80).trim() : ''}${(body?.length ?? 0) > 80 ? '...' : ''}"\n👉 ${reviewUrl}`
+            )
+            return (
+              <ShareDropdown
+                whatsappUrl={`https://wa.me/?text=${waText}`}
+                twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}`}
+                copyUrl={reviewUrl}
+                align="left"
+                triggerClassName="text-zinc-500 hover:text-zinc-300"
+                trigger={
+                  <span className="flex items-center gap-1.5 text-xs font-medium">
+                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                    </svg>
+                    Compartir
+                  </span>
+                }
+              />
+            )
+          })()}
         </div>
       </div>
 

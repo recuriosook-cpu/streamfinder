@@ -16,6 +16,7 @@ import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
 import SimilarTitles from '@/components/SimilarTitles'
+import MediaShareButton from '@/components/MediaShareButton'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -206,6 +207,13 @@ export default async function MoviePage({ params }: Props) {
                 mediaType="movie"
                 title={movie.title}
                 posterPath={movie.poster_path}
+              />
+              <MediaShareButton
+                mediaId={movie.id}
+                mediaType="movie"
+                title={movie.title}
+                year={movie.release_date?.slice(0, 4)}
+                score={movie.vote_average}
               />
             </div>
 
