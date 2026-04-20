@@ -8,6 +8,25 @@ import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
+import MentionTextarea from '@/components/MentionTextarea'
+
+// Render text with @mentions as green links
+function BodyWithMentions({ text }: { text: string }) {
+  const parts = text.split(/(@\w+)/g)
+  return (
+    <>
+      {parts.map((part, i) =>
+        /^@\w+$/.test(part) ? (
+          <Link key={i} href={`/usuario/${part.slice(1)}`} style={{ color: '#1DB954' }} className="hover:underline">
+            {part}
+          </Link>
+        ) : (
+          <span key={i}>{part}</span>
+        )
+      )}
+    </>
+  )
+}
 
 // ── Comment types ──────────────────────────────────────────────────────────
 
@@ -42,6 +61,7 @@ export interface ReviewCardProps {
   // Review content
   rating?: number | null
   recommended: boolean
+  hasSpoiler?: boolean
   body?: string | null
   date: string          // ISO string (created_at or watched_at)
   // Interaction
@@ -57,7 +77,7 @@ export interface ReviewCardProps {
 export default function ReviewCard({
   id, authorId, authorUsername, authorDisplayName, authorAvatarUrl,
   mediaId, mediaType, mediaTitle, mediaPosterPath, showPoster = true,
-  rating, recommended, body, date,
+  rating, recommended, hasSpoiler, body, date,
   likeCount, likedByCurrentUser, isOwn, currentUserId,
   onLike, onEdit, onDelete,
 }: ReviewCardProps) {
@@ -68,6 +88,9 @@ export default function ReviewCard({
   const formattedDate = new Date(date).toLocaleDateString('es-AR', {
     day: 'numeric', month: 'short', year: 'numeric',
   })
+
+  // ── Spoiler state ──────────────────────────────────────────────
+  const [spoilerRevealed, setSpoilerRevealed] = useState(false)
 
   // ── Comments state ─────────────────────────────────────────────
   const [commentsOpen,    setCommentsOpen]    = useState(false)
@@ -282,7 +305,31 @@ export default function ReviewCard({
       {/* ── Body ────────────────────────────────────────────────── */}
       {body && (
         <div className="px-4 pb-3">
-          <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">{body}</p>
+          {hasSpoiler && (
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold bg-red-900/50 text-red-400 px-2 py-0.5 rounded-full mb-2">
+              ⚠️ Spoiler
+            </span>
+          )}
+          {hasSpoiler && !spoilerRevealed ? (
+            <div className="relative rounded-lg overflow-hidden">
+              <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap blur-sm select-none pointer-events-none line-clamp-3">
+                {body}
+              </p>
+              <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-zinc-900/70 backdrop-blur-[2px] rounded-lg">
+                <p className="text-xs text-zinc-400 font-medium">Esta reseña contiene spoilers</p>
+                <button
+                  onClick={() => setSpoilerRevealed(true)}
+                  className="text-xs font-semibold px-3 py-1.5 rounded-full border border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white transition-colors"
+                >
+                  Ver igual
+                </button>
+              </div>
+            </div>
+          ) : (
+            <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap">
+              <BodyWithMentions text={body} />
+            </p>
+          )}
         </div>
       )}
 
@@ -339,10 +386,10 @@ export default function ReviewCard({
                 </div>
               )}
               <div className="flex gap-2">
-                <textarea
-                  ref={inputRef}
+                <MentionTextarea
+                  textareaRef={inputRef}
                   value={newComment}
-                  onChange={e => setNewComment(e.target.value)}
+                  onChange={setNewComment}
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() }
                   }}
@@ -406,7 +453,7 @@ export default function ReviewCard({
                             {isVerified(comment.author?.username) && <VerifiedBadge size={12} />}
                             <span className="text-[10px] text-zinc-600">{cDate}</span>
                           </div>
-                          <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
+                          <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={comment.content} /></p>
                           {currentUserId && (
                             <button
                               onClick={() => startReply(comment)}
@@ -450,7 +497,7 @@ export default function ReviewCard({
                                     {isVerified(reply.author?.username) && <VerifiedBadge size={12} />}
                                     <span className="text-[10px] text-zinc-600">{rDate}</span>
                                   </div>
-                                  <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>
+                                  <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={reply.content} /></p>
                                 </div>
                               </div>
                             )

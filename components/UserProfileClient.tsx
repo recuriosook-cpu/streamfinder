@@ -64,7 +64,7 @@ interface PinnedSlot {
 interface ReviewItem {
   id: string; user_id: string; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null
-  rating: number | null; body: string | null; recommended: boolean
+  rating: number | null; body: string | null; recommended: boolean; has_spoiler: boolean
   created_at: string
   review_likes?: { user_id: string }[]
   author?: { username: string | null; avatar_url: string | null }
@@ -256,7 +256,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
         supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
-        supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
+        supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,has_spoiler,created_at').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
         supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
         supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
@@ -325,7 +325,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .then(({ data }) => setAllWatched(data ?? []))
     }
     if (activeTab === 'resenas') {
-      supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,created_at,review_likes(user_id)')
+      supabase.from('reviews').select('id,user_id,media_id,media_type,title,poster_path,rating,body,recommended,has_spoiler,created_at,review_likes(user_id)')
         .eq('user_id', profile.id).order('created_at', { ascending: false })
         .then(({ data }) => setAllReviews((data ?? []) as ReviewItem[]))
     }
@@ -1023,6 +1023,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   mediaPosterPath={r.poster_path}
                   rating={r.rating}
                   recommended={r.recommended}
+                  hasSpoiler={r.has_spoiler}
                   body={r.body}
                   date={r.created_at}
                   likeCount={r.review_likes?.length ?? 0}

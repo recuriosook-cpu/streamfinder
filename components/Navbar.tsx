@@ -39,7 +39,7 @@ function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
 
 interface NotifItem {
   id: string
-  type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply'
+  type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply' | 'mention'
   read: boolean
   created_at: string
   actor_id: string
@@ -123,9 +123,9 @@ export default function Navbar() {
       .in('id', actorIds)
     const actorMap = Object.fromEntries((actors ?? []).map(a => [a.id, a]))
 
-    // Fetch media_id / media_type for review_like / review_comment / comment_reply
+    // Fetch media_id / media_type for review_like / review_comment / comment_reply / mention
     const reviewIds = rows
-      .filter(r => r.review_id && ['review_like', 'review_comment', 'comment_reply'].includes(r.type))
+      .filter(r => r.review_id && ['review_like', 'review_comment', 'comment_reply', 'mention'].includes(r.type))
       .map(r => r.review_id as string)
     let reviewMediaMap: Record<string, { media_id: number; media_type: string }> = {}
     if (reviewIds.length > 0) {
@@ -161,7 +161,7 @@ export default function Navbar() {
     // Navigate to the relevant page
     if (n.type === 'follow' && n.actor?.username) {
       router.push(`/usuario/${n.actor.username}`)
-    } else if (['review_like', 'review_comment', 'comment_reply'].includes(n.type) && n.media_id && n.media_type) {
+    } else if (['review_like', 'review_comment', 'comment_reply', 'mention'].includes(n.type) && n.media_id && n.media_type) {
       router.push(`/${n.media_type}/${n.media_id}`)
     }
   }
@@ -606,6 +606,9 @@ export default function Navbar() {
                                   )}
                                   {n.type === 'comment_reply' && (
                                     <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-emerald-400">{n.review_title}</span></>
+                                  )}
+                                  {n.type === 'mention' && (
+                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-emerald-400">{n.review_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>

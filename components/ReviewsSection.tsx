@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import ReviewCard from '@/components/ReviewCard'
+import MentionTextarea from '@/components/MentionTextarea'
 import { StarIcon } from '@/components/StarDisplay'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -14,7 +15,7 @@ interface Like    { user_id: string }
 interface RawReview {
   id: string; user_id: string; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null; rating: number | null
-  body: string | null; recommended: boolean; created_at: string
+  body: string | null; recommended: boolean; has_spoiler: boolean; created_at: string
   review_likes: Like[]
 }
 
@@ -43,6 +44,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [hoverRating, setHoverRating]         = useState(0)
   const [formBody, setFormBody]               = useState('')
   const [formRecommended, setFormRecommended] = useState(true)
+  const [formHasSpoiler, setFormHasSpoiler]   = useState(false)
   const [submitting, setSubmitting]           = useState(false)
 
   useEffect(() => {
@@ -57,7 +59,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     // Step 1 — fetch the 10 most recent reviews + their like rows
     const { data: raw, error } = await supabase
       .from('reviews')
-      .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, created_at, review_likes(user_id)')
+      .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, has_spoiler, created_at, review_likes(user_id)')
       .eq('media_id', mediaId)
       .eq('media_type', mediaType)
       .order('created_at', { ascending: false })
@@ -97,11 +99,13 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       setFormRating(review.rating ?? 0)
       setFormBody(review.body ?? '')
       setFormRecommended(review.recommended)
+      setFormHasSpoiler(review.has_spoiler ?? false)
     } else {
       setEditingId(null)
       setFormRating(0)
       setFormBody('')
       setFormRecommended(true)
+      setFormHasSpoiler(false)
     }
     setShowForm(true)
   }
@@ -118,20 +122,44 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       rating:      formRating,
       body:        formBody.trim() || null,
       recommended: formRecommended,
+      has_spoiler: formHasSpoiler,
       created_at:  new Date().toISOString(),
     }
 
-    let error
+    let reviewId: string | null = editingId
     if (editingId) {
-      ;({ error } = await supabase.from('reviews').update(payload).eq('id', editingId))
+      const { error } = await supabase.from('reviews').update(payload).eq('id', editingId)
+      if (error) { console.error('[submitReview]', error); setSubmitting(false); return }
     } else {
-      ;({ error } = await supabase.from('reviews').upsert(payload, { onConflict: 'user_id,media_id,media_type' }))
+      const { data, error } = await supabase
+        .from('reviews')
+        .upsert(payload, { onConflict: 'user_id,media_id,media_type' })
+        .select('id')
+        .single()
+      if (error) { console.error('[submitReview]', error); setSubmitting(false); return }
+      reviewId = data?.id ?? null
     }
 
-    if (error) {
-      console.error('[submitReview]', error)
-      setSubmitting(false)
-      return
+    // @mention notifications (fire-and-forget)
+    if (reviewId && formBody.trim()) {
+      const mentionedUsernames = [...new Set([...formBody.matchAll(/@(\w+)/g)].map(m => m[1]))]
+      if (mentionedUsernames.length > 0) {
+        const { data: mentionedProfiles } = await supabase
+          .from('profiles')
+          .select('id, username')
+          .in('username', mentionedUsernames)
+        for (const p of mentionedProfiles ?? []) {
+          if (p.id !== currentUserId) {
+            supabase.from('notifications').insert({
+              user_id:      p.id,
+              actor_id:     currentUserId,
+              type:         'mention',
+              review_id:    reviewId,
+              review_title: title,
+            })
+          }
+        }
+      }
     }
 
     setShowForm(false)
@@ -243,14 +271,25 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             </button>
           </div>
 
-          {/* Body */}
-          <textarea
+          {/* Body with @mention support */}
+          <MentionTextarea
             value={formBody}
-            onChange={e => setFormBody(e.target.value)}
-            placeholder="¿Qué te pareció? (opcional)"
+            onChange={setFormBody}
+            placeholder="¿Qué te pareció? Usá @usuario para mencionar a alguien (opcional)"
             rows={4}
             className="w-full bg-zinc-700 border border-zinc-600 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
           />
+
+          {/* Spoiler toggle */}
+          <label className="flex items-center gap-2.5 mt-3 cursor-pointer w-fit">
+            <input
+              type="checkbox"
+              checked={formHasSpoiler}
+              onChange={e => setFormHasSpoiler(e.target.checked)}
+              className="w-4 h-4 accent-red-500 cursor-pointer"
+            />
+            <span className="text-sm text-zinc-300">⚠️ Esta reseña contiene spoilers</span>
+          </label>
 
           <div className="flex gap-2 mt-3">
             <button
@@ -298,6 +337,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
               showPoster={false}
               rating={review.rating}
               recommended={review.recommended}
+              hasSpoiler={review.has_spoiler}
               body={review.body}
               date={review.created_at}
               likeCount={review.review_likes.length}
