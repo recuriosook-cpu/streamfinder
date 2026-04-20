@@ -103,9 +103,17 @@ export async function GET(req: NextRequest) {
   let minutesYear    = 0
 
   const genreCount:    Record<string, number> = {}
+  const decadeCount:   Record<string, number> = {}
+  const langCount:     Record<string, number> = {}
   const actorCount:    Record<string, { name: string; profilePath: string | null; count: number }> = {}
   const actressCount:  Record<string, { name: string; profilePath: string | null; count: number }> = {}
   const directorCount: Record<string, { name: string; profilePath: string | null; count: number }> = {}
+
+  const LANG_MAP: Record<string, string> = {
+    en: 'Inglés', es: 'Español', fr: 'Francés', ko: 'Coreano',
+    ja: 'Japonés', it: 'Italiano', de: 'Alemán', pt: 'Portugués',
+    zh: 'Chino', hi: 'Hindi',
+  }
 
   for (const { row, details, credits } of items) {
     if (!details) continue
@@ -131,6 +139,23 @@ export async function GET(req: NextRequest) {
     for (const g of genres) {
       const name = GENRE_MAP[g.id] ?? g.name
       genreCount[name] = (genreCount[name] ?? 0) + 1
+    }
+
+    // ── Decade ───────────────────────────────────────────────────
+    const releaseDate = (details.release_date ?? details.first_air_date ?? '') as string
+    if (releaseDate.length >= 4) {
+      const year = parseInt(releaseDate.slice(0, 4))
+      if (!isNaN(year)) {
+        const decade = `${Math.floor(year / 10) * 10}s`
+        decadeCount[decade] = (decadeCount[decade] ?? 0) + 1
+      }
+    }
+
+    // ── Language ──────────────────────────────────────────────────
+    const lang = (details.original_language as string) ?? ''
+    if (lang) {
+      const langName = LANG_MAP[lang] ?? 'Otro'
+      langCount[langName] = (langCount[langName] ?? 0) + 1
     }
 
     // ── Cast & crew ───────────────────────────────────────────────
@@ -171,6 +196,27 @@ export async function GET(req: NextRequest) {
     .sort((a, b) => b.count - a.count)
     .slice(0, 3)
 
+  // ── Decades (all, sorted desc by count) ──────────────────────────────────
+  const topDecades = Object.entries(decadeCount)
+    .map(([decade, count]) => ({ decade, count }))
+    .sort((a, b) => b.count - a.count)
+
+  // ── Languages (top 5 + Otros) ─────────────────────────────────────────────
+  const totalLangItems = Object.values(langCount).reduce((a, b) => a + b, 0)
+  const sortedLangs = Object.entries(langCount)
+    .map(([name, count]) => ({ name, count }))
+    .sort((a, b) => b.count - a.count)
+
+  const top5 = sortedLangs.slice(0, 5)
+  const othersCount = sortedLangs.slice(5).reduce((s, l) => s + l.count, 0)
+  if (othersCount > 0) top5.push({ name: 'Otros', count: othersCount })
+
+  const topLanguages = top5.map(l => ({
+    name: l.name,
+    count: l.count,
+    pct: Math.round((l.count / totalLangItems) * 100),
+  }))
+
   // ── Top actor / actress / director ────────────────────────────────────────
   function topEntry(map: typeof actorCount) {
     const entries = Object.entries(map)
@@ -189,6 +235,8 @@ export async function GET(req: NextRequest) {
     minutesMonth,
     minutesYear,
     topGenres,
+    topDecades,
+    topLanguages,
     topActor,
     topActress,
     topDirector,

@@ -114,14 +114,16 @@ interface PersonStat {
 }
 
 interface RichStats {
-  tooFew:       boolean
-  totalMinutes: number
-  minutesMonth: number
-  minutesYear:  number
-  topGenres:    { name: string; count: number }[]
-  topActor:     PersonStat | null
-  topActress:   PersonStat | null
-  topDirector:  PersonStat | null
+  tooFew:        boolean
+  totalMinutes:  number
+  minutesMonth:  number
+  minutesYear:   number
+  topGenres:     { name: string; count: number }[]
+  topDecades:    { decade: string; count: number }[]
+  topLanguages:  { name: string; count: number; pct: number }[]
+  topActor:      PersonStat | null
+  topActress:    PersonStat | null
+  topDirector:   PersonStat | null
 }
 
 // ── Design helpers ─────────────────────────────────────────────────────────
@@ -1218,6 +1220,65 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       </div>
                     )}
 
+                    {/* ── Décadas favoritas ─────────────────────── */}
+                    {richStats.topDecades?.length > 0 && (
+                      <div>
+                        <SectionLabel>Décadas favoritas</SectionLabel>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                          {richStats.topDecades.map((d, i) => {
+                            const max = richStats.topDecades[0].count
+                            const pct = Math.round((d.count / max) * 100)
+                            return (
+                              <div key={d.decade}>
+                                <div className="flex items-center justify-between mb-1.5">
+                                  <span className="text-sm font-medium text-white">
+                                    {i === 0 && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                    {d.decade}
+                                  </span>
+                                  <span className="text-xs text-zinc-500">{d.count} título{d.count !== 1 ? 's' : ''}</span>
+                                </div>
+                                <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                  <div
+                                    className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                    style={{ width: `${pct}%` }}
+                                  />
+                                </div>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      </div>
+                    )}
+
+                    {/* ── Idiomas más vistos ────────────────────── */}
+                    {richStats.topLanguages?.length > 0 && (
+                      <div>
+                        <SectionLabel>Idiomas más vistos</SectionLabel>
+                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                          {richStats.topLanguages.map((l, i) => (
+                            <div key={l.name}>
+                              <div className="flex items-center justify-between mb-1.5">
+                                <span className="text-sm font-medium text-white">
+                                  {i === 0 && l.name !== 'Otros' && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                  {l.name}
+                                </span>
+                                <span className="text-xs text-zinc-500">{l.pct}%</span>
+                              </div>
+                              <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                <div
+                                  className="h-1.5 rounded-full transition-all"
+                                  style={{
+                                    width: `${l.pct}%`,
+                                    backgroundColor: l.name === 'Otros' ? '#52525b' : '#1DB954',
+                                  }}
+                                />
+                              </div>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    )}
+
                     {/* ── Personas favoritas ────────────────────── */}
                     {(richStats.topActor || richStats.topActress || richStats.topDirector) && (
                       <div>
@@ -1237,17 +1298,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             }
                             return (
                               <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
-                                {/* Circular photo */}
-                                <div className="shrink-0 w-14 h-14 rounded-full overflow-hidden bg-zinc-700">
+                                {/* Square photo */}
+                                <div className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-zinc-700">
                                   {person!.profilePath ? (
                                     // eslint-disable-next-line @next/next/no-img-element
                                     <img
                                       src={`https://image.tmdb.org/t/p/w185${person!.profilePath}`}
                                       alt={person!.name}
-                                      className="w-full h-full object-cover object-top"
+                                      className="w-full h-full object-cover"
+                                      style={{ objectPosition: 'top center' }}
                                     />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-xl font-bold text-zinc-500">
+                                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-500">
                                       {person!.name.charAt(0).toUpperCase()}
                                     </div>
                                   )}
