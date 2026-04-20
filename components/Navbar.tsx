@@ -39,7 +39,7 @@ function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
 
 interface NotifItem {
   id: string
-  type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply' | 'mention'
+  type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply' | 'mention' | 'level_up'
   read: boolean
   created_at: string
   actor_id: string
@@ -161,6 +161,8 @@ export default function Navbar() {
     // Navigate to the relevant page
     if (n.type === 'follow' && n.actor?.username) {
       router.push(`/usuario/${n.actor.username}`)
+    } else if (n.type === 'level_up' && user) {
+      router.push('/profile')
     } else if (['review_like', 'review_comment', 'comment_reply', 'mention'].includes(n.type) && n.media_id && n.media_type) {
       router.push(`/${n.media_type}/${n.media_id}`)
     }
@@ -609,6 +611,9 @@ export default function Navbar() {
                                   )}
                                   {n.type === 'mention' && (
                                     <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                  )}
+                                  {n.type === 'level_up' && (
+                                    <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-emerald-400">{n.review_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>

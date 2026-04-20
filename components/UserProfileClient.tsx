@@ -10,6 +10,7 @@ import {
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import { addPoints, getLevelInfo } from '@/lib/points'
 import ReviewCard from '@/components/ReviewCard'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
@@ -54,6 +55,8 @@ export interface PublicProfile {
   tiktok_username?: string | null
   x_username?: string | null
   username_changed_at?: string | null
+  points?: number | null
+  level?: number | null
 }
 
 interface PinnedSlot {
@@ -351,6 +354,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .from('follows')
         .insert({ follower_id: currentUserId, following_id: profile.id })
       if (!error) {
+        addPoints(currentUserId, 1)      // follower gains 1 pt for following
+        addPoints(profile.id, 3)         // followed user gains 3 pts
         // Notify the followed user — done client-side since DB triggers are unavailable
         await supabase.from('notifications').insert({
           user_id:  profile.id,
@@ -684,6 +689,40 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </div>
 
               <p className="text-zinc-500 text-sm mb-3">@{localProfile.username}</p>
+
+              {/* Level badge */}
+              {(() => {
+                const pts   = localProfile.points ?? 0
+                const lvl   = localProfile.level ?? 1
+                const info  = getLevelInfo(lvl, pts)
+                return (
+                  <div
+                    className="inline-flex flex-col gap-1.5 mb-3 group"
+                    title={info.next
+                      ? `${pts} puntos · Faltan ${info.next.min - pts} para ${info.next.name}`
+                      : `${pts} puntos · Nivel máximo`}
+                  >
+                    <div className="flex items-center gap-2">
+                      <span className="text-lg leading-none">{info.emoji}</span>
+                      <span className="text-sm font-semibold text-zinc-200">{info.name}</span>
+                      {info.next && (
+                        <span className="text-xs text-zinc-500">→ {info.next.name}</span>
+                      )}
+                    </div>
+                    <div className="flex items-center gap-2">
+                      <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full transition-all duration-700"
+                          style={{ width: `${info.pct}%`, backgroundColor: '#1DB954' }}
+                        />
+                      </div>
+                      <span className="text-[10px] text-zinc-600">
+                        {info.next ? `${pts}/${info.next.min} pts` : `${pts} pts`}
+                      </span>
+                    </div>
+                  </div>
+                )
+              })()}
 
               {localProfile.bio && (
                 <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-4">{localProfile.bio}</p>

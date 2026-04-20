@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Calendar, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { addPoints } from '@/lib/points'
 
 interface Props {
   mediaId: number
@@ -96,6 +97,7 @@ export default function WatchedButton({
       return
     }
 
+    addPoints(userId, mediaType === 'movie' ? 3 : 5)
     setIsWatched(true)
     closePopup()
     setLoading(false)

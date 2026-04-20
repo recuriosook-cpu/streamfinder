@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bookmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { addPoints } from '@/lib/points'
 
 interface Props {
   mediaId: number
@@ -52,6 +53,7 @@ export default function WatchlistButton({ mediaId, mediaType, title, posterPath 
         title,
         poster_path: posterPath,
       })
+      addPoints(userId, 1)
       setInList(true)
     }
     setLoading(false)

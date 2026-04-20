@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
+import { addPoints } from '@/lib/points'
 
 // Render text with @mentions as green links
 function BodyWithMentions({ text }: { text: string }) {

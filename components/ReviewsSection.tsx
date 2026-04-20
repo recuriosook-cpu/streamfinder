@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import ReviewCard from '@/components/ReviewCard'
 import MentionTextarea from '@/components/MentionTextarea'
 import { StarIcon } from '@/components/StarDisplay'
+import { addPoints } from '@/lib/points'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -140,6 +141,10 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       reviewId = data?.id ?? null
     }
 
+    // Points for writing review (+10, +5 bonus if body >= 200 chars)
+    addPoints(currentUserId, 10)
+    if (formBody.trim().length >= 200) addPoints(currentUserId, 5)
+
     // @mention notifications (fire-and-forget)
     if (reviewId && formBody.trim()) {
       const mentionedUsernames = [...new Set([...formBody.matchAll(/@(\w+)/g)].map(m => m[1]))]
@@ -157,6 +162,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
               review_id:    reviewId,
               review_title: title,
             })
+            addPoints(p.id, 2) // mentioned user gets +2 pts
           }
         }
       }
@@ -193,6 +199,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           ? { ...r, review_likes: [...r.review_likes, { user_id: currentUserId }] }
           : r
       ))
+      if (review.user_id !== currentUserId) addPoints(review.user_id, 2)
     }
   }
 
