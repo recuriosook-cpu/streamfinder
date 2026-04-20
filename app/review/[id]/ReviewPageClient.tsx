@@ -4,11 +4,12 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Heart, MessageSquare, Send, X } from 'lucide-react'
+import { ArrowLeft, Heart, MessageSquare, Send, Share2, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
+import ReviewShareDropdown from '@/components/ReviewShareDropdown'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -335,6 +336,23 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                   : 'Comentar'}
               </span>
             </button>
+
+            <ReviewShareDropdown
+              reviewId={review.id}
+              mediaTitle={review.mediaTitle}
+              mediaPosterPath={review.mediaPosterPath}
+              mediaYear={review.mediaYear}
+              rating={review.rating}
+              body={review.body}
+              authorUsername={review.authorUsername}
+              align="right"
+              trigger={
+                <span className="flex items-center gap-2 text-sm font-medium text-zinc-500 hover:text-zinc-300 transition-colors">
+                  <Share2 size={16} />
+                  Compartir
+                </span>
+              }
+            />
           </div>
 
           {/* ── Comments section ──────────────────────────────── */}
