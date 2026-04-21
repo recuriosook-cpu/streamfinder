@@ -6,8 +6,9 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import {
   Users, FileText, Eye, Bookmark, TrendingUp,
-  Star, Trash2, Film, Tv, Loader2, BarChart2, Shield, AlertCircle,
+  Star, Trash2, Film, Tv, Loader2, BarChart2, Shield, AlertCircle, Globe,
 } from 'lucide-react'
+import { COUNTRIES } from '@/lib/countries'
 
 const ADMIN_EMAIL = 'hola@ferlage.com.ar'
 
@@ -29,6 +30,7 @@ interface Profile {
   points: number | null
   level: number | null
   updated_at: string
+  country: string | null
 }
 
 interface TopMedia {
@@ -94,6 +96,59 @@ function BarList({ items, color = 'bg-emerald-500' }: {
           </div>
         </div>
       ))}
+    </div>
+  )
+}
+
+function CountryDemographics({ profiles }: { profiles: Profile[] }) {
+  const countMap: Record<string, number> = {}
+  let noData = 0
+  for (const p of profiles) {
+    if (p.country) {
+      countMap[p.country] = (countMap[p.country] ?? 0) + 1
+    } else {
+      noData++
+    }
+  }
+  const sorted = Object.entries(countMap)
+    .sort((a, b) => b[1] - a[1])
+    .map(([code, count]) => ({
+      code,
+      count,
+      name: COUNTRIES.find(c => c.code === code)?.name ?? code,
+    }))
+
+  if (sorted.length === 0 && noData === 0) return null
+
+  return (
+    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+      <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+        <Globe size={16} className="text-blue-400" />
+        Demografía por país
+      </h2>
+      <div className="space-y-2">
+        {sorted.map(item => (
+          <div key={item.code} className="flex items-center gap-3">
+            {/* eslint-disable-next-line @next/next/no-img-element */}
+            <img
+              src={`https://flagcdn.com/w20/${item.code.toLowerCase()}.png`}
+              alt={item.name}
+              width={20}
+              height={15}
+              className="rounded-sm shrink-0"
+            />
+            <span className="text-sm text-white flex-1 truncate">{item.name}</span>
+            <span className="text-sm font-semibold text-zinc-300 shrink-0">{item.count}</span>
+          </div>
+        ))}
+        {noData > 0 && (
+          <div className="flex items-center gap-3 pt-1 border-t border-zinc-800 mt-1">
+            <div className="w-5 h-[15px] bg-zinc-700 rounded-sm shrink-0" />
+            <span className="text-sm text-zinc-500 flex-1">Sin datos</span>
+            <span className="text-sm font-semibold text-zinc-500 shrink-0">{noData}</span>
+          </div>
+        )}
+      </div>
     </div>
   )
 }
@@ -385,7 +440,7 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            {/* Demographics */}
+            {/* Usage stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Plataformas más populares</h2>
@@ -396,6 +451,9 @@ export default function AdminDashboard() {
                 <BarList items={topGenres} color="bg-purple-500" />
               </div>
             </div>
+
+            {/* Country demographics */}
+            <CountryDemographics profiles={profiles} />
           </div>
         )}
 
