@@ -132,7 +132,8 @@ export default function AdminDashboard() {
   const [reviews,        setReviews]        = useState<RecentReview[]>([])
   const [usageStats,     setUsageStats]     = useState<UsageStats>({ topProviders: [], topGenres: [] })
 
-  const [deletingId, setDeletingId] = useState<string | null>(null)
+  const [deletingId,   setDeletingId]   = useState<string | null>(null)
+  const [debugResult,  setDebugResult]  = useState<{ data: unknown; error: unknown } | null>(null)
 
   // ── Auth check ──────────────────────────────────────────────────
   useEffect(() => {
@@ -147,6 +148,13 @@ export default function AdminDashboard() {
   // ── Fetch all data ──────────────────────────────────────────────
   async function fetchAll() {
     setLoading(true)
+
+    // ── DEBUG: raw profiles query ──────────────────────────────
+    const { data: debugData, error: debugError } = await supabase.from('profiles').select('*')
+    console.log('profiles data:', debugData)
+    console.log('profiles error:', debugError)
+    setDebugResult({ data: debugData, error: debugError })
+    // ──────────────────────────────────────────────────────────
 
     const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
@@ -285,6 +293,29 @@ export default function AdminDashboard() {
       </div>
 
       <div className="max-w-7xl mx-auto px-4 sm:px-6 pt-6 space-y-6">
+
+        {/* ── DEBUG PANEL ───────────────────────────────────────── */}
+        {debugResult !== null && (
+          <div className="bg-zinc-900 border border-yellow-700/50 rounded-xl p-4">
+            <p className="text-xs font-bold text-yellow-400 mb-2">🔍 DEBUG — supabase.from(&apos;profiles&apos;).select(&apos;*&apos;)</p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div>
+                <p className="text-[10px] text-zinc-500 font-semibold uppercase mb-1">error</p>
+                <pre className="text-xs text-red-300 bg-zinc-950 rounded p-2 overflow-x-auto whitespace-pre-wrap break-all">
+                  {debugResult.error ? JSON.stringify(debugResult.error, null, 2) : 'null ✓'}
+                </pre>
+              </div>
+              <div>
+                <p className="text-[10px] text-zinc-500 font-semibold uppercase mb-1">
+                  data ({Array.isArray(debugResult.data) ? `${(debugResult.data as unknown[]).length} rows` : typeof debugResult.data})
+                </p>
+                <pre className="text-xs text-emerald-300 bg-zinc-950 rounded p-2 overflow-x-auto max-h-48 whitespace-pre-wrap break-all">
+                  {debugResult.data === null ? 'null' : JSON.stringify(debugResult.data, null, 2)}
+                </pre>
+              </div>
+            </div>
+          </div>
+        )}
 
         {/* ── TOTAL USERS — featured ────────────────────────────── */}
         <div className="bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-emerald-800/40 rounded-2xl px-8 py-6 flex items-center gap-6">
