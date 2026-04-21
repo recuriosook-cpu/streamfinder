@@ -6,7 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import {
   Users, FileText, Eye, Bookmark, TrendingUp,
-  Star, Trash2, Film, Tv, Loader2, BarChart2, Shield, Mail,
+  Star, Trash2, Film, Tv, Loader2, BarChart2, Shield,
 } from 'lucide-react'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -19,8 +19,7 @@ interface RecentReview {
   username: string | null; avatar_url: string | null
 }
 interface AdminUser {
-  id: string; email: string | null; created_at: string
-  last_sign_in_at: string | null
+  id: string; created_at: string
   avatar_url: string | null; username: string | null; display_name: string | null
 }
 interface UsageStats {
@@ -149,22 +148,17 @@ export default function AdminDashboard() {
   async function fetchAll() {
     setLoading(true)
 
-    // Get session token to call the admin API route
-    const { data: sessionData } = await supabase.auth.getSession()
-    const token = sessionData.session?.access_token ?? ''
+    const weekAgo = new Date(Date.now() - 7 * 86400000).toISOString()
 
-    // ① Auth users via server API route (needs service role)
-    const usersPromise = fetch('/api/admin/users', {
-      headers: { Authorization: `Bearer ${token}` },
-    }).then(r => r.ok ? r.json() : null)
-
-    // ② Everything else via anon client (no auth.users needed)
     const [
+      profilesRes, newProfilesRes,
       totalReviewsRes, totalWatchedRes, totalWatchlistRes,
       favsRawRes, watchedRawRes,
       reviewsRawRes,
       providersRawRes, genresRawRes,
     ] = await Promise.all([
+      supabase.from('profiles').select('id, username, display_name, avatar_url, created_at').order('created_at', { ascending: false }),
+      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('created_at', weekAgo),
       supabase.from('reviews').select('*', { count: 'exact', head: true }),
       supabase.from('watched').select('*', { count: 'exact', head: true }),
       supabase.from('watchlist').select('*', { count: 'exact', head: true }),
@@ -175,25 +169,31 @@ export default function AdminDashboard() {
       supabase.from('favorites').select('genre_ids').not('genre_ids', 'is', null).limit(5000),
     ])
 
-    // ① Resolve auth users
-    const usersData = await usersPromise
-    if (usersData) {
-      setTotalUsers(usersData.totalUsers)
-      setNewUsersWeek(usersData.newUsersWeek)
-      setAdminUsers(usersData.users)
+    // Users from profiles
+    const allProfiles = profilesRes.data ?? []
+    setTotalUsers(allProfiles.length)
+    setNewUsersWeek(newProfilesRes.count ?? 0)
+    setAdminUsers(allProfiles.slice(0, 20))
 
-      // Build 30-day registrations array from regMap
-      const regMap: Record<string, number> = usersData.regMap ?? {}
-      const days: DayCount[] = []
-      for (let i = 29; i >= 0; i--) {
-        const d   = new Date(Date.now() - i * 86400000)
+    // Registrations by day (last 30 days) from profiles.created_at
+    const monthAgo = new Date(Date.now() - 30 * 86400000)
+    const regMap: Record<string, number> = {}
+    for (const p of allProfiles) {
+      const d = new Date(p.created_at)
+      if (d > monthAgo) {
         const key = d.toISOString().slice(0, 10)
-        days.push({ day: key, count: regMap[key] ?? 0 })
+        regMap[key] = (regMap[key] ?? 0) + 1
       }
-      setRegsByDay(days)
     }
+    const days: DayCount[] = []
+    for (let i = 29; i >= 0; i--) {
+      const d   = new Date(Date.now() - i * 86400000)
+      const key = d.toISOString().slice(0, 10)
+      days.push({ day: key, count: regMap[key] ?? 0 })
+    }
+    setRegsByDay(days)
 
-    // ② Resolve anon stats
+    // Anon stats
     setTotalReviews(totalReviewsRes.count   ?? 0)
     setTotalWatched(totalWatchedRes.count   ?? 0)
     setTotalWatchlist(totalWatchlistRes.count ?? 0)
@@ -510,9 +510,7 @@ export default function AdminDashboard() {
             </div>
             {adminUsers.length === 0 ? (
               <div className="px-5 py-12 text-center">
-                <p className="text-zinc-500 text-sm">
-                  {loading ? 'Cargando...' : 'Sin datos — verificá que SUPABASE_SERVICE_ROLE_KEY esté configurada'}
-                </p>
+                <p className="text-zinc-500 text-sm">Sin usuarios registrados todavía</p>
               </div>
             ) : (
               <div className="divide-y divide-zinc-800">
@@ -521,29 +519,21 @@ export default function AdminDashboard() {
                     <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden shrink-0">
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt={u.display_name ?? u.username ?? ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-500">{(u.display_name ?? u.email ?? '?')[0].toUpperCase()}</div>
+                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-500">{(u.display_name ?? u.username ?? '?')[0].toUpperCase()}</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
                       <p className="text-sm font-semibold text-white truncate">
                         {u.display_name ?? u.username ?? 'Sin nombre'}
-                        {u.username && <span className="text-zinc-500 font-normal ml-1 text-xs">@{u.username}</span>}
                       </p>
-                      {u.email && (
-                        <p className="text-xs text-zinc-500 flex items-center gap-1 mt-0.5">
-                          <Mail size={10} className="shrink-0" /> {u.email}
-                        </p>
+                      {u.username && (
+                        <p className="text-xs text-zinc-500 mt-0.5">@{u.username}</p>
                       )}
                     </div>
-                    <div className="text-right shrink-0 space-y-0.5">
+                    <div className="text-right shrink-0">
                       <p className="text-xs text-zinc-400">
                         {new Date(u.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
-                      {u.last_sign_in_at && (
-                        <p className="text-[10px] text-zinc-600">
-                          Último acceso: {new Date(u.last_sign_in_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
-                        </p>
-                      )}
                     </div>
                   </div>
                 ))}
