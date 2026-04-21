@@ -20,6 +20,7 @@ interface RecentReview {
 }
 interface AdminUser {
   id: string; email: string | null; created_at: string
+  last_sign_in_at: string | null
   avatar_url: string | null; username: string | null; display_name: string | null
 }
 interface UsageStats {
@@ -534,10 +535,15 @@ export default function AdminDashboard() {
                         </p>
                       )}
                     </div>
-                    <div className="text-right shrink-0">
-                      <p className="text-xs text-zinc-500">
+                    <div className="text-right shrink-0 space-y-0.5">
+                      <p className="text-xs text-zinc-400">
                         {new Date(u.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                       </p>
+                      {u.last_sign_in_at && (
+                        <p className="text-[10px] text-zinc-600">
+                          Último acceso: {new Date(u.last_sign_in_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })}
+                        </p>
+                      )}
                     </div>
                   </div>
                 ))}
