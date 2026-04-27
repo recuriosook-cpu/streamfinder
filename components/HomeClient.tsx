@@ -522,11 +522,13 @@ export default function HomeClient() {
       const u = authRes.data.user ?? null
       setUser(u)
 
-      // Hero backdrop: primer trending del día con backdrop válido y suficiente popularidad
-      type TrendingMovie = { backdrop_path: string | null; title?: string; vote_count: number; popularity: number }
+      // Hero backdrop: mejor vote_average del trending del día, sin animaciones
+      type TrendingMovie = { backdrop_path: string | null; title?: string; vote_count: number; vote_average: number; genre_ids: number[] }
       const results: TrendingMovie[] = heroRes?.results ?? []
       const pick =
-        results.find(m => m.backdrop_path && m.vote_count > 100 && m.popularity > 50)
+        results
+          .filter(m => m.backdrop_path && m.vote_count > 200 && !m.genre_ids.includes(16))
+          .sort((a, b) => b.vote_average - a.vote_average)[0]
         ?? results.find(m => !!m.backdrop_path)
         ?? null
       if (pick?.backdrop_path) {
