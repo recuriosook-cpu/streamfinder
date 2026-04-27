@@ -768,7 +768,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               )}
 
               {/* Stats */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-6 gap-y-2 mb-5">
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 sm:gap-x-6 gap-y-2 mb-5">
                 {[
                   { value: moviesWatched,  label: 'Películas',  onClick: undefined },
                   { value: seriesWatched,  label: 'Series',     onClick: undefined },
@@ -841,7 +841,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`px-3 sm:px-5 py-3 sm:py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-[#6B3FE7] text-white'
                   : 'border-transparent text-[#A0A0B0] hover:text-zinc-300'

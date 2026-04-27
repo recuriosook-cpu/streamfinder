@@ -79,7 +79,7 @@ export default function PlatformLogoStrip({ platforms }: Props) {
 
         <div
           ref={scrollRef}
-          className={`flex gap-3 overflow-x-auto no-scrollbar pb-1 ${!showArrows ? 'justify-center' : ''}`}
+          className={`flex gap-3 overflow-x-auto no-scrollbar pb-1 carousel-scroll ${!showArrows ? 'justify-center' : ''}`}
         >
           {platforms.map(platform => {
             const showLogo = !!platform.logoPath && !imgErrors.has(platform.id)

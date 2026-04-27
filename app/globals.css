@@ -40,3 +40,26 @@ body {
 .no-scrollbar::-webkit-scrollbar {
   display: none;
 }
+
+/* Touch-friendly carousels */
+.carousel-scroll {
+  -webkit-overflow-scrolling: touch;
+  scroll-snap-type: x mandatory;
+  touch-action: pan-x;
+}
+.carousel-snap {
+  scroll-snap-align: start;
+}
+
+/* Horizontal chip strip (nowrap + touch scroll) */
+.chip-scroll {
+  display: flex;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+  -ms-overflow-style: none;
+}
+.chip-scroll::-webkit-scrollbar {
+  display: none;
+}

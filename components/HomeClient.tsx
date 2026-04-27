@@ -125,30 +125,30 @@ function HeroSection({
   userName: string
 }) {
   return (
-    <section className="bg-[#13131A] border-b border-[#2A2A3A] py-16 px-4">
+    <section className="bg-[#13131A] border-b border-[#2A2A3A] py-10 sm:py-16 px-4">
       <div className="max-w-4xl mx-auto text-center">
-        <h1 className="text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight mb-4">
+        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight mb-3 sm:mb-4">
           Tu universo de{' '}
           <span style={{ color: '#6B3FE7' }}>cine y series</span>
         </h1>
-        <p className="text-lg text-[#A0A0B0] mb-10 max-w-xl mx-auto leading-relaxed">
+        <p className="text-base sm:text-lg text-[#A0A0B0] mb-8 sm:mb-10 max-w-xl mx-auto leading-relaxed px-2">
           Descubrí qué ver, seguí a amigos y compartí lo que sentís
         </p>
 
         {/* Stats */}
-        <div className="flex items-center justify-center gap-8 md:gap-16 mb-10">
+        <div className="flex items-center justify-center gap-4 sm:gap-8 md:gap-16 mb-8 sm:mb-10">
           {[
             { value: stats?.watched ?? null, label: 'Títulos vistos' },
             { value: stats?.reviews ?? null, label: 'Reseñas'        },
             { value: stats?.users   ?? null, label: 'Usuarios'       },
           ].map((s, i) => (
-            <div key={s.label} className="flex items-center gap-8 md:gap-16">
-              {i > 0 && <span className="text-[#2A2A3A] text-2xl select-none">·</span>}
+            <div key={s.label} className="flex items-center gap-4 sm:gap-8 md:gap-16">
+              {i > 0 && <span className="text-[#2A2A3A] text-xl select-none">·</span>}
               <div className="text-center">
-                <p className="text-3xl md:text-4xl font-black text-white tabular-nums">
+                <p className="text-2xl sm:text-3xl md:text-4xl font-black text-white tabular-nums">
                   {s.value !== null ? fmt(s.value) : <span className="text-[#2A2A3A]">—</span>}
                 </p>
-                <p className="text-[11px] text-[#A0A0B0] uppercase tracking-wider mt-1">{s.label}</p>
+                <p className="text-[10px] sm:text-[11px] text-[#A0A0B0] uppercase tracking-wider mt-1">{s.label}</p>
               </div>
             </div>
           ))}
@@ -166,17 +166,17 @@ function HeroSection({
             👋
           </p>
         ) : (
-          <div className="flex items-center justify-center gap-4 flex-wrap">
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
             <Link
               href="/auth"
-              className="px-8 py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95 text-center"
               style={{ backgroundColor: '#6B3FE7' }}
             >
               Empezar gratis
             </Link>
             <Link
               href="/que-ver"
-              className="px-8 py-3 rounded-xl font-bold text-white text-sm border border-[#2A2A3A] hover:border-[#6B3FE7] hover:text-[#6B3FE7] transition-all"
+              className="w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white text-sm border border-[#2A2A3A] hover:border-[#6B3FE7] hover:text-[#6B3FE7] transition-all text-center"
             >
               Explorar
             </Link>
@@ -200,7 +200,7 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
     <section className="mb-12">
       <div className="flex items-center justify-between mb-4">
         <div>
-          <h2 className="text-xl font-bold text-white">Últimos estrenos</h2>
+          <h2 className="text-lg sm:text-xl font-bold text-white">Últimos estrenos</h2>
           <p className="text-xs text-[#A0A0B0] mt-0.5">Recién llegados al streaming</p>
         </div>
         <div className="flex gap-2">
@@ -221,12 +221,12 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
         </div>
       </div>
 
-      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar">
+      <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
         {items.map(item => (
           <Link
             key={`${item.mediaType}-${item.id}`}
             href={`/${item.mediaType}/${item.id}`}
-            className="flex-shrink-0 w-32 group"
+            className="flex-shrink-0 w-28 sm:w-32 group carousel-snap"
           >
             <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
               {item.posterPath ? (
@@ -289,8 +289,8 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
   return (
     <section className="mb-12">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <TrendingUp size={20} style={{ color: '#6B3FE7' }} />
+        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <TrendingUp size={18} style={{ color: '#6B3FE7' }} />
           Tendencias en Glynbox
         </h2>
         <p className="text-xs text-[#A0A0B0] mt-0.5">Lo que más se está viendo esta semana</p>
@@ -352,8 +352,8 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
   return (
     <section className="mb-12">
       <div className="mb-4">
-        <h2 className="text-xl font-bold text-white flex items-center gap-2">
-          <Star size={18} style={{ color: '#F5A623' }} />
+        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <Star size={17} style={{ color: '#F5A623' }} />
           Reseñas destacadas
         </h2>
         <p className="text-xs text-[#A0A0B0] mt-0.5">Las más valoradas por la comunidad</p>
@@ -417,7 +417,7 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
 
               {/* Body */}
               {review.body && (
-                <p className="text-sm text-zinc-300 line-clamp-3 leading-relaxed flex-1">
+                <p className="text-sm text-zinc-300 line-clamp-2 sm:line-clamp-3 leading-relaxed flex-1">
                   {review.body.slice(0, 120)}{review.body.length > 120 ? '…' : ''}
                 </p>
               )}

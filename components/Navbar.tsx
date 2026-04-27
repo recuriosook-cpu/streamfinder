@@ -281,20 +281,20 @@ export default function Navbar() {
 
   return (
     <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
-      <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="text-xl font-bold text-[#6B3FE7] shrink-0">
+      <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
+        <Link href="/" className="text-lg sm:text-xl font-bold text-[#6B3FE7] shrink-0">
           Glynbox
         </Link>
 
         {/* Search box + live dropdown */}
-        <div className="flex-1 relative" ref={searchRef}>
-          <form onSubmit={handleSearch} className="flex items-center bg-[#1C1C27] rounded-lg px-3 py-2 gap-2">
-            <Search size={16} className="text-[#A0A0B0] shrink-0" />
+        <div className="flex-1 min-w-0 relative" ref={searchRef}>
+          <form onSubmit={handleSearch} className="flex items-center bg-[#1C1C27] rounded-lg px-2.5 sm:px-3 py-2 gap-2">
+            <Search size={15} className="text-[#A0A0B0] shrink-0" />
             <input
               value={query}
               onChange={handleQueryChange}
               onFocus={() => { if (searchResults) setSearchOpen(true) }}
-              placeholder="Buscar películas, series, personas y usuarios..."
+              placeholder="Buscar..."
               className="bg-transparent text-sm outline-none text-white placeholder-zinc-500 flex-1 min-w-0"
             />
             {searchLoading && (

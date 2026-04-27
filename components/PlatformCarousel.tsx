@@ -67,13 +67,13 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
       {/* Carousel */}
       <div
         ref={scrollRef}
-        className="flex gap-3 overflow-x-auto pb-2 no-scrollbar"
+        className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll"
       >
         {items.map(item => (
           <Link
             key={`${item.mediaType}-${item.id}`}
             href={item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`}
-            className="flex-shrink-0 w-32 group"
+            className="flex-shrink-0 w-28 sm:w-32 group carousel-snap"
           >
             <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
               {item.posterPath ? (

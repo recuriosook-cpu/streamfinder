@@ -33,8 +33,8 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
   if (cast.length === 0) return null
 
   return (
-    <div className="mt-10">
-      <h2 className="text-xl font-bold mb-4">Reparto principal</h2>
+    <div className="mt-8 sm:mt-10">
+      <h2 className="text-lg sm:text-xl font-bold mb-4">Reparto principal</h2>
 
       <div className="relative group/carousel">
         {/* Left arrow */}
@@ -49,16 +49,16 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
         {/* Scroll container */}
         <div
           ref={scrollRef}
-          className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
+          className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 carousel-scroll"
         >
           {cast.map(person => (
             <Link
               key={person.id}
               href={`/actor/${person.id}`}
-              className="shrink-0 w-24 flex flex-col items-center text-center group/actor"
+              className="shrink-0 w-[60px] sm:w-24 flex flex-col items-center text-center group/actor carousel-snap"
             >
               {/* Photo */}
-              <div className="w-20 h-20 rounded-full overflow-hidden bg-[#1C1C27] mb-2 ring-2 ring-zinc-700 group-hover/actor:ring-zinc-400 transition-all">
+              <div className="w-14 h-14 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#1C1C27] mb-1.5 sm:mb-2 ring-2 ring-zinc-700 group-hover/actor:ring-zinc-400 transition-all">
                 {person.profilePath ? (
                   <Image
                     src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}
@@ -72,11 +72,11 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
                 )}
               </div>
               {/* Name */}
-              <p className="text-xs font-semibold text-white leading-tight line-clamp-2 group-hover/actor:text-zinc-300 transition-colors">
+              <p className="text-[10px] sm:text-xs font-semibold text-white leading-tight line-clamp-2 group-hover/actor:text-zinc-300 transition-colors">
                 {person.name}
               </p>
               {/* Character */}
-              <p className="text-[11px] text-[#A0A0B0] leading-tight mt-0.5 line-clamp-2">
+              <p className="text-[9px] sm:text-[11px] text-[#A0A0B0] leading-tight mt-0.5 line-clamp-2">
                 {person.character}
               </p>
             </Link>

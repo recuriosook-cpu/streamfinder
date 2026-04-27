@@ -121,21 +121,21 @@ export default async function MoviePage({ params }: Props) {
           <ArrowLeft size={16} /> Volver
         </Link>
 
-        <div className="flex flex-col md:flex-row gap-8">
+        <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Poster */}
-          <div className="shrink-0">
-            <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
+          <div className="shrink-0 flex justify-center md:justify-start">
+            <div className="relative w-36 sm:w-44 md:w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
               {movie.poster_path ? (
                 <Image src={getPosterUrl(movie.poster_path, 'w342')} alt={movie.title} fill className="object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-600">Sin imagen</div>
+                <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm text-center px-2">Sin imagen</div>
               )}
             </div>
           </div>
 
           {/* Info */}
           <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-2">{movie.title}</h1>
+            <h1 className="text-2xl sm:text-3xl font-bold mb-2">{movie.title}</h1>
             {movie.tagline && <p className="text-[#A0A0B0] italic mb-4">{movie.tagline}</p>}
 
             <div className="flex flex-wrap gap-4 text-sm text-[#A0A0B0] mb-4">
@@ -183,7 +183,7 @@ export default async function MoviePage({ params }: Props) {
             )}
 
             {/* Action buttons */}
-            <div className="flex flex-wrap gap-3 mb-4">
+            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4">
               <FavoriteButton
                 mediaId={movie.id}
                 mediaType="movie"

@@ -163,6 +163,8 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
   const [total,   setTotal]   = useState(0)
   // Track logo errors so we fall back to colored tile
   const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
+  // Track poster errors so we show a title placeholder
+  const [posterErrors, setPosterErrors] = useState<Set<string>>(new Set())
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef  = useRef(false)
@@ -281,7 +283,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   title={p.name}
                   className={`shrink-0 w-11 h-11 rounded-xl overflow-hidden transition-all duration-150 ${
                     selected
-                      ? 'ring-2 ring-emerald-400 ring-offset-2 ring-offset-zinc-900 scale-105'
+                      ? 'ring-2 ring-[#6B3FE7] ring-offset-2 ring-offset-[#13131A] scale-105'
                       : 'opacity-70 hover:opacity-100 hover:scale-105'
                   }`}
                 >
@@ -306,13 +308,13 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             })}
           </div>
 
-          {/* Genre chips */}
-          <div className="flex flex-wrap gap-1.5">
+          {/* Genre chips — horizontal scroll on mobile */}
+          <div className="chip-scroll gap-1.5 pb-1">
             {genreList.map(g => (
               <button
                 key={g.id}
                 onClick={() => toggleGenre(g.id)}
-                className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
+                className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   params.genres.includes(g.id)
                     ? 'bg-[#6B3FE7] text-white'
                     : 'bg-[#1C1C27] text-[#A0A0B0] hover:bg-zinc-700 hover:text-zinc-200'
@@ -324,7 +326,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
           </div>
 
           {/* Sort + year + score row */}
-          <div className="flex flex-wrap items-center gap-3">
+          <div className="flex flex-wrap items-center gap-2 sm:gap-3">
             {/* Sort */}
             <select
               value={params.sortBy}
@@ -336,26 +338,28 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
               ))}
             </select>
 
-            {/* Year range */}
-            <div className="flex items-center gap-1.5 text-sm text-[#A0A0B0]">
-              <span className="text-xs">Año</span>
-              <input
-                type="number"
-                placeholder="Desde"
-                value={params.yearFrom}
-                onChange={e => updateFilter({ yearFrom: e.target.value })}
-                className="w-[72px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
-                min="1900" max="2030"
-              />
-              <span>–</span>
-              <input
-                type="number"
-                placeholder="Hasta"
-                value={params.yearTo}
-                onChange={e => updateFilter({ yearTo: e.target.value })}
-                className="w-[72px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
-                min="1900" max="2030"
-              />
+            {/* Year range — stacks to column on mobile */}
+            <div className="flex flex-col sm:flex-row sm:items-center gap-1 sm:gap-1.5 text-sm text-[#A0A0B0]">
+              <span className="text-xs text-[#A0A0B0]">Año</span>
+              <div className="flex items-center gap-1">
+                <input
+                  type="number"
+                  placeholder="Desde"
+                  value={params.yearFrom}
+                  onChange={e => updateFilter({ yearFrom: e.target.value })}
+                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
+                  min="1900" max="2030"
+                />
+                <span className="text-[#A0A0B0]">–</span>
+                <input
+                  type="number"
+                  placeholder="Hasta"
+                  value={params.yearTo}
+                  onChange={e => updateFilter({ yearTo: e.target.value })}
+                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
+                  min="1900" max="2030"
+                />
+              </div>
             </div>
 
             {/* Min score */}
@@ -368,7 +372,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 type="range" min="0" max="9" step="0.5"
                 value={params.minScore}
                 onChange={e => updateFilter({ minScore: Number(e.target.value) })}
-                className="w-24 accent-emerald-500"
+                className="w-20 sm:w-24 accent-[#6B3FE7]"
               />
             </div>
 
@@ -380,7 +384,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 })}
                 className="text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors underline"
               >
-                Limpiar filtros
+                Limpiar
               </button>
             )}
 
@@ -409,13 +413,22 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
               className="group"
             >
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
-                <Image
-                  src={getPosterUrl(item.poster_path, 'w342')}
-                  alt={item.displayTitle}
-                  fill
-                  className="object-cover transition-transform duration-300 group-hover:scale-105"
-                  sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
-                />
+                {posterErrors.has(`${item.mediaType}-${item.id}`) ? (
+                  <div className="w-full h-full flex items-center justify-center bg-[#1C1C27] p-2 text-center">
+                    <span className="text-[11px] text-[#A0A0B0] leading-tight line-clamp-4">
+                      {item.displayTitle}
+                    </span>
+                  </div>
+                ) : (
+                  <Image
+                    src={getPosterUrl(item.poster_path, 'w342')}
+                    alt={item.displayTitle}
+                    fill
+                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
+                    onError={() => setPosterErrors(prev => new Set(prev).add(`${item.mediaType}-${item.id}`))}
+                  />
+                )}
                 {item.vote_average > 0 && (
                   <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1.5 py-0.5">
                     <Star size={9} className="text-yellow-400 shrink-0" fill="currentColor" />

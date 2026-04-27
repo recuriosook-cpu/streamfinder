@@ -133,13 +133,13 @@ export default function WatchedButton({
   }
 
   return (
-    <div className="relative" ref={popupRef}>
+    <div className="relative w-full sm:w-auto" ref={popupRef}>
       <button
         onClick={handleButtonClick}
         disabled={loading}
-        className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
+        className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 w-full sm:w-auto ${
           isWatched
-            ? 'bg-[#5A32C7] hover:bg-emerald-700 text-white'
+            ? 'bg-[#5A32C7] hover:bg-[#6B3FE7] text-white'
             : 'bg-zinc-700 hover:bg-zinc-600 text-white'
         }`}
       >

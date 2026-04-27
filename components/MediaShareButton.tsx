@@ -31,7 +31,7 @@ export default function MediaShareButton({ mediaId, mediaType, title, year, scor
       copyUrl={url}
       align="left"
       trigger={
-        <span className="flex items-center gap-2 px-4 py-2 rounded-lg font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors">
+        <span className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors w-full sm:w-auto">
           <Share2 size={18} />
           Compartir
         </span>
