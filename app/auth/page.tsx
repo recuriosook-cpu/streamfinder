@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -88,22 +88,22 @@ export default function AuthPage() {
 
   return (
     <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-zinc-900 rounded-2xl p-8 border border-zinc-800">
+      <div className="w-full max-w-md bg-[#13131A] rounded-2xl p-8 border border-[#2A2A3A]">
         <div className="text-center mb-8">
           <h1 className="text-2xl font-bold mb-1">
             {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
           </h1>
-          <p className="text-zinc-400 text-sm">
+          <p className="text-[#A0A0B0] text-sm">
             {mode === 'login' ? 'Accedé a tus favoritos' : 'Empezá a guardar tus contenidos favoritos'}
           </p>
         </div>
 
         {/* Mode toggle */}
-        <div className="flex bg-zinc-800 rounded-lg p-1 mb-6">
+        <div className="flex bg-[#1C1C27] rounded-lg p-1 mb-6">
           <button
             onClick={() => setMode('login')}
             className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
-              mode === 'login' ? 'bg-emerald-500 text-white' : 'text-zinc-400 hover:text-white'
+              mode === 'login' ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -113,7 +113,7 @@ export default function AuthPage() {
           <button
             onClick={() => setMode('register')}
             className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
-              mode === 'register' ? 'bg-emerald-500 text-white' : 'text-zinc-400 hover:text-white'
+              mode === 'register' ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -152,25 +152,25 @@ export default function AuthPage() {
 
         {/* Separator */}
         <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px bg-zinc-800" />
-          <span className="text-xs text-zinc-500 font-medium">o</span>
-          <div className="flex-1 h-px bg-zinc-800" />
+          <div className="flex-1 h-px bg-[#1C1C27]" />
+          <span className="text-xs text-[#A0A0B0] font-medium">o</span>
+          <div className="flex-1 h-px bg-[#1C1C27]" />
         </div>
 
         <form onSubmit={handleSubmit} className="flex flex-col gap-4">
           <div>
-            <label className="text-sm text-zinc-400 block mb-1.5">Email</label>
+            <label className="text-sm text-[#A0A0B0] block mb-1.5">Email</label>
             <input
               type="email"
               value={email}
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="tu@email.com"
-              className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-emerald-500 transition-colors"
+              className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-[#6B3FE7] transition-colors"
             />
           </div>
           <div>
-            <label className="text-sm text-zinc-400 block mb-1.5">Contraseña</label>
+            <label className="text-sm text-[#A0A0B0] block mb-1.5">Contraseña</label>
             <div className="relative">
               <input
                 type={showPass ? 'text' : 'password'}
@@ -179,12 +179,12 @@ export default function AuthPage() {
                 required
                 minLength={6}
                 placeholder="Mínimo 6 caracteres"
-                className="w-full bg-zinc-800 border border-zinc-700 rounded-lg px-3 py-2.5 pr-10 text-white text-sm outline-none focus:border-emerald-500 transition-colors"
+                className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 pr-10 text-white text-sm outline-none focus:border-[#6B3FE7] transition-colors"
               />
               <button
                 type="button"
                 onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-zinc-400 hover:text-white"
+                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0B0] hover:text-white"
               >
                 {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
               </button>
@@ -197,7 +197,7 @@ export default function AuthPage() {
             </div>
           )}
           {message && (
-            <div className="bg-emerald-900/40 border border-emerald-800 text-emerald-300 text-sm px-3 py-2.5 rounded-lg">
+            <div className="bg-[#6B3FE7]/10 border border-[#F5A623] text-[#8B6CF5] text-sm px-3 py-2.5 rounded-lg">
               {message}
             </div>
           )}
@@ -205,7 +205,7 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors mt-2"
+            className="w-full bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors mt-2"
           >
             {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
           </button>

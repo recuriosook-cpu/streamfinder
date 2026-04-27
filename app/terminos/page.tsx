@@ -1,4 +1,4 @@
-import { Metadata } from "next";
+﻿import { Metadata } from "next";
 
 export const metadata: Metadata = {
   title: "Términos y Condiciones — Glynbox",
@@ -7,14 +7,14 @@ export const metadata: Metadata = {
 
 export default function TerminosPage() {
   return (
-    <div className="min-h-screen bg-zinc-950 text-white">
+    <div className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-4xl font-bold mb-2 text-white">Términos y Condiciones</h1>
-        <p className="text-zinc-400 mb-12">Última actualización: abril de 2026</p>
+        <p className="text-[#A0A0B0] mb-12">Última actualización: abril de 2026</p>
 
         <div className="space-y-12">
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               1. Descripción del servicio
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -27,7 +27,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               2. Uso aceptable
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -47,7 +47,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               3. Propiedad intelectual
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -63,7 +63,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               4. Limitación de responsabilidad
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -78,7 +78,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               5. Modificaciones al servicio
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -93,7 +93,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-emerald-400 mb-4">
+            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
               6. Contacto
             </h2>
             <p className="text-zinc-300 leading-relaxed">
@@ -101,7 +101,7 @@ export default function TerminosPage() {
             </p>
             <a
               href="mailto:fd.lage@gmail.com"
-              className="inline-block mt-3 text-emerald-400 hover:text-emerald-300 transition-colors font-medium"
+              className="inline-block mt-3 text-[#6B3FE7] hover:text-[#8B6CF5] transition-colors font-medium"
             >
               fd.lage@gmail.com
             </a>
@@ -109,8 +109,8 @@ export default function TerminosPage() {
         </div>
       </div>
 
-      <footer className="border-t border-zinc-800 mt-16">
-        <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-zinc-500 text-sm">
+      <footer className="border-t border-[#2A2A3A] mt-16">
+        <div className="max-w-3xl mx-auto px-4 py-8 flex flex-col sm:flex-row items-center justify-between gap-4 text-[#A0A0B0] text-sm">
           <span>© {new Date().getFullYear()} Glynbox. Todos los derechos reservados.</span>
           <div className="flex gap-6">
             <a href="/privacidad" className="hover:text-zinc-300 transition-colors">

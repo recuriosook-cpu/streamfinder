@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRef } from 'react'
 import Image from 'next/image'
@@ -31,14 +31,14 @@ export default function ActorFilmography({ credits }: Props) {
     <section>
       <h2 className="text-xl font-bold mb-4">
         Filmografía
-        <span className="ml-2 text-sm font-normal text-zinc-500">{credits.length} títulos</span>
+        <span className="ml-2 text-sm font-normal text-[#A0A0B0]">{credits.length} títulos</span>
       </h2>
 
       <div className="relative group/filmography">
         {/* Left arrow */}
         <button
           onClick={() => scroll('left')}
-          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/filmography:opacity-100"
+          className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/filmography:opacity-100"
           aria-label="Anterior"
         >
           <ChevronLeft size={16} />
@@ -59,7 +59,7 @@ export default function ActorFilmography({ credits }: Props) {
                 href={href}
                 className="shrink-0 w-28 group"
               >
-                <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1.5">
+                <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
                   <Image
                     src={getPosterUrl(credit.poster_path, 'w185')}
                     alt={title}
@@ -70,7 +70,7 @@ export default function ActorFilmography({ credits }: Props) {
                 <p className="text-xs font-medium text-white leading-tight line-clamp-2 group-hover:text-zinc-300 transition-colors">
                   {title}
                 </p>
-                {year && <p className="text-[11px] text-zinc-500 mt-0.5">{year}</p>}
+                {year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{year}</p>}
               </Link>
             )
           })}
@@ -79,7 +79,7 @@ export default function ActorFilmography({ credits }: Props) {
         {/* Right arrow */}
         <button
           onClick={() => scroll('right')}
-          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-zinc-800 border border-zinc-700 items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/filmography:opacity-100"
+          className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/filmography:opacity-100"
           aria-label="Siguiente"
         >
           <ChevronRight size={16} />

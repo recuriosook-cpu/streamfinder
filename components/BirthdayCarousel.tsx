@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
@@ -49,12 +49,12 @@ export default function BirthdayCarousel() {
   if (people === null && !error) {
     return (
       <section className="mb-10">
-        <div className="h-6 w-48 bg-zinc-800 rounded mb-4 animate-pulse" />
+        <div className="h-6 w-48 bg-[#1C1C27] rounded mb-4 animate-pulse" />
         <div className="flex gap-4 overflow-hidden">
           {Array.from({ length: 7 }).map((_, i) => (
             <div key={i} className="shrink-0 w-28">
-              <div className="aspect-[2/3] bg-zinc-800 rounded-lg mb-2 animate-pulse" />
-              <div className="h-3 bg-zinc-800 rounded animate-pulse" />
+              <div className="aspect-[2/3] bg-[#1C1C27] rounded-lg mb-2 animate-pulse" />
+              <div className="h-3 bg-[#1C1C27] rounded animate-pulse" />
             </div>
           ))}
         </div>
@@ -82,14 +82,14 @@ export default function BirthdayCarousel() {
           <div className="flex gap-2">
             <button
               onClick={() => scroll('left')}
-              className="w-8 h-8 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+              className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
               aria-label="Anterior"
             >
               <ChevronLeft size={16} />
             </button>
             <button
               onClick={() => scroll('right')}
-              className="w-8 h-8 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+              className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
               aria-label="Siguiente"
             >
               <ChevronRight size={16} />
@@ -99,7 +99,7 @@ export default function BirthdayCarousel() {
       </div>
 
       {people!.length === 0 ? (
-        <p className="text-zinc-500 text-sm">
+        <p className="text-[#A0A0B0] text-sm">
           No encontramos cumpleaños famosos para hoy.
         </p>
       ) : (
@@ -114,7 +114,7 @@ export default function BirthdayCarousel() {
               className="shrink-0 w-28 group"
             >
               {/* Photo */}
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                 {person.profilePath ? (
                   // eslint-disable-next-line @next/next/no-img-element
                   <img

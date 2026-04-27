@@ -1,4 +1,4 @@
-import Image from 'next/image'
+﻿import Image from 'next/image'
 import Link from 'next/link'
 import { getPosterUrl } from '@/lib/tmdb'
 
@@ -24,7 +24,7 @@ export default function TopRankedCard({ id, title, posterPath, mediaType, rank }
       </span>
 
       {/* Poster — overlaps the number slightly */}
-      <div className="relative w-[90px] h-[135px] rounded-lg overflow-hidden bg-zinc-800 -ml-3 shadow-xl group-hover:shadow-2xl transition-shadow">
+      <div className="relative w-[90px] h-[135px] rounded-lg overflow-hidden bg-[#1C1C27] -ml-3 shadow-xl group-hover:shadow-2xl transition-shadow">
         {posterPath ? (
           <Image
             src={getPosterUrl(posterPath)}

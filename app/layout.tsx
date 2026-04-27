@@ -1,5 +1,9 @@
-import type { Metadata } from 'next'
+﻿import type { Metadata, Viewport } from 'next'
 import './globals.css'
+
+export const viewport: Viewport = {
+  themeColor: '#6B3FE7',
+}
 import Navbar from '@/components/Navbar'
 import { CountryProvider } from '@/context/CountryContext'
 
@@ -38,7 +42,7 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
-      <body className="min-h-screen bg-zinc-950 text-white">
+      <body className="min-h-screen bg-[#0A0A0F] text-white">
         <CountryProvider>
           <Navbar />
           <main>{children}</main>

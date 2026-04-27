@@ -1,4 +1,4 @@
-import Image from 'next/image'
+﻿import Image from 'next/image'
 import Link from 'next/link'
 import { getPosterUrl } from '@/lib/tmdb'
 
@@ -29,7 +29,7 @@ export default function SimilarTitles({
           const year = (item.release_date ?? item.first_air_date ?? '').slice(0, 4)
           return (
             <Link key={item.id} href={`/${mediaType}/${item.id}`} className="shrink-0 w-32 group">
-              <div className="relative w-32 aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+              <div className="relative w-32 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                 {item.poster_path ? (
                   <Image
                     src={getPosterUrl(item.poster_path, 'w185')}

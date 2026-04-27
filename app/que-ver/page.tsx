@@ -1,6 +1,6 @@
 import QueVerClient from '@/components/QueVerClient'
 
-export const metadata = { title: 'Qué ver — StreamFinder' }
+export const metadata = { title: 'Qué ver — Glynbox' }
 
 interface Props {
   searchParams: Promise<{ genre?: string; type?: string }>

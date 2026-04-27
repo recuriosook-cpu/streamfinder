@@ -3,7 +3,7 @@
 import { Share2 } from 'lucide-react'
 import ShareDropdown from '@/components/ShareDropdown'
 
-const BASE = 'https://streamfinder-lilac.vercel.app'
+const BASE = 'https://glynbox.com'
 
 interface Props {
   mediaId: number
@@ -18,8 +18,8 @@ export default function MediaShareButton({ mediaId, mediaType, title, year, scor
   const label = year ? `"${title}" (${year})` : `"${title}"`
   const stars = score ? `⭐ ${score.toFixed(1)}/10` : ''
 
-  const waText    = encodeURIComponent(`Te recomiendo ${label} en StreamFinder 🎬\n${stars}\n👉 ${url}`)
-  const tweetText = encodeURIComponent(`Acabo de ver ${label} 🎬 ${stars} #StreamFinder`)
+  const waText    = encodeURIComponent(`Te recomiendo ${label} en Glynbox 🎬\n${stars}\n👉 ${url}`)
+  const tweetText = encodeURIComponent(`Acabo de ver ${label} 🎬 ${stars} #Glynbox`)
 
   const whatsappUrl = `https://wa.me/?text=${waText}`
   const twitterUrl  = `https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(url)}`

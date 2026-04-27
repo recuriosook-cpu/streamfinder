@@ -1,4 +1,4 @@
-import type { OMDBRatings } from '@/lib/omdb'
+﻿import type { OMDBRatings } from '@/lib/omdb'
 
 interface Props {
   tmdbScore: number
@@ -57,7 +57,7 @@ function RTLogo({ isFresh }: { isFresh: boolean }) {
           <circle cx="8.5" cy="9.5" rx="1.2" ry="1" fill="rgba(0,0,0,0.3)" />
         </svg>
       )}
-      <span className={`text-[10px] font-bold uppercase tracking-wider ${isFresh ? 'text-[#FA320A]' : 'text-zinc-500'}`}>
+      <span className={`text-[10px] font-bold uppercase tracking-wider ${isFresh ? 'text-[#FA320A]' : 'text-[#A0A0B0]'}`}>
         {isFresh ? 'Fresh' : 'Rotten'}
       </span>
     </div>
@@ -75,7 +75,7 @@ function MetacriticLogo({ score }: { score: number }) {
       >
         {score}
       </div>
-      <span className="text-xs font-semibold text-zinc-400">Metacritic</span>
+      <span className="text-xs font-semibold text-[#A0A0B0]">Metacritic</span>
     </div>
   )
 }
@@ -91,13 +91,13 @@ interface CardProps {
 
 function RatingCard({ logo, score, scoreLabel, sub }: CardProps) {
   return (
-    <div className="bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-5 py-4 flex flex-col gap-2 min-w-[120px]">
+    <div className="bg-[#1C1C27]/60 border border-[#2A2A3A]/50 rounded-xl px-5 py-4 flex flex-col gap-2 min-w-[120px]">
       <div>{logo}</div>
       <div className="flex items-baseline gap-1">
         <span className="text-2xl font-bold text-white leading-none">{score}</span>
-        {scoreLabel && <span className="text-sm text-zinc-400">{scoreLabel}</span>}
+        {scoreLabel && <span className="text-sm text-[#A0A0B0]">{scoreLabel}</span>}
       </div>
-      {sub && <p className="text-[11px] text-zinc-500 leading-tight">{sub}</p>}
+      {sub && <p className="text-[11px] text-[#A0A0B0] leading-tight">{sub}</p>}
     </div>
   )
 }

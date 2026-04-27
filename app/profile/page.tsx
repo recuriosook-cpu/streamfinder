@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -67,8 +67,8 @@ export default function ProfileRedirect() {
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
   return (
-    <div className="min-h-screen bg-zinc-950 flex items-center justify-center">
-      <div className="w-8 h-8 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+    <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center">
+      <div className="w-8 h-8 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
     </div>
   )
 }

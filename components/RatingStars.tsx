@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -97,7 +97,7 @@ export default function RatingStars({
 
   return (
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-zinc-400 mr-0.5">Tu nota:</span>
+      <span className="text-xs text-[#A0A0B0] mr-0.5">Tu nota:</span>
       {[1, 2, 3, 4, 5].map(s => {
         const fill: 'full' | 'half' | 'empty' =
           display >= s ? 'full' : display >= s - 0.5 ? 'half' : 'empty'
@@ -123,7 +123,7 @@ export default function RatingStars({
         )
       })}
       {rating > 0 && (
-        <span className="text-xs text-zinc-500 ml-1">{rating}/5</span>
+        <span className="text-xs text-[#A0A0B0] ml-1">{rating}/5</span>
       )}
     </div>
   )

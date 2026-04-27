@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
@@ -103,7 +103,7 @@ export default function MentionTextarea({
         className={className}
       />
       {suggestions.length > 0 && (
-        <div className="absolute left-0 bottom-full mb-1 z-50 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden min-w-[200px]">
+        <div className="absolute left-0 bottom-full mb-1 z-50 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden min-w-[200px]">
           {suggestions.map((s, i) => (
             <button
               key={s.username}
@@ -118,7 +118,7 @@ export default function MentionTextarea({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={s.avatar_url} alt={s.username} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">
                     {s.username[0]?.toUpperCase()}
                   </div>
                 )}

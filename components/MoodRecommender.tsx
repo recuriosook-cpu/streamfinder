@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import Image from 'next/image'
@@ -57,11 +57,11 @@ function ProgressBar({ step }: { step: number }) {
           <div className="flex items-center gap-1.5">
             <div
               className="w-2.5 h-2.5 rounded-full transition-all duration-400"
-              style={{ backgroundColor: step >= n ? '#1DB954' : '#52525b' }}
+              style={{ backgroundColor: step >= n ? '#6B3FE7' : '#52525b' }}
             />
             <span
               className="text-xs font-medium transition-colors duration-300"
-              style={{ color: step >= n ? '#1DB954' : '#71717a' }}
+              style={{ color: step >= n ? '#6B3FE7' : '#71717a' }}
             >
               Paso {n}
             </span>
@@ -69,7 +69,7 @@ function ProgressBar({ step }: { step: number }) {
           {n < 3 && (
             <div
               className="w-10 h-px transition-all duration-400"
-              style={{ backgroundColor: step > n ? '#1DB954' : '#3f3f46' }}
+              style={{ backgroundColor: step > n ? '#6B3FE7' : '#3f3f46' }}
             />
           )}
         </div>
@@ -96,13 +96,13 @@ function OptionCard({
       onClick={onClick}
       className="flex flex-col items-center justify-center gap-2 py-5 px-3 rounded-2xl border-2 transition-all duration-200 cursor-pointer text-center"
       style={{
-        backgroundColor: selected ? 'rgba(29,185,84,0.08)' : 'rgba(39,39,42,0.8)',
-        borderColor: selected ? '#1DB954' : '#3f3f46',
+        backgroundColor: selected ? 'rgba(107,63,231,0.08)' : 'rgba(28,28,39,0.8)',
+        borderColor: selected ? '#6B3FE7' : '#3f3f46',
       }}
     >
       <span className="text-4xl leading-none select-none">{emoji}</span>
       <span className="text-white font-semibold text-sm leading-tight">{label}</span>
-      <span className="text-zinc-500 text-xs">{sub}</span>
+      <span className="text-[#A0A0B0] text-xs">{sub}</span>
     </button>
   )
 }
@@ -111,7 +111,7 @@ function SkeletonCards() {
   return (
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
       {Array.from({ length: 4 }).map((_, i) => (
-        <div key={i} className="flex gap-3 bg-zinc-800/60 rounded-2xl p-3 animate-pulse">
+        <div key={i} className="flex gap-3 bg-[#1C1C27]/60 rounded-2xl p-3 animate-pulse">
           <div className="w-20 shrink-0 aspect-[2/3] bg-zinc-700 rounded-xl" />
           <div className="flex-1 space-y-2 py-1">
             <div className="h-4 bg-zinc-700 rounded w-3/4" />
@@ -129,7 +129,7 @@ function SkeletonCards() {
 function ResultCard({ rec }: { rec: Recommendation }) {
   const href = `/${rec.media_type === 'movie' ? 'movie' : 'tv'}/${rec.tmdb_id}`
   return (
-    <div className="flex gap-3 bg-zinc-800/70 border border-zinc-700/50 rounded-2xl p-3 hover:border-zinc-600 transition-colors">
+    <div className="flex gap-3 bg-[#1C1C27]/70 border border-[#2A2A3A]/50 rounded-2xl p-3 hover:border-zinc-600 transition-colors">
       <div className="w-20 shrink-0 aspect-[2/3] relative rounded-xl overflow-hidden bg-zinc-700">
         {rec.poster_path ? (
           <Image
@@ -140,7 +140,7 @@ function ResultCard({ rec }: { rec: Recommendation }) {
             sizes="80px"
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-zinc-500 text-xs text-center px-1">
+          <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-1">
             Sin imagen
           </div>
         )}
@@ -148,7 +148,7 @@ function ResultCard({ rec }: { rec: Recommendation }) {
       <div className="flex-1 min-w-0">
         <p className="font-bold text-white text-sm leading-tight line-clamp-2">
           {rec.title}{' '}
-          <span className="text-zinc-400 font-normal">({rec.year})</span>
+          <span className="text-[#A0A0B0] font-normal">({rec.year})</span>
         </p>
         <div className="flex flex-wrap gap-1.5 mt-1.5">
           <span className="text-xs px-2 py-0.5 rounded-full bg-zinc-700 text-zinc-300 font-medium">
@@ -158,11 +158,11 @@ function ResultCard({ rec }: { rec: Recommendation }) {
             {rec.duration}
           </span>
         </div>
-        <p className="text-xs text-zinc-400 mt-2 line-clamp-3 leading-relaxed">{rec.reason}</p>
+        <p className="text-xs text-[#A0A0B0] mt-2 line-clamp-3 leading-relaxed">{rec.reason}</p>
         <Link
           href={href}
           className="inline-block mt-2.5 text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-          style={{ backgroundColor: 'rgba(29,185,84,0.15)', color: '#1DB954' }}
+          style={{ backgroundColor: 'rgba(107,63,231,0.15)', color: '#6B3FE7' }}
         >
           Ver detalles →
         </Link>
@@ -176,26 +176,26 @@ function AuthModal({ onClose }: { onClose: () => void }) {
     <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
       <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
       <div
-        className="relative bg-zinc-900 border border-zinc-700 rounded-2xl p-7 max-w-sm w-full text-center shadow-2xl"
+        className="relative bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-7 max-w-sm w-full text-center shadow-2xl"
         onClick={e => e.stopPropagation()}
       >
         <div className="text-4xl mb-3">🎬</div>
         <h3 className="text-lg font-bold text-white mb-2">
           Iniciá sesión para usar el recomendador
         </h3>
-        <p className="text-zinc-400 text-sm mb-6">
+        <p className="text-[#A0A0B0] text-sm mb-6">
           Personalizamos las sugerencias según lo que ya viste y tus gustos.
         </p>
         <Link
           href="/auth"
           className="block w-full py-3 rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#1DB954' }}
+          style={{ backgroundColor: '#6B3FE7' }}
         >
           Iniciar sesión
         </Link>
         <button
           onClick={onClose}
-          className="mt-3 text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+          className="mt-3 text-[#A0A0B0] text-sm hover:text-zinc-300 transition-colors"
         >
           Cancelar
         </button>
@@ -272,7 +272,7 @@ export default function MoodRecommender() {
       {/* Subtle decorative glow */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 opacity-20 pointer-events-none blur-3xl"
-        style={{ background: 'radial-gradient(ellipse, #1DB954 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse, #6B3FE7 0%, transparent 70%)' }}
       />
 
       {/* Guest overlay */}
@@ -293,7 +293,7 @@ export default function MoodRecommender() {
           <h2 className="text-2xl md:text-3xl font-bold text-white tracking-tight">
             Recomendador por estado de ánimo
           </h2>
-          <p className="text-zinc-400 text-sm mt-2">
+          <p className="text-[#A0A0B0] text-sm mt-2">
             Respondé 3 preguntas y te decimos exactamente qué ver hoy
           </p>
         </div>
@@ -359,7 +359,7 @@ export default function MoodRecommender() {
               <div className="mt-5">
                 <button
                   onClick={() => setStep(s => s - 1)}
-                  className="text-zinc-500 text-sm hover:text-zinc-300 transition-colors"
+                  className="text-[#A0A0B0] text-sm hover:text-zinc-300 transition-colors"
                 >
                   ← Volver
                 </button>
@@ -371,7 +371,7 @@ export default function MoodRecommender() {
         {/* Loading */}
         {loading && (
           <div>
-            <p className="text-center text-zinc-400 text-sm mt-2 mb-1">
+            <p className="text-center text-[#A0A0B0] text-sm mt-2 mb-1">
               Buscando lo mejor para vos…
             </p>
             <SkeletonCards />
@@ -385,7 +385,7 @@ export default function MoodRecommender() {
               Estas son tus recomendaciones 🎬
             </p>
             {recommendations.length === 0 ? (
-              <p className="text-center text-zinc-500 text-sm py-6">
+              <p className="text-center text-[#A0A0B0] text-sm py-6">
                 No se pudieron obtener recomendaciones. Intentá de nuevo.
               </p>
             ) : (
@@ -398,7 +398,7 @@ export default function MoodRecommender() {
             <div className="text-center mt-6">
               <button
                 onClick={reset}
-                className="px-6 py-2.5 rounded-xl font-semibold text-sm text-white border border-zinc-600 hover:border-zinc-400 hover:bg-zinc-800 transition-all"
+                className="px-6 py-2.5 rounded-xl font-semibold text-sm text-white border border-zinc-600 hover:border-zinc-400 hover:bg-[#1C1C27] transition-all"
               >
                 Buscar de nuevo
               </button>

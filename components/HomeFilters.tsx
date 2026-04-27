@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import MediaCard from './MediaCard'
@@ -56,13 +56,13 @@ export default function HomeFilters() {
     <div>
       <div className="flex flex-wrap gap-3 mb-6">
         {/* Media type toggle */}
-        <div className="flex bg-zinc-800 rounded-lg p-1 gap-1">
+        <div className="flex bg-[#1C1C27] rounded-lg p-1 gap-1">
           {(['movie', 'tv'] as const).map(t => (
             <button
               key={t}
               onClick={() => setMediaType(t)}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                mediaType === t ? 'bg-emerald-500 text-white' : 'text-zinc-400 hover:text-white'
+                mediaType === t ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
               }`}
             >
               {t === 'movie' ? 'Películas' : 'Series'}
@@ -74,7 +74,7 @@ export default function HomeFilters() {
         <select
           value={selectedGenre}
           onChange={e => setSelectedGenre(e.target.value)}
-          className="bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none"
+          className="bg-[#1C1C27] text-white text-sm rounded-lg px-3 py-2 border border-[#2A2A3A] outline-none"
         >
           <option value="">Todos los géneros</option>
           {genres.map(g => (
@@ -86,7 +86,7 @@ export default function HomeFilters() {
         <select
           value={selectedProvider}
           onChange={e => setSelectedProvider(e.target.value)}
-          className="bg-zinc-800 text-white text-sm rounded-lg px-3 py-2 border border-zinc-700 outline-none"
+          className="bg-[#1C1C27] text-white text-sm rounded-lg px-3 py-2 border border-[#2A2A3A] outline-none"
         >
           <option value="">Todas las plataformas</option>
           {PROVIDER_FILTER_OPTIONS.map(p => (
@@ -97,7 +97,7 @@ export default function HomeFilters() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">

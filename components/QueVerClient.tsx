@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
@@ -249,7 +249,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
   return (
     <div className="min-h-screen">
       {/* ── Sticky filter bar ── */}
-      <div className="bg-zinc-900/95 backdrop-blur border-b border-zinc-800 sticky top-[57px] z-40">
+      <div className="bg-[#13131A]/95 backdrop-blur border-b border-[#2A2A3A] sticky top-[57px] z-40">
         <div className="max-w-7xl mx-auto px-4 pt-4 pb-3 space-y-3">
 
           {/* Content type */}
@@ -260,8 +260,8 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 onClick={() => updateFilter({ contentType: ct.id, genres: [] })}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   params.contentType === ct.id
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                    ? 'bg-[#6B3FE7] text-white'
+                    : 'bg-[#1C1C27] text-zinc-300 hover:bg-zinc-700 hover:text-white'
                 }`}
               >
                 {ct.label}
@@ -314,8 +314,8 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 onClick={() => toggleGenre(g.id)}
                 className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   params.genres.includes(g.id)
-                    ? 'bg-emerald-500 text-white'
-                    : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                    ? 'bg-[#6B3FE7] text-white'
+                    : 'bg-[#1C1C27] text-[#A0A0B0] hover:bg-zinc-700 hover:text-zinc-200'
                 }`}
               >
                 {g.name}
@@ -329,7 +329,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             <select
               value={params.sortBy}
               onChange={e => updateFilter({ sortBy: e.target.value })}
-              className="bg-zinc-800 text-zinc-300 text-sm rounded-lg px-3 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500 cursor-pointer"
+              className="bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-3 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7] cursor-pointer"
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -337,14 +337,14 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             </select>
 
             {/* Year range */}
-            <div className="flex items-center gap-1.5 text-sm text-zinc-400">
+            <div className="flex items-center gap-1.5 text-sm text-[#A0A0B0]">
               <span className="text-xs">Año</span>
               <input
                 type="number"
                 placeholder="Desde"
                 value={params.yearFrom}
                 onChange={e => updateFilter({ yearFrom: e.target.value })}
-                className="w-[72px] bg-zinc-800 text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500"
+                className="w-[72px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
                 min="1900" max="2030"
               />
               <span>–</span>
@@ -353,13 +353,13 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 placeholder="Hasta"
                 value={params.yearTo}
                 onChange={e => updateFilter({ yearTo: e.target.value })}
-                className="w-[72px] bg-zinc-800 text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-zinc-700 outline-none focus:border-emerald-500"
+                className="w-[72px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
                 min="1900" max="2030"
               />
             </div>
 
             {/* Min score */}
-            <div className="flex items-center gap-2 text-sm text-zinc-400">
+            <div className="flex items-center gap-2 text-sm text-[#A0A0B0]">
               <Star size={13} className="text-yellow-400 shrink-0" fill="currentColor" />
               <span className="text-xs w-16">
                 {params.minScore > 0 ? `≥ ${params.minScore.toFixed(1)}` : 'Cualquier nota'}
@@ -378,7 +378,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 onClick={() => updateFilter({
                   genres: [], yearFrom: '', yearTo: '', minScore: 0, provider: null,
                 })}
-                className="text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline"
+                className="text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors underline"
               >
                 Limpiar filtros
               </button>
@@ -398,7 +398,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
       <div className="max-w-7xl mx-auto px-4 py-8">
 
         {items.length === 0 && !loading && (
-          <p className="text-zinc-500 text-center py-24">Sin resultados para los filtros seleccionados.</p>
+          <p className="text-[#A0A0B0] text-center py-24">Sin resultados para los filtros seleccionados.</p>
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
@@ -408,7 +408,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
               href={`/${item.mediaType}/${item.id}`}
               className="group"
             >
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1.5">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
                 <Image
                   src={getPosterUrl(item.poster_path, 'w342')}
                   alt={item.displayTitle}
@@ -417,7 +417,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
                 />
                 {item.vote_average > 0 && (
-                  <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-900/90 rounded px-1.5 py-0.5">
+                  <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1.5 py-0.5">
                     <Star size={9} className="text-yellow-400 shrink-0" fill="currentColor" />
                     <span className="text-[11px] font-semibold text-white leading-none">
                       {item.vote_average.toFixed(1)}
@@ -429,7 +429,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 {item.displayTitle}
               </p>
               {item.year && (
-                <p className="text-[11px] text-zinc-500 mt-0.5">{item.year}</p>
+                <p className="text-[11px] text-[#A0A0B0] mt-0.5">{item.year}</p>
               )}
             </Link>
           ))}
@@ -440,9 +440,9 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4 mt-4">
             {Array.from({ length: 12 }).map((_, i) => (
               <div key={i} className="animate-pulse">
-                <div className="aspect-[2/3] rounded-lg bg-zinc-800" />
-                <div className="h-3 bg-zinc-800 rounded mt-2 w-3/4" />
-                <div className="h-2.5 bg-zinc-800 rounded mt-1 w-1/3" />
+                <div className="aspect-[2/3] rounded-lg bg-[#1C1C27]" />
+                <div className="h-3 bg-[#1C1C27] rounded mt-2 w-3/4" />
+                <div className="h-2.5 bg-[#1C1C27] rounded mt-1 w-1/3" />
               </div>
             ))}
           </div>

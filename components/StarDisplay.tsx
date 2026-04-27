@@ -6,7 +6,7 @@ import { Star } from 'lucide-react'
 export function StarIcon({
   fill,
   size,
-  color = 'text-yellow-400',
+  color = 'text-[#F5A623]',
 }: {
   fill: 'full' | 'half' | 'empty'
   size: number
@@ -47,7 +47,7 @@ interface Props {
   color?: string
 }
 
-export default function StarDisplay({ rating, size = 12, color = 'text-yellow-400' }: Props) {
+export default function StarDisplay({ rating, size = 12, color = 'text-[#F5A623]' }: Props) {
   return (
     <div className="flex items-center gap-0.5">
       {[1, 2, 3, 4, 5].map(s => (

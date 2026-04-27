@@ -4,7 +4,7 @@ import { createContext, useContext, useState, useEffect, useCallback, useRef } f
 import { COUNTRIES, DEFAULT_COUNTRY, getCountry, type Country } from '@/lib/countries'
 import { createClient } from '@/lib/supabase'
 
-const LS_KEY = 'streamfinder_country'
+const LS_KEY = 'glynbox_country'
 
 interface CountryCtx {
   country: string

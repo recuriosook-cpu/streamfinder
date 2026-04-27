@@ -1,4 +1,4 @@
-import type { ParsedAwards } from '@/lib/omdb'
+﻿import type { ParsedAwards } from '@/lib/omdb'
 import { Trophy, Star } from 'lucide-react'
 
 interface Props {
@@ -34,8 +34,8 @@ export default function AwardsSection({ awards }: Props) {
                 entry.isOscar
                   ? 'bg-yellow-500/10 border-yellow-500/25'
                   : hasWins
-                  ? 'bg-zinc-800/60 border-zinc-700/50'
-                  : 'bg-zinc-800/40 border-zinc-700/30'
+                  ? 'bg-[#1C1C27]/60 border-[#2A2A3A]/50'
+                  : 'bg-[#1C1C27]/40 border-[#2A2A3A]/30'
               }`}
             >
               {/* Icon — gold trophy if won any, green star if nominated only */}
@@ -56,7 +56,7 @@ export default function AwardsSection({ awards }: Props) {
 
               {/* Wins · nominations — same line, right-aligned */}
               <p className={`text-sm shrink-0 ${
-                entry.isOscar ? 'text-yellow-300' : hasWins ? 'text-zinc-200' : 'text-zinc-400'
+                entry.isOscar ? 'text-yellow-300' : hasWins ? 'text-zinc-200' : 'text-[#A0A0B0]'
               }`}>
                 {summary}
               </p>

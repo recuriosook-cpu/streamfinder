@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
@@ -105,7 +105,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function compatColor(score: number): string {
-  if (score >= 60) return '#1DB954'
+  if (score >= 60) return '#6B3FE7'
   if (score >= 30) return '#F59E0B'
   return '#EF4444'
 }
@@ -114,13 +114,13 @@ function compatColor(score: number): string {
 
 function UserAvatar({ profile, size = 9 }: { profile: Profile; size?: number }) {
   const username = profile.username ?? '?'
-  const cls = `w-${size} h-${size} rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 hover:ring-emerald-500 transition-all shrink-0`
+  const cls = `w-${size} h-${size} rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 hover:ring-[#6B3FE7] transition-all shrink-0`
   return (
     <div className={cls}>
       {profile.avatar_url ? (
         <img src={profile.avatar_url} alt={username} className="w-full h-full object-cover" />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
+        <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
           {username[0]?.toUpperCase()}
         </div>
       )}
@@ -130,8 +130,8 @@ function UserAvatar({ profile, size = 9 }: { profile: Profile; size?: number }) 
 
 function ActivityBadge({ type }: { type: ActivityItem['type'] }) {
   const styles = {
-    review:  'bg-emerald-900/50 text-emerald-400',
-    watched: 'bg-zinc-700 text-zinc-400',
+    review:  'bg-[#6B3FE7]/10 text-[#6B3FE7]',
+    watched: 'bg-zinc-700 text-[#A0A0B0]',
     rating:  'bg-yellow-900/50 text-yellow-400',
   }
   const labels = { review: 'Reseña', watched: 'Vio', rating: 'Valoró' }
@@ -160,7 +160,7 @@ function ActivityCard({
   const likeCount = item.likes?.length ?? 0
 
   return (
-    <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+    <div className="bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4">
       {/* Header */}
       <div className="flex items-center gap-2.5 mb-3">
         <Link href={`/usuario/${username}`}>
@@ -172,14 +172,14 @@ function ActivityCard({
           <div className="flex items-center gap-1 flex-wrap">
             <Link
               href={`/usuario/${username}`}
-              className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
+              className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors"
             >
               {username}
             </Link>
             {isVerified(username) && <VerifiedBadge />}
             <ActivityBadge type={item.type} />
           </div>
-          <p className="text-xs text-zinc-500">{timeAgo(item.sortTime)}</p>
+          <p className="text-xs text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
         </div>
       </div>
 
@@ -206,7 +206,7 @@ function ActivityCard({
         <div className="flex-1 min-w-0">
           <Link
             href={mediaHref}
-            className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors line-clamp-1 block mb-1.5"
+            className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block mb-1.5"
           >
             {item.title}
           </Link>
@@ -229,7 +229,7 @@ function ActivityCard({
               <button
                 onClick={() => onToggleLike(item.reviewId!)}
                 className={`flex items-center gap-1.5 text-xs transition-colors ${
-                  liked ? 'text-red-400' : 'text-zinc-500 hover:text-red-400'
+                  liked ? 'text-red-400' : 'text-[#A0A0B0] hover:text-red-400'
                 }`}
               >
                 <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
@@ -237,7 +237,7 @@ function ActivityCard({
               </button>
               <Link
                 href={`/review/${item.reviewId}`}
-                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors"
+                className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors"
               >
                 <MessageCircle size={13} />
                 Comentar
@@ -276,7 +276,7 @@ function WatchlistCard({
   }
 
   return (
-    <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+    <div className="bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4">
       <div className="flex items-center gap-2.5 mb-3">
         <Link href={`/usuario/${username}`}>
           {profile ? <UserAvatar profile={profile} /> : (
@@ -287,7 +287,7 @@ function WatchlistCard({
           <div className="flex items-center gap-1 flex-wrap">
             <Link
               href={`/usuario/${username}`}
-              className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
+              className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors"
             >
               {username}
             </Link>
@@ -296,7 +296,7 @@ function WatchlistCard({
               Para ver
             </span>
           </div>
-          <p className="text-xs text-zinc-500">{timeAgo(item.sortTime)}</p>
+          <p className="text-xs text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
         </div>
       </div>
 
@@ -322,19 +322,19 @@ function WatchlistCard({
         <div className="flex-1 min-w-0">
           <Link
             href={mediaHref}
-            className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors line-clamp-1 block mb-1"
+            className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block mb-1"
           >
             {item.title}
           </Link>
-          <p className="text-xs text-zinc-500 mb-3">{username} quiere ver esto</p>
+          <p className="text-xs text-[#A0A0B0] mb-3">{username} quiere ver esto</p>
           {item.userId !== currentUserId && (
             <button
               onClick={handleAdd}
               disabled={added || adding}
               className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
               style={{
-                backgroundColor: added ? 'rgba(29,185,84,0.15)' : 'rgba(59,130,246,0.15)',
-                color: added ? '#1DB954' : '#60a5fa',
+                backgroundColor: added ? 'rgba(107,63,231,0.15)' : 'rgba(59,130,246,0.15)',
+                color: added ? '#6B3FE7' : '#60a5fa',
               }}
             >
               {added ? <Check size={12} /> : <Plus size={12} />}
@@ -364,7 +364,7 @@ function SharedStatCard({
   const likeCount = item.likes.length
 
   return (
-    <div className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4">
+    <div className="bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4">
       <div className="flex items-center gap-2.5 mb-3">
         <Link href={`/usuario/${username}`}>
           {profile ? <UserAvatar profile={profile} /> : (
@@ -375,7 +375,7 @@ function SharedStatCard({
           <div className="flex items-center gap-1 flex-wrap">
             <Link
               href={`/usuario/${username}`}
-              className="text-sm font-semibold text-white hover:text-emerald-400 transition-colors"
+              className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors"
             >
               {username}
             </Link>
@@ -384,27 +384,27 @@ function SharedStatCard({
               Estadística
             </span>
           </div>
-          <p className="text-xs text-zinc-500">{timeAgo(item.sortTime)}</p>
+          <p className="text-xs text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
         </div>
       </div>
 
-      <div className="flex gap-3 items-center bg-zinc-900/60 rounded-xl p-3 border border-zinc-700/30">
+      <div className="flex gap-3 items-center bg-[#13131A]/60 rounded-xl p-3 border border-[#2A2A3A]/30">
         {item.statImageUrl ? (
           <div className="relative w-14 h-14 rounded-full overflow-hidden shrink-0 bg-zinc-700">
             <Image src={item.statImageUrl} alt={item.statValue} fill className="object-cover" sizes="56px" />
           </div>
         ) : (
           <div className="w-14 h-14 rounded-full bg-zinc-700 flex items-center justify-center shrink-0">
-            <BarChart2 size={22} className="text-zinc-500" />
+            <BarChart2 size={22} className="text-[#A0A0B0]" />
           </div>
         )}
         <div className="flex-1 min-w-0">
-          <p className="text-xs text-zinc-500 mb-0.5">{item.statTitle}</p>
-          <p className="text-base font-bold leading-tight" style={{ color: '#1DB954' }}>
+          <p className="text-xs text-[#A0A0B0] mb-0.5">{item.statTitle}</p>
+          <p className="text-base font-bold leading-tight" style={{ color: '#6B3FE7' }}>
             {item.statValue}
           </p>
           {item.statDetail && (
-            <p className="text-xs text-zinc-400 mt-0.5">{item.statDetail}</p>
+            <p className="text-xs text-[#A0A0B0] mt-0.5">{item.statDetail}</p>
           )}
         </div>
       </div>
@@ -413,7 +413,7 @@ function SharedStatCard({
         <button
           onClick={() => onToggleLike(item.statId)}
           className={`flex items-center gap-1.5 text-xs transition-colors ${
-            liked ? 'text-red-400' : 'text-zinc-500 hover:text-red-400'
+            liked ? 'text-red-400' : 'text-[#A0A0B0] hover:text-red-400'
           }`}
         >
           <Heart size={13} fill={liked ? 'currentColor' : 'none'} />
@@ -437,7 +437,7 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
   return (
     <Link
       href={`/usuario/${username}`}
-      className="flex items-center gap-3 bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4 hover:border-zinc-600 transition-colors"
+      className="flex items-center gap-3 bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4 hover:border-zinc-600 transition-colors"
     >
       {profile ? <UserAvatar profile={profile} size={10} /> : (
         <div className="w-10 h-10 rounded-full bg-zinc-700 shrink-0" />
@@ -458,7 +458,7 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
             style={{ width: `${item.score}%`, backgroundColor: color }}
           />
         </div>
-        <p className="text-xs text-zinc-500">{label}</p>
+        <p className="text-xs text-[#A0A0B0]">{label}</p>
       </div>
     </Link>
   )
@@ -468,11 +468,11 @@ function AchievementCard({ a }: { a: Achievement }) {
   const pct = Math.min(Math.round((a.current / a.target) * 100), 100)
   return (
     <div className={`flex items-start gap-3.5 rounded-xl p-4 border transition-colors ${
-      a.completed ? 'bg-emerald-950/30 border-emerald-800/40' : 'bg-zinc-800/50 border-zinc-700/40'
+      a.completed ? 'bg-[#F5A623]/10 border-[#F5A623]/30' : 'bg-[#1C1C27]/50 border-[#2A2A3A]/40'
     }`}>
       <div
         className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
-        style={{ backgroundColor: a.completed ? 'rgba(29,185,84,0.15)' : 'rgba(39,39,42,0.6)' }}
+        style={{ backgroundColor: a.completed ? 'rgba(245,166,35,0.15)' : 'rgba(28,28,39,0.6)' }}
       >
         {a.emoji}
       </div>
@@ -480,17 +480,17 @@ function AchievementCard({ a }: { a: Achievement }) {
         <div className="flex items-center justify-between gap-2 mb-0.5">
           <p className="font-semibold text-sm text-white leading-tight">{a.name}</p>
           {a.completed && (
-            <span className="text-xs font-semibold text-emerald-400 shrink-0">¡Completado!</span>
+            <span className="text-xs font-semibold text-[#F5A623] shrink-0">¡Completado!</span>
           )}
         </div>
-        <p className="text-xs text-zinc-500 mb-2 leading-snug">{a.description}</p>
+        <p className="text-xs text-[#A0A0B0] mb-2 leading-snug">{a.description}</p>
         <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
           <div
             className="h-full rounded-full transition-all duration-700"
-            style={{ width: `${pct}%`, backgroundColor: '#1DB954' }}
+            style={{ width: `${pct}%`, backgroundColor: '#6B3FE7' }}
           />
         </div>
-        <p className="text-xs" style={{ color: a.completed ? '#1DB954' : '#71717a' }}>
+        <p className="text-xs" style={{ color: a.completed ? '#F5A623' : '#71717a' }}>
           {a.completed
             ? `✓ ${a.current} de ${a.target}`
             : `${a.current} de ${a.target} · Faltan ${a.target - a.current}`}
@@ -516,8 +516,8 @@ function TabButton({
       onClick={onClick}
       className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
         active
-          ? 'bg-emerald-500/15 text-emerald-400'
-          : 'text-zinc-500 hover:text-zinc-300 hover:bg-zinc-800'
+          ? 'bg-[#6B3FE7]/15 text-[#6B3FE7]'
+          : 'text-[#A0A0B0] hover:text-zinc-300 hover:bg-[#1C1C27]'
       }`}
     >
       {icon}
@@ -962,7 +962,7 @@ export default function SiguiendoPage() {
   if (loadingBase) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="w-10 h-10 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -971,10 +971,10 @@ export default function SiguiendoPage() {
     return (
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4">
         <LogIn size={40} className="text-zinc-600" />
-        <p className="text-zinc-400">Iniciá sesión para ver la actividad de tus seguidos</p>
+        <p className="text-[#A0A0B0]">Iniciá sesión para ver la actividad de tus seguidos</p>
         <Link
           href="/auth"
-          className="bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg font-medium transition-colors"
+          className="bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-5 py-2 rounded-lg font-medium transition-colors"
         >
           Iniciar sesión
         </Link>
@@ -993,7 +993,7 @@ export default function SiguiendoPage() {
       </h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-zinc-900 border border-zinc-800 rounded-xl p-1">
+      <div className="flex gap-1 mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1">
         <TabButton
           active={tab === 'activity'}
           onClick={() => setTab('activity')}
@@ -1020,7 +1020,7 @@ export default function SiguiendoPage() {
           {activityLoading ? (
             <div className="space-y-4">
               {Array.from({ length: 4 }).map((_, i) => (
-                <div key={i} className="bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4 animate-pulse">
+                <div key={i} className="bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4 animate-pulse">
                   <div className="flex gap-2.5 mb-3">
                     <div className="w-9 h-9 rounded-full bg-zinc-700 shrink-0" />
                     <div className="flex-1 space-y-2">
@@ -1042,13 +1042,13 @@ export default function SiguiendoPage() {
           ) : followingIds.length === 0 ? (
             <div className="text-center py-20">
               <Users size={40} className="mx-auto text-zinc-700 mb-3" />
-              <p className="text-zinc-400 mb-1">Seguí a otros usuarios para ver su actividad acá</p>
+              <p className="text-[#A0A0B0] mb-1">Seguí a otros usuarios para ver su actividad acá</p>
               <p className="text-zinc-600 text-sm">Buscá usuarios desde sus perfiles para comenzar a seguirlos.</p>
             </div>
           ) : activityItems.length === 0 ? (
             <div className="text-center py-20">
               <Zap size={40} className="mx-auto text-zinc-700 mb-3" />
-              <p className="text-zinc-400">Todavía no hay actividad de tus seguidos.</p>
+              <p className="text-[#A0A0B0]">Todavía no hay actividad de tus seguidos.</p>
             </div>
           ) : (
             <>
@@ -1086,7 +1086,7 @@ export default function SiguiendoPage() {
               {visibleCount < activityItems.length && (
                 <button
                   onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
-                  className="mt-5 w-full py-2.5 rounded-xl border border-zinc-700 text-zinc-400 hover:border-zinc-500 hover:text-zinc-200 text-sm font-medium transition-colors"
+                  className="mt-5 w-full py-2.5 rounded-xl border border-[#2A2A3A] text-[#A0A0B0] hover:border-zinc-500 hover:text-zinc-200 text-sm font-medium transition-colors"
                 >
                   Ver más ({activityItems.length - visibleCount} restantes)
                 </button>
@@ -1102,7 +1102,7 @@ export default function SiguiendoPage() {
           {compatLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 5 }).map((_, i) => (
-                <div key={i} className="flex items-center gap-3 bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4 animate-pulse">
+                <div key={i} className="flex items-center gap-3 bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4 animate-pulse">
                   <div className="w-10 h-10 rounded-full bg-zinc-700 shrink-0" />
                   <div className="flex-1 space-y-2">
                     <div className="flex justify-between">
@@ -1118,11 +1118,11 @@ export default function SiguiendoPage() {
           ) : followingIds.length === 0 ? (
             <div className="text-center py-20">
               <Heart size={40} className="mx-auto text-zinc-700 mb-3" />
-              <p className="text-zinc-400">Seguí usuarios para ver tu compatibilidad con ellos.</p>
+              <p className="text-[#A0A0B0]">Seguí usuarios para ver tu compatibilidad con ellos.</p>
             </div>
           ) : (
             <>
-              <p className="text-xs text-zinc-500 mb-4">
+              <p className="text-xs text-[#A0A0B0] mb-4">
                 Calculado según los géneros más vistos por vos y cada usuario.
               </p>
               <div className="space-y-3">
@@ -1141,7 +1141,7 @@ export default function SiguiendoPage() {
           {achievementsLoading ? (
             <div className="space-y-3">
               {Array.from({ length: 6 }).map((_, i) => (
-                <div key={i} className="flex gap-3.5 bg-zinc-800/50 border border-zinc-700/40 rounded-xl p-4 animate-pulse">
+                <div key={i} className="flex gap-3.5 bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4 animate-pulse">
                   <div className="w-12 h-12 rounded-full bg-zinc-700 shrink-0" />
                   <div className="flex-1 space-y-2 pt-1">
                     <div className="h-3.5 bg-zinc-700 rounded w-1/3" />
@@ -1155,10 +1155,10 @@ export default function SiguiendoPage() {
           ) : (
             <>
               <div className="flex items-center justify-between mb-4">
-                <p className="text-xs text-zinc-500">
+                <p className="text-xs text-[#A0A0B0]">
                   {achievements.filter(a => a.completed).length} de {achievements.length} logros completados
                 </p>
-                <span className="text-xs font-semibold text-emerald-400">
+                <span className="text-xs font-semibold text-[#6B3FE7]">
                   {achievements.filter(a => a.completed).length}/{achievements.length}
                 </span>
               </div>

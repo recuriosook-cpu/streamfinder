@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
@@ -133,7 +133,7 @@ interface RichStats {
 
 function SectionLabel({ children }: { children: React.ReactNode }) {
   return (
-    <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-3">
+    <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#A0A0B0] mb-3">
       {children}
     </p>
   )
@@ -156,7 +156,7 @@ function PosterLink({
 }) {
   return (
     <Link href={`/${mediaType}/${mediaId}`} className="group block">
-      <div className={`relative ${width} aspect-[2/3] rounded-md overflow-hidden bg-zinc-800`}>
+      <div className={`relative ${width} aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27]`}>
         {posterPath ? (
           <Image
             src={getPosterUrl(posterPath, 'w185')}
@@ -652,10 +652,10 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
   // ── Render ─────────────────────────────────────────────────────
   return (
-    <div className="min-h-screen bg-zinc-950">
+    <div className="min-h-screen bg-[#0A0A0F]">
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
-      <div className="bg-zinc-900 border-b border-zinc-800/60">
+      <div className="bg-[#13131A] border-b border-[#2A2A3A]/60">
         <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
 
@@ -665,7 +665,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {localProfile.avatar_url ? (
                   <Image src={localProfile.avatar_url} alt={displayName} width={112} height={112} className="w-full h-full object-cover" unoptimized />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-zinc-500">
+                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[#A0A0B0]">
                     {displayName[0]?.toUpperCase()}
                   </div>
                 )}
@@ -682,13 +682,13 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   <VerifiedBadge size={20} />
                 )}
                 {followsMe && (
-                  <span className="text-xs bg-zinc-800 border border-zinc-700 text-zinc-400 px-2.5 py-1 rounded-full">
+                  <span className="text-xs bg-[#1C1C27] border border-[#2A2A3A] text-[#A0A0B0] px-2.5 py-1 rounded-full">
                     Te sigue
                   </span>
                 )}
               </div>
 
-              <p className="text-zinc-500 text-sm mb-3">@{localProfile.username}</p>
+              <p className="text-[#A0A0B0] text-sm mb-3">@{localProfile.username}</p>
 
               {/* Level badge */}
               {(() => {
@@ -704,16 +704,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   >
                     <div className="flex items-center gap-2">
                       <span className="text-lg leading-none">{info.emoji}</span>
-                      <span className="text-sm font-semibold text-zinc-200">{info.name}</span>
+                      <span className="text-sm font-semibold text-[#F5A623]">{info.name}</span>
                       {info.next && (
-                        <span className="text-xs text-zinc-500">→ {info.next.name}</span>
+                        <span className="text-xs text-[#A0A0B0]">→ {info.next.name}</span>
                       )}
                     </div>
                     <div className="flex items-center gap-2">
                       <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${info.pct}%`, backgroundColor: '#1DB954' }}
+                          style={{ width: `${info.pct}%`, backgroundColor: '#6B3FE7' }}
                         />
                       </div>
                       <span className="text-[10px] text-zinc-600">
@@ -725,7 +725,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               })()}
 
               {localProfile.bio && (
-                <p className="text-zinc-400 text-sm leading-relaxed max-w-lg mb-4">{localProfile.bio}</p>
+                <p className="text-[#A0A0B0] text-sm leading-relaxed max-w-lg mb-4">{localProfile.bio}</p>
               )}
 
               {/* Social links */}
@@ -737,7 +737,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       target="_blank"
                       rel="noopener noreferrer"
                       title={`@${localProfile.instagram_username} en Instagram`}
-                      className="text-zinc-400 hover:text-white transition-colors"
+                      className="text-[#A0A0B0] hover:text-white transition-colors"
                     >
                       <InstagramIcon />
                     </a>
@@ -748,7 +748,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       target="_blank"
                       rel="noopener noreferrer"
                       title={`@${localProfile.tiktok_username} en TikTok`}
-                      className="text-zinc-400 hover:text-white transition-colors"
+                      className="text-[#A0A0B0] hover:text-white transition-colors"
                     >
                       <TikTokIcon />
                     </a>
@@ -759,7 +759,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       target="_blank"
                       rel="noopener noreferrer"
                       title={`@${localProfile.x_username} en X`}
-                      className="text-zinc-400 hover:text-white transition-colors"
+                      className="text-[#A0A0B0] hover:text-white transition-colors"
                     >
                       <XIcon />
                     </a>
@@ -779,13 +779,13 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {i > 0 && <span className="text-zinc-700 hidden sm:block select-none">·</span>}
                     {s.onClick ? (
                       <button onClick={s.onClick} className="text-center sm:text-left group cursor-pointer">
-                        <p className="text-xl font-bold text-white leading-none group-hover:text-emerald-400 transition-colors">{s.value}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide group-hover:text-zinc-400 transition-colors">{s.label}</p>
+                        <p className="text-xl font-bold text-white leading-none group-hover:text-[#6B3FE7] transition-colors">{s.value}</p>
+                        <p className="text-[11px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide group-hover:text-[#A0A0B0] transition-colors">{s.label}</p>
                       </button>
                     ) : (
                       <div className="text-center sm:text-left">
                         <p className="text-xl font-bold text-white leading-none">{s.value}</p>
-                        <p className="text-[11px] text-zinc-500 mt-0.5 uppercase tracking-wide">{s.label}</p>
+                        <p className="text-[11px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide">{s.label}</p>
                       </div>
                     )}
                   </div>
@@ -807,7 +807,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     setAvatarPreview(null)
                     setIsEditing(true)
                   }}
-                  className="inline-flex items-center gap-2 text-sm font-medium bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
+                  className="inline-flex items-center gap-2 text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
                 >
                   <Pencil size={13} /> Editar perfil
                 </button>
@@ -817,15 +817,15 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   disabled={followBusy}
                   className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
                     isFollowing
-                      ? 'bg-zinc-800 hover:bg-zinc-700 border border-zinc-700 text-zinc-300'
-                      : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                      ? 'bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300'
+                      : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
                   }`}
                 >
                   {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
                   {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </button>
               ) : (
-                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 text-white px-5 py-2 rounded-lg transition-colors">
+                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-5 py-2 rounded-lg transition-colors">
                   <UserPlus size={14} /> Seguir
                 </Link>
               )}
@@ -835,7 +835,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       </div>
 
       {/* ── TAB BAR ────────────────────────────────────────────── */}
-      <div className="sticky top-[57px] z-30 bg-zinc-950/95 backdrop-blur border-b border-zinc-800">
+      <div className="sticky top-[57px] z-30 bg-[#0A0A0F]/95 backdrop-blur border-b border-[#2A2A3A]">
         <div className="max-w-5xl mx-auto px-4 flex overflow-x-auto no-scrollbar">
           {TABS.map(tab => (
             <button
@@ -843,8 +843,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               onClick={() => setActiveTab(tab.id)}
               className={`px-5 py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-emerald-400 text-white'
-                  : 'border-transparent text-zinc-500 hover:text-zinc-300'
+                  ? 'border-[#6B3FE7] text-white'
+                  : 'border-transparent text-[#A0A0B0] hover:text-zinc-300'
               }`}
             >
               {tab.label}
@@ -873,7 +873,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       return item ? (
                         <div key={slot} className="relative group/pin">
                           <Link href={`/${item.media_type}/${item.media_id}`}>
-                            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800">
+                            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]">
                               {item.poster_path ? (
                                 <Image
                                   src={getPosterUrl(item.poster_path, 'w342')}
@@ -891,14 +891,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover/pin:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <button
                                 onClick={() => { setSearchingSlot(slot); setSearchQuery('') }}
-                                className="bg-zinc-900/90 hover:bg-emerald-600 text-white rounded-full p-1.5 transition-colors"
+                                className="bg-[#13131A]/90 hover:bg-[#5A32C7] text-white rounded-full p-1.5 transition-colors"
                                 title="Cambiar"
                               >
                                 <SearchIcon size={12} />
                               </button>
                               <button
                                 onClick={() => removePin(slot)}
-                                className="bg-zinc-900/90 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors"
+                                className="bg-[#13131A]/90 hover:bg-red-600 text-white rounded-full p-1.5 transition-colors"
                                 title="Quitar"
                               >
                                 <X size={12} />
@@ -911,8 +911,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           <div
                             className={`aspect-[2/3] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors ${
                               isOwner
-                                ? 'border-zinc-700 hover:border-emerald-500 cursor-pointer'
-                                : 'border-zinc-800'
+                                ? 'border-[#2A2A3A] hover:border-[#6B3FE7] cursor-pointer'
+                                : 'border-[#2A2A3A]'
                             }`}
                             onClick={() => isOwner && setSearchingSlot(slot)}
                           >
@@ -932,7 +932,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   {recentActivity.length > 0 && (
                     <button
                       onClick={() => setActiveTab('resenas')}
-                      className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors"
+                      className="text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors"
                     >
                       Ver reseñas →
                     </button>
@@ -941,7 +941,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {recentActivity.length === 0 ? (
                   <p className="text-zinc-600 text-sm">Sin actividad reciente.</p>
                 ) : (
-                  <div className="divide-y divide-zinc-800/60">
+                  <div className="divide-y divide-[#2A2A3A]/60">
                     {recentActivity.map((item, i) => {
                       const d    = item.data
                       const href = item.kind === 'review' ? `/review/${d.id}` : `/${d.media_type}/${d.media_id}`
@@ -950,7 +950,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                         <div key={`${item.kind}-${d.id}-${i}`} className="flex items-start gap-3 py-3">
                           {/* Poster */}
                           <Link href={href} className="shrink-0">
-                            <div className="relative w-10 aspect-[2/3] rounded overflow-hidden bg-zinc-800">
+                            <div className="relative w-10 aspect-[2/3] rounded overflow-hidden bg-[#1C1C27]">
                               {d.poster_path && (
                                 <Image src={getPosterUrl(d.poster_path, 'w92')} alt={d.title} fill className="object-cover" sizes="40px" />
                               )}
@@ -959,7 +959,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           {/* Info */}
                           <div className="flex-1 min-w-0 pt-0.5">
                             <div className="flex items-start justify-between gap-2">
-                              <Link href={href} className="text-sm font-medium text-white hover:text-emerald-400 transition-colors line-clamp-1">
+                              <Link href={href} className="text-sm font-medium text-white hover:text-[#6B3FE7] transition-colors line-clamp-1">
                                 {d.title}
                               </Link>
                               <span className="text-[11px] text-zinc-600 shrink-0">{date}</span>
@@ -968,7 +968,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                                 item.kind === 'review'
-                                  ? 'bg-emerald-900/40 text-emerald-400'
+                                  ? 'bg-[#6B3FE7]/10 text-[#6B3FE7]'
                                   : 'bg-yellow-900/40 text-yellow-400'
                               }`}>
                                 {item.kind === 'review' ? 'Reseña' : 'Valoración'}
@@ -979,7 +979,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             </div>
                             {/* Review excerpt */}
                             {item.kind === 'review' && (item.data as ReviewItem).body && (
-                              <p className="text-xs text-zinc-500 line-clamp-2 mt-1 leading-relaxed">
+                              <p className="text-xs text-[#A0A0B0] line-clamp-2 mt-1 leading-relaxed">
                                 {(item.data as ReviewItem).body}
                               </p>
                             )}
@@ -1000,7 +1000,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   {watchlistCount > 0 && (
                     <button
                       onClick={() => setActiveTab('paraVer')}
-                      className="text-xs text-zinc-500 hover:text-emerald-400 transition-colors"
+                      className="text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors"
                     >
                       Ver todos ({watchlistCount}) →
                     </button>
@@ -1097,7 +1097,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           <div className="max-w-2xl">
             {statsData === null ? (
               <div className="flex justify-center py-20">
-                <div className="w-7 h-7 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                <div className="w-7 h-7 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <div className="space-y-8">
@@ -1126,35 +1126,35 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                         minutes: richStats?.totalMinutes,
                       },
                     ].map(period => (
-                      <div key={period.label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4">
-                        <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-3">{period.label}</p>
+                      <div key={period.label} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+                        <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#A0A0B0] mb-3">{period.label}</p>
                         <div className="space-y-2.5">
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-zinc-400">Películas</span>
+                            <span className="text-xs text-[#A0A0B0]">Películas</span>
                             <span className="text-lg font-bold text-white">{period.movies}</span>
                           </div>
-                          <div className="w-full bg-zinc-800 rounded-full h-1">
+                          <div className="w-full bg-[#1C1C27] rounded-full h-1">
                             <div
-                              className="bg-emerald-500 h-1 rounded-full transition-all"
+                              className="bg-[#6B3FE7] h-1 rounded-full transition-all"
                               style={{ width: period.movies + period.series > 0 ? `${(period.movies / (period.movies + period.series)) * 100}%` : '0%' }}
                             />
                           </div>
                           <div className="flex items-center justify-between">
-                            <span className="text-xs text-zinc-400">Series</span>
+                            <span className="text-xs text-[#A0A0B0]">Series</span>
                             <span className="text-lg font-bold text-white">{period.series}</span>
                           </div>
-                          <div className="w-full bg-zinc-800 rounded-full h-1">
+                          <div className="w-full bg-[#1C1C27] rounded-full h-1">
                             <div
                               className="bg-sky-500 h-1 rounded-full transition-all"
                               style={{ width: period.movies + period.series > 0 ? `${(period.series / (period.movies + period.series)) * 100}%` : '0%' }}
                             />
                           </div>
-                          <p className="text-xs text-zinc-600 pt-0.5 border-t border-zinc-800">
+                          <p className="text-xs text-zinc-600 pt-0.5 border-t border-[#2A2A3A]">
                             {period.movies + period.series} total
                           </p>
                           {/* Hours — show only once richStats loaded */}
                           {period.minutes !== undefined && period.minutes > 0 && (
-                            <p className="text-[11px] text-zinc-500">
+                            <p className="text-[11px] text-[#A0A0B0]">
                               {Math.floor(period.minutes / 60)}h {period.minutes % 60}min
                             </p>
                           )}
@@ -1166,8 +1166,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
                 {/* ── Rich stats ──────────────────────────────────── */}
                 {richBusy && (
-                  <div className="flex items-center gap-3 text-zinc-500 text-sm py-4">
-                    <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin shrink-0" />
+                  <div className="flex items-center gap-3 text-[#A0A0B0] text-sm py-4">
+                    <div className="w-5 h-5 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin shrink-0" />
                     Calculando estadísticas…
                   </div>
                 )}
@@ -1178,14 +1178,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {richStats.totalMinutes > 0 && (
                       <div>
                         <SectionLabel>Horas vistas en total</SectionLabel>
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6">
+                        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-6">
                           <div className="flex items-end justify-between gap-3">
                             <div className="flex items-end gap-3">
                               <span className="text-5xl font-black text-white leading-none">
                                 {Math.floor(richStats.totalMinutes / 60)}
-                                <span className="text-2xl font-bold text-emerald-400 ml-1">h</span>
+                                <span className="text-2xl font-bold text-[#6B3FE7] ml-1">h</span>
                               </span>
-                              <span className="text-2xl font-bold text-zinc-400 leading-none mb-0.5">
+                              <span className="text-2xl font-bold text-[#A0A0B0] leading-none mb-0.5">
                                 {richStats.totalMinutes % 60}
                                 <span className="text-base font-semibold ml-1">min</span>
                               </span>
@@ -1198,7 +1198,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                   `${Math.floor(richStats.totalMinutes / 60)}h ${richStats.totalMinutes % 60}min`,
                                   weeklyMinutes > 0 ? `Esta semana: ${Math.floor(weeklyMinutes / 60)}h ${weeklyMinutes % 60}min` : undefined,
                                 )}
-                                className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-emerald-700"
+                                className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7]"
                               >
                                 <Share2 size={13} />
                                 Compartir
@@ -1206,7 +1206,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             )}
                           </div>
                           {weeklyMinutes > 0 && (
-                            <p className="text-xs text-zinc-500 mt-3 pt-3 border-t border-zinc-800">
+                            <p className="text-xs text-[#A0A0B0] mt-3 pt-3 border-t border-[#2A2A3A]">
                               Esta semana: {Math.floor(weeklyMinutes / 60)}h {weeklyMinutes % 60}min
                             </p>
                           )}
@@ -1227,14 +1227,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                 richStats.topGenres[0].name,
                                 `Visto en ${richStats.topGenres[0].count} título${richStats.topGenres[0].count !== 1 ? 's' : ''}`,
                               )}
-                              className="flex items-center gap-1.5 text-xs text-zinc-500 hover:text-emerald-400 transition-colors px-3 py-1.5 rounded-lg border border-zinc-700 hover:border-emerald-700 mb-3"
+                              className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7] mb-3"
                             >
                               <Share2 size={13} />
                               Compartir
                             </button>
                           )}
                         </div>
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 space-y-4">
                           {richStats.topGenres.map((g, i) => {
                             const max = richStats.topGenres[0].count
                             const pct = Math.round((g.count / max) * 100)
@@ -1242,14 +1242,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               <div key={g.name}>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <span className="text-sm font-medium text-white">
-                                    {i === 0 && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                    {i === 0 && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
                                     {g.name}
                                   </span>
-                                  <span className="text-xs text-zinc-500">{g.count} título{g.count !== 1 ? 's' : ''}</span>
+                                  <span className="text-xs text-[#A0A0B0]">{g.count} título{g.count !== 1 ? 's' : ''}</span>
                                 </div>
-                                <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                <div className="w-full bg-[#1C1C27] rounded-full h-1.5">
                                   <div
-                                    className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                    className="bg-[#6B3FE7] h-1.5 rounded-full transition-all"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -1264,7 +1264,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {richStats.topDecades?.length > 0 && (
                       <div>
                         <SectionLabel>Décadas favoritas</SectionLabel>
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 space-y-4">
                           {richStats.topDecades.map((d, i) => {
                             const max = richStats.topDecades[0].count
                             const pct = Math.round((d.count / max) * 100)
@@ -1272,14 +1272,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               <div key={d.decade}>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <span className="text-sm font-medium text-white">
-                                    {i === 0 && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                    {i === 0 && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
                                     {d.decade}
                                   </span>
-                                  <span className="text-xs text-zinc-500">{d.count} título{d.count !== 1 ? 's' : ''}</span>
+                                  <span className="text-xs text-[#A0A0B0]">{d.count} título{d.count !== 1 ? 's' : ''}</span>
                                 </div>
-                                <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                                <div className="w-full bg-[#1C1C27] rounded-full h-1.5">
                                   <div
-                                    className="bg-emerald-500 h-1.5 rounded-full transition-all"
+                                    className="bg-[#6B3FE7] h-1.5 rounded-full transition-all"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -1294,22 +1294,22 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {richStats.topLanguages?.length > 0 && (
                       <div>
                         <SectionLabel>Idiomas más vistos</SectionLabel>
-                        <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 space-y-4">
+                        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 space-y-4">
                           {richStats.topLanguages.map((l, i) => (
                             <div key={l.name}>
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-sm font-medium text-white">
-                                  {i === 0 && l.name !== 'Otros' && <span className="text-emerald-400 mr-1.5">▲</span>}
+                                  {i === 0 && l.name !== 'Otros' && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
                                   {l.name}
                                 </span>
-                                <span className="text-xs text-zinc-500">{l.pct}%</span>
+                                <span className="text-xs text-[#A0A0B0]">{l.pct}%</span>
                               </div>
-                              <div className="w-full bg-zinc-800 rounded-full h-1.5">
+                              <div className="w-full bg-[#1C1C27] rounded-full h-1.5">
                                 <div
                                   className="h-1.5 rounded-full transition-all"
                                   style={{
                                     width: `${l.pct}%`,
-                                    backgroundColor: l.name === 'Otros' ? '#52525b' : '#1DB954',
+                                    backgroundColor: l.name === 'Otros' ? '#52525b' : '#6B3FE7',
                                   }}
                                 />
                               </div>
@@ -1337,7 +1337,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               'Director favorito': 'top_director',
                             }
                             return (
-                              <div key={label} className="bg-zinc-900 border border-zinc-800 rounded-xl p-4 flex items-center gap-4">
+                              <div key={label} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex items-center gap-4">
                                 {/* Square photo */}
                                 <div className="shrink-0 w-20 h-20 rounded-xl overflow-hidden bg-zinc-700">
                                   {person!.profilePath ? (
@@ -1349,16 +1349,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                       style={{ objectPosition: 'top center' }}
                                     />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-zinc-500">
+                                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-[#A0A0B0]">
                                       {person!.name.charAt(0).toUpperCase()}
                                     </div>
                                   )}
                                 </div>
                                 {/* Info */}
                                 <div className="flex-1 min-w-0">
-                                  <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-zinc-500 mb-0.5">{label}</p>
+                                  <p className="text-[11px] font-bold tracking-[0.12em] uppercase text-[#A0A0B0] mb-0.5">{label}</p>
                                   <p className="text-base font-bold text-white truncate">{person!.name}</p>
-                                  <p className="text-xs text-zinc-400 mt-0.5">
+                                  <p className="text-xs text-[#A0A0B0] mt-0.5">
                                     Apareció en {person!.count} título{person!.count !== 1 ? 's' : ''} que viste
                                   </p>
                                 </div>
@@ -1371,7 +1371,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                       `Apareció en ${person!.count} título${person!.count !== 1 ? 's' : ''} que viste`,
                                       person!.profilePath ? `https://image.tmdb.org/t/p/w185${person!.profilePath}` : undefined,
                                     )}
-                                    className="shrink-0 flex items-center gap-1 text-xs text-zinc-500 hover:text-emerald-400 transition-colors p-2 rounded-lg border border-zinc-700 hover:border-emerald-700"
+                                    className="shrink-0 flex items-center gap-1 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors p-2 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7]"
                                     title="Compartir"
                                   >
                                     <Share2 size={13} />
@@ -1387,8 +1387,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 )}
 
                 {!richBusy && richStats?.tooFew && (
-                  <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-6 text-center">
-                    <p className="text-zinc-400 text-sm">
+                  <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-6 text-center">
+                    <p className="text-[#A0A0B0] text-sm">
                       Mirá más contenido para ver tus estadísticas detalladas.
                     </p>
                   </div>
@@ -1406,22 +1406,22 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) setFollowListMode(null) }}
         >
-          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col max-h-[80vh]">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800 shrink-0">
+          <div className="bg-[#13131A] border border-[#2A2A3A]/60 rounded-2xl w-full max-w-sm shadow-2xl flex flex-col max-h-[80vh]">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A3A] shrink-0">
               <p className="text-sm font-semibold text-white">
                 {followListMode === 'followers' ? 'Seguidores' : 'Siguiendo'}
               </p>
-              <button onClick={() => setFollowListMode(null)} className="text-zinc-500 hover:text-white transition-colors">
+              <button onClick={() => setFollowListMode(null)} className="text-[#A0A0B0] hover:text-white transition-colors">
                 <X size={18} />
               </button>
             </div>
             <div className="overflow-y-auto flex-1 px-3 py-3">
               {followListBusy ? (
                 <div className="flex justify-center py-10">
-                  <div className="w-6 h-6 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : followList.length === 0 ? (
-                <p className="text-zinc-500 text-sm text-center py-10">
+                <p className="text-[#A0A0B0] text-sm text-center py-10">
                   Sin {followListMode === 'followers' ? 'seguidores' : 'seguidos'} todavía.
                 </p>
               ) : (
@@ -1431,20 +1431,20 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     const isMe    = currentUserId === u.id
                     const isFwg   = followingInList.has(u.id)
                     return (
-                      <div key={u.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-zinc-800 transition-colors">
+                      <div key={u.id} className="flex items-center gap-3 px-2 py-2.5 rounded-lg hover:bg-[#1C1C27] transition-colors">
                         <Link href={`/usuario/${u.username}`} onClick={() => setFollowListMode(null)} className="flex items-center gap-3 flex-1 min-w-0">
                           <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
                             {u.avatar_url ? (
                               <Image src={u.avatar_url} alt={name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-500">
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
                                 {name[0]?.toUpperCase()}
                               </div>
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
                             <p className="text-sm font-medium text-white truncate">{name}</p>
-                            <p className="text-xs text-zinc-500 truncate">@{u.username}</p>
+                            <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>
                           </div>
                         </Link>
                         {!isMe && currentUserId && (
@@ -1453,7 +1453,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                               isFwg
                                 ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-                                : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+                                : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
                             }`}
                           >
                             {isFwg ? 'Siguiendo' : 'Seguir'}
@@ -1475,10 +1475,10 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
           onClick={e => { if (e.target === e.currentTarget) setIsEditing(false) }}
         >
-          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl w-full max-w-md shadow-2xl">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <div className="bg-[#13131A] border border-[#2A2A3A]/60 rounded-2xl w-full max-w-md shadow-2xl">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A3A]">
               <p className="text-sm font-semibold text-white">Editar perfil</p>
-              <button onClick={() => setIsEditing(false)} className="text-zinc-500 hover:text-white transition-colors">
+              <button onClick={() => setIsEditing(false)} className="text-[#A0A0B0] hover:text-white transition-colors">
                 <X size={18} />
               </button>
             </div>
@@ -1497,7 +1497,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-zinc-500">
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-[#A0A0B0]">
                       {displayName[0]?.toUpperCase()}
                     </div>
                   )}
@@ -1505,7 +1505,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 font-medium transition-colors"
+                  className="text-xs text-[#6B3FE7] hover:text-[#8B6CF5] font-medium transition-colors"
                 >
                   Cambiar foto
                 </button>
@@ -1529,7 +1529,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
               {/* Username */}
               <div>
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-medium text-[#A0A0B0] uppercase tracking-wider block mb-1.5">
                   Nombre de usuario (@)
                 </label>
                 <div className="relative">
@@ -1539,12 +1539,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     onBlur={() => checkUsername(editUsername)}
                     placeholder="tu_usuario"
                     maxLength={30}
-                    className={`w-full bg-zinc-800 border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors ${
-                      usernameError ? 'border-red-500' : 'border-zinc-700 focus:border-emerald-500'
+                    className={`w-full bg-[#1C1C27] border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors ${
+                      usernameError ? 'border-red-500' : 'border-[#2A2A3A] focus:border-[#6B3FE7]'
                     }`}
                   />
                   {usernameChecking && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-zinc-500 border-t-emerald-400 rounded-full animate-spin" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-zinc-500 border-t-[#6B3FE7] rounded-full animate-spin" />
                   )}
                 </div>
                 {usernameError && (
@@ -1554,7 +1554,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
               {/* Display name */}
               <div>
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-medium text-[#A0A0B0] uppercase tracking-wider block mb-1.5">
                   Nombre a mostrar
                 </label>
                 <input
@@ -1562,13 +1562,13 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   onChange={e => setEditName(e.target.value)}
                   placeholder={localProfile.username ?? 'Tu nombre'}
                   maxLength={50}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                 />
               </div>
 
               {/* Bio */}
               <div>
-                <label className="text-xs font-medium text-zinc-400 uppercase tracking-wider block mb-1.5">
+                <label className="text-xs font-medium text-[#A0A0B0] uppercase tracking-wider block mb-1.5">
                   Bio
                 </label>
                 <textarea
@@ -1577,65 +1577,65 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   placeholder="Contá algo sobre vos..."
                   maxLength={200}
                   rows={3}
-                  className="w-full bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors resize-none"
+                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors resize-none"
                 />
                 <p className="text-[11px] text-zinc-600 text-right mt-1">{editBio.length}/200</p>
               </div>
 
               {/* Social divider */}
-              <div className="border-t border-zinc-800 pt-1">
-                <p className="text-[11px] font-semibold text-zinc-500 uppercase tracking-wider mb-3">Redes sociales</p>
+              <div className="border-t border-[#2A2A3A] pt-1">
+                <p className="text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3">Redes sociales</p>
 
                 {/* Instagram */}
                 <div className="space-y-3">
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-zinc-400"><InstagramIcon /></span>
+                    <span className="shrink-0 text-[#A0A0B0]"><InstagramIcon /></span>
                     <input
                       value={editInstagram}
                       onChange={e => setEditInstagram(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
 
                   {/* TikTok */}
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-zinc-400"><TikTokIcon /></span>
+                    <span className="shrink-0 text-[#A0A0B0]"><TikTokIcon /></span>
                     <input
                       value={editTiktok}
                       onChange={e => setEditTiktok(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
 
                   {/* X */}
                   <div className="flex items-center gap-2">
-                    <span className="shrink-0 text-zinc-400"><XIcon /></span>
+                    <span className="shrink-0 text-[#A0A0B0]"><XIcon /></span>
                     <input
                       value={editX}
                       onChange={e => setEditX(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-zinc-800 border border-zinc-700 focus:border-emerald-500 rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
                 </div>
               </div>
             </div>
-            <div className="px-5 pb-5 flex justify-end gap-3 border-t border-zinc-800 pt-4">
+            <div className="px-5 pb-5 flex justify-end gap-3 border-t border-[#2A2A3A] pt-4">
               <button
                 onClick={() => setIsEditing(false)}
-                className="text-sm text-zinc-400 hover:text-white px-4 py-2 transition-colors"
+                className="text-sm text-[#A0A0B0] hover:text-white px-4 py-2 transition-colors"
               >
                 Cancelar
               </button>
               <button
                 onClick={saveProfile}
                 disabled={editSaving || !!usernameError || usernameChecking}
-                className="inline-flex items-center gap-2 text-sm font-medium bg-emerald-500 hover:bg-emerald-600 disabled:opacity-50 text-white px-5 py-2 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-medium bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-50 text-white px-5 py-2 rounded-lg transition-colors"
               >
                 {editSaving
                   ? <div className="w-3.5 h-3.5 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -1658,21 +1658,21 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             }
           }}
         >
-          <div className="bg-zinc-900 border border-zinc-700/60 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
-            <div className="flex items-center justify-between px-5 py-4 border-b border-zinc-800">
+          <div className="bg-[#13131A] border border-[#2A2A3A]/60 rounded-2xl w-full max-w-md shadow-2xl overflow-hidden">
+            <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A3A]">
               <p className="text-sm font-semibold text-white">
                 Elegir favorita · Slot {searchingSlot}
               </p>
               <button
                 onClick={() => { setSearchingSlot(null); setSearchQuery(''); setSearchResults([]) }}
-                className="text-zinc-500 hover:text-white transition-colors"
+                className="text-[#A0A0B0] hover:text-white transition-colors"
               >
                 <X size={18} />
               </button>
             </div>
             <div className="px-4 pt-4 pb-2">
-              <div className="flex items-center gap-2 bg-zinc-800 rounded-xl px-3 py-2.5 border border-zinc-700 focus-within:border-emerald-500 transition-colors">
-                <SearchIcon size={14} className="text-zinc-500 shrink-0" />
+              <div className="flex items-center gap-2 bg-[#1C1C27] rounded-xl px-3 py-2.5 border border-[#2A2A3A] focus-within:border-[#6B3FE7] transition-colors">
+                <SearchIcon size={14} className="text-[#A0A0B0] shrink-0" />
                 <input
                   autoFocus
                   value={searchQuery}
@@ -1681,7 +1681,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   className="bg-transparent text-sm text-white placeholder-zinc-500 outline-none flex-1"
                 />
                 {searchBusy && (
-                  <div className="w-3.5 h-3.5 border border-zinc-600 border-t-emerald-400 rounded-full animate-spin shrink-0" />
+                  <div className="w-3.5 h-3.5 border border-zinc-600 border-t-[#6B3FE7] rounded-full animate-spin shrink-0" />
                 )}
               </div>
             </div>
@@ -1692,14 +1692,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     const label = result.title ?? result.name ?? ''
                     return (
                       <button key={result.id} onClick={() => savePin(searchingSlot!, result)} className="group/res text-left">
-                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1 ring-2 ring-transparent group-hover/res:ring-emerald-500 transition-all">
+                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1 ring-2 ring-transparent group-hover/res:ring-[#6B3FE7] transition-all">
                           {result.poster_path ? (
                             <Image src={getPosterUrl(result.poster_path, 'w185')} alt={label} fill className="object-cover" sizes="90px" />
                           ) : (
                             <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] text-center p-1">{label}</div>
                           )}
                         </div>
-                        <p className="text-[10px] text-zinc-400 line-clamp-2 leading-tight">{label}</p>
+                        <p className="text-[10px] text-[#A0A0B0] line-clamp-2 leading-tight">{label}</p>
                       </button>
                     )
                   })}
@@ -1716,7 +1716,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
       {/* ── SHARED TOAST ───────────────────────────────────────── */}
       {sharedToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-zinc-900 border border-emerald-700/60 rounded-full shadow-2xl text-sm font-medium text-emerald-400 flex items-center gap-2 animate-fade-in-up pointer-events-none">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-[#13131A] border border-[#6B3FE7]/60 rounded-full shadow-2xl text-sm font-medium text-[#6B3FE7] flex items-center gap-2 animate-fade-in-up pointer-events-none">
           <Share2 size={14} />
           {sharedToast}
         </div>

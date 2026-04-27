@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRef } from 'react'
 import Image from 'next/image'
@@ -44,19 +44,19 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
           >
             {name}
           </span>
-          <span className="text-zinc-400 text-base">Últimos estrenos</span>
+          <span className="text-[#A0A0B0] text-base">Últimos estrenos</span>
         </h2>
         <div className="flex gap-2">
           <button
             onClick={() => scroll('left')}
-            className="w-8 h-8 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+            className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
             aria-label={`${name}: ir a la izquierda`}
           >
             <ChevronLeft size={16} />
           </button>
           <button
             onClick={() => scroll('right')}
-            className="w-8 h-8 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+            className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
             aria-label={`${name}: ir a la derecha`}
           >
             <ChevronRight size={16} />
@@ -75,7 +75,7 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
             href={item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`}
             className="flex-shrink-0 w-32 group"
           >
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1.5">
+            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
               {item.posterPath ? (
                 <Image
                   src={getPosterUrl(item.posterPath)}

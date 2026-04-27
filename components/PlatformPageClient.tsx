@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
@@ -211,11 +211,11 @@ export default function PlatformPageClient({
   return (
     <div className="min-h-screen">
       {/* Platform header */}
-      <div className="bg-zinc-900 border-b border-zinc-800">
+      <div className="bg-[#13131A] border-b border-[#2A2A3A]">
         <div className="max-w-7xl mx-auto px-4 py-6">
           <Link
             href="/"
-            className="inline-flex items-center gap-2 text-zinc-400 hover:text-white text-sm mb-5 transition-colors"
+            className="inline-flex items-center gap-2 text-[#A0A0B0] hover:text-white text-sm mb-5 transition-colors"
           >
             <ArrowLeft size={15} /> Inicio
           </Link>
@@ -238,13 +238,13 @@ export default function PlatformPageClient({
             )}
             <div>
               <h1 className="text-3xl font-bold text-white">{platform.name}</h1>
-              <p className="text-zinc-400 text-sm mt-0.5">Disponible en Argentina</p>
+              <p className="text-[#A0A0B0] text-sm mt-0.5">Disponible en Argentina</p>
             </div>
           </div>
         </div>
 
         {/* ── Filter bar ── */}
-        <div className="border-t border-zinc-800 bg-zinc-900/80">
+        <div className="border-t border-[#2A2A3A] bg-[#13131A]/80">
           <div className="max-w-7xl mx-auto px-4 py-3 space-y-2.5">
 
             {/* Content type chips */}
@@ -255,8 +255,8 @@ export default function PlatformPageClient({
                   onClick={() => toggleType(ct.id)}
                   className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     activeType === ct.id
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-zinc-800 text-zinc-300 hover:bg-zinc-700 hover:text-white'
+                      ? 'bg-[#6B3FE7] text-white'
+                      : 'bg-[#1C1C27] text-zinc-300 hover:bg-zinc-700 hover:text-white'
                   }`}
                 >
                   {ct.label}
@@ -265,7 +265,7 @@ export default function PlatformPageClient({
               {isFiltered && (
                 <button
                   onClick={clearFilters}
-                  className="px-3 py-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors underline"
+                  className="px-3 py-1.5 text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors underline"
                 >
                   Limpiar
                 </button>
@@ -280,8 +280,8 @@ export default function PlatformPageClient({
                   onClick={() => toggleGenre(g.id)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     genres.includes(g.id)
-                      ? 'bg-emerald-500 text-white'
-                      : 'bg-zinc-800 text-zinc-400 hover:bg-zinc-700 hover:text-zinc-200'
+                      ? 'bg-[#6B3FE7] text-white'
+                      : 'bg-[#1C1C27] text-[#A0A0B0] hover:bg-zinc-700 hover:text-zinc-200'
                   }`}
                 >
                   {g.name}
@@ -307,7 +307,7 @@ export default function PlatformPageClient({
             </h2>
 
             {filteredItems.length === 0 && !filtLoading && (
-              <p className="text-zinc-500 text-sm py-10 text-center">
+              <p className="text-[#A0A0B0] text-sm py-10 text-center">
                 Sin resultados para los filtros seleccionados.
               </p>
             )}
@@ -319,7 +319,7 @@ export default function PlatformPageClient({
                   href={`/${item.mediaType}/${item.id}`}
                   className="group"
                 >
-                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-1.5">
+                  <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
                     <Image
                       src={getPosterUrl(item.poster_path, 'w342')}
                       alt={item.displayTitle}
@@ -328,7 +328,7 @@ export default function PlatformPageClient({
                       sizes="(max-width: 640px) 50vw, (max-width: 768px) 33vw, (max-width: 1024px) 25vw, 17vw"
                     />
                     {item.vote_average > 0 && (
-                      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-900/90 rounded px-1.5 py-0.5">
+                      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1.5 py-0.5">
                         <Star size={9} className="text-yellow-400 shrink-0" fill="currentColor" />
                         <span className="text-[11px] font-semibold text-white leading-none">
                           {item.vote_average.toFixed(1)}
@@ -340,7 +340,7 @@ export default function PlatformPageClient({
                     {item.displayTitle}
                   </p>
                   {item.year && (
-                    <p className="text-[11px] text-zinc-500 mt-0.5">{item.year}</p>
+                    <p className="text-[11px] text-[#A0A0B0] mt-0.5">{item.year}</p>
                   )}
                 </Link>
               ))}
@@ -350,9 +350,9 @@ export default function PlatformPageClient({
               <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4 mt-4">
                 {Array.from({ length: 12 }).map((_, i) => (
                   <div key={i} className="animate-pulse">
-                    <div className="aspect-[2/3] rounded-lg bg-zinc-800" />
-                    <div className="h-3 bg-zinc-800 rounded mt-2 w-3/4" />
-                    <div className="h-2.5 bg-zinc-800 rounded mt-1 w-1/3" />
+                    <div className="aspect-[2/3] rounded-lg bg-[#1C1C27]" />
+                    <div className="h-3 bg-[#1C1C27] rounded mt-2 w-3/4" />
+                    <div className="h-2.5 bg-[#1C1C27] rounded mt-1 w-1/3" />
                   </div>
                 ))}
               </div>
@@ -413,7 +413,7 @@ export default function PlatformPageClient({
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                 <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: platform.color }} />
                 Catálogo completo
-                <span className="text-zinc-500 text-sm font-normal">· ordenado por fecha de estreno</span>
+                <span className="text-[#A0A0B0] text-sm font-normal">· ordenado por fecha de estreno</span>
               </h2>
               {catalog.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
@@ -430,7 +430,7 @@ export default function PlatformPageClient({
                   ))}
                 </div>
               ) : (
-                <p className="text-zinc-500 text-sm">
+                <p className="text-[#A0A0B0] text-sm">
                   No se encontró contenido disponible en Argentina para esta plataforma.
                 </p>
               )}

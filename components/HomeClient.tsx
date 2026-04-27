@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import MoodRecommender from '@/components/MoodRecommender'
@@ -39,9 +39,9 @@ function HomeSkeleton() {
   return (
     <div className="animate-pulse">
       {/* Mood recommender skeleton */}
-      <div className="h-72 md:h-80 bg-zinc-900 w-full" />
+      <div className="h-72 md:h-80 bg-[#13131A] w-full" />
       {/* Logo strip skeleton */}
-      <div className="h-20 bg-zinc-900 border-y border-zinc-800 flex items-center justify-center gap-6 px-6">
+      <div className="h-20 bg-[#13131A] border-y border-[#2A2A3A] flex items-center justify-center gap-6 px-6">
         {Array.from({ length: 7 }).map((_, i) => (
           <div key={i} className="w-16 h-9 bg-zinc-700 rounded-lg shrink-0" />
         ))}
@@ -53,7 +53,7 @@ function HomeSkeleton() {
             <div className="h-6 w-32 bg-zinc-700 rounded mb-4" />
             <div className="flex gap-3 overflow-hidden">
               {Array.from({ length: 7 }).map((_, j) => (
-                <div key={j} className="shrink-0 w-32 aspect-[2/3] bg-zinc-800 rounded-lg" />
+                <div key={j} className="shrink-0 w-32 aspect-[2/3] bg-[#1C1C27] rounded-lg" />
               ))}
             </div>
           </div>

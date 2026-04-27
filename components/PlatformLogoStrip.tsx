@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useRef, useEffect, useState } from 'react'
 import Image from 'next/image'
@@ -50,10 +50,10 @@ export default function PlatformLogoStrip({ platforms }: Props) {
   }
 
   return (
-    <div className="bg-zinc-900/60 border-y border-zinc-800 py-5">
+    <div className="bg-[#13131A]/60 border-y border-[#2A2A3A] py-5">
       <div className="max-w-7xl mx-auto px-4">
         <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-zinc-400 uppercase tracking-widest">
+          <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-widest">
             Plataformas disponibles en {countryData.name}
           </p>
           {/* Arrows only render when logos overflow the container */}
@@ -61,14 +61,14 @@ export default function PlatformLogoStrip({ platforms }: Props) {
             <div className="flex gap-2">
               <button
                 onClick={() => scroll('left')}
-                className="w-7 h-7 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+                className="w-7 h-7 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
                 aria-label="Scroll izquierda"
               >
                 <ChevronLeft size={14} />
               </button>
               <button
                 onClick={() => scroll('right')}
-                className="w-7 h-7 bg-zinc-800 hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
+                className="w-7 h-7 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
                 aria-label="Scroll derecha"
               >
                 <ChevronRight size={14} />
@@ -109,7 +109,7 @@ export default function PlatformLogoStrip({ platforms }: Props) {
                     </div>
                   )}
                 </div>
-                <p className="text-[10px] text-zinc-500 text-center mt-1 group-hover:text-zinc-300 transition-colors truncate w-16">
+                <p className="text-[10px] text-[#A0A0B0] text-center mt-1 group-hover:text-zinc-300 transition-colors truncate w-16">
                   {platform.name}
                 </p>
               </Link>

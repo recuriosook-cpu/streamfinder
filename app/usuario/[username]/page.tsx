@@ -9,7 +9,7 @@ interface Props {
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const { username } = await params
-  return { title: `${username} — StreamFinder` }
+  return { title: `${username} — Glynbox` }
 }
 
 export default async function UserProfilePage({ params }: Props) {

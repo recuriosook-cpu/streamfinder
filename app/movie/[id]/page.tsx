@@ -1,4 +1,4 @@
-import { getMovieDetails, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+﻿import { getMovieDetails, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -117,14 +117,14 @@ export default async function MoviePage({ params }: Props) {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-[#A0A0B0] hover:text-white mb-6 transition-colors">
           <ArrowLeft size={16} /> Volver
         </Link>
 
         <div className="flex flex-col md:flex-row gap-8">
           {/* Poster */}
           <div className="shrink-0">
-            <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800">
+            <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
               {movie.poster_path ? (
                 <Image src={getPosterUrl(movie.poster_path, 'w342')} alt={movie.title} fill className="object-cover" />
               ) : (
@@ -136,9 +136,9 @@ export default async function MoviePage({ params }: Props) {
           {/* Info */}
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{movie.title}</h1>
-            {movie.tagline && <p className="text-zinc-400 italic mb-4">{movie.tagline}</p>}
+            {movie.tagline && <p className="text-[#A0A0B0] italic mb-4">{movie.tagline}</p>}
 
-            <div className="flex flex-wrap gap-4 text-sm text-zinc-400 mb-4">
+            <div className="flex flex-wrap gap-4 text-sm text-[#A0A0B0] mb-4">
               {movie.vote_average > 0 && (
                 <span className="flex items-center gap-1">
                   <Star size={14} className="text-yellow-400" fill="currentColor" />
@@ -166,7 +166,7 @@ export default async function MoviePage({ params }: Props) {
                   <Link
                     key={g.id}
                     href={`/que-ver?genre=${g.id}&type=movies`}
-                    className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
+                    className="text-xs bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
                   >
                     {g.name}
                   </Link>

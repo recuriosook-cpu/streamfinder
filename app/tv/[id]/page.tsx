@@ -1,4 +1,4 @@
-import { getTVDetails, getTVProviders, getTVExternalIds, getTVCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+﻿import { getTVDetails, getTVProviders, getTVExternalIds, getTVCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -108,13 +108,13 @@ export default async function TVPage({ params }: Props) {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-zinc-400 hover:text-white mb-6 transition-colors">
+        <Link href="/" className="inline-flex items-center gap-2 text-[#A0A0B0] hover:text-white mb-6 transition-colors">
           <ArrowLeft size={16} /> Volver
         </Link>
 
         <div className="flex flex-col md:flex-row gap-8">
           <div className="shrink-0">
-            <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800">
+            <div className="relative w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
               {show.poster_path ? (
                 <Image src={getPosterUrl(show.poster_path, 'w342')} alt={show.name} fill className="object-cover" />
               ) : (
@@ -125,9 +125,9 @@ export default async function TVPage({ params }: Props) {
 
           <div className="flex-1">
             <h1 className="text-3xl font-bold mb-2">{show.name}</h1>
-            {show.tagline && <p className="text-zinc-400 italic mb-4">{show.tagline}</p>}
+            {show.tagline && <p className="text-[#A0A0B0] italic mb-4">{show.tagline}</p>}
 
-            <div className="flex flex-wrap gap-4 text-sm text-zinc-400 mb-4">
+            <div className="flex flex-wrap gap-4 text-sm text-[#A0A0B0] mb-4">
               {show.vote_average > 0 && (
                 <span className="flex items-center gap-1">
                   <Star size={14} className="text-yellow-400" fill="currentColor" />
@@ -150,7 +150,7 @@ export default async function TVPage({ params }: Props) {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   show.status === 'Ended' || show.status === 'Canceled'
                     ? 'bg-red-900 text-red-300'
-                    : 'bg-green-900 text-green-300'
+                    : 'bg-[#6B3FE7]/10 text-[#6B3FE7]'
                 }`}>
                   {show.status === 'Returning Series' ? 'En emisión'
                     : show.status === 'Ended' ? 'Finalizada'
@@ -165,7 +165,7 @@ export default async function TVPage({ params }: Props) {
                   <Link
                     key={g.id}
                     href={`/que-ver?genre=${g.id}&type=series`}
-                    className="text-xs bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
+                    className="text-xs bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
                   >
                     {g.name}
                   </Link>
@@ -181,8 +181,8 @@ export default async function TVPage({ params }: Props) {
             )}
 
             {show.networks?.length > 0 && (
-              <p className="text-sm text-zinc-400 mb-4">
-                <span className="text-zinc-500">Red:</span>{' '}
+              <p className="text-sm text-[#A0A0B0] mb-4">
+                <span className="text-[#A0A0B0]">Red:</span>{' '}
                 {show.networks.map((n: { name: string }) => n.name).join(', ')}
               </p>
             )}

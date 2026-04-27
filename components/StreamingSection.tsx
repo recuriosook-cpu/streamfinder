@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useCountry } from '@/context/CountryContext'
 import ProviderBadge from '@/components/ProviderBadge'
@@ -29,16 +29,16 @@ export default function StreamingSection({ results }: Props) {
     <div className="mt-10">
       <h2 className="text-xl font-bold mb-4">
         Disponible en streaming
-        <span className="ml-2 text-base font-normal text-zinc-400">
+        <span className="ml-2 text-base font-normal text-[#A0A0B0]">
           {countryData.flag} {countryData.name}
         </span>
       </h2>
       {!hasData ? (
-        <p className="text-zinc-500">
+        <p className="text-[#A0A0B0]">
           No hay información de streaming disponible para {countryData.name}.
         </p>
       ) : (
-        <div className="bg-zinc-900 rounded-xl p-6">
+        <div className="bg-[#13131A] rounded-xl p-6">
           <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" />
           <ProviderBadge providers={region.rent ?? []}     label="Alquiler" />
           <ProviderBadge providers={region.buy ?? []}      label="Compra" />

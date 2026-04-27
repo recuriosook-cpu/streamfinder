@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { UserPlus, UserCheck } from 'lucide-react'
@@ -39,7 +39,7 @@ export default function FollowButton({ targetUserId }: Props) {
     return (
       <Link
         href="/auth"
-        className="flex items-center gap-2 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 text-sm px-4 py-2 rounded-lg transition-colors"
+        className="flex items-center gap-2 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 text-sm px-4 py-2 rounded-lg transition-colors"
       >
         <UserPlus size={15} /> Seguir
       </Link>
@@ -67,7 +67,7 @@ export default function FollowButton({ targetUserId }: Props) {
       className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
         following
           ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-          : 'bg-emerald-500 hover:bg-emerald-600 text-white'
+          : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
       }`}
     >
       {following ? <UserCheck size={15} /> : <UserPlus size={15} />}

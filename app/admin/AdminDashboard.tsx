@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -59,38 +59,38 @@ function StatCard({ icon, label, value, color = 'emerald' }: {
   icon: React.ReactNode; label: string; value: number; color?: string
 }) {
   const styles: Record<string, string> = {
-    emerald: 'text-emerald-400 bg-emerald-500/10',
+    emerald: 'text-[#6B3FE7] bg-[#6B3FE7]/10',
     blue:    'text-blue-400 bg-blue-500/10',
     purple:  'text-purple-400 bg-purple-500/10',
     amber:   'text-amber-400 bg-amber-500/10',
   }
   const [fg, bg] = (styles[color] ?? styles.emerald).split(' ')
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
       <div className={`w-10 h-10 rounded-lg ${bg} flex items-center justify-center mb-3 ${fg}`}>{icon}</div>
       <p className="text-2xl font-bold text-white">{value.toLocaleString('es-AR')}</p>
-      <p className="text-sm text-zinc-400 mt-0.5">{label}</p>
+      <p className="text-sm text-[#A0A0B0] mt-0.5">{label}</p>
     </div>
   )
 }
 
-function BarList({ items, color = 'bg-emerald-500' }: {
+function BarList({ items, color = 'bg-[#6B3FE7]' }: {
   items: { label: string; count: number }[]
   color?: string
 }) {
-  if (!items.length) return <p className="text-zinc-500 text-sm">Sin datos</p>
+  if (!items.length) return <p className="text-[#A0A0B0] text-sm">Sin datos</p>
   const max = items[0].count
   return (
     <div className="space-y-2">
       {items.map((item, i) => (
         <div key={item.label} className="flex items-center gap-3">
-          <span className="text-xs text-zinc-500 w-4 text-right shrink-0">{i + 1}</span>
+          <span className="text-xs text-[#A0A0B0] w-4 text-right shrink-0">{i + 1}</span>
           <div className="flex-1">
             <div className="flex justify-between mb-0.5">
               <span className="text-xs text-white truncate">{item.label}</span>
-              <span className="text-xs text-zinc-500 shrink-0 ml-2">{item.count}</span>
+              <span className="text-xs text-[#A0A0B0] shrink-0 ml-2">{item.count}</span>
             </div>
-            <div className="h-1.5 bg-zinc-800 rounded-full">
+            <div className="h-1.5 bg-[#1C1C27] rounded-full">
               <div className={`h-full ${color} rounded-full`} style={{ width: `${(item.count / max) * 100}%` }} />
             </div>
           </div>
@@ -121,7 +121,7 @@ function CountryDemographics({ profiles }: { profiles: Profile[] }) {
   if (sorted.length === 0 && noData === 0) return null
 
   return (
-    <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
       <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
         <Globe size={16} className="text-blue-400" />
         Demografía por país
@@ -142,10 +142,10 @@ function CountryDemographics({ profiles }: { profiles: Profile[] }) {
           </div>
         ))}
         {noData > 0 && (
-          <div className="flex items-center gap-3 pt-1 border-t border-zinc-800 mt-1">
+          <div className="flex items-center gap-3 pt-1 border-t border-[#2A2A3A] mt-1">
             <div className="w-5 h-[15px] bg-zinc-700 rounded-sm shrink-0" />
-            <span className="text-sm text-zinc-500 flex-1">Sin datos</span>
-            <span className="text-sm font-semibold text-zinc-500 shrink-0">{noData}</span>
+            <span className="text-sm text-[#A0A0B0] flex-1">Sin datos</span>
+            <span className="text-sm font-semibold text-[#A0A0B0] shrink-0">{noData}</span>
           </div>
         )}
       </div>
@@ -155,7 +155,7 @@ function CountryDemographics({ profiles }: { profiles: Profile[] }) {
 
 function RegistrationsChart({ data }: { data: { day: string; count: number }[] }) {
   if (!data.length || data.every(d => d.count === 0))
-    return <p className="text-zinc-500 text-sm text-center py-8">Sin registros en los últimos 30 días</p>
+    return <p className="text-[#A0A0B0] text-sm text-center py-8">Sin registros en los últimos 30 días</p>
   const max = Math.max(...data.map(d => d.count), 1)
   return (
     <div className="flex items-end gap-[3px] h-32 w-full">
@@ -166,7 +166,7 @@ function RegistrationsChart({ data }: { data: { day: string; count: number }[] }
           <div key={d.day} className="flex flex-col items-center flex-1 min-w-0 h-full justify-end" title={`${label}: ${d.count}`}>
             {d.count > 0 && <span className="text-[8px] text-zinc-600 mb-0.5">{d.count}</span>}
             <div
-              className="w-full bg-emerald-500 rounded-t-sm"
+              className="w-full bg-[#6B3FE7] rounded-t-sm"
               style={{ height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%` }}
             />
           </div>
@@ -337,27 +337,27 @@ export default function AdminDashboard() {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-emerald-400" />
+        <Loader2 size={28} className="animate-spin text-[#6B3FE7]" />
       </div>
     )
   }
 
   return (
-    <div className="min-h-screen bg-zinc-950 pb-20">
+    <div className="min-h-screen bg-[#0A0A0F] pb-20">
 
       {/* Header */}
-      <div className="bg-zinc-900 border-b border-zinc-800 px-6 py-4">
+      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-emerald-500/20 flex items-center justify-center">
-              <Shield size={16} className="text-emerald-400" />
+            <div className="w-8 h-8 rounded-lg bg-[#6B3FE7]/20 flex items-center justify-center">
+              <Shield size={16} className="text-[#6B3FE7]" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Panel de Administración</h1>
-              <p className="text-xs text-zinc-500">Glynbox</p>
+              <p className="text-xs text-[#A0A0B0]">Glynbox</p>
             </div>
           </div>
-          {loading && <Loader2 size={18} className="animate-spin text-zinc-500" />}
+          {loading && <Loader2 size={18} className="animate-spin text-[#A0A0B0]" />}
         </div>
       </div>
 
@@ -375,25 +375,25 @@ export default function AdminDashboard() {
         )}
 
         {/* ── USUARIOS TOTALES — hero ─────────────────────────── */}
-        <div className="bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-emerald-800/40 rounded-2xl px-8 py-6 flex items-center gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-emerald-500/20 flex items-center justify-center shrink-0">
-            <Users size={28} className="text-emerald-400" />
+        <div className="bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-[#F5A623]/30 rounded-2xl px-8 py-6 flex items-center gap-6">
+          <div className="w-16 h-16 rounded-2xl bg-[#6B3FE7]/20 flex items-center justify-center shrink-0">
+            <Users size={28} className="text-[#6B3FE7]" />
           </div>
           <div>
             <p className="text-5xl font-black text-white">{profiles.length.toLocaleString('es-AR')}</p>
-            <p className="text-emerald-400 font-semibold text-lg mt-0.5">usuarios registrados</p>
-            <p className="text-zinc-500 text-sm mt-1">
+            <p className="text-[#6B3FE7] font-semibold text-lg mt-0.5">usuarios registrados</p>
+            <p className="text-[#A0A0B0] text-sm mt-1">
               {newUsersWeek > 0 ? `+${newUsersWeek} nuevos esta semana` : 'Sin registros esta semana'}
             </p>
           </div>
           <div className="ml-auto hidden sm:block text-right">
             <p className="text-3xl font-bold text-white">{newUsersWeek}</p>
-            <p className="text-xs text-zinc-500 mt-0.5">esta semana</p>
+            <p className="text-xs text-[#A0A0B0] mt-0.5">esta semana</p>
           </div>
         </div>
 
         {/* Tabs */}
-        <div className="flex gap-1 bg-zinc-900 border border-zinc-800 rounded-xl p-1 w-fit">
+        <div className="flex gap-1 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1 w-fit">
           {([
             ['overview', 'Resumen'],
             ['content',  'Contenido'],
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
               key={key}
               onClick={() => setActiveTab(key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === key ? 'bg-emerald-500 text-white' : 'text-zinc-400 hover:text-white'
+                activeTab === key ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
               }`}
             >
               {label}
@@ -424,9 +424,9 @@ export default function AdminDashboard() {
             </div>
 
             {/* Registrations chart */}
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <BarChart2 size={16} className="text-emerald-400" />
+                <BarChart2 size={16} className="text-[#6B3FE7]" />
                 Actividad de perfiles por día — últimos 30 días
               </h2>
               <RegistrationsChart data={regsByDay} />
@@ -442,11 +442,11 @@ export default function AdminDashboard() {
 
             {/* Usage stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Plataformas más populares</h2>
-                <BarList items={topProviders} color="bg-emerald-500" />
+                <BarList items={topProviders} color="bg-[#6B3FE7]" />
               </div>
-              <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Géneros más guardados</h2>
                 <BarList items={topGenres} color="bg-purple-500" />
               </div>
@@ -461,12 +461,12 @@ export default function AdminDashboard() {
         {activeTab === 'content' && (
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
                 <Star size={15} className="text-amber-400" /> Top 10 más guardados como favorito
               </h2>
               {topFavs.length === 0 ? (
-                <p className="text-zinc-500 text-sm text-center py-8">Sin datos</p>
+                <p className="text-[#A0A0B0] text-sm text-center py-8">Sin datos</p>
               ) : (
                 <div className="space-y-2.5">
                   {topFavs.map((item, i) => (
@@ -476,13 +476,13 @@ export default function AdminDashboard() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={getPosterUrl(item.poster_path, 'w92')} alt={item.title} className="w-8 h-12 object-cover rounded shrink-0" />
                       ) : (
-                        <div className="w-8 h-12 bg-zinc-800 rounded shrink-0 flex items-center justify-center">
+                        <div className="w-8 h-12 bg-[#1C1C27] rounded shrink-0 flex items-center justify-center">
                           {item.media_type === 'tv' ? <Tv size={12} className="text-zinc-600" /> : <Film size={12} className="text-zinc-600" />}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">{item.title}</p>
-                        <p className="text-xs text-zinc-500">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
+                        <p className="text-xs text-[#A0A0B0]">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
                       </div>
                       <span className="text-sm font-semibold text-amber-400 shrink-0">{item.count}×</span>
                     </div>
@@ -491,12 +491,12 @@ export default function AdminDashboard() {
               )}
             </div>
 
-            <div className="bg-zinc-900 border border-zinc-800 rounded-xl p-5">
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <Eye size={15} className="text-emerald-400" /> Top 10 más marcados como vistos
+                <Eye size={15} className="text-[#6B3FE7]" /> Top 10 más marcados como vistos
               </h2>
               {topWatched.length === 0 ? (
-                <p className="text-zinc-500 text-sm text-center py-8">Sin datos</p>
+                <p className="text-[#A0A0B0] text-sm text-center py-8">Sin datos</p>
               ) : (
                 <div className="space-y-2.5">
                   {topWatched.map((item, i) => (
@@ -506,15 +506,15 @@ export default function AdminDashboard() {
                         // eslint-disable-next-line @next/next/no-img-element
                         <img src={getPosterUrl(item.poster_path, 'w92')} alt={item.title} className="w-8 h-12 object-cover rounded shrink-0" />
                       ) : (
-                        <div className="w-8 h-12 bg-zinc-800 rounded shrink-0 flex items-center justify-center">
+                        <div className="w-8 h-12 bg-[#1C1C27] rounded shrink-0 flex items-center justify-center">
                           {item.media_type === 'tv' ? <Tv size={12} className="text-zinc-600" /> : <Film size={12} className="text-zinc-600" />}
                         </div>
                       )}
                       <div className="flex-1 min-w-0">
                         <p className="text-sm text-white truncate">{item.title}</p>
-                        <p className="text-xs text-zinc-500">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
+                        <p className="text-xs text-[#A0A0B0]">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
                       </div>
-                      <span className="text-sm font-semibold text-emerald-400 shrink-0">{item.count}×</span>
+                      <span className="text-sm font-semibold text-[#6B3FE7] shrink-0">{item.count}×</span>
                     </div>
                   ))}
                 </div>
@@ -525,27 +525,27 @@ export default function AdminDashboard() {
 
         {/* ── REVIEWS ──────────────────────────────────────────── */}
         {activeTab === 'reviews' && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-800">
+          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#2A2A3A]">
               <h2 className="text-sm font-semibold text-white">Últimas 20 reseñas</h2>
             </div>
             {reviews.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-12">Sin reseñas</p>
+              <p className="text-[#A0A0B0] text-sm text-center py-12">Sin reseñas</p>
             ) : (
-              <div className="divide-y divide-zinc-800">
+              <div className="divide-y divide-[#2A2A3A]">
                 {reviews.map(r => (
                   <div key={r.id} className="px-5 py-4 flex gap-4">
-                    <div className="w-9 h-9 rounded-full bg-zinc-800 overflow-hidden shrink-0">
+                    <div className="w-9 h-9 rounded-full bg-[#1C1C27] overflow-hidden shrink-0">
                       {r.avatar_url
                         ? <img src={r.avatar_url} alt={r.username ?? ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-500">{(r.username ?? '?')[0].toUpperCase()}</div>
+                        : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{(r.username ?? '?')[0].toUpperCase()}</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-white">@{r.username ?? 'usuario'}</span>
-                        <span className="text-xs text-zinc-500">sobre</span>
-                        <span className="text-sm text-emerald-400 font-medium truncate max-w-[180px]">{r.title}</span>
+                        <span className="text-xs text-[#A0A0B0]">sobre</span>
+                        <span className="text-sm text-[#6B3FE7] font-medium truncate max-w-[180px]">{r.title}</span>
                         {r.rating != null && (
                           <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">⭐ {r.rating}/5</span>
                         )}
@@ -553,7 +553,7 @@ export default function AdminDashboard() {
                           {new Date(r.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                         </span>
                       </div>
-                      {r.body && <p className="text-sm text-zinc-400 line-clamp-2 leading-relaxed">{r.body}</p>}
+                      {r.body && <p className="text-sm text-[#A0A0B0] line-clamp-2 leading-relaxed">{r.body}</p>}
                     </div>
                     <button
                       onClick={() => deleteReview(r.id)}
@@ -572,21 +572,21 @@ export default function AdminDashboard() {
 
         {/* ── USERS ────────────────────────────────────────────── */}
         {activeTab === 'users' && (
-          <div className="bg-zinc-900 border border-zinc-800 rounded-xl overflow-hidden">
-            <div className="px-5 py-4 border-b border-zinc-800 flex items-center justify-between">
+          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl overflow-hidden">
+            <div className="px-5 py-4 border-b border-[#2A2A3A] flex items-center justify-between">
               <h2 className="text-sm font-semibold text-white">Últimos 20 usuarios</h2>
-              <span className="text-xs text-zinc-500">Total: {profiles.length}</span>
+              <span className="text-xs text-[#A0A0B0]">Total: {profiles.length}</span>
             </div>
             {profiles.length === 0 ? (
-              <p className="text-zinc-500 text-sm text-center py-12">Sin usuarios registrados todavía</p>
+              <p className="text-[#A0A0B0] text-sm text-center py-12">Sin usuarios registrados todavía</p>
             ) : (
-              <div className="divide-y divide-zinc-800">
+              <div className="divide-y divide-[#2A2A3A]">
                 {profiles.slice(0, 20).map(u => (
                   <div key={u.id} className="px-5 py-4 flex items-start gap-4">
-                    <div className="w-10 h-10 rounded-full bg-zinc-800 overflow-hidden shrink-0">
+                    <div className="w-10 h-10 rounded-full bg-[#1C1C27] overflow-hidden shrink-0">
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt={u.display_name ?? u.username ?? ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-500">{(u.display_name ?? u.username ?? '?')[0].toUpperCase()}</div>
+                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">{(u.display_name ?? u.username ?? '?')[0].toUpperCase()}</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
@@ -595,16 +595,16 @@ export default function AdminDashboard() {
                           {u.display_name ?? u.username ?? 'Sin nombre'}
                         </p>
                         {u.level != null && (
-                          <span className="text-[10px] bg-emerald-500/20 text-emerald-400 px-1.5 py-0.5 rounded-full font-medium">
+                          <span className="text-[10px] bg-[#6B3FE7]/20 text-[#6B3FE7] px-1.5 py-0.5 rounded-full font-medium">
                             Nv. {u.level}
                           </span>
                         )}
                       </div>
                       {u.username && (
-                        <p className="text-xs text-zinc-500 mt-0.5">@{u.username}</p>
+                        <p className="text-xs text-[#A0A0B0] mt-0.5">@{u.username}</p>
                       )}
                       {u.bio && (
-                        <p className="text-xs text-zinc-400 mt-1 line-clamp-2">{u.bio}</p>
+                        <p className="text-xs text-[#A0A0B0] mt-1 line-clamp-2">{u.bio}</p>
                       )}
                       <div className="flex items-center gap-3 mt-1.5">
                         {u.points != null && (

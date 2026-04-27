@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Calendar, X } from 'lucide-react'
@@ -139,7 +139,7 @@ export default function WatchedButton({
         disabled={loading}
         className={`flex items-center gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 ${
           isWatched
-            ? 'bg-emerald-600 hover:bg-emerald-700 text-white'
+            ? 'bg-[#5A32C7] hover:bg-emerald-700 text-white'
             : 'bg-zinc-700 hover:bg-zinc-600 text-white'
         }`}
       >
@@ -148,10 +148,10 @@ export default function WatchedButton({
       </button>
 
       {showPopup && (
-        <div className="absolute left-0 top-full mt-2 z-50 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl p-4 w-64">
+        <div className="absolute left-0 top-full mt-2 z-50 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl p-4 w-64">
           <div className="flex items-center justify-between mb-3">
             <p className="text-sm font-semibold text-white">¿Cuándo lo viste?</p>
-            <button onClick={closePopup} className="text-zinc-500 hover:text-white transition-colors">
+            <button onClick={closePopup} className="text-[#A0A0B0] hover:text-white transition-colors">
               <X size={14} />
             </button>
           </div>
@@ -167,7 +167,7 @@ export default function WatchedButton({
               <button
                 onClick={handleToday}
                 disabled={loading}
-                className="w-full bg-emerald-600 hover:bg-emerald-500 disabled:opacity-50 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                className="w-full bg-[#5A32C7] hover:bg-[#6B3FE7] disabled:opacity-50 text-white text-sm font-medium py-2 rounded-lg transition-colors"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -192,7 +192,7 @@ export default function WatchedButton({
                 value={customDate}
                 max={todayStr}
                 onChange={e => setCustomDate(e.target.value)}
-                className="w-full bg-zinc-700 border border-zinc-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-emerald-400"
+                className="w-full bg-zinc-700 border border-zinc-600 text-white text-sm rounded-lg px-3 py-2 outline-none focus:border-[#6B3FE7]"
               />
               <div className="flex gap-2">
                 <button
@@ -204,7 +204,7 @@ export default function WatchedButton({
                 <button
                   onClick={handleConfirmDate}
                   disabled={!customDate || loading}
-                  className="flex-1 bg-emerald-600 hover:bg-emerald-500 disabled:opacity-40 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                  className="flex-1 bg-[#5A32C7] hover:bg-[#6B3FE7] disabled:opacity-40 text-white text-sm font-medium py-2 rounded-lg transition-colors"
                 >
                   Confirmar
                 </button>

@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -19,7 +19,7 @@ export default function MediaCard({ id, title, posterPath, rating, year, mediaTy
 
   return (
     <Link href={href} className="group block">
-      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+      <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
         {posterPath ? (
           <Image
             src={getPosterUrl(posterPath)}
@@ -45,7 +45,7 @@ export default function MediaCard({ id, title, posterPath, rating, year, mediaTy
         </div>
       </div>
       <p className="text-sm font-medium text-white line-clamp-2 leading-tight">{title}</p>
-      <p className="text-xs text-zinc-500 mt-0.5">{year}</p>
+      <p className="text-xs text-[#A0A0B0] mt-0.5">{year}</p>
     </Link>
   )
 }

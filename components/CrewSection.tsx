@@ -1,4 +1,4 @@
-import Image from 'next/image'
+﻿import Image from 'next/image'
 
 export interface CrewMember {
   id: number
@@ -10,7 +10,7 @@ export interface CrewMember {
 function PersonAvatar() {
   return (
     <div className="w-full h-full flex items-center justify-center bg-zinc-700">
-      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-zinc-500">
+      <svg viewBox="0 0 24 24" fill="currentColor" className="w-6 h-6 text-[#A0A0B0]">
         <path d="M12 12c2.7 0 4.8-2.1 4.8-4.8S14.7 2.4 12 2.4 7.2 4.5 7.2 7.2 9.3 12 12 12zm0 2.4c-3.2 0-9.6 1.6-9.6 4.8v2.4h19.2v-2.4c0-3.2-6.4-4.8-9.6-4.8z" />
       </svg>
     </div>
@@ -19,8 +19,8 @@ function PersonAvatar() {
 
 function CrewCard({ member }: { member: CrewMember }) {
   return (
-    <div className="flex items-center gap-3 bg-zinc-800/60 border border-zinc-700/50 rounded-xl px-4 py-3">
-      <div className="w-12 h-12 rounded-full overflow-hidden bg-zinc-800 shrink-0 ring-2 ring-zinc-700">
+    <div className="flex items-center gap-3 bg-[#1C1C27]/60 border border-[#2A2A3A]/50 rounded-xl px-4 py-3">
+      <div className="w-12 h-12 rounded-full overflow-hidden bg-[#1C1C27] shrink-0 ring-2 ring-zinc-700">
         {member.profilePath ? (
           <Image
             src={`https://image.tmdb.org/t/p/w185${member.profilePath}`}
@@ -35,7 +35,7 @@ function CrewCard({ member }: { member: CrewMember }) {
       </div>
       <div className="min-w-0">
         <p className="text-sm font-semibold text-white leading-tight truncate">{member.name}</p>
-        <p className="text-xs text-zinc-400 mt-0.5">{member.job}</p>
+        <p className="text-xs text-[#A0A0B0] mt-0.5">{member.job}</p>
       </div>
     </div>
   )

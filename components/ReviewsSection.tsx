@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect } from 'react'
 import { ThumbsUp, ThumbsDown, MessageSquare } from 'lucide-react'
@@ -213,13 +213,13 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           <MessageSquare size={19} />
           Reseñas
           {reviews.length > 0 && (
-            <span className="text-sm font-normal text-zinc-500">({reviews.length})</span>
+            <span className="text-sm font-normal text-[#A0A0B0]">({reviews.length})</span>
           )}
         </h2>
         {currentUserId && !showForm && (
           <button
             onClick={() => openForm(myReview)}
-            className="text-sm bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+            className="text-sm bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
           >
             {myReview ? 'Editar reseña' : '+ Escribir reseña'}
           </button>
@@ -228,10 +228,10 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
       {/* ── Form ────────────────────────────────────────────────── */}
       {showForm && currentUserId && (
-        <div className="bg-zinc-800/70 border border-zinc-700 rounded-xl p-5 mb-6">
+        <div className="bg-[#1C1C27]/70 border border-[#2A2A3A] rounded-xl p-5 mb-6">
           {/* Star selector */}
           <div className="flex items-center gap-1.5 mb-4">
-            <span className="text-sm text-zinc-400 mr-1">Nota:</span>
+            <span className="text-sm text-[#A0A0B0] mr-1">Nota:</span>
             {[1, 2, 3, 4, 5].map(s => {
               const fill: 'full' | 'half' | 'empty' =
                 displayRating >= s ? 'full' : displayRating >= s - 0.5 ? 'half' : 'empty'
@@ -254,16 +254,16 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                 </button>
               )
             })}
-            {formRating > 0 && <span className="text-sm text-zinc-400 ml-1">{formRating}/5</span>}
+            {formRating > 0 && <span className="text-sm text-[#A0A0B0] ml-1">{formRating}/5</span>}
           </div>
 
           {/* Recommended */}
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-zinc-400">¿La recomendás?</span>
+            <span className="text-sm text-[#A0A0B0]">¿La recomendás?</span>
             <button
               onClick={() => setFormRecommended(true)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                formRecommended ? 'bg-emerald-500 text-white' : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
+                formRecommended ? 'bg-[#6B3FE7] text-white' : 'bg-zinc-700 text-[#A0A0B0] hover:bg-zinc-600'
               }`}
             >
               <ThumbsUp size={12} /> Sí
@@ -271,7 +271,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             <button
               onClick={() => setFormRecommended(false)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                !formRecommended ? 'bg-red-600 text-white' : 'bg-zinc-700 text-zinc-400 hover:bg-zinc-600'
+                !formRecommended ? 'bg-red-600 text-white' : 'bg-zinc-700 text-[#A0A0B0] hover:bg-zinc-600'
               }`}
             >
               <ThumbsDown size={12} /> No
@@ -284,7 +284,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             onChange={setFormBody}
             placeholder="¿Qué te pareció? Usá @usuario para mencionar a alguien (opcional)"
             rows={4}
-            className="w-full bg-zinc-700 border border-zinc-600 focus:border-emerald-500 rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
+            className="w-full bg-zinc-700 border border-zinc-600 focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
           />
 
           {/* Spoiler toggle */}
@@ -302,7 +302,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             <button
               onClick={submitReview}
               disabled={formRating === 0 || submitting}
-              className="bg-emerald-500 hover:bg-emerald-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               {submitting ? 'Guardando...' : 'Publicar reseña'}
             </button>
@@ -320,11 +320,11 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       {loading ? (
         <div className="space-y-4">
           {[1, 2, 3].map(i => (
-            <div key={i} className="h-28 bg-zinc-800/50 rounded-xl animate-pulse" />
+            <div key={i} className="h-28 bg-[#1C1C27]/50 rounded-xl animate-pulse" />
           ))}
         </div>
       ) : reviews.length === 0 ? (
-        <p className="text-zinc-500 text-sm text-center py-10">
+        <p className="text-[#A0A0B0] text-sm text-center py-10">
           Sin reseñas todavía.{currentUserId ? ' ¡Sé el primero en opinar!' : ''}
         </p>
       ) : (

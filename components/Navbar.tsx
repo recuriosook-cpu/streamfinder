@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import Link from 'next/link'
 import Image from 'next/image'
@@ -280,16 +280,16 @@ export default function Navbar() {
   )
 
   return (
-    <nav className="bg-zinc-900 border-b border-zinc-800 sticky top-0 z-50">
+    <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-4 py-3 flex items-center gap-3">
-        <Link href="/" className="text-xl font-bold text-emerald-400 shrink-0">
-          StreamFinder
+        <Link href="/" className="text-xl font-bold text-[#6B3FE7] shrink-0">
+          Glynbox
         </Link>
 
         {/* Search box + live dropdown */}
         <div className="flex-1 relative" ref={searchRef}>
-          <form onSubmit={handleSearch} className="flex items-center bg-zinc-800 rounded-lg px-3 py-2 gap-2">
-            <Search size={16} className="text-zinc-400 shrink-0" />
+          <form onSubmit={handleSearch} className="flex items-center bg-[#1C1C27] rounded-lg px-3 py-2 gap-2">
+            <Search size={16} className="text-[#A0A0B0] shrink-0" />
             <input
               value={query}
               onChange={handleQueryChange}
@@ -304,18 +304,18 @@ export default function Navbar() {
 
           {/* Dropdown */}
           {searchOpen && searchResults && (
-            <div className="absolute left-0 right-0 top-full mt-1 bg-zinc-900 border border-zinc-700 rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+            <div className="absolute left-0 right-0 top-full mt-1 bg-[#13131A] border border-[#2A2A3A] rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
 
               {/* ── Users ───────────────────────────────────── */}
               {searchResults.users.length > 0 && (
                 <div>
-                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Usuarios</p>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Usuarios</p>
                   {searchResults.users.map(u => (
                     <Link
                       key={u.id}
                       href={`/usuario/${u.username}`}
                       onClick={closeSearch}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
                         {u.avatar_url ? (
@@ -326,14 +326,14 @@ export default function Navbar() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
                             {(u.display_name ?? u.username ?? '?')[0]?.toUpperCase()}
                           </div>
                         )}
                       </div>
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{u.display_name ?? u.username}</p>
-                        {u.username && <p className="text-xs text-zinc-500 truncate">@{u.username}</p>}
+                        {u.username && <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>}
                       </div>
                     </Link>
                   ))}
@@ -343,13 +343,13 @@ export default function Navbar() {
               {/* ── People ──────────────────────────────────── */}
               {searchResults.people.length > 0 && (
                 <div>
-                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Personas</p>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Personas</p>
                   {searchResults.people.map(p => (
                     <Link
                       key={p.id}
                       href={`/actor/${p.id}`}
                       onClick={closeSearch}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
                         {p.profile_path ? (
@@ -360,7 +360,7 @@ export default function Navbar() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-zinc-400">
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
                             {p.name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -368,7 +368,7 @@ export default function Navbar() {
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{p.name}</p>
                         {p.known_for_department && (
-                          <p className="text-xs text-zinc-500 truncate">{p.known_for_department}</p>
+                          <p className="text-xs text-[#A0A0B0] truncate">{p.known_for_department}</p>
                         )}
                       </div>
                     </Link>
@@ -379,13 +379,13 @@ export default function Navbar() {
               {/* ── Movies ──────────────────────────────────── */}
               {searchResults.movies.length > 0 && (
                 <div>
-                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Películas</p>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Películas</p>
                   {searchResults.movies.map(m => (
                     <Link
                       key={m.id}
                       href={`/movie/${m.id}`}
                       onClick={closeSearch}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
                         {m.poster_path ? (
@@ -404,7 +404,7 @@ export default function Navbar() {
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{m.title}</p>
                         {m.release_date && (
-                          <p className="text-xs text-zinc-500">{m.release_date.slice(0, 4)}</p>
+                          <p className="text-xs text-[#A0A0B0]">{m.release_date.slice(0, 4)}</p>
                         )}
                       </div>
                     </Link>
@@ -415,13 +415,13 @@ export default function Navbar() {
               {/* ── TV ──────────────────────────────────────── */}
               {searchResults.tv.length > 0 && (
                 <div>
-                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-zinc-500 uppercase tracking-wider">Series</p>
+                  <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Series</p>
                   {searchResults.tv.map(t => (
                     <Link
                       key={t.id}
                       href={`/tv/${t.id}`}
                       onClick={closeSearch}
-                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-zinc-800 transition-colors"
+                      className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
                         {t.poster_path ? (
@@ -440,7 +440,7 @@ export default function Navbar() {
                       <div className="min-w-0">
                         <p className="text-sm text-white truncate">{t.name}</p>
                         {t.first_air_date && (
-                          <p className="text-xs text-zinc-500">{t.first_air_date.slice(0, 4)}</p>
+                          <p className="text-xs text-[#A0A0B0]">{t.first_air_date.slice(0, 4)}</p>
                         )}
                       </div>
                     </Link>
@@ -450,17 +450,17 @@ export default function Navbar() {
 
               {/* No results */}
               {searchResults.movies.length === 0 && searchResults.tv.length === 0 && searchResults.people.length === 0 && searchResults.users.length === 0 && (
-                <p className="text-zinc-500 text-sm text-center py-6">Sin resultados</p>
+                <p className="text-[#A0A0B0] text-sm text-center py-6">Sin resultados</p>
               )}
 
               {/* Ver todos los resultados */}
-              <div className="border-t border-zinc-700/50 px-4 py-2.5">
+              <div className="border-t border-[#2A2A3A]/50 px-4 py-2.5">
                 <button
                   onClick={() => {
                     router.push(`/search?q=${encodeURIComponent(query.trim())}`)
                     closeSearch()
                   }}
-                  className="text-xs text-emerald-400 hover:text-emerald-300 transition-colors w-full text-center"
+                  className="text-xs text-[#6B3FE7] hover:text-[#8B6CF5] transition-colors w-full text-center"
                 >
                   Ver todos los resultados →
                 </button>
@@ -473,7 +473,7 @@ export default function Navbar() {
         <div className="relative shrink-0" ref={countryRef}>
           <button
             onClick={() => setCountryOpen(v => !v)}
-            className="flex items-center gap-1.5 bg-zinc-800 hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
+            className="flex items-center gap-1.5 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
             title={`País: ${countryData.name}`}
           >
             <FlagCircle code={country} />
@@ -481,21 +481,21 @@ export default function Navbar() {
           </button>
 
           {countryOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-50">
+            <div className="absolute right-0 top-full mt-2 w-56 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden z-50">
               {/* Search */}
-              <div className="p-2 border-b border-zinc-700">
+              <div className="p-2 border-b border-[#2A2A3A]">
                 <input
                   ref={countrySearchRef}
                   value={countrySearch}
                   onChange={e => setCountrySearch(e.target.value)}
                   placeholder="Buscar país..."
-                  className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-emerald-500"
+                  className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-[#6B3FE7]"
                 />
               </div>
               {/* List */}
               <div className="overflow-y-auto max-h-64">
                 {filteredCountries.length === 0 ? (
-                  <p className="text-zinc-500 text-sm text-center py-4">Sin resultados</p>
+                  <p className="text-[#A0A0B0] text-sm text-center py-4">Sin resultados</p>
                 ) : (
                   filteredCountries.map(c => (
                     <button
@@ -503,14 +503,14 @@ export default function Navbar() {
                       onClick={() => handleSelectCountry(c.code)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors ${
                         c.code === country
-                          ? 'bg-emerald-500/20 text-emerald-300'
+                          ? 'bg-[#6B3FE7]/20 text-[#8B6CF5]'
                           : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
                       <FlagCircle code={c.code} size={26} />
                       <span className="flex-1">{c.name}</span>
                       {c.code === country && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#6B3FE7] shrink-0" />
                       )}
                     </button>
                   ))
@@ -549,32 +549,32 @@ export default function Navbar() {
                 >
                   <Bell size={18} />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-red-500 text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#6B3FE7] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </button>
 
                 {notifOpen && (
-                  <div className="absolute right-0 top-full mt-2 w-80 bg-zinc-800 border border-zinc-700 rounded-xl shadow-2xl overflow-hidden z-50">
-                    <div className="px-4 py-3 border-b border-zinc-700 flex items-center justify-between">
+                  <div className="absolute right-0 top-full mt-2 w-80 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden z-50">
+                    <div className="px-4 py-3 border-b border-[#2A2A3A] flex items-center justify-between">
                       <p className="text-sm font-semibold text-white">Notificaciones</p>
-                      <button onClick={() => setNotifOpen(false)} className="text-zinc-500 hover:text-white transition-colors">
+                      <button onClick={() => setNotifOpen(false)} className="text-[#A0A0B0] hover:text-white transition-colors">
                         <X size={14} />
                       </button>
                     </div>
                     <div className="overflow-y-auto max-h-80">
                       {notifLoading ? (
                         <div className="flex justify-center py-8">
-                          <div className="w-5 h-5 border-2 border-emerald-400 border-t-transparent rounded-full animate-spin" />
+                          <div className="w-5 h-5 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
                         </div>
                       ) : notifError ? (
                         <div className="px-4 py-6 text-center">
-                          <p className="text-red-400 text-xs font-medium mb-1">Error al cargar notificaciones</p>
+                          <p className="text-[#6B3FE7] text-xs font-medium mb-1">Error al cargar notificaciones</p>
                           <p className="text-zinc-600 text-[11px] font-mono break-all">{notifError}</p>
                         </div>
                       ) : notifs.length === 0 ? (
-                        <p className="text-zinc-500 text-sm text-center py-8">Sin notificaciones.</p>
+                        <p className="text-[#A0A0B0] text-sm text-center py-8">Sin notificaciones.</p>
                       ) : (
                         notifs.map(n => {
                           const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
@@ -584,13 +584,13 @@ export default function Navbar() {
                             <button
                               key={n.id}
                               onClick={() => handleNotifClick(n)}
-                              className={`w-full flex items-start gap-3 px-4 py-3 border-b border-zinc-700/50 last:border-0 text-left transition-colors hover:bg-zinc-700/50 ${!n.read ? 'bg-zinc-700/30' : ''}`}
+                              className={`w-full flex items-start gap-3 px-4 py-3 border-b border-[#2A2A3A]/50 last:border-0 text-left transition-colors hover:bg-zinc-700/50 ${!n.read ? 'bg-zinc-700/30' : ''}`}
                             >
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
                                 {n.actor?.avatar_url ? (
                                   <img src={n.actor.avatar_url} alt={actor} className="w-full h-full object-cover" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-zinc-400">
+                                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">
                                     {initials}
                                   </div>
                                 )}
@@ -601,25 +601,25 @@ export default function Navbar() {
                                     <><span className="font-semibold text-white">{actor}</span> te empezó a seguir</>
                                   )}
                                   {n.type === 'review_like' && (
-                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'review_comment' && (
-                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-emerald-400">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-[#6B3FE7]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
-                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-emerald-400">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'level_up' && (
-                                    <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-emerald-400">{n.review_title}</span></>
+                                    <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#6B3FE7]">{n.review_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>
                               </div>
                               {!n.read && (
-                                <span className="w-2 h-2 rounded-full bg-emerald-400 shrink-0 mt-1.5" />
+                                <span className="w-2 h-2 rounded-full bg-[#6B3FE7] shrink-0 mt-1.5" />
                               )}
                             </button>
                           )
@@ -636,7 +636,7 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link href="/auth" className="flex items-center gap-1.5 text-sm bg-emerald-500 hover:bg-emerald-600 text-white px-3 py-1.5 rounded-lg transition-colors">
+            <Link href="/auth" className="flex items-center gap-1.5 text-sm bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-3 py-1.5 rounded-lg transition-colors">
               <LogIn size={16} />
               Iniciar sesión
             </Link>
@@ -649,7 +649,7 @@ export default function Navbar() {
       </div>
 
       {menuOpen && (
-        <div className="md:hidden bg-zinc-900 border-t border-zinc-800 px-4 py-3 flex flex-col gap-3">
+        <div className="md:hidden bg-[#13131A] border-t border-[#2A2A3A] px-4 py-3 flex flex-col gap-3">
           <Link href="/que-ver" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
             <Compass size={16} /> Qué ver
           </Link>
@@ -671,19 +671,19 @@ export default function Navbar() {
                 <span className="relative">
                   <Bell size={16} />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#6B3FE7] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </span>
-                Notificaciones {unreadCount > 0 && <span className="text-red-400">({unreadCount})</span>}
+                Notificaciones {unreadCount > 0 && <span className="text-[#6B3FE7]">({unreadCount})</span>}
               </button>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir
               </button>
             </>
           ) : (
-            <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-emerald-400">
+            <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-[#6B3FE7]">
               <LogIn size={16} /> Iniciar sesión
             </Link>
           )}

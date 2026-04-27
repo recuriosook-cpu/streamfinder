@@ -1,4 +1,4 @@
-import { searchMulti } from '@/lib/tmdb'
+﻿import { searchMulti } from '@/lib/tmdb'
 import { createServerClient } from '@/lib/supabase-server'
 import MediaCard from '@/components/MediaCard'
 import Link from 'next/link'
@@ -23,7 +23,7 @@ export default async function SearchPage({ searchParams }: Props) {
     return (
       <div className="max-w-7xl mx-auto px-4 py-20 text-center">
         <Search size={48} className="mx-auto text-zinc-600 mb-4" />
-        <p className="text-zinc-400 text-lg">Ingresá un término para buscar</p>
+        <p className="text-[#A0A0B0] text-lg">Ingresá un término para buscar</p>
       </div>
     )
   }
@@ -51,9 +51,9 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">
-          Resultados para: <span className="text-emerald-400">"{q}"</span>
+          Resultados para: <span className="text-[#6B3FE7]">"{q}"</span>
         </h1>
-        <p className="text-zinc-400 text-sm mt-1">
+        <p className="text-[#A0A0B0] text-sm mt-1">
           {mediaData.total_results ?? 0} resultado{mediaData.total_results !== 1 ? 's' : ''} de películas y series
         </p>
       </div>
@@ -61,7 +61,7 @@ export default async function SearchPage({ searchParams }: Props) {
       {/* ── Users section ──────────────────────────────────────── */}
       {userResults.length > 0 && (
         <div className="mb-8">
-          <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+          <h2 className="text-sm font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3 flex items-center gap-2">
             <UserCircle size={15} /> Usuarios
           </h2>
           <div className="flex flex-wrap gap-3">
@@ -71,9 +71,9 @@ export default async function SearchPage({ searchParams }: Props) {
                 <Link
                   key={u.id}
                   href={`/usuario/${u.username}`}
-                  className="flex items-center gap-3 bg-zinc-800 hover:bg-zinc-700 border border-zinc-700/50 rounded-xl px-4 py-3 transition-colors group"
+                  className="flex items-center gap-3 bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A]/50 rounded-xl px-4 py-3 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 group-hover:ring-emerald-500 transition-all shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 group-hover:ring-[#6B3FE7] transition-all shrink-0">
                     {u.avatar_url ? (
                       <Image
                         src={u.avatar_url}
@@ -84,17 +84,17 @@ export default async function SearchPage({ searchParams }: Props) {
                         unoptimized
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-base font-bold text-zinc-400">
+                      <div className="w-full h-full flex items-center justify-center text-base font-bold text-[#A0A0B0]">
                         {display[0]?.toUpperCase()}
                       </div>
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white group-hover:text-emerald-400 transition-colors">
+                    <p className="text-sm font-semibold text-white group-hover:text-[#6B3FE7] transition-colors">
                       {display}
                     </p>
                     {u.display_name && (
-                      <p className="text-xs text-zinc-500">@{u.username}</p>
+                      <p className="text-xs text-[#A0A0B0]">@{u.username}</p>
                     )}
                   </div>
                 </Link>
@@ -107,12 +107,12 @@ export default async function SearchPage({ searchParams }: Props) {
       {/* ── Media section ──────────────────────────────────────── */}
       {mediaResults.length === 0 && userResults.length === 0 ? (
         <div className="text-center py-20">
-          <p className="text-zinc-400">No se encontraron resultados para "{q}"</p>
+          <p className="text-[#A0A0B0]">No se encontraron resultados para "{q}"</p>
         </div>
       ) : mediaResults.length > 0 ? (
         <>
           {userResults.length > 0 && (
-            <h2 className="text-sm font-semibold text-zinc-400 uppercase tracking-wider mb-3 flex items-center gap-2">
+            <h2 className="text-sm font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3 flex items-center gap-2">
               <Search size={15} /> Películas y series
             </h2>
           )}

@@ -1,4 +1,4 @@
-import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
+﻿import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
@@ -120,7 +120,7 @@ export default async function ActorPage({ params }: Props) {
         <div className="flex flex-col md:flex-row gap-8 mb-10">
           {/* Photo */}
           <div className="shrink-0">
-            <div className="relative w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden bg-zinc-800">
+            <div className="relative w-44 md:w-52 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
               {profileUrl ? (
                 <Image
                   src={profileUrl}
@@ -144,16 +144,16 @@ export default async function ActorPage({ params }: Props) {
             <h1 className="text-3xl font-bold mb-1">{person.name}</h1>
 
             {knownFor && (
-              <p className="text-sm text-emerald-400 font-medium mb-4">{knownFor}</p>
+              <p className="text-sm text-[#6B3FE7] font-medium mb-4">{knownFor}</p>
             )}
 
-            <div className="flex flex-col gap-2 text-sm text-zinc-400 mb-5">
+            <div className="flex flex-col gap-2 text-sm text-[#A0A0B0] mb-5">
               {person.birthday && (
                 <span className="flex items-center gap-2">
                   <Calendar size={14} className="shrink-0" />
                   {formatDate(person.birthday)}
                   {personAge !== null && (
-                    <span className="text-zinc-500">
+                    <span className="text-[#A0A0B0]">
                       ({person.deathday ? `† ${personAge} años` : `${personAge} años`})
                     </span>
                   )}
@@ -189,7 +189,7 @@ export default async function ActorPage({ params }: Props) {
                 const href = `/${credit.media_type}/${credit.id}`
                 return (
                   <Link key={`${credit.media_type}-${credit.id}`} href={href} className="group">
-                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800 mb-2">
+                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                       <Image
                         src={getPosterUrl(credit.poster_path, 'w342')}
                         alt={title}
@@ -197,12 +197,12 @@ export default async function ActorPage({ params }: Props) {
                         className="object-cover transition-transform duration-300 group-hover:scale-105"
                       />
                       {credit.media_type === 'tv' && (
-                        <span className="absolute top-1.5 left-1.5 text-[10px] bg-zinc-900/80 text-zinc-300 px-1.5 py-0.5 rounded">
+                        <span className="absolute top-1.5 left-1.5 text-[10px] bg-[#13131A]/80 text-zinc-300 px-1.5 py-0.5 rounded">
                           Serie
                         </span>
                       )}
                       {/* Score badge */}
-                      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-zinc-900/90 rounded px-1.5 py-0.5">
+                      <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1.5 py-0.5">
                         <Star size={10} className="text-yellow-400 shrink-0" fill="currentColor" />
                         <span className="text-[11px] font-semibold text-white">
                           {credit.vote_average.toFixed(1)}
@@ -212,7 +212,7 @@ export default async function ActorPage({ params }: Props) {
                     <p className="text-xs font-semibold text-white leading-tight line-clamp-2 group-hover:text-zinc-300 transition-colors">
                       {title}
                     </p>
-                    {year && <p className="text-[11px] text-zinc-500 mt-0.5">{year}</p>}
+                    {year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{year}</p>}
                   </Link>
                 )
               })}
