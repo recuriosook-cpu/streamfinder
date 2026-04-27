@@ -46,6 +46,19 @@ export async function GET(request: Request) {
           points:       0,
           level:        1,
         })
+        // New user → send to onboarding
+        return NextResponse.redirect(new URL('/onboarding', request.url))
+      }
+
+      // Existing user — check if onboarding is done
+      const { data: fullProfile } = await supabase
+        .from('profiles')
+        .select('onboarding_completed')
+        .eq('id', user.id)
+        .maybeSingle()
+
+      if (!fullProfile?.onboarding_completed) {
+        return NextResponse.redirect(new URL('/onboarding', request.url))
       }
     }
   }

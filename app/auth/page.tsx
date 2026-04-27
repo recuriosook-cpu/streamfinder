@@ -67,13 +67,16 @@ export default function AuthPage() {
       if (error) {
         setError('Email o contraseña incorrectos')
       } else {
-        // Fetch username directly — avoids the /profile race condition
         const { data: profile } = await supabase
           .from('profiles')
-          .select('username')
+          .select('username, onboarding_completed')
           .eq('id', data.user.id)
           .maybeSingle()
-        router.replace(profile?.username ? `/usuario/${profile.username}` : '/profile')
+        if (!profile?.onboarding_completed) {
+          router.replace('/onboarding')
+        } else {
+          router.replace(profile?.username ? `/usuario/${profile.username}` : '/')
+        }
       }
     } else {
       const { error } = await supabase.auth.signUp({ email, password })

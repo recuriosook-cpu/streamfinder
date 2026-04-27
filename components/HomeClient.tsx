@@ -498,6 +498,18 @@ export default function HomeClient() {
   const [user,      setUser]      = useState<User | null | undefined>(undefined)
   const [userName,  setUserName]  = useState('')
   const [heroMovie, setHeroMovie] = useState<HeroMovie | null>(null)
+  const [showWelcome, setShowWelcome] = useState(false)
+
+  // Check welcome flag (set after onboarding completion)
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    if (localStorage.getItem('glynbox_welcome')) {
+      localStorage.removeItem('glynbox_welcome')
+      setShowWelcome(true)
+      const t = setTimeout(() => setShowWelcome(false), 5000)
+      return () => clearTimeout(t)
+    }
+  }, [])
 
   // New sections
   const [recentItems,    setRecentItems]    = useState<RecentItem[]>([])
@@ -721,6 +733,14 @@ export default function HomeClient() {
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
+      {/* Welcome toast after onboarding */}
+      {showWelcome && (
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold text-white flex items-center gap-2.5 animate-pulse pointer-events-none"
+          style={{ backgroundColor: '#6B3FE7', whiteSpace: 'nowrap' }}>
+          🎬 ¡Bienvenido a Glynbox! Tu experiencia está personalizada
+        </div>
+      )}
+
       {/* SECCIÓN 1 — HERO */}
       <HeroSection user={user} userName={userName} heroMovie={heroMovie} />
 
