@@ -27,7 +27,7 @@ interface PlatformData { id: number; name: string; color: string; items: Platfor
 interface PlatformLogo { id: number; slug: string; name: string; color: string; logoPath: string | null }
 interface HomeData { platformsWithLogos: PlatformLogo[]; platformContent: PlatformData[] }
 
-interface Stats { watched: number; reviews: number; users: number }
+interface HeroMovie { backdropPath: string | null; title: string }
 
 interface RecentItem {
   id: number; title: string; posterPath: string | null
@@ -46,12 +46,6 @@ interface FeaturedReview {
   mediaTitle: string; mediaPosterPath: string | null
   authorUsername: string; authorDisplayName: string | null; authorAvatarUrl: string | null
   rating: number | null; body: string | null; likeCount: number
-}
-
-// ── Helpers ───────────────────────────────────────────────────────────────────
-
-function fmt(n: number): string {
-  return new Intl.NumberFormat('es', { notation: 'compact', maximumFractionDigits: 1 }).format(n)
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -117,72 +111,126 @@ function ReviewsSkeleton() {
 
 // ── Hero Section ──────────────────────────────────────────────────────────────
 
+const HERO_STATS = [
+  { value: '+300.000', label: 'títulos' },
+  { value: '+5.000',   label: 'reseñas' },
+  { value: '+12.000',  label: 'usuarios' },
+]
+
 function HeroSection({
-  stats, user, userName,
+  user, userName, heroMovie,
 }: {
-  stats: Stats | null
   user: User | null | undefined
   userName: string
+  heroMovie: HeroMovie | null
 }) {
+  const backdropUrl = heroMovie?.backdropPath
+    ? `https://image.tmdb.org/t/p/original${heroMovie.backdropPath}`
+    : null
+
   return (
-    <section className="bg-[#13131A] border-b border-[#2A2A3A] py-10 sm:py-16 px-4">
-      <div className="max-w-4xl mx-auto text-center">
-        <h1 className="text-3xl sm:text-4xl md:text-5xl lg:text-6xl font-black text-white leading-tight tracking-tight mb-3 sm:mb-4">
+    <section
+      className="relative h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center overflow-hidden"
+      style={{
+        backgroundImage: backdropUrl ? `url(${backdropUrl})` : undefined,
+        backgroundSize: 'cover',
+        backgroundPosition: 'center top',
+        backgroundColor: '#13131A',
+      }}
+    >
+      {/* Gradient overlay */}
+      <div
+        className="absolute inset-0"
+        style={{
+          background: 'linear-gradient(to bottom, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.7) 50%, rgba(10,10,15,1) 100%)',
+        }}
+      />
+
+      {/* Content */}
+      <div className="relative z-10 px-4 max-w-3xl mx-auto w-full text-center">
+
+        {/* Title */}
+        <h1
+          className="font-bold text-white leading-tight mb-5 sm:mb-6 tracking-tight"
+          style={{ fontSize: 'clamp(28px, 5vw, 48px)' }}
+        >
           Tu universo de{' '}
           <span style={{ color: '#6B3FE7' }}>cine y series</span>
         </h1>
-        <p className="text-base sm:text-lg text-[#A0A0B0] mb-8 sm:mb-10 max-w-xl mx-auto leading-relaxed px-2">
-          Descubrí qué ver, seguí a amigos y compartí lo que sentís
-        </p>
 
-        {/* Stats */}
-        <div className="flex items-center justify-center gap-4 sm:gap-8 md:gap-16 mb-8 sm:mb-10">
+        {/* 3-line subtitle */}
+        <div className="mb-7 sm:mb-8 space-y-1 sm:space-y-2">
           {[
-            { value: stats?.watched ?? null, label: 'Títulos vistos' },
-            { value: stats?.reviews ?? null, label: 'Reseñas'        },
-            { value: stats?.users   ?? null, label: 'Usuarios'       },
-          ].map((s, i) => (
-            <div key={s.label} className="flex items-center gap-4 sm:gap-8 md:gap-16">
-              {i > 0 && <span className="text-[#2A2A3A] text-xl select-none">·</span>}
-              <div className="text-center">
-                <p className="text-2xl sm:text-3xl md:text-4xl font-black text-white tabular-nums">
-                  {s.value !== null ? fmt(s.value) : <span className="text-[#2A2A3A]">—</span>}
-                </p>
-                <p className="text-[10px] sm:text-[11px] text-[#A0A0B0] uppercase tracking-wider mt-1">{s.label}</p>
-              </div>
+            'Encontrá qué ver.',
+            'Descubrí dónde está.',
+            'Compartí con amigos lo que pensás.',
+          ].map(line => (
+            <p
+              key={line}
+              className="leading-relaxed"
+              style={{ fontSize: 'clamp(14px, 2.5vw, 18px)', color: 'rgba(255,255,255,0.85)' }}
+            >
+              {line}
+            </p>
+          ))}
+        </div>
+
+        {/* Stats row */}
+        <div className="flex items-center justify-center gap-3 sm:gap-5 mb-8 sm:mb-10 flex-wrap">
+          {HERO_STATS.map((s, i) => (
+            <div key={s.label} className="flex items-center gap-3 sm:gap-5">
+              {i > 0 && (
+                <span className="text-white/25 text-sm select-none">|</span>
+              )}
+              <span className="text-sm sm:text-base">
+                <span className="font-bold text-white">{s.value} </span>
+                <span style={{ color: 'rgba(255,255,255,0.55)' }}>{s.label}</span>
+              </span>
             </div>
           ))}
         </div>
 
-        {/* CTA / Welcome */}
+        {/* CTA */}
         {user === undefined ? (
-          <div className="h-10" />
+          <div className="h-12" />
         ) : user ? (
-          <p className="text-[#A0A0B0]">
+          <p style={{ color: 'rgba(255,255,255,0.7)', fontSize: '14px' }}>
             Bienvenido de vuelta,{' '}
-            <Link href="/profile" className="font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link
+              href="/profile"
+              className="font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+            >
               {userName}
             </Link>{' '}
             👋
           </p>
         ) : (
-          <div className="flex flex-col sm:flex-row items-center justify-center gap-3 sm:gap-4">
-            <Link
-              href="/auth"
-              className="w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white text-sm transition-all hover:opacity-90 active:scale-95 text-center"
-              style={{ backgroundColor: '#6B3FE7' }}
-            >
-              Empezar gratis
-            </Link>
-            <Link
-              href="/que-ver"
-              className="w-full sm:w-auto px-8 py-3 rounded-xl font-bold text-white text-sm border border-[#2A2A3A] hover:border-[#6B3FE7] hover:text-[#6B3FE7] transition-all text-center"
-            >
-              Explorar
-            </Link>
-          </div>
+          <Link
+            href="/auth"
+            className="inline-block text-white font-semibold transition-all active:scale-95"
+            style={{
+              backgroundColor: '#6B3FE7',
+              borderRadius: '50px',
+              padding: '14px 32px',
+              fontSize: 'clamp(14px, 2vw, 16px)',
+            }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#5A32C7' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#6B3FE7' }}
+          >
+            Empezá ahora, ¡es gratis!
+          </Link>
         )}
       </div>
+
+      {/* Movie attribution badge */}
+      {heroMovie?.title && (
+        <p
+          className="absolute bottom-3 right-4 z-10 text-[11px]"
+          style={{ color: 'rgba(255,255,255,0.35)' }}
+        >
+          Basado en {heroMovie.title}
+        </p>
+      )}
     </section>
   )
 }
@@ -446,10 +494,10 @@ export default function HomeClient() {
   const [platformLoading, setPlatformLoading] = useState(true)
   const prevCountry = useRef<string | null>(null)
 
-  // Auth + stats
-  const [user,     setUser]     = useState<User | null | undefined>(undefined)
-  const [userName, setUserName] = useState('')
-  const [stats,    setStats]    = useState<Stats | null>(null)
+  // Auth + hero
+  const [user,      setUser]      = useState<User | null | undefined>(undefined)
+  const [userName,  setUserName]  = useState('')
+  const [heroMovie, setHeroMovie] = useState<HeroMovie | null>(null)
 
   // New sections
   const [recentItems,    setRecentItems]    = useState<RecentItem[]>([])
@@ -459,23 +507,26 @@ export default function HomeClient() {
   const [featuredReviews, setFeaturedReviews] = useState<FeaturedReview[]>([])
   const [reviewsLoading,  setReviewsLoading]  = useState(true)
 
-  // ── Auth + global stats ───────────────────────────────────────────────────
+  // ── Auth + hero movie ─────────────────────────────────────────────────────
   useEffect(() => {
     async function boot() {
-      const [authRes, watchedRes, reviewsRes, usersRes] = await Promise.all([
+      const [authRes, heroRes] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('watched').select('*', { count: 'exact', head: true }),
-        supabase.from('reviews').select('*', { count: 'exact', head: true }),
-        supabase.from('profiles').select('*', { count: 'exact', head: true }),
+        TMDB_KEY
+          ? fetch(`${TMDB}/movie/popular?api_key=${TMDB_KEY}&language=es-AR&page=1`)
+              .then(r => r.ok ? r.json() : null)
+              .catch(() => null)
+          : Promise.resolve(null),
       ])
 
       const u = authRes.data.user ?? null
       setUser(u)
-      setStats({
-        watched: watchedRes.count ?? 0,
-        reviews: reviewsRes.count  ?? 0,
-        users:   usersRes.count    ?? 0,
-      })
+
+      // Hero backdrop from most popular movie
+      const popular = heroRes?.results?.[0]
+      if (popular?.backdrop_path) {
+        setHeroMovie({ backdropPath: popular.backdrop_path, title: popular.title ?? '' })
+      }
 
       if (u) {
         const { data: profile } = await supabase
@@ -664,7 +715,7 @@ export default function HomeClient() {
   return (
     <>
       {/* SECCIÓN 1 — HERO */}
-      <HeroSection stats={stats} user={user} userName={userName} />
+      <HeroSection user={user} userName={userName} heroMovie={heroMovie} />
 
       {/* SECCIÓN 2 — PLATAFORMAS */}
       {platformData

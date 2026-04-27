@@ -1,11 +1,11 @@
 ﻿import type { Metadata, Viewport } from 'next'
 import './globals.css'
+import Navbar from '@/components/Navbar'
+import { CountryProvider } from '@/context/CountryContext'
 
 export const viewport: Viewport = {
   themeColor: '#6B3FE7',
 }
-import Navbar from '@/components/Navbar'
-import { CountryProvider } from '@/context/CountryContext'
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://glynbox.com'),
@@ -42,6 +42,14 @@ export const metadata: Metadata = {
 export default function RootLayout({ children }: { children: React.ReactNode }) {
   return (
     <html lang="es">
+      <head>
+        <link rel="preconnect" href="https://fonts.googleapis.com" />
+        <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
+        <link
+          href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@400;500;600&family=Inter:wght@400;500&display=swap"
+          rel="stylesheet"
+        />
+      </head>
       <body className="min-h-screen bg-[#0A0A0F] text-white">
         <CountryProvider>
           <Navbar />

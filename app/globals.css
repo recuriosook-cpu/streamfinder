@@ -17,7 +17,15 @@
 body {
   background: var(--background);
   color: var(--foreground);
-  font-family: Arial, Helvetica, sans-serif;
+  font-family: 'Manrope', Arial, sans-serif;
+}
+
+h1, h2, h3, h4 {
+  font-family: 'Inter Tight', 'Inter', sans-serif;
+}
+
+button, input, select, textarea, label {
+  font-family: 'Inter', Arial, sans-serif;
 }
 
 .line-clamp-2 {
