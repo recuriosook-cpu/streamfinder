@@ -142,7 +142,7 @@ function HeroSection({
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to bottom, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.7) 50%, rgba(10,10,15,1) 100%)',
+          background: 'linear-gradient(to bottom, rgba(10,10,15,0.1) 0%, rgba(10,10,15,0.4) 40%, rgba(10,10,15,0.85) 80%, rgba(10,10,15,1) 100%)',
         }}
       />
 
@@ -513,7 +513,7 @@ export default function HomeClient() {
       const [authRes, heroRes] = await Promise.all([
         supabase.auth.getUser(),
         TMDB_KEY
-          ? fetch(`${TMDB}/movie/popular?api_key=${TMDB_KEY}&language=es-AR&page=1`)
+          ? fetch(`${TMDB}/trending/movie/day?api_key=${TMDB_KEY}&language=es-AR`)
               .then(r => r.ok ? r.json() : null)
               .catch(() => null)
           : Promise.resolve(null),
@@ -522,10 +522,15 @@ export default function HomeClient() {
       const u = authRes.data.user ?? null
       setUser(u)
 
-      // Hero backdrop from most popular movie
-      const popular = heroRes?.results?.[0]
-      if (popular?.backdrop_path) {
-        setHeroMovie({ backdropPath: popular.backdrop_path, title: popular.title ?? '' })
+      // Hero backdrop: primer trending del día con backdrop válido y suficiente popularidad
+      type TrendingMovie = { backdrop_path: string | null; title?: string; vote_count: number; popularity: number }
+      const results: TrendingMovie[] = heroRes?.results ?? []
+      const pick =
+        results.find(m => m.backdrop_path && m.vote_count > 100 && m.popularity > 50)
+        ?? results.find(m => !!m.backdrop_path)
+        ?? null
+      if (pick?.backdrop_path) {
+        setHeroMovie({ backdropPath: pick.backdrop_path, title: pick.title ?? '' })
       }
 
       if (u) {
