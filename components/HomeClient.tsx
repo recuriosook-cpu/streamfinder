@@ -130,7 +130,7 @@ function HeroSection({
 
   return (
     <section
-      className="relative h-[60vh] sm:h-[70vh] flex flex-col items-center justify-center overflow-hidden"
+      className="relative h-[70vh] sm:h-[80vh] flex flex-col items-center justify-end overflow-hidden"
       style={{
         backgroundImage: backdropUrl ? `url(${backdropUrl})` : undefined,
         backgroundSize: 'cover',
@@ -142,12 +142,12 @@ function HeroSection({
       <div
         className="absolute inset-0"
         style={{
-          background: 'linear-gradient(to bottom, rgba(10,10,15,0.1) 0%, rgba(10,10,15,0.4) 40%, rgba(10,10,15,0.85) 80%, rgba(10,10,15,1) 100%)',
+          background: 'linear-gradient(to bottom, rgba(10,10,15,0.0) 0%, rgba(10,10,15,0.0) 30%, rgba(10,10,15,0.5) 60%, rgba(10,10,15,0.92) 85%, rgba(10,10,15,1.0) 100%)',
         }}
       />
 
       {/* Content */}
-      <div className="relative z-10 px-4 max-w-3xl mx-auto w-full text-center">
+      <div className="relative z-10 px-4 pb-8 sm:pb-12 max-w-3xl mx-auto w-full text-center">
 
         {/* Title */}
         <h1
