@@ -45,16 +45,16 @@ export async function GET(request: Request) {
           level: 1,
           onboarding_completed: false,
         })
-        return NextResponse.redirect(new URL('/onboarding', request.url))
+        return NextResponse.redirect('https://glynbox.com/onboarding')
       }
 
       if (profile.onboarding_completed !== true) {
-        return NextResponse.redirect(new URL('/onboarding', request.url))
+        return NextResponse.redirect('https://glynbox.com/onboarding')
       }
 
-      return NextResponse.redirect(new URL('/', request.url))
+      return NextResponse.redirect('https://glynbox.com/')
     }
   }
 
-  return NextResponse.redirect(new URL('/', request.url))
+  return NextResponse.redirect('https://glynbox.com/')
 }
