@@ -266,7 +266,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
               {/* Author info */}
               <div className="flex items-start gap-3 flex-1 min-w-0">
                 <Link href={`/usuario/${review.authorUsername}`} className="shrink-0">
-                  <div className="w-11 h-11 rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-700 hover:ring-[#6B3FE7] transition-all">
+                  <div className="w-11 h-11 rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                     {review.authorAvatarUrl ? (
                       <img src={review.authorAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
                     ) : (
@@ -280,7 +280,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                   <div className="flex items-center gap-1">
                     <Link
                       href={`/usuario/${review.authorUsername}`}
-                      className="text-base font-bold text-white hover:text-[#6B3FE7] transition-colors"
+                      className="text-base font-bold text-white hover:text-[#FFFD02] transition-colors"
                     >
                       {displayName}
                     </Link>
@@ -293,7 +293,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
               {/* Poster thumbnail */}
               {review.mediaPosterPath && (
                 <Link href={`/${review.mediaType}/${review.mediaId}`} className="shrink-0">
-                  <div className="relative w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#6B3FE7] transition-all">
+                  <div className="relative w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                     <Image
                       src={getPosterUrl(review.mediaPosterPath, 'w185')}
                       alt={review.mediaTitle}
@@ -310,7 +310,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
             <div className="mt-4 mb-3">
               <Link
                 href={`/${review.mediaType}/${review.mediaId}`}
-                className="text-xl font-bold text-white hover:text-[#6B3FE7] transition-colors"
+                className="text-xl font-bold text-white hover:text-[#FFFD02] transition-colors"
               >
                 {review.mediaTitle}
               </Link>
@@ -322,10 +322,10 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
             {/* Stars + recommended */}
             <div className="flex flex-wrap items-center gap-3 mb-2">
               {review.rating != null && (
-                <StarDisplay rating={review.rating} size={16} color="text-[#6B3FE7]" />
+                <StarDisplay rating={review.rating} size={16} color="text-[#FFFD02]" />
               )}
               <span className={`inline-flex items-center text-xs px-2 py-1 rounded-full font-medium ${
-                review.recommended ? 'bg-[#6B3FE7]/10 text-[#6B3FE7]' : 'bg-red-900/50 text-red-400'
+                review.recommended ? 'bg-[#FFFD02]/10 text-[#FFFD02]' : 'bg-red-900/50 text-red-400'
               }`}>
                 {review.recommended ? '👍 Recomendada' : '👎 No recomendada'}
               </span>
@@ -361,7 +361,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
             <button
               onClick={toggleComments}
               className={`flex items-center gap-2 text-sm font-medium transition-colors ${
-                commentsOpen ? 'text-[#6B3FE7]' : 'text-[#A0A0B0] hover:text-zinc-300'
+                commentsOpen ? 'text-[#FFFD02]' : 'text-[#A0A0B0] hover:text-zinc-300'
               }`}
             >
               <MessageSquare size={16} />
@@ -387,7 +387,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                     onClick={shareWhatsApp}
                     className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-700 transition-colors text-left"
                   >
-                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#6B3FE7] shrink-0">
+                    <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" className="text-[#FFFD02] shrink-0">
                       <path d="M17.472 14.382c-.297-.149-1.758-.867-2.03-.967-.273-.099-.471-.148-.67.15-.197.297-.767.966-.94 1.164-.173.199-.347.223-.644.075-.297-.15-1.255-.463-2.39-1.475-.883-.788-1.48-1.761-1.653-2.059-.173-.297-.018-.458.13-.606.134-.133.298-.347.446-.52.149-.174.198-.298.298-.497.099-.198.05-.371-.025-.52-.075-.149-.669-1.612-.916-2.207-.242-.579-.487-.5-.669-.51-.173-.008-.371-.01-.57-.01-.198 0-.52.074-.792.372-.272.297-1.04 1.016-1.04 2.479 0 1.462 1.065 2.875 1.213 3.074.149.198 2.096 3.2 5.077 4.487.709.306 1.262.489 1.694.625.712.227 1.36.195 1.871.118.571-.085 1.758-.719 2.006-1.413.248-.694.248-1.289.173-1.413-.074-.124-.272-.198-.57-.347m-5.421 7.403h-.004a9.87 9.87 0 0 1-5.031-1.378l-.361-.214-3.741.982.998-3.648-.235-.374a9.86 9.86 0 0 1-1.51-5.26c.001-5.45 4.436-9.884 9.888-9.884 2.64 0 5.122 1.03 6.988 2.898a9.825 9.825 0 0 1 2.893 6.994c-.003 5.45-4.437 9.884-9.885 9.884m8.413-18.297A11.815 11.815 0 0 0 12.05 0C5.495 0 .16 5.335.157 11.892c0 2.096.547 4.142 1.588 5.945L.057 24l6.305-1.654a11.882 11.882 0 0 0 5.683 1.448h.005c6.554 0 11.89-5.335 11.893-11.893a11.821 11.821 0 0 0-3.48-8.413z"/>
                     </svg>
                     Compartir en WhatsApp
@@ -446,12 +446,12 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                       }}
                       placeholder={replyTo ? `Responder a @${replyTo.username}...` : 'Escribí un comentario...'}
                       rows={2}
-                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none resize-none"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-xl px-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none resize-none"
                     />
                     <button
                       onClick={submitComment}
                       disabled={!newComment.trim() || submitting}
-                      className="shrink-0 bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-40 disabled:cursor-not-allowed text-white px-4 py-2.5 rounded-xl transition-colors self-end"
+                      className="shrink-0 bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black px-4 py-2.5 rounded-xl transition-colors self-end"
                       title="Publicar"
                     >
                       <Send size={15} />
@@ -464,7 +464,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
               <div className="px-6 pb-5">
                 {commentsLoading ? (
                   <div className="flex justify-center py-6">
-                    <div className="w-5 h-5 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+                    <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
                   </div>
                 ) : topLevel.length === 0 && commentsFetched ? (
                   <p className="text-sm text-zinc-600 text-center py-4">Sin comentarios todavía.</p>
@@ -494,7 +494,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                               <div className="flex items-center gap-1 flex-wrap">
                                 <Link
                                   href={`/usuario/${comment.author?.username ?? ''}`}
-                                  className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+                                  className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors"
                                 >
                                   {cName}
                                 </Link>
@@ -538,7 +538,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                       <div className="flex items-center gap-1 flex-wrap">
                                         <Link
                                           href={`/usuario/${reply.author?.username ?? ''}`}
-                                          className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+                                          className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors"
                                         >
                                           {rName}
                                         </Link>

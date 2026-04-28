@@ -51,7 +51,7 @@ export default async function SearchPage({ searchParams }: Props) {
     <div className="max-w-7xl mx-auto px-4 py-8">
       <div className="mb-6">
         <h1 className="text-2xl font-bold">
-          Resultados para: <span className="text-[#6B3FE7]">"{q}"</span>
+          Resultados para: <span className="text-[#FFFD02]">"{q}"</span>
         </h1>
         <p className="text-[#A0A0B0] text-sm mt-1">
           {mediaData.total_results ?? 0} resultado{mediaData.total_results !== 1 ? 's' : ''} de películas y series
@@ -73,7 +73,7 @@ export default async function SearchPage({ searchParams }: Props) {
                   href={`/usuario/${u.username}`}
                   className="flex items-center gap-3 bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A]/50 rounded-xl px-4 py-3 transition-colors group"
                 >
-                  <div className="w-10 h-10 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 group-hover:ring-[#6B3FE7] transition-all shrink-0">
+                  <div className="w-10 h-10 rounded-full bg-zinc-700 overflow-hidden ring-2 ring-zinc-600 group-hover:ring-[#FFFD02] transition-all shrink-0">
                     {u.avatar_url ? (
                       <Image
                         src={u.avatar_url}
@@ -90,7 +90,7 @@ export default async function SearchPage({ searchParams }: Props) {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white group-hover:text-[#6B3FE7] transition-colors">
+                    <p className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors">
                       {display}
                     </p>
                     {u.display_name && (

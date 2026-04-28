@@ -263,7 +263,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             <button
               onClick={() => setFormRecommended(true)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
-                formRecommended ? 'bg-[#6B3FE7] text-white' : 'bg-zinc-700 text-[#A0A0B0] hover:bg-zinc-600'
+                formRecommended ? 'bg-[#FFFD02] text-black' : 'bg-zinc-700 text-[#A0A0B0] hover:bg-zinc-600'
               }`}
             >
               <ThumbsUp size={12} /> Sí
@@ -284,7 +284,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             onChange={setFormBody}
             placeholder="¿Qué te pareció? Usá @usuario para mencionar a alguien (opcional)"
             rows={4}
-            className="w-full bg-zinc-700 border border-zinc-600 focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
+            className="w-full bg-zinc-700 border border-zinc-600 focus:border-[#FFFD02] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
           />
 
           {/* Spoiler toggle */}
@@ -302,7 +302,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
             <button
               onClick={submitReview}
               disabled={formRating === 0 || submitting}
-              className="bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium px-4 py-2 rounded-lg transition-colors"
+              className="bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
               {submitting ? 'Guardando...' : 'Publicar reseña'}
             </button>

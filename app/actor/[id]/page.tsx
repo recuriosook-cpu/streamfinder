@@ -144,7 +144,7 @@ export default async function ActorPage({ params }: Props) {
             <h1 className="text-3xl font-bold mb-1">{person.name}</h1>
 
             {knownFor && (
-              <p className="text-sm text-[#6B3FE7] font-medium mb-4">{knownFor}</p>
+              <p className="text-sm text-[#FFFD02] font-medium mb-4">{knownFor}</p>
             )}
 
             <div className="flex flex-col gap-2 text-sm text-[#A0A0B0] mb-5">

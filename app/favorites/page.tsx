@@ -50,7 +50,7 @@ export default function FavoritesPage() {
   if (loading) {
     return (
       <div className="flex justify-center items-center min-h-[60vh]">
-        <div className="w-10 h-10 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+        <div className="w-10 h-10 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
       </div>
     )
   }
@@ -66,7 +66,7 @@ export default function FavoritesPage() {
         <div className="text-center py-20">
           <Heart size={48} className="mx-auto text-zinc-700 mb-4" />
           <p className="text-[#A0A0B0] text-lg mb-4">No tenés favoritos guardados todavía</p>
-          <Link href="/" className="inline-flex items-center gap-2 bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-4 py-2 rounded-lg transition-colors">
+          <Link href="/" className="inline-flex items-center gap-2 bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-4 py-2 rounded-lg transition-colors">
             Explorar contenido
           </Link>
         </div>

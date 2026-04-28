@@ -62,7 +62,7 @@ export default function HomeFilters() {
               key={t}
               onClick={() => setMediaType(t)}
               className={`px-3 py-1.5 rounded text-sm font-medium transition-colors ${
-                mediaType === t ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
+                mediaType === t ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
               }`}
             >
               {t === 'movie' ? 'Películas' : 'Series'}
@@ -97,7 +97,7 @@ export default function HomeFilters() {
 
       {loading ? (
         <div className="flex justify-center py-20">
-          <div className="w-10 h-10 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+          <div className="w-10 h-10 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : (
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">

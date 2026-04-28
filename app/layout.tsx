@@ -4,7 +4,7 @@ import Navbar from '@/components/Navbar'
 import { CountryProvider } from '@/context/CountryContext'
 
 export const viewport: Viewport = {
-  themeColor: '#6B3FE7',
+  themeColor: '#FFFD02',
 }
 
 export const metadata: Metadata = {

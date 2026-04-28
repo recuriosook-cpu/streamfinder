@@ -57,11 +57,11 @@ function ProgressBar({ step }: { step: number }) {
           <div className="flex items-center gap-1.5">
             <div
               className="w-2.5 h-2.5 rounded-full transition-all duration-400"
-              style={{ backgroundColor: step >= n ? '#6B3FE7' : '#52525b' }}
+              style={{ backgroundColor: step >= n ? '#FFFD02' : '#52525b' }}
             />
             <span
               className="text-xs font-medium transition-colors duration-300"
-              style={{ color: step >= n ? '#6B3FE7' : '#71717a' }}
+              style={{ color: step >= n ? '#FFFD02' : '#71717a' }}
             >
               Paso {n}
             </span>
@@ -69,7 +69,7 @@ function ProgressBar({ step }: { step: number }) {
           {n < 3 && (
             <div
               className="w-10 h-px transition-all duration-400"
-              style={{ backgroundColor: step > n ? '#6B3FE7' : '#3f3f46' }}
+              style={{ backgroundColor: step > n ? '#FFFD02' : '#3f3f46' }}
             />
           )}
         </div>
@@ -96,8 +96,8 @@ function OptionCard({
       onClick={onClick}
       className="flex flex-col items-center justify-center gap-2 py-5 px-3 rounded-2xl border-2 transition-all duration-200 cursor-pointer text-center"
       style={{
-        backgroundColor: selected ? 'rgba(107,63,231,0.08)' : 'rgba(28,28,39,0.8)',
-        borderColor: selected ? '#6B3FE7' : '#3f3f46',
+        backgroundColor: selected ? 'rgba(255,253,2,0.08)' : 'rgba(28,28,39,0.8)',
+        borderColor: selected ? '#FFFD02' : '#3f3f46',
       }}
     >
       <span className="text-4xl leading-none select-none">{emoji}</span>
@@ -162,7 +162,7 @@ function ResultCard({ rec }: { rec: Recommendation }) {
         <Link
           href={href}
           className="inline-block mt-2.5 text-xs font-semibold px-3 py-1 rounded-full transition-colors"
-          style={{ backgroundColor: 'rgba(107,63,231,0.15)', color: '#6B3FE7' }}
+          style={{ backgroundColor: 'rgba(255,253,2,0.15)', color: '#FFFD02' }}
         >
           Ver detalles →
         </Link>
@@ -189,7 +189,7 @@ function AuthModal({ onClose }: { onClose: () => void }) {
         <Link
           href="/auth"
           className="block w-full py-3 rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#6B3FE7' }}
+          style={{ backgroundColor: '#FFFD02' }}
         >
           Iniciar sesión
         </Link>
@@ -272,7 +272,7 @@ export default function MoodRecommender() {
       {/* Subtle decorative glow */}
       <div
         className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 opacity-20 pointer-events-none blur-3xl"
-        style={{ background: 'radial-gradient(ellipse, #6B3FE7 0%, transparent 70%)' }}
+        style={{ background: 'radial-gradient(ellipse, #FFFD02 0%, transparent 70%)' }}
       />
 
       {/* Guest overlay */}

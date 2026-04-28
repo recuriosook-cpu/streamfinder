@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
@@ -156,7 +156,7 @@ function HeroSection({
           style={{ fontSize: 'clamp(28px, 5vw, 48px)' }}
         >
           Tu universo de{' '}
-          <span style={{ color: '#6B3FE7' }}>cine y series</span>
+          <span style={{ color: '#FFFD02' }}>cine y series</span>
         </h1>
 
         {/* 3-line subtitle */}
@@ -199,7 +199,7 @@ function HeroSection({
             Bienvenido de vuelta,{' '}
             <Link
               href="/profile"
-              className="font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+              className="font-semibold text-white hover:text-[#FFFD02] transition-colors"
             >
               {userName}
             </Link>{' '}
@@ -208,15 +208,15 @@ function HeroSection({
         ) : (
           <Link
             href="/auth"
-            className="inline-block text-white font-semibold transition-all active:scale-95"
+            className="inline-block text-black font-semibold transition-all active:scale-95"
             style={{
-              backgroundColor: '#6B3FE7',
+              backgroundColor: '#FFFD02',
               borderRadius: '50px',
               padding: '14px 32px',
               fontSize: 'clamp(14px, 2vw, 16px)',
             }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#5A32C7' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#6B3FE7' }}
+            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#E5EB00' }}
+            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FFFD02' }}
           >
             Empezá ahora, ¡es gratis!
           </Link>
@@ -295,8 +295,11 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
               {/* Type badge */}
               <div className="absolute top-1.5 left-1.5">
                 <span
-                  className="text-[10px] px-1.5 py-0.5 rounded font-medium text-white"
-                  style={{ backgroundColor: item.mediaType === 'movie' ? '#2563eb' : '#6B3FE7' }}
+                  className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                  style={{
+                    backgroundColor: item.mediaType === 'movie' ? '#2563eb' : '#FFFD02',
+                    color: item.mediaType === 'movie' ? '#fff' : '#000',
+                  }}
                 >
                   {item.mediaType === 'movie' ? 'Peli' : 'Serie'}
                 </span>
@@ -339,7 +342,7 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
     <section className="mb-12">
       <div className="mb-4">
         <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
-          <TrendingUp size={18} style={{ color: '#6B3FE7' }} />
+          <TrendingUp size={18} style={{ color: '#FFFD02' }} />
           Tendencias en Glynbox
         </h2>
         <p className="text-xs text-[#A0A0B0] mt-0.5">Lo que más se está viendo esta semana</p>
@@ -350,12 +353,12 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
           <Link
             key={`${item.mediaType}-${item.mediaId}`}
             href={`/${item.mediaType}/${item.mediaId}`}
-            className="flex items-center gap-3 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-3 hover:border-[#6B3FE7]/50 transition-colors group"
+            className="flex items-center gap-3 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-3 hover:border-[#FFFD02]/50 transition-colors group"
           >
             {/* Rank */}
             <span
               className="text-2xl font-black w-9 text-center shrink-0 tabular-nums leading-none"
-              style={{ color: idx < 3 ? '#6B3FE7' : 'rgba(107,63,231,0.35)' }}
+              style={{ color: idx < 3 ? '#FFFD02' : 'rgba(255,253,2,0.35)' }}
             >
               {idx + 1}
             </span>
@@ -377,7 +380,7 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
 
             {/* Info */}
             <div className="flex-1 min-w-0">
-              <p className="text-sm font-semibold text-white line-clamp-1 group-hover:text-[#6B3FE7] transition-colors">
+              <p className="text-sm font-semibold text-white line-clamp-1 group-hover:text-[#FFFD02] transition-colors">
                 {item.title}
               </p>
               <p className="text-xs text-[#A0A0B0] mt-0.5">
@@ -416,7 +419,7 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
             <Link
               key={review.id}
               href={`/review/${review.id}`}
-              className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#6B3FE7]/40 transition-colors group flex flex-col"
+              className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/40 transition-colors group flex flex-col"
             >
               {/* Author row */}
               <div className="flex items-center gap-2.5 mb-3">
@@ -453,7 +456,7 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
               </div>
 
               {/* Media title */}
-              <p className="text-xs font-semibold mb-1.5 line-clamp-1" style={{ color: '#6B3FE7' }}>
+              <p className="text-xs font-semibold mb-1.5 line-clamp-1" style={{ color: '#FFFD02' }}>
                 {review.mediaTitle}
               </p>
 
@@ -751,8 +754,8 @@ export default function HomeClient() {
     <>
       {/* Welcome toast after onboarding */}
       {showWelcome && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold text-white flex items-center gap-2.5 animate-pulse pointer-events-none"
-          style={{ backgroundColor: '#6B3FE7', whiteSpace: 'nowrap' }}>
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3.5 rounded-2xl shadow-2xl text-sm font-semibold text-black flex items-center gap-2.5 animate-pulse pointer-events-none"
+          style={{ backgroundColor: '#FFFD02', whiteSpace: 'nowrap' }}>
           🎬 ¡Bienvenido a Glynbox! Tu experiencia está personalizada
         </div>
       )}

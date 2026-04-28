@@ -19,7 +19,7 @@ function BodyWithMentions({ text }: { text: string }) {
     <>
       {parts.map((part, i) =>
         /^@\w+$/.test(part) ? (
-          <Link key={i} href={`/usuario/${part.slice(1)}`} style={{ color: '#6B3FE7' }} className="hover:underline">
+          <Link key={i} href={`/usuario/${part.slice(1)}`} style={{ color: '#FFFD02' }} className="hover:underline">
             {part}
           </Link>
         ) : (
@@ -217,7 +217,7 @@ export default function ReviewCard({
 
           {/* Avatar */}
           <Link href={`/usuario/${authorUsername}`} className="shrink-0 mt-0.5">
-            <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-700 hover:ring-[#6B3FE7] transition-all">
+            <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
               {authorAvatarUrl ? (
                 <img src={authorAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
               ) : (
@@ -233,7 +233,7 @@ export default function ReviewCard({
             <div className="flex items-center gap-1">
               <Link
                 href={`/usuario/${authorUsername}`}
-                className="text-sm font-bold text-white hover:text-[#6B3FE7] transition-colors"
+                className="text-sm font-bold text-white hover:text-[#FFFD02] transition-colors"
               >
                 {displayName}
               </Link>
@@ -241,7 +241,7 @@ export default function ReviewCard({
             </div>
             <Link
               href={`/${mediaType}/${mediaId}`}
-              className="block text-sm font-semibold text-zinc-300 hover:text-[#6B3FE7] transition-colors mt-0.5 line-clamp-1"
+              className="block text-sm font-semibold text-zinc-300 hover:text-[#FFFD02] transition-colors mt-0.5 line-clamp-1"
             >
               {mediaTitle}
             </Link>
@@ -253,7 +253,7 @@ export default function ReviewCard({
               )}
               <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                 recommended
-                  ? 'bg-[#6B3FE7]/10 text-[#6B3FE7]'
+                  ? 'bg-[#FFFD02]/10 text-[#FFFD02]'
                   : 'bg-red-900/50 text-red-400'
               }`}>
                 {recommended ? '👍 Recomendada' : '👎 No recomendada'}
@@ -267,7 +267,7 @@ export default function ReviewCard({
           <div className="flex flex-col items-end gap-2 shrink-0">
             {showPoster && mediaPosterPath && (
               <Link href={`/${mediaType}/${mediaId}`}>
-                <div className="relative w-10 aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#6B3FE7] transition-all">
+                <div className="relative w-10 aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                   <Image
                     src={getPosterUrl(mediaPosterPath, 'w92')}
                     alt={mediaTitle}
@@ -353,7 +353,7 @@ export default function ReviewCard({
           <button
             onClick={toggleComments}
             className={`flex items-center gap-1.5 text-xs font-medium transition-colors ${
-              commentsOpen ? 'text-[#6B3FE7]' : 'text-[#A0A0B0] hover:text-zinc-300'
+              commentsOpen ? 'text-[#FFFD02]' : 'text-[#A0A0B0] hover:text-zinc-300'
             }`}
           >
             <MessageSquare size={13} />
@@ -428,12 +428,12 @@ export default function ReviewCard({
                   }}
                   placeholder={replyTo ? `Responder a @${replyTo.username}...` : 'Escribí un comentario...'}
                   rows={1}
-                  className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none resize-none"
+                  className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none resize-none"
                 />
                 <button
                   onClick={submitComment}
                   disabled={!newComment.trim() || submitting}
-                  className="shrink-0 bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-40 disabled:cursor-not-allowed text-white px-3 py-2 rounded-lg transition-colors"
+                  className="shrink-0 bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black px-3 py-2 rounded-lg transition-colors"
                   title="Publicar"
                 >
                   <Send size={13} />
@@ -446,7 +446,7 @@ export default function ReviewCard({
           <div className="px-4 pb-3">
             {commentsLoading ? (
               <div className="flex justify-center py-4">
-                <div className="w-4 h-4 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+                <div className="w-4 h-4 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : topLevel.length === 0 && commentsFetched ? (
               !currentUserId ? (
@@ -479,7 +479,7 @@ export default function ReviewCard({
                           <div className="flex items-center gap-1 flex-wrap">
                             <Link
                               href={`/usuario/${comment.author?.username ?? ''}`}
-                              className="text-xs font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+                              className="text-xs font-semibold text-white hover:text-[#FFFD02] transition-colors"
                             >
                               {cName}
                             </Link>
@@ -523,7 +523,7 @@ export default function ReviewCard({
                                   <div className="flex items-center gap-1 flex-wrap">
                                     <Link
                                       href={`/usuario/${reply.author?.username ?? ''}`}
-                                      className="text-xs font-semibold text-white hover:text-[#6B3FE7] transition-colors"
+                                      className="text-xs font-semibold text-white hover:text-[#FFFD02] transition-colors"
                                     >
                                       {rName}
                                     </Link>

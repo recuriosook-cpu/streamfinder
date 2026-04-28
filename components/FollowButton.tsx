@@ -67,7 +67,7 @@ export default function FollowButton({ targetUserId }: Props) {
       className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
         following
           ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-          : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
+          : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
       }`}
     >
       {following ? <UserCheck size={15} /> : <UserPlus size={15} />}

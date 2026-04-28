@@ -282,8 +282,19 @@ export default function Navbar() {
   return (
     <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
-        <Link href="/" className="text-lg sm:text-xl font-bold text-[#6B3FE7] shrink-0">
-          Glynbox
+        <Link href="/" className="shrink-0 flex items-center">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Glynbox"
+            className="h-6 sm:h-8 w-auto object-contain"
+            onError={(e) => {
+              const t = e.currentTarget; t.style.display = 'none'
+              const fb = t.nextElementSibling as HTMLElement | null
+              if (fb) fb.style.display = 'block'
+            }}
+          />
+          <span className="hidden text-lg sm:text-xl font-bold text-[#FFFD02]">Glynbox</span>
         </Link>
 
         {/* Search box + live dropdown */}
@@ -460,7 +471,7 @@ export default function Navbar() {
                     router.push(`/search?q=${encodeURIComponent(query.trim())}`)
                     closeSearch()
                   }}
-                  className="text-xs text-[#6B3FE7] hover:text-[#8B6CF5] transition-colors w-full text-center"
+                  className="text-xs text-[#FFFD02] hover:text-[#FFF84D] transition-colors w-full text-center"
                 >
                   Ver todos los resultados →
                 </button>
@@ -489,7 +500,7 @@ export default function Navbar() {
                   value={countrySearch}
                   onChange={e => setCountrySearch(e.target.value)}
                   placeholder="Buscar país..."
-                  className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-[#6B3FE7]"
+                  className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-[#FFFD02]"
                 />
               </div>
               {/* List */}
@@ -503,14 +514,14 @@ export default function Navbar() {
                       onClick={() => handleSelectCountry(c.code)}
                       className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors ${
                         c.code === country
-                          ? 'bg-[#6B3FE7]/20 text-[#8B6CF5]'
+                          ? 'bg-[#FFFD02]/20 text-[#FFF84D]'
                           : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
                       }`}
                     >
                       <FlagCircle code={c.code} size={26} />
                       <span className="flex-1">{c.name}</span>
                       {c.code === country && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#6B3FE7] shrink-0" />
+                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFFD02] shrink-0" />
                       )}
                     </button>
                   ))
@@ -549,7 +560,7 @@ export default function Navbar() {
                 >
                   <Bell size={18} />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#6B3FE7] text-white text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
+                    <span className="absolute -top-0.5 -right-0.5 min-w-[16px] h-4 bg-[#FFFD02] text-black text-[10px] font-bold rounded-full flex items-center justify-center px-0.5">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
@@ -566,11 +577,11 @@ export default function Navbar() {
                     <div className="overflow-y-auto max-h-80">
                       {notifLoading ? (
                         <div className="flex justify-center py-8">
-                          <div className="w-5 h-5 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+                          <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
                         </div>
                       ) : notifError ? (
                         <div className="px-4 py-6 text-center">
-                          <p className="text-[#6B3FE7] text-xs font-medium mb-1">Error al cargar notificaciones</p>
+                          <p className="text-[#FFFD02] text-xs font-medium mb-1">Error al cargar notificaciones</p>
                           <p className="text-zinc-600 text-[11px] font-mono break-all">{notifError}</p>
                         </div>
                       ) : notifs.length === 0 ? (
@@ -601,25 +612,25 @@ export default function Navbar() {
                                     <><span className="font-semibold text-white">{actor}</span> te empezó a seguir</>
                                   )}
                                   {n.type === 'review_like' && (
-                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'review_comment' && (
-                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-[#6B3FE7]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
-                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-[#6B3FE7]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'level_up' && (
-                                    <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#6B3FE7]">{n.review_title}</span></>
+                                    <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>
                               </div>
                               {!n.read && (
-                                <span className="w-2 h-2 rounded-full bg-[#6B3FE7] shrink-0 mt-1.5" />
+                                <span className="w-2 h-2 rounded-full bg-[#FFFD02] shrink-0 mt-1.5" />
                               )}
                             </button>
                           )
@@ -636,7 +647,7 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link href="/auth" className="flex items-center gap-1.5 text-sm bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-3 py-1.5 rounded-lg transition-colors">
+            <Link href="/auth" className="flex items-center gap-1.5 text-sm bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-3 py-1.5 rounded-lg transition-colors">
               <LogIn size={16} />
               Iniciar sesión
             </Link>
@@ -671,19 +682,19 @@ export default function Navbar() {
                 <span className="relative">
                   <Bell size={16} />
                   {unreadCount > 0 && (
-                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#6B3FE7] text-white text-[9px] font-bold rounded-full flex items-center justify-center">
+                    <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-[#FFFD02] text-black text-[9px] font-bold rounded-full flex items-center justify-center">
                       {unreadCount > 9 ? '9+' : unreadCount}
                     </span>
                   )}
                 </span>
-                Notificaciones {unreadCount > 0 && <span className="text-[#6B3FE7]">({unreadCount})</span>}
+                Notificaciones {unreadCount > 0 && <span className="text-[#FFFD02]">({unreadCount})</span>}
               </button>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir
               </button>
             </>
           ) : (
-            <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-[#6B3FE7]">
+            <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-[#FFFD02]">
               <LogIn size={16} /> Iniciar sesión
             </Link>
           )}

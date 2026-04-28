@@ -255,7 +255,7 @@ export default function PlatformPageClient({
                   onClick={() => toggleType(ct.id)}
                   className={`px-3.5 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                     activeType === ct.id
-                      ? 'bg-[#6B3FE7] text-white'
+                      ? 'bg-[#FFFD02] text-black'
                       : 'bg-[#1C1C27] text-zinc-300 hover:bg-zinc-700 hover:text-white'
                   }`}
                 >
@@ -280,7 +280,7 @@ export default function PlatformPageClient({
                   onClick={() => toggleGenre(g.id)}
                   className={`px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                     genres.includes(g.id)
-                      ? 'bg-[#6B3FE7] text-white'
+                      ? 'bg-[#FFFD02] text-black'
                       : 'bg-[#1C1C27] text-[#A0A0B0] hover:bg-zinc-700 hover:text-zinc-200'
                   }`}
                 >

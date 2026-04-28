@@ -1,4 +1,4 @@
-'use client'
+﻿'use client'
 
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
@@ -93,7 +93,7 @@ function timeAgo(dateStr: string): string {
 }
 
 function compatColor(score: number): string {
-  if (score >= 60) return '#6B3FE7'
+  if (score >= 60) return '#FFFD02'
   if (score >= 30) return '#F59E0B'
   return '#EF4444'
 }
@@ -105,7 +105,7 @@ function Badge({ label, color }: { label: string; color: string }) {
     green:  { bg: 'rgba(34,197,94,0.12)',  text: '#22c55e' },
     yellow: { bg: 'rgba(234,179,8,0.12)',  text: '#eab308' },
     blue:   { bg: 'rgba(59,130,246,0.12)', text: '#60a5fa' },
-    purple: { bg: 'rgba(107,63,231,0.12)', text: '#6B3FE7' },
+    purple: { bg: 'rgba(255,253,2,0.12)', text: '#FFFD02' },
     gold:   { bg: 'rgba(245,166,35,0.12)', text: '#F5A623' },
   }
   const s = styles[color] ?? styles.purple
@@ -122,7 +122,7 @@ function Avatar({ profile, size = 9 }: { profile: UserProfile; size?: number }) 
   const px = size * 4
   return (
     <Link href={`/usuario/${profile.username}`} className="shrink-0">
-      <div className="rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-600 hover:ring-[#6B3FE7] transition-all"
+      <div className="rounded-full overflow-hidden bg-zinc-700 ring-2 ring-zinc-600 hover:ring-[#FFFD02] transition-all"
         style={{ width: px, height: px }}>
         {profile.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
@@ -192,7 +192,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
             {isVerified(p.username) && <VerifiedBadge size={13} />}
@@ -202,7 +202,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
           <div className="flex gap-3 mt-2">
             <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
             <div className="flex-1 min-w-0">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block">
+              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
                 {item.mediaTitle}
               </Link>
               {item.rating != null && <div className="mt-1"><StarDisplay rating={item.rating} size={11} /></div>}
@@ -234,7 +234,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
             {isVerified(p.username) && <VerifiedBadge size={13} />}
@@ -244,7 +244,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
           <div className="flex gap-3 mt-2">
             <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
             <div className="min-w-0">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block mb-1.5">
+              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block mb-1.5">
                 {item.mediaTitle}
               </Link>
               <StarDisplay rating={item.rating} size={14} />
@@ -271,7 +271,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
             {isVerified(p.username) && <VerifiedBadge size={13} />}
@@ -281,7 +281,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
           <div className="flex gap-3 mt-2">
             <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
             <div className="min-w-0 flex flex-col gap-2">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block">
+              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
                 {item.mediaTitle}
               </Link>
               {item.userId !== currentUserId && (
@@ -323,7 +323,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-3">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
             {isVerified(p.username) && <VerifiedBadge size={13} />}
@@ -342,7 +342,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
             )}
             <div className="flex-1 min-w-0">
               <p className="text-xs text-[#A0A0B0]">{item.statTitle}</p>
-              <p className="text-base font-bold" style={{ color: '#6B3FE7' }}>{item.statValue}</p>
+              <p className="text-base font-bold" style={{ color: '#FFFD02' }}>{item.statValue}</p>
               {item.statDetail && <p className="text-xs text-[#A0A0B0] mt-0.5">{item.statDetail}</p>}
             </div>
           </div>
@@ -368,7 +368,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
             {isVerified(p.username) && <VerifiedBadge size={13} />}
@@ -415,7 +415,7 @@ function RecommendationCard({ item, currentUserId, supabase }: {
     setBusy(false)
   }
   return (
-    <div className="bg-[#13131A] border border-[#6B3FE7]/40 rounded-xl overflow-hidden">
+    <div className="bg-[#13131A] border border-[#FFFD02]/40 rounded-xl overflow-hidden">
       {item.backdropPath && (
         <div className="relative h-20 w-full overflow-hidden">
           <Image src={`https://image.tmdb.org/t/p/w780${item.backdropPath}`} alt={item.title} fill className="object-cover opacity-40" sizes="600px" />
@@ -439,10 +439,10 @@ function RecommendationCard({ item, currentUserId, supabase }: {
           </Link>
           <div className="flex-1 min-w-0">
             <div className="flex items-center gap-1.5 mb-1">
-              <Sparkles size={12} style={{ color: '#6B3FE7' }} />
-              <span className="text-[10px] font-semibold" style={{ color: '#6B3FE7' }}>Recomendado para vos</span>
+              <Sparkles size={12} style={{ color: '#FFFD02' }} />
+              <span className="text-[10px] font-semibold" style={{ color: '#FFFD02' }}>Recomendado para vos</span>
             </div>
-            <Link href={`/movie/${item.movieId}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors line-clamp-1 block">
+            <Link href={`/movie/${item.movieId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
               {item.title}
             </Link>
             {item.year && <p className="text-xs text-[#A0A0B0] mt-0.5">{item.year}</p>}
@@ -547,7 +547,7 @@ function AchievementCard({ a }: { a: Achievement }) {
         </div>
         <p className="text-xs text-[#A0A0B0] mb-2 leading-snug">{a.description}</p>
         <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: '#6B3FE7' }} />
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: '#FFFD02' }} />
         </div>
         <p className="text-xs" style={{ color: a.completed ? '#F5A623' : '#71717a' }}>
           {a.completed ? `✓ ${a.current} de ${a.target}` : `${a.current} de ${a.target} · Faltan ${a.target - a.current}`}
@@ -563,7 +563,7 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   return (
     <button onClick={onClick}
       className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
-        active ? 'bg-[#6B3FE7]/15 text-[#6B3FE7]' : 'text-[#A0A0B0] hover:text-zinc-300 hover:bg-[#1C1C27]'
+        active ? 'bg-[#FFFD02]/15 text-[#FFFD02]' : 'text-[#A0A0B0] hover:text-zinc-300 hover:bg-[#1C1C27]'
       }`}>
       {icon}{label}
     </button>
@@ -862,7 +862,7 @@ export default function ComunidadPage() {
       <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
         <LogIn size={40} className="text-zinc-600" />
         <p className="text-[#A0A0B0]">Iniciá sesión para ver la actividad de tu comunidad</p>
-        <Link href="/auth" className="bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-5 py-2 rounded-lg font-medium transition-colors">
+        <Link href="/auth" className="bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-5 py-2 rounded-lg font-medium transition-colors">
           Iniciar sesión
         </Link>
       </div>
@@ -907,7 +907,7 @@ export default function ComunidadPage() {
               </div>
               {visibleCount < displayFeed.length && (
                 <button onClick={() => setVisibleCount(c => c + PAGE_SIZE)}
-                  className="mt-6 w-full py-3 rounded-xl border border-[#2A2A3A] text-[#A0A0B0] hover:border-[#6B3FE7] hover:text-white text-sm font-medium transition-colors">
+                  className="mt-6 w-full py-3 rounded-xl border border-[#2A2A3A] text-[#A0A0B0] hover:border-[#FFFD02] hover:text-white text-sm font-medium transition-colors">
                   Ver más ({displayFeed.length - visibleCount} restantes)
                 </button>
               )}
@@ -976,7 +976,7 @@ export default function ComunidadPage() {
             <>
               <div className="flex items-center justify-between mb-4">
                 <p className="text-xs text-[#A0A0B0]">{achievements.filter(a => a.completed).length} de {achievements.length} logros completados</p>
-                <span className="text-xs font-semibold text-[#6B3FE7]">{achievements.filter(a => a.completed).length}/{achievements.length}</span>
+                <span className="text-xs font-semibold text-[#FFFD02]">{achievements.filter(a => a.completed).length}/{achievements.length}</span>
               </div>
               {achievements.filter(a => a.completed).length > 0 && <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mb-2">Completados</p>}
               <div className="space-y-3">{achievements.filter(a => a.completed).map(a => <AchievementCard key={a.id} a={a} />)}</div>

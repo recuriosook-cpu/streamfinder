@@ -83,7 +83,7 @@ export default function HeroCarousel({ movies }: HeroCarouselProps) {
 
           {/* Text */}
           <div className="flex-1 min-w-0">
-            <p className="text-[#6B3FE7] text-xs font-semibold uppercase tracking-widest mb-2">
+            <p className="text-[#FFFD02] text-xs font-semibold uppercase tracking-widest mb-2">
               Próximamente en cines
             </p>
             <h2 className="text-3xl md:text-5xl font-bold text-white mb-3 leading-tight line-clamp-2">
@@ -102,7 +102,7 @@ export default function HeroCarousel({ movies }: HeroCarouselProps) {
             )}
             <Link
               href={`/movie/${movie.id}`}
-              className="inline-block mt-5 px-5 py-2.5 bg-[#6B3FE7] hover:bg-[#5A32C7] text-white text-sm font-semibold rounded-lg transition-colors"
+              className="inline-block mt-5 px-5 py-2.5 bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold rounded-lg transition-colors"
             >
               Ver detalles
             </Link>
@@ -136,7 +136,7 @@ export default function HeroCarousel({ movies }: HeroCarouselProps) {
             onClick={() => setIdx(i)}
             style={{ width: i === idx ? '24px' : '8px' }}
             className={`h-2 rounded-full transition-all duration-300 ${
-              i === idx ? 'bg-[#6B3FE7]' : 'bg-white/30 hover:bg-white/60'
+              i === idx ? 'bg-[#FFFD02]' : 'bg-white/30 hover:bg-white/60'
             }`}
             aria-label={`Ir a película ${i + 1}`}
           />

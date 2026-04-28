@@ -14,7 +14,7 @@ export default function TerminosPage() {
 
         <div className="space-y-12">
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               1. Descripción del servicio
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -27,7 +27,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               2. Uso aceptable
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -47,7 +47,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               3. Propiedad intelectual
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -63,7 +63,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               4. Limitación de responsabilidad
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -78,7 +78,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               5. Modificaciones al servicio
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -93,7 +93,7 @@ export default function TerminosPage() {
           </section>
 
           <section>
-            <h2 className="text-xl font-semibold text-[#6B3FE7] mb-4">
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
               6. Contacto
             </h2>
             <p className="text-zinc-300 leading-relaxed">
@@ -101,7 +101,7 @@ export default function TerminosPage() {
             </p>
             <a
               href="mailto:fd.lage@gmail.com"
-              className="inline-block mt-3 text-[#6B3FE7] hover:text-[#8B6CF5] transition-colors font-medium"
+              className="inline-block mt-3 text-[#FFFD02] hover:text-[#FFF84D] transition-colors font-medium"
             >
               fd.lage@gmail.com
             </a>

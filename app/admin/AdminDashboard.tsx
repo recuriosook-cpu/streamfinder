@@ -59,7 +59,7 @@ function StatCard({ icon, label, value, color = 'emerald' }: {
   icon: React.ReactNode; label: string; value: number; color?: string
 }) {
   const styles: Record<string, string> = {
-    emerald: 'text-[#6B3FE7] bg-[#6B3FE7]/10',
+    emerald: 'text-[#FFFD02] bg-[#FFFD02]/10',
     blue:    'text-blue-400 bg-blue-500/10',
     purple:  'text-purple-400 bg-purple-500/10',
     amber:   'text-amber-400 bg-amber-500/10',
@@ -74,7 +74,7 @@ function StatCard({ icon, label, value, color = 'emerald' }: {
   )
 }
 
-function BarList({ items, color = 'bg-[#6B3FE7]' }: {
+function BarList({ items, color = 'bg-[#FFFD02]' }: {
   items: { label: string; count: number }[]
   color?: string
 }) {
@@ -166,7 +166,7 @@ function RegistrationsChart({ data }: { data: { day: string; count: number }[] }
           <div key={d.day} className="flex flex-col items-center flex-1 min-w-0 h-full justify-end" title={`${label}: ${d.count}`}>
             {d.count > 0 && <span className="text-[8px] text-zinc-600 mb-0.5">{d.count}</span>}
             <div
-              className="w-full bg-[#6B3FE7] rounded-t-sm"
+              className="w-full bg-[#FFFD02] rounded-t-sm"
               style={{ height: `${Math.max(pct, d.count > 0 ? 4 : 0)}%` }}
             />
           </div>
@@ -337,7 +337,7 @@ export default function AdminDashboard() {
   if (checking) {
     return (
       <div className="min-h-screen flex items-center justify-center">
-        <Loader2 size={28} className="animate-spin text-[#6B3FE7]" />
+        <Loader2 size={28} className="animate-spin text-[#FFFD02]" />
       </div>
     )
   }
@@ -349,8 +349,8 @@ export default function AdminDashboard() {
       <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-4">
         <div className="max-w-7xl mx-auto flex items-center justify-between">
           <div className="flex items-center gap-3">
-            <div className="w-8 h-8 rounded-lg bg-[#6B3FE7]/20 flex items-center justify-center">
-              <Shield size={16} className="text-[#6B3FE7]" />
+            <div className="w-8 h-8 rounded-lg bg-[#FFFD02]/20 flex items-center justify-center">
+              <Shield size={16} className="text-[#FFFD02]" />
             </div>
             <div>
               <h1 className="text-lg font-bold text-white">Panel de Administración</h1>
@@ -376,12 +376,12 @@ export default function AdminDashboard() {
 
         {/* ── USUARIOS TOTALES — hero ─────────────────────────── */}
         <div className="bg-gradient-to-r from-emerald-950/60 to-zinc-900 border border-[#F5A623]/30 rounded-2xl px-8 py-6 flex items-center gap-6">
-          <div className="w-16 h-16 rounded-2xl bg-[#6B3FE7]/20 flex items-center justify-center shrink-0">
-            <Users size={28} className="text-[#6B3FE7]" />
+          <div className="w-16 h-16 rounded-2xl bg-[#FFFD02]/20 flex items-center justify-center shrink-0">
+            <Users size={28} className="text-[#FFFD02]" />
           </div>
           <div>
             <p className="text-5xl font-black text-white">{profiles.length.toLocaleString('es-AR')}</p>
-            <p className="text-[#6B3FE7] font-semibold text-lg mt-0.5">usuarios registrados</p>
+            <p className="text-[#FFFD02] font-semibold text-lg mt-0.5">usuarios registrados</p>
             <p className="text-[#A0A0B0] text-sm mt-1">
               {newUsersWeek > 0 ? `+${newUsersWeek} nuevos esta semana` : 'Sin registros esta semana'}
             </p>
@@ -404,7 +404,7 @@ export default function AdminDashboard() {
               key={key}
               onClick={() => setActiveTab(key)}
               className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
-                activeTab === key ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
+                activeTab === key ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
               }`}
             >
               {label}
@@ -426,7 +426,7 @@ export default function AdminDashboard() {
             {/* Registrations chart */}
             <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <BarChart2 size={16} className="text-[#6B3FE7]" />
+                <BarChart2 size={16} className="text-[#FFFD02]" />
                 Actividad de perfiles por día — últimos 30 días
               </h2>
               <RegistrationsChart data={regsByDay} />
@@ -444,7 +444,7 @@ export default function AdminDashboard() {
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Plataformas más populares</h2>
-                <BarList items={topProviders} color="bg-[#6B3FE7]" />
+                <BarList items={topProviders} color="bg-[#FFFD02]" />
               </div>
               <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
                 <h2 className="text-sm font-semibold text-white mb-4">Géneros más guardados</h2>
@@ -493,7 +493,7 @@ export default function AdminDashboard() {
 
             <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
               <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
-                <Eye size={15} className="text-[#6B3FE7]" /> Top 10 más marcados como vistos
+                <Eye size={15} className="text-[#FFFD02]" /> Top 10 más marcados como vistos
               </h2>
               {topWatched.length === 0 ? (
                 <p className="text-[#A0A0B0] text-sm text-center py-8">Sin datos</p>
@@ -514,7 +514,7 @@ export default function AdminDashboard() {
                         <p className="text-sm text-white truncate">{item.title}</p>
                         <p className="text-xs text-[#A0A0B0]">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
                       </div>
-                      <span className="text-sm font-semibold text-[#6B3FE7] shrink-0">{item.count}×</span>
+                      <span className="text-sm font-semibold text-[#FFFD02] shrink-0">{item.count}×</span>
                     </div>
                   ))}
                 </div>
@@ -545,7 +545,7 @@ export default function AdminDashboard() {
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-white">@{r.username ?? 'usuario'}</span>
                         <span className="text-xs text-[#A0A0B0]">sobre</span>
-                        <span className="text-sm text-[#6B3FE7] font-medium truncate max-w-[180px]">{r.title}</span>
+                        <span className="text-sm text-[#FFFD02] font-medium truncate max-w-[180px]">{r.title}</span>
                         {r.rating != null && (
                           <span className="text-xs bg-amber-500/20 text-amber-400 px-2 py-0.5 rounded-full font-medium">⭐ {r.rating}/5</span>
                         )}
@@ -595,7 +595,7 @@ export default function AdminDashboard() {
                           {u.display_name ?? u.username ?? 'Sin nombre'}
                         </p>
                         {u.level != null && (
-                          <span className="text-[10px] bg-[#6B3FE7]/20 text-[#6B3FE7] px-1.5 py-0.5 rounded-full font-medium">
+                          <span className="text-[10px] bg-[#FFFD02]/20 text-[#FFFD02] px-1.5 py-0.5 rounded-full font-medium">
                             Nv. {u.level}
                           </span>
                         )}

@@ -107,7 +107,7 @@ export default function AuthPage() {
           <button
             onClick={() => setMode('login')}
             className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
-              mode === 'login' ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
+              mode === 'login' ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -117,7 +117,7 @@ export default function AuthPage() {
           <button
             onClick={() => setMode('register')}
             className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
-              mode === 'register' ? 'bg-[#6B3FE7] text-white' : 'text-[#A0A0B0] hover:text-white'
+              mode === 'register' ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
             <span className="flex items-center justify-center gap-1.5">
@@ -170,7 +170,7 @@ export default function AuthPage() {
               onChange={e => setEmail(e.target.value)}
               required
               placeholder="tu@email.com"
-              className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-[#6B3FE7] transition-colors"
+              className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors"
             />
           </div>
           <div>
@@ -183,7 +183,7 @@ export default function AuthPage() {
                 required
                 minLength={6}
                 placeholder="Mínimo 6 caracteres"
-                className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 pr-10 text-white text-sm outline-none focus:border-[#6B3FE7] transition-colors"
+                className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 pr-10 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors"
               />
               <button
                 type="button"
@@ -201,7 +201,7 @@ export default function AuthPage() {
             </div>
           )}
           {message && (
-            <div className="bg-[#6B3FE7]/10 border border-[#F5A623] text-[#8B6CF5] text-sm px-3 py-2.5 rounded-lg">
+            <div className="bg-[#FFFD02]/10 border border-[#F5A623] text-[#FFF84D] text-sm px-3 py-2.5 rounded-lg">
               {message}
             </div>
           )}
@@ -209,7 +209,7 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-50 text-white font-medium py-2.5 rounded-lg transition-colors mt-2"
+            className="w-full bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 text-black font-medium py-2.5 rounded-lg transition-colors mt-2"
           >
             {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
           </button>

@@ -150,7 +150,7 @@ export default async function TVPage({ params }: Props) {
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   show.status === 'Ended' || show.status === 'Canceled'
                     ? 'bg-red-900 text-red-300'
-                    : 'bg-[#6B3FE7]/10 text-[#6B3FE7]'
+                    : 'bg-[#FFFD02]/10 text-[#FFFD02]'
                 }`}>
                   {show.status === 'Returning Series' ? 'En emisión'
                     : show.status === 'Ended' ? 'Finalizada'

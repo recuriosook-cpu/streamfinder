@@ -262,7 +262,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 onClick={() => updateFilter({ contentType: ct.id, genres: [] })}
                 className={`px-4 py-1.5 rounded-lg text-sm font-medium transition-colors ${
                   params.contentType === ct.id
-                    ? 'bg-[#6B3FE7] text-white'
+                    ? 'bg-[#FFFD02] text-black'
                     : 'bg-[#1C1C27] text-zinc-300 hover:bg-zinc-700 hover:text-white'
                 }`}
               >
@@ -283,7 +283,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   title={p.name}
                   className={`shrink-0 w-11 h-11 rounded-xl overflow-hidden transition-all duration-150 ${
                     selected
-                      ? 'ring-2 ring-[#6B3FE7] ring-offset-2 ring-offset-[#13131A] scale-105'
+                      ? 'ring-2 ring-[#FFFD02] ring-offset-2 ring-offset-[#13131A] scale-105'
                       : 'opacity-70 hover:opacity-100 hover:scale-105'
                   }`}
                 >
@@ -316,7 +316,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 onClick={() => toggleGenre(g.id)}
                 className={`shrink-0 px-3 py-1 rounded-full text-xs font-medium transition-colors ${
                   params.genres.includes(g.id)
-                    ? 'bg-[#6B3FE7] text-white'
+                    ? 'bg-[#FFFD02] text-black'
                     : 'bg-[#1C1C27] text-[#A0A0B0] hover:bg-zinc-700 hover:text-zinc-200'
                 }`}
               >
@@ -331,7 +331,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             <select
               value={params.sortBy}
               onChange={e => updateFilter({ sortBy: e.target.value })}
-              className="bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-3 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7] cursor-pointer"
+              className="bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-3 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#FFFD02] cursor-pointer"
             >
               {SORT_OPTIONS.map(opt => (
                 <option key={opt.value} value={opt.value}>{opt.label}</option>
@@ -347,7 +347,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   placeholder="Desde"
                   value={params.yearFrom}
                   onChange={e => updateFilter({ yearFrom: e.target.value })}
-                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
+                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#FFFD02]"
                   min="1900" max="2030"
                 />
                 <span className="text-[#A0A0B0]">–</span>
@@ -356,7 +356,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   placeholder="Hasta"
                   value={params.yearTo}
                   onChange={e => updateFilter({ yearTo: e.target.value })}
-                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#6B3FE7]"
+                  className="w-[68px] bg-[#1C1C27] text-zinc-300 text-sm rounded-lg px-2 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#FFFD02]"
                   min="1900" max="2030"
                 />
               </div>
@@ -372,7 +372,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 type="range" min="0" max="9" step="0.5"
                 value={params.minScore}
                 onChange={e => updateFilter({ minScore: Number(e.target.value) })}
-                className="w-20 sm:w-24 accent-[#6B3FE7]"
+                className="w-20 sm:w-24 accent-[#FFFD02]"
               />
             </div>
 

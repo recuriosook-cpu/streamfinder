@@ -713,7 +713,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       <div className="w-32 h-1.5 bg-zinc-700 rounded-full overflow-hidden">
                         <div
                           className="h-full rounded-full transition-all duration-700"
-                          style={{ width: `${info.pct}%`, backgroundColor: '#6B3FE7' }}
+                          style={{ width: `${info.pct}%`, backgroundColor: '#FFFD02' }}
                         />
                       </div>
                       <span className="text-[10px] text-zinc-600">
@@ -779,7 +779,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     {i > 0 && <span className="text-zinc-700 hidden sm:block select-none">·</span>}
                     {s.onClick ? (
                       <button onClick={s.onClick} className="text-center sm:text-left group cursor-pointer">
-                        <p className="text-xl font-bold text-white leading-none group-hover:text-[#6B3FE7] transition-colors">{s.value}</p>
+                        <p className="text-xl font-bold text-white leading-none group-hover:text-[#FFFD02] transition-colors">{s.value}</p>
                         <p className="text-[11px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide group-hover:text-[#A0A0B0] transition-colors">{s.label}</p>
                       </button>
                     ) : (
@@ -818,14 +818,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
                     isFollowing
                       ? 'bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300'
-                      : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
+                      : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
                   }`}
                 >
                   {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
                   {isFollowing ? 'Siguiendo' : 'Seguir'}
                 </button>
               ) : (
-                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#6B3FE7] hover:bg-[#5A32C7] text-white px-5 py-2 rounded-lg transition-colors">
+                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-5 py-2 rounded-lg transition-colors">
                   <UserPlus size={14} /> Seguir
                 </Link>
               )}
@@ -843,7 +843,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               onClick={() => setActiveTab(tab.id)}
               className={`px-3 sm:px-5 py-3 sm:py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
-                  ? 'border-[#6B3FE7] text-white'
+                  ? 'border-[#FFFD02] text-white'
                   : 'border-transparent text-[#A0A0B0] hover:text-zinc-300'
               }`}
             >
@@ -891,7 +891,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div className="absolute inset-0 rounded-lg bg-black/60 opacity-0 group-hover/pin:opacity-100 transition-opacity flex items-center justify-center gap-2">
                               <button
                                 onClick={() => { setSearchingSlot(slot); setSearchQuery('') }}
-                                className="bg-[#13131A]/90 hover:bg-[#5A32C7] text-white rounded-full p-1.5 transition-colors"
+                                className="bg-[#13131A]/90 hover:bg-[#E5EB00] text-black rounded-full p-1.5 transition-colors"
                                 title="Cambiar"
                               >
                                 <SearchIcon size={12} />
@@ -911,7 +911,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           <div
                             className={`aspect-[2/3] rounded-lg border-2 border-dashed flex flex-col items-center justify-center gap-1.5 transition-colors ${
                               isOwner
-                                ? 'border-[#2A2A3A] hover:border-[#6B3FE7] cursor-pointer'
+                                ? 'border-[#2A2A3A] hover:border-[#FFFD02] cursor-pointer'
                                 : 'border-[#2A2A3A]'
                             }`}
                             onClick={() => isOwner && setSearchingSlot(slot)}
@@ -932,7 +932,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   {recentActivity.length > 0 && (
                     <button
                       onClick={() => setActiveTab('resenas')}
-                      className="text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors"
+                      className="text-xs text-[#A0A0B0] hover:text-[#FFFD02] transition-colors"
                     >
                       Ver reseñas →
                     </button>
@@ -959,7 +959,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           {/* Info */}
                           <div className="flex-1 min-w-0 pt-0.5">
                             <div className="flex items-start justify-between gap-2">
-                              <Link href={href} className="text-sm font-medium text-white hover:text-[#6B3FE7] transition-colors line-clamp-1">
+                              <Link href={href} className="text-sm font-medium text-white hover:text-[#FFFD02] transition-colors line-clamp-1">
                                 {d.title}
                               </Link>
                               <span className="text-[11px] text-zinc-600 shrink-0">{date}</span>
@@ -968,7 +968,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div className="flex items-center gap-2 mt-1 flex-wrap">
                               <span className={`inline-flex items-center text-[10px] font-medium px-1.5 py-0.5 rounded-full ${
                                 item.kind === 'review'
-                                  ? 'bg-[#6B3FE7]/10 text-[#6B3FE7]'
+                                  ? 'bg-[#FFFD02]/10 text-[#FFFD02]'
                                   : 'bg-yellow-900/40 text-yellow-400'
                               }`}>
                                 {item.kind === 'review' ? 'Reseña' : 'Valoración'}
@@ -1000,7 +1000,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   {watchlistCount > 0 && (
                     <button
                       onClick={() => setActiveTab('paraVer')}
-                      className="text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors"
+                      className="text-xs text-[#A0A0B0] hover:text-[#FFFD02] transition-colors"
                     >
                       Ver todos ({watchlistCount}) →
                     </button>
@@ -1097,7 +1097,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           <div className="max-w-2xl">
             {statsData === null ? (
               <div className="flex justify-center py-20">
-                <div className="w-7 h-7 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+                <div className="w-7 h-7 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : (
               <div className="space-y-8">
@@ -1135,7 +1135,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           </div>
                           <div className="w-full bg-[#1C1C27] rounded-full h-1">
                             <div
-                              className="bg-[#6B3FE7] h-1 rounded-full transition-all"
+                              className="bg-[#FFFD02] h-1 rounded-full transition-all"
                               style={{ width: period.movies + period.series > 0 ? `${(period.movies / (period.movies + period.series)) * 100}%` : '0%' }}
                             />
                           </div>
@@ -1167,7 +1167,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {/* ── Rich stats ──────────────────────────────────── */}
                 {richBusy && (
                   <div className="flex items-center gap-3 text-[#A0A0B0] text-sm py-4">
-                    <div className="w-5 h-5 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin shrink-0" />
+                    <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin shrink-0" />
                     Calculando estadísticas…
                   </div>
                 )}
@@ -1183,7 +1183,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div className="flex items-end gap-3">
                               <span className="text-5xl font-black text-white leading-none">
                                 {Math.floor(richStats.totalMinutes / 60)}
-                                <span className="text-2xl font-bold text-[#6B3FE7] ml-1">h</span>
+                                <span className="text-2xl font-bold text-[#FFFD02] ml-1">h</span>
                               </span>
                               <span className="text-2xl font-bold text-[#A0A0B0] leading-none mb-0.5">
                                 {richStats.totalMinutes % 60}
@@ -1198,7 +1198,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                   `${Math.floor(richStats.totalMinutes / 60)}h ${richStats.totalMinutes % 60}min`,
                                   weeklyMinutes > 0 ? `Esta semana: ${Math.floor(weeklyMinutes / 60)}h ${weeklyMinutes % 60}min` : undefined,
                                 )}
-                                className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7]"
+                                className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#FFFD02] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#FFFD02]"
                               >
                                 <Share2 size={13} />
                                 Compartir
@@ -1227,7 +1227,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                 richStats.topGenres[0].name,
                                 `Visto en ${richStats.topGenres[0].count} título${richStats.topGenres[0].count !== 1 ? 's' : ''}`,
                               )}
-                              className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7] mb-3"
+                              className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-[#FFFD02] transition-colors px-3 py-1.5 rounded-lg border border-[#2A2A3A] hover:border-[#FFFD02] mb-3"
                             >
                               <Share2 size={13} />
                               Compartir
@@ -1242,14 +1242,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               <div key={g.name}>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <span className="text-sm font-medium text-white">
-                                    {i === 0 && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
+                                    {i === 0 && <span className="text-[#FFFD02] mr-1.5">▲</span>}
                                     {g.name}
                                   </span>
                                   <span className="text-xs text-[#A0A0B0]">{g.count} título{g.count !== 1 ? 's' : ''}</span>
                                 </div>
                                 <div className="w-full bg-[#1C1C27] rounded-full h-1.5">
                                   <div
-                                    className="bg-[#6B3FE7] h-1.5 rounded-full transition-all"
+                                    className="bg-[#FFFD02] h-1.5 rounded-full transition-all"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -1272,14 +1272,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                               <div key={d.decade}>
                                 <div className="flex items-center justify-between mb-1.5">
                                   <span className="text-sm font-medium text-white">
-                                    {i === 0 && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
+                                    {i === 0 && <span className="text-[#FFFD02] mr-1.5">▲</span>}
                                     {d.decade}
                                   </span>
                                   <span className="text-xs text-[#A0A0B0]">{d.count} título{d.count !== 1 ? 's' : ''}</span>
                                 </div>
                                 <div className="w-full bg-[#1C1C27] rounded-full h-1.5">
                                   <div
-                                    className="bg-[#6B3FE7] h-1.5 rounded-full transition-all"
+                                    className="bg-[#FFFD02] h-1.5 rounded-full transition-all"
                                     style={{ width: `${pct}%` }}
                                   />
                                 </div>
@@ -1299,7 +1299,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             <div key={l.name}>
                               <div className="flex items-center justify-between mb-1.5">
                                 <span className="text-sm font-medium text-white">
-                                  {i === 0 && l.name !== 'Otros' && <span className="text-[#6B3FE7] mr-1.5">▲</span>}
+                                  {i === 0 && l.name !== 'Otros' && <span className="text-[#FFFD02] mr-1.5">▲</span>}
                                   {l.name}
                                 </span>
                                 <span className="text-xs text-[#A0A0B0]">{l.pct}%</span>
@@ -1309,7 +1309,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                   className="h-1.5 rounded-full transition-all"
                                   style={{
                                     width: `${l.pct}%`,
-                                    backgroundColor: l.name === 'Otros' ? '#52525b' : '#6B3FE7',
+                                    backgroundColor: l.name === 'Otros' ? '#52525b' : '#FFFD02',
                                   }}
                                 />
                               </div>
@@ -1371,7 +1371,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                       `Apareció en ${person!.count} título${person!.count !== 1 ? 's' : ''} que viste`,
                                       person!.profilePath ? `https://image.tmdb.org/t/p/w185${person!.profilePath}` : undefined,
                                     )}
-                                    className="shrink-0 flex items-center gap-1 text-xs text-[#A0A0B0] hover:text-[#6B3FE7] transition-colors p-2 rounded-lg border border-[#2A2A3A] hover:border-[#6B3FE7]"
+                                    className="shrink-0 flex items-center gap-1 text-xs text-[#A0A0B0] hover:text-[#FFFD02] transition-colors p-2 rounded-lg border border-[#2A2A3A] hover:border-[#FFFD02]"
                                     title="Compartir"
                                   >
                                     <Share2 size={13} />
@@ -1418,7 +1418,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             <div className="overflow-y-auto flex-1 px-3 py-3">
               {followListBusy ? (
                 <div className="flex justify-center py-10">
-                  <div className="w-6 h-6 border-2 border-[#6B3FE7] border-t-transparent rounded-full animate-spin" />
+                  <div className="w-6 h-6 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
                 </div>
               ) : followList.length === 0 ? (
                 <p className="text-[#A0A0B0] text-sm text-center py-10">
@@ -1453,7 +1453,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                               isFwg
                                 ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-                                : 'bg-[#6B3FE7] hover:bg-[#5A32C7] text-white'
+                                : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
                             }`}
                           >
                             {isFwg ? 'Siguiendo' : 'Seguir'}
@@ -1505,7 +1505,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 <button
                   type="button"
                   onClick={() => fileInputRef.current?.click()}
-                  className="text-xs text-[#6B3FE7] hover:text-[#8B6CF5] font-medium transition-colors"
+                  className="text-xs text-[#FFFD02] hover:text-[#FFF84D] font-medium transition-colors"
                 >
                   Cambiar foto
                 </button>
@@ -1540,11 +1540,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     placeholder="tu_usuario"
                     maxLength={30}
                     className={`w-full bg-[#1C1C27] border rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors ${
-                      usernameError ? 'border-red-500' : 'border-[#2A2A3A] focus:border-[#6B3FE7]'
+                      usernameError ? 'border-red-500' : 'border-[#2A2A3A] focus:border-[#FFFD02]'
                     }`}
                   />
                   {usernameChecking && (
-                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-zinc-500 border-t-[#6B3FE7] rounded-full animate-spin" />
+                    <div className="absolute right-3 top-1/2 -translate-y-1/2 w-3.5 h-3.5 border border-zinc-500 border-t-[#FFFD02] rounded-full animate-spin" />
                   )}
                 </div>
                 {usernameError && (
@@ -1562,7 +1562,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   onChange={e => setEditName(e.target.value)}
                   placeholder={localProfile.username ?? 'Tu nombre'}
                   maxLength={50}
-                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                 />
               </div>
 
@@ -1577,7 +1577,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   placeholder="Contá algo sobre vos..."
                   maxLength={200}
                   rows={3}
-                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors resize-none"
+                  className="w-full bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none transition-colors resize-none"
                 />
                 <p className="text-[11px] text-zinc-600 text-right mt-1">{editBio.length}/200</p>
               </div>
@@ -1595,7 +1595,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       onChange={e => setEditInstagram(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
 
@@ -1607,7 +1607,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       onChange={e => setEditTiktok(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
 
@@ -1619,7 +1619,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       onChange={e => setEditX(e.target.value)}
                       placeholder="@usuario"
                       maxLength={60}
-                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#6B3FE7] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
+                      className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-500 outline-none transition-colors"
                     />
                   </div>
                 </div>
@@ -1635,7 +1635,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <button
                 onClick={saveProfile}
                 disabled={editSaving || !!usernameError || usernameChecking}
-                className="inline-flex items-center gap-2 text-sm font-medium bg-[#6B3FE7] hover:bg-[#5A32C7] disabled:opacity-50 text-white px-5 py-2 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 text-black px-5 py-2 rounded-lg transition-colors"
               >
                 {editSaving
                   ? <div className="w-3.5 h-3.5 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -1671,7 +1671,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </button>
             </div>
             <div className="px-4 pt-4 pb-2">
-              <div className="flex items-center gap-2 bg-[#1C1C27] rounded-xl px-3 py-2.5 border border-[#2A2A3A] focus-within:border-[#6B3FE7] transition-colors">
+              <div className="flex items-center gap-2 bg-[#1C1C27] rounded-xl px-3 py-2.5 border border-[#2A2A3A] focus-within:border-[#FFFD02] transition-colors">
                 <SearchIcon size={14} className="text-[#A0A0B0] shrink-0" />
                 <input
                   autoFocus
@@ -1681,7 +1681,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   className="bg-transparent text-sm text-white placeholder-zinc-500 outline-none flex-1"
                 />
                 {searchBusy && (
-                  <div className="w-3.5 h-3.5 border border-zinc-600 border-t-[#6B3FE7] rounded-full animate-spin shrink-0" />
+                  <div className="w-3.5 h-3.5 border border-zinc-600 border-t-[#FFFD02] rounded-full animate-spin shrink-0" />
                 )}
               </div>
             </div>
@@ -1692,7 +1692,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     const label = result.title ?? result.name ?? ''
                     return (
                       <button key={result.id} onClick={() => savePin(searchingSlot!, result)} className="group/res text-left">
-                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1 ring-2 ring-transparent group-hover/res:ring-[#6B3FE7] transition-all">
+                        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1 ring-2 ring-transparent group-hover/res:ring-[#FFFD02] transition-all">
                           {result.poster_path ? (
                             <Image src={getPosterUrl(result.poster_path, 'w185')} alt={label} fill className="object-cover" sizes="90px" />
                           ) : (
@@ -1716,7 +1716,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
       {/* ── SHARED TOAST ───────────────────────────────────────── */}
       {sharedToast && (
-        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-[#13131A] border border-[#6B3FE7]/60 rounded-full shadow-2xl text-sm font-medium text-[#6B3FE7] flex items-center gap-2 animate-fade-in-up pointer-events-none">
+        <div className="fixed bottom-6 left-1/2 -translate-x-1/2 z-50 px-5 py-3 bg-[#13131A] border border-[#FFFD02]/60 rounded-full shadow-2xl text-sm font-medium text-[#FFFD02] flex items-center gap-2 animate-fade-in-up pointer-events-none">
           <Share2 size={14} />
           {sharedToast}
         </div>
