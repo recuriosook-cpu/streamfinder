@@ -464,17 +464,22 @@ export default function OnboardingPage() {
   // ── Auth guard ───────────────────────────────────────────────────────────
   useEffect(() => {
     async function init() {
-      const { data: { user: u } } = await supabase.auth.getUser()
+      // getSession() reads from localStorage/cookies immediately — no network race
+      const { data: { session } } = await supabase.auth.getSession()
+      const u = session?.user ?? null
+
       if (!u) { router.replace('/auth'); return }
 
-      // If already completed onboarding, go home
+      // Only redirect to home if onboarding is explicitly TRUE
       const { data: profile } = await supabase
         .from('profiles')
         .select('onboarding_completed')
         .eq('id', u.id)
         .maybeSingle()
 
-      if (profile?.onboarding_completed) { router.replace('/'); return }
+      console.log('[onboarding] onboarding_completed:', profile?.onboarding_completed)
+
+      if (profile?.onboarding_completed === true) { router.replace('/'); return }
 
       setUser(u)
       setLoading(false)

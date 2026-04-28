@@ -72,7 +72,8 @@ export default function AuthPage() {
           .select('username, onboarding_completed')
           .eq('id', data.user.id)
           .maybeSingle()
-        if (!profile?.onboarding_completed) {
+        console.log('onboarding_completed:', profile?.onboarding_completed)
+        if (profile?.onboarding_completed !== true) {
           router.replace('/onboarding')
         } else {
           router.replace(profile?.username ? `/usuario/${profile.username}` : '/')
