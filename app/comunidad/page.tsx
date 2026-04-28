@@ -126,7 +126,8 @@ function Avatar({ profile, size = 9 }: { profile: UserProfile; size?: number }) 
         style={{ width: px, height: px }}>
         {profile.avatar_url ? (
           // eslint-disable-next-line @next/next/no-img-element
-          <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover" />
+          <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
             {name[0]?.toUpperCase()}
@@ -146,7 +147,8 @@ function AvatarImg({ profile, size = 9 }: { profile: UserProfile; size?: number 
       style={{ width: px, height: px }}>
       {profile.avatar_url ? (
         // eslint-disable-next-line @next/next/no-img-element
-        <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover" />
+        <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover"
+          onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ) : (
         <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
           {name[0]?.toUpperCase()}
@@ -163,7 +165,12 @@ function Poster({ path, title, mediaType, mediaId }: {
     <Link href={`/${mediaType}/${mediaId}`} className="shrink-0">
       <div className="w-10 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]">
         {path ? (
-          <Image src={`https://image.tmdb.org/t/p/w92${path}`} alt={title} width={40} height={60} className="w-full h-full object-cover" />
+          <Image
+            src={`https://image.tmdb.org/t/p/w185${path}`}
+            alt={title} width={40} height={60}
+            className="w-full h-full object-cover"
+            onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+          />
         ) : (
           <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-[9px] text-center p-1">{title}</div>
         )}
@@ -418,8 +425,16 @@ function RecommendationCard({ item, currentUserId, supabase }: {
       <div className="p-4 -mt-2">
         <div className="flex gap-3 items-start">
           <Link href={`/movie/${item.movieId}`} className="shrink-0">
-            <div className="w-14 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]" style={{ marginTop: item.backdropPath ? '-28px' : 0 }}>
-              {item.posterPath && <Image src={`https://image.tmdb.org/t/p/w185${item.posterPath}`} alt={item.title} width={56} height={84} className="w-full h-full object-cover" />}
+            <div className="rounded-lg overflow-hidden bg-[#1C1C27]"
+              style={{ width: 80, height: 120, marginTop: item.backdropPath ? '-32px' : 0 }}>
+              {item.posterPath && (
+                <Image
+                  src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
+                  alt={item.title} width={80} height={120}
+                  className="w-full h-full object-cover"
+                  onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
+                />
+              )}
             </div>
           </Link>
           <div className="flex-1 min-w-0">
@@ -455,43 +470,6 @@ function RecommendationCard({ item, currentUserId, supabase }: {
   )
 }
 
-function ActiveUserCard({ profile, currentUserId, supabase }: {
-  profile: UserProfile; currentUserId: string; supabase: ReturnType<typeof createClient>
-}) {
-  const [following, setFollowing] = useState(false)
-  const [busy, setBusy] = useState(false)
-  const name = profile.display_name ?? profile.username ?? 'Usuario'
-  const toggle = async () => {
-    if (busy || profile.id === currentUserId) return
-    setBusy(true)
-    if (!following) await supabase.from('follows').insert({ follower_id: currentUserId, following_id: profile.id })
-    else await supabase.from('follows').delete().eq('follower_id', currentUserId).eq('following_id', profile.id)
-    setFollowing(v => !v)
-    setBusy(false)
-  }
-  return (
-    <div className="flex items-center gap-3 p-3 rounded-xl bg-[#13131A] border border-[#2A2A3A]">
-      <div className="w-10 h-10 rounded-full overflow-hidden bg-zinc-700 shrink-0">
-        {profile.avatar_url
-          // eslint-disable-next-line @next/next/no-img-element
-          ? <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover" />
-          : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">{name[0]?.toUpperCase()}</div>
-        }
-      </div>
-      <div className="flex-1 min-w-0">
-        <Link href={`/usuario/${profile.username}`} className="text-sm font-semibold text-white hover:text-[#6B3FE7] transition-colors block truncate">{name}</Link>
-        <p className="text-xs text-[#A0A0B0] truncate">@{profile.username}</p>
-      </div>
-      {profile.id !== currentUserId && (
-        <button onClick={toggle} disabled={busy}
-          className="shrink-0 text-xs font-semibold px-3 py-1.5 rounded-full transition-all"
-          style={{ backgroundColor: following ? 'transparent' : '#6B3FE7', color: following ? '#A0A0B0' : '#fff', border: following ? '1px solid #2A2A3A' : 'none' }}>
-          {following ? 'Siguiendo' : 'Seguir'}
-        </button>
-      )}
-    </div>
-  )
-}
 
 function FeedSkeleton() {
   return (
@@ -611,7 +589,6 @@ export default function ComunidadPage() {
   const [displayFeed,     setDisplayFeed]     = useState<FeedItem[]>([])
   const [visibleCount,    setVisibleCount]    = useState(PAGE_SIZE)
   const [feedLoading,     setFeedLoading]     = useState(false)
-  const [activeUsers,     setActiveUsers]     = useState<UserProfile[]>([])
 
   // Compat state
   const [compatItems,   setCompatItems]   = useState<CompatItem[]>([])
@@ -639,15 +616,6 @@ export default function ComunidadPage() {
       const ids = (followsRes.data ?? []).map((r: { following_id: string }) => r.following_id)
       setFollowingIds(ids)
 
-      if (ids.length === 0) {
-        const { data: active } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url')
-          .neq('id', u.id)
-          .order('points', { ascending: false, nullsFirst: false })
-          .limit(6)
-        setActiveUsers((active ?? []) as UserProfile[])
-      }
 
       if (ids.length > 0) {
         const { data: rows } = await supabase
@@ -916,15 +884,7 @@ export default function ComunidadPage() {
       {tab === 'feed' && (
         <>
           {followingIds.length === 0 && (
-            <div className="mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-              <p className="text-sm font-semibold text-white mb-1">Seguí a otros usuarios para ver su actividad acá</p>
-              <p className="text-xs text-[#A0A0B0] mb-4">Descubrí qué están viendo y leyendo otros cinéfilos.</p>
-              {activeUsers.length > 0 && (
-                <div className="space-y-2">
-                  {activeUsers.map(u => <ActiveUserCard key={u.id} profile={u} currentUserId={currentUserId} supabase={supabase} />)}
-                </div>
-              )}
-            </div>
+            <p className="text-sm text-[#A0A0B0] mb-6">Seguí a otros usuarios para ver su actividad acá.</p>
           )}
 
           {feedLoading ? <FeedSkeleton /> : displayFeed.length === 0 && followingIds.length > 0 ? (
