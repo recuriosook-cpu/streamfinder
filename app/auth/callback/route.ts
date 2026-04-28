@@ -4,28 +4,26 @@ import { NextResponse } from 'next/server'
 
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
-  const code       = requestUrl.searchParams.get('code')
+  const code = requestUrl.searchParams.get('code')
 
   if (code) {
     const cookieStore = await cookies()
-
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
       process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!,
       {
         cookies: {
-          getAll()           { return cookieStore.getAll() },
-          setAll(toSet)      {
+          getAll() { return cookieStore.getAll() },
+          setAll(toSet) {
             try {
               toSet.forEach(({ name, value, options }) => cookieStore.set(name, value, options))
-            } catch { /* headers already sent in some edge cases */ }
+            } catch {}
           },
         },
-      },
+      }
     )
 
     await supabase.auth.exchangeCodeForSession(code)
-
     const { data: { user } } = await supabase.auth.getUser()
 
     if (user) {
@@ -36,25 +34,25 @@ export async function GET(request: Request) {
         .maybeSingle()
 
       if (!profile) {
-        // Supabase trigger may not have fired yet — create profile manually
-        const base     = user.email?.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') ?? 'user'
+        const base = user.email?.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') ?? 'user'
         const username = base + Math.floor(Math.random() * 999)
         await supabase.from('profiles').insert({
-          id:                   user.id,
+          id: user.id,
           username,
-          display_name:         user.user_metadata?.full_name ?? user.user_metadata?.name ?? username,
-          avatar_url:           user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
-          points:               0,
-          level:                1,
+          display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? username,
+          avatar_url: user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
+          points: 0,
+          level: 1,
           onboarding_completed: false,
         })
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
 
-      // Profile exists — check onboarding status
-      if (!profile.onboarding_completed) {
+      if (profile.onboarding_completed !== true) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
+
+      return NextResponse.redirect(new URL('/', request.url))
     }
   }
 
