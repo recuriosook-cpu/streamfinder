@@ -31,34 +31,28 @@ export async function GET(request: Request) {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('id')
+        .select('onboarding_completed, username')
         .eq('id', user.id)
         .maybeSingle()
 
       if (!profile) {
+        // Supabase trigger may not have fired yet — create profile manually
         const base     = user.email?.split('@')[0].replace(/[^a-zA-Z0-9]/g, '') ?? 'user'
         const username = base + Math.floor(Math.random() * 999)
         await supabase.from('profiles').insert({
-          id:           user.id,
+          id:                   user.id,
           username,
-          display_name: user.user_metadata?.full_name ?? user.user_metadata?.name ?? username,
-          avatar_url:   user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
-          points:       0,
-          level:        1,
+          display_name:         user.user_metadata?.full_name ?? user.user_metadata?.name ?? username,
+          avatar_url:           user.user_metadata?.avatar_url ?? user.user_metadata?.picture ?? null,
+          points:               0,
+          level:                1,
+          onboarding_completed: false,
         })
-        // Give DB a moment to commit before the client reads the profile
-        await new Promise(resolve => setTimeout(resolve, 500))
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
 
-      // Existing user — only skip onboarding if explicitly completed
-      const { data: fullProfile } = await supabase
-        .from('profiles')
-        .select('onboarding_completed')
-        .eq('id', user.id)
-        .maybeSingle()
-
-      if (fullProfile?.onboarding_completed !== true) {
+      // Profile exists — check onboarding status
+      if (!profile.onboarding_completed) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
     }
