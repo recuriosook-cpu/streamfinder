@@ -2,8 +2,8 @@ const TMDB_API_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const BASE_URL = 'https://api.themoviedb.org/3'
 const IMAGE_BASE = 'https://image.tmdb.org/t/p'
 
-export const getPosterUrl = (path: string | null, size = 'w342') =>
-  path ? `${IMAGE_BASE}/${size}${path}` : '/no-poster.png'
+export const getPosterUrl = (path: string | null | undefined, size = 'w342') =>
+  path ? `${IMAGE_BASE}/${size}${path}` : '/no-poster.svg'
 
 export const getBackdropUrl = (path: string | null, size = 'w1280') =>
   path ? `${IMAGE_BASE}/${size}${path}` : null
