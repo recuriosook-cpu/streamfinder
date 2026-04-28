@@ -1,6 +1,7 @@
 'use client'
 
 import { useEffect, useState, useRef } from 'react'
+import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, TrendingUp, Star, Heart } from 'lucide-react'
@@ -488,6 +489,7 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
 export default function HomeClient() {
   const { country } = useCountry()
   const supabase = useRef(createClient()).current
+  const router = useRouter()
 
   // Platform data
   const [platformData, setPlatformData]   = useState<HomeData | null>(null)
@@ -532,6 +534,20 @@ export default function HomeClient() {
       ])
 
       const u = authRes.data.user ?? null
+
+      // Redirect to onboarding if not completed — catches all auth methods
+      if (u) {
+        const { data: profile } = await supabase
+          .from('profiles')
+          .select('onboarding_completed')
+          .eq('id', u.id)
+          .maybeSingle()
+        if (profile && profile.onboarding_completed === false) {
+          router.replace('/onboarding')
+          return
+        }
+      }
+
       setUser(u)
 
       // Hero backdrop: mejor vote_average del trending del día, sin animaciones
