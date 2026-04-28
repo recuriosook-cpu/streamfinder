@@ -46,18 +46,19 @@ export async function GET(request: Request) {
           points:       0,
           level:        1,
         })
-        // New user → send to onboarding
+        // Give DB a moment to commit before the client reads the profile
+        await new Promise(resolve => setTimeout(resolve, 500))
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
 
-      // Existing user — check if onboarding is done
+      // Existing user — only skip onboarding if explicitly completed
       const { data: fullProfile } = await supabase
         .from('profiles')
         .select('onboarding_completed')
         .eq('id', user.id)
         .maybeSingle()
 
-      if (!fullProfile?.onboarding_completed) {
+      if (fullProfile?.onboarding_completed !== true) {
         return NextResponse.redirect(new URL('/onboarding', request.url))
       }
     }

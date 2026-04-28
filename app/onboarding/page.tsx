@@ -706,9 +706,11 @@ export default function OnboardingPage() {
 
       {/* Header */}
       <div className="text-center mt-8 mb-8">
-        <p className="text-xs text-[#A0A0B0] uppercase tracking-widest mb-3">Personalicemos tu experiencia</p>
-        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">{cfg.title}</h1>
-        <p className="text-sm text-[#A0A0B0] max-w-sm mx-auto">{cfg.sub}</p>
+        <h1 className="font-bold text-white mb-3" style={{ fontSize: '32px' }}>
+          Personalicemos tu experiencia
+        </h1>
+        <p className="text-[#A0A0B0] mb-1" style={{ fontSize: '18px' }}>{cfg.title}</p>
+        <p className="text-sm text-[#A0A0B0] max-w-sm mx-auto mt-1">{cfg.sub}</p>
       </div>
 
       {/* Step content */}
