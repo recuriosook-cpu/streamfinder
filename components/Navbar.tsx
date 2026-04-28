@@ -527,9 +527,9 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
-              <Link href="/siguiendo" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+              <Link href="/comunidad" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <Users size={16} />
-                Siguiendo
+                Comunidad
               </Link>
               <Link href="/favorites" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <Heart size={16} />
@@ -655,8 +655,8 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
-              <Link href="/siguiendo" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
-                <Users size={16} /> Siguiendo
+              <Link href="/comunidad" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+                <Users size={16} /> Comunidad
               </Link>
               <Link href="/favorites" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
                 <Heart size={16} /> Favoritos
