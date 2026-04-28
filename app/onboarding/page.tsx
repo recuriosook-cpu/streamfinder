@@ -495,7 +495,7 @@ export default function OnboardingPage() {
         supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url, points, level')
-          .order('points', { ascending: false, nullsLast: true })
+          .order('points', { ascending: false, nullsFirst: false })
           .limit(10),
         supabase
           .from('profiles')
