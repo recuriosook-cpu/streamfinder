@@ -17,6 +17,7 @@ import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
+import AddToListButton from '@/components/AddToListButton'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -219,6 +220,12 @@ export default async function TVPage({ params }: Props) {
                 title={show.name}
                 year={show.first_air_date?.slice(0, 4)}
                 score={show.vote_average}
+              />
+              <AddToListButton
+                mediaId={show.id}
+                mediaType="tv"
+                title={show.name}
+                posterPath={show.poster_path}
               />
             </div>
 

@@ -100,7 +100,7 @@ interface TmdbResult {
   title?: string; name?: string; poster_path: string | null
 }
 
-type Tab = 'perfil' | 'yavi' | 'resenas' | 'paraVer' | 'stats'
+type Tab = 'perfil' | 'yavi' | 'resenas' | 'listas' | 'paraVer' | 'stats'
 
 interface StatsData {
   moviesMonth: number
@@ -216,6 +216,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [allWatched,       setAllWatched]       = useState<WatchedItem[]>([])
   const [allReviews,       setAllReviews]       = useState<ReviewItem[]>([])
   const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
+  const [userLists,        setUserLists]        = useState<{ id: string; title: string; itemCount: number; likeCount: number; previews: (string | null)[] }[]>([])
 
   // ── Stats tab data ─────────────────────────────────────────────
   const [statsData,    setStatsData]    = useState<StatsData | null>(null)
@@ -336,6 +337,34 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at')
         .eq('user_id', profile.id).order('added_at', { ascending: false })
         .then(({ data }) => setAllWatchlist(data ?? []))
+    }
+    if (activeTab === 'listas') {
+      supabase.from('lists')
+        .select('id,title')
+        .eq('user_id', profile.id)
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .then(async ({ data: rawLists }) => {
+          if (!rawLists?.length) { setUserLists([]); return }
+          const ids = rawLists.map(l => l.id)
+          const [likesRes, itemsRes] = await Promise.all([
+            supabase.from('list_likes').select('list_id').in('list_id', ids),
+            supabase.from('list_items').select('list_id,poster_path').in('list_id', ids).order('position').limit(200),
+          ])
+          const likesByList: Record<string, number> = {}
+          for (const l of (likesRes.data ?? [])) likesByList[l.list_id] = (likesByList[l.list_id] ?? 0) + 1
+          const itemsByList: Record<string, { poster_path: string | null }[]> = {}
+          for (const i of (itemsRes.data ?? [])) {
+            itemsByList[i.list_id] = itemsByList[i.list_id] ?? []
+            itemsByList[i.list_id].push(i)
+          }
+          setUserLists(rawLists.map(l => ({
+            id: l.id, title: l.title,
+            likeCount: likesByList[l.id] ?? 0,
+            itemCount: (itemsByList[l.id] ?? []).length,
+            previews: (itemsByList[l.id] ?? []).slice(0, 4).map(i => i.poster_path),
+          })))
+        })
     }
     if (activeTab === 'stats') loadStats()
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -646,6 +675,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     { id: 'perfil',  label: 'Perfil'       },
     { id: 'yavi',    label: 'Ya vi'        },
     { id: 'resenas', label: 'Reseñas'      },
+    { id: 'listas',  label: 'Listas'       },
     { id: 'paraVer', label: 'Para ver'     },
     ...(isOwner ? [{ id: 'stats' as Tab, label: 'Estadísticas' }] : []),
   ]
@@ -1071,6 +1101,36 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   currentUserId={currentUserId ?? null}
                   onLike={() => toggleReviewLike(r.id)}
                 />
+              ))}
+            </div>
+          )
+        )}
+
+        {/* ── LISTAS ── */}
+        {activeTab === 'listas' && (
+          userLists.length === 0 ? (
+            <EmptyCard>Sin listas públicas todavía.</EmptyCard>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              {userLists.map(l => (
+                <Link key={l.id} href={`/listas/${l.id}`}
+                  className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
+                  {/* Preview grid */}
+                  <div className="flex gap-1 mb-3 h-16">
+                    {l.previews.length > 0 ? l.previews.map((p, i) => (
+                      <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
+                        {p ? (
+                          <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={60} height={64} className="w-full h-full object-cover" />
+                        ) : <div className="w-full h-full bg-[#1C1C27]" />}
+                      </div>
+                    )) : null}
+                    {Array.from({ length: Math.max(0, 4 - l.previews.length) }).map((_, i) => (
+                      <div key={`e-${i}`} className="flex-1 rounded-md bg-[#1C1C27]" />
+                    ))}
+                  </div>
+                  <p className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-1 mb-1">{l.title}</p>
+                  <p className="text-xs text-[#A0A0B0]">{l.itemCount} títulos · {l.likeCount} likes</p>
+                </Link>
               ))}
             </div>
           )

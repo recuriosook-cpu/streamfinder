@@ -17,6 +17,7 @@ import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
+import AddToListButton from '@/components/AddToListButton'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -214,6 +215,12 @@ export default async function MoviePage({ params }: Props) {
                 title={movie.title}
                 year={movie.release_date?.slice(0, 4)}
                 score={movie.vote_average}
+              />
+              <AddToListButton
+                mediaId={movie.id}
+                mediaType="movie"
+                title={movie.title}
+                posterPath={movie.poster_path}
               />
             </div>
 

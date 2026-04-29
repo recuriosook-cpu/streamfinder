@@ -67,7 +67,13 @@ interface RecommendationFeed {
   posterPath: string | null; backdropPath: string | null
 }
 
-type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed
+interface ListFeed {
+  key: string; type: 'list_created'; userId: string; sortTime: string
+  listId: string; listTitle: string; listDescription: string | null
+  previews: (string | null)[]; itemCount: number
+}
+
+type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed | ListFeed
 
 type Tab = 'feed' | 'compat' | 'achievements'
 
@@ -107,6 +113,7 @@ function Badge({ label, color }: { label: string; color: string }) {
     blue:   { bg: 'rgba(59,130,246,0.12)', text: '#60a5fa' },
     purple: { bg: 'rgba(255,253,2,0.12)', text: '#FFFD02' },
     gold:   { bg: 'rgba(245,166,35,0.12)', text: '#F5A623' },
+    orange: { bg: 'rgba(249,115,22,0.12)', text: '#f97316' },
   }
   const s = styles[color] ?? styles.purple
   return (
@@ -385,6 +392,46 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
   )
 }
 
+function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, UserProfile> }) {
+  const p = profiles.get(item.userId)
+  if (!p) return null
+  return (
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+      <div className="flex items-start gap-3">
+        <Avatar profile={p} />
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-3">
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
+              {p.display_name ?? p.username}
+            </Link>
+            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            <Badge label="Lista" color="orange" />
+            <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
+          </div>
+          {/* Preview posters */}
+          <div className="flex gap-1 mb-3 h-[60px]">
+            {item.previews.slice(0, 4).map((p2, i) => (
+              <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
+                {p2 ? <Image src={`https://image.tmdb.org/t/p/w185${p2}`} alt="" width={60} height={60} className="w-full h-full object-cover" /> : null}
+              </div>
+            ))}
+            {Array.from({ length: Math.max(0, 4 - item.previews.length) }).map((_, i) => (
+              <div key={`e-${i}`} className="flex-1 rounded-md bg-[#1C1C27]" />
+            ))}
+          </div>
+          <p className="text-sm font-semibold text-white mb-0.5 line-clamp-1">{item.listTitle}</p>
+          {item.listDescription && <p className="text-xs text-[#A0A0B0] line-clamp-2 mb-2">{item.listDescription}</p>}
+          <p className="text-xs text-[#A0A0B0] mb-3">{item.itemCount} {item.itemCount === 1 ? 'título' : 'títulos'}</p>
+          <Link href={`/listas/${item.listId}`}
+            className="inline-flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full border border-[#FFFD02]/40 text-[#FFFD02] hover:bg-[#FFFD02]/10 transition-colors">
+            Ver lista completa →
+          </Link>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function RecommendationCard({ item, currentUserId, supabase }: {
   item: RecommendationFeed; currentUserId: string
   supabase: ReturnType<typeof createClient>
@@ -655,12 +702,13 @@ export default function ComunidadPage() {
   // ── Feed loader ────────────────────────────────────────────────────────────
   const loadFeed = useCallback(async (followIds: string[], uid: string) => {
     setFeedLoading(true)
-    const [reviewsRes, ratingsRes, watchlistRes, statsRes, levelUpsRes] = await Promise.all([
+    const [reviewsRes, ratingsRes, watchlistRes, statsRes, levelUpsRes, listsRes] = await Promise.all([
       supabase.from('reviews').select('id, user_id, media_id, media_type, title, poster_path, rating, body, created_at, review_likes(user_id)').in('user_id', followIds).order('created_at', { ascending: false }).limit(40),
       supabase.from('ratings').select('id, user_id, media_id, media_type, title, poster_path, rating, rated_at').in('user_id', followIds).gte('rating', 3.5).order('rated_at', { ascending: false }).limit(40),
       supabase.from('watchlist').select('id, user_id, media_id, media_type, title, poster_path, added_at').in('user_id', followIds).order('added_at', { ascending: false }).limit(30),
       supabase.from('shared_stats').select('id, user_id, stat_title, stat_value, stat_detail, stat_image_url, created_at, shared_stat_likes(user_id)').in('user_id', followIds).order('created_at', { ascending: false }).limit(20),
       supabase.from('notifications').select('id, user_id, review_title, created_at').in('user_id', followIds).eq('type', 'level_up').order('created_at', { ascending: false }).limit(10),
+      supabase.from('lists').select('id, user_id, title, description, created_at').in('user_id', followIds).eq('is_public', true).order('created_at', { ascending: false }).limit(15),
     ])
 
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -691,7 +739,22 @@ export default function ComunidadPage() {
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const levelUps: LevelUpFeed[] = ((levelUpsRes.data ?? []) as any[]).map(n => ({ key: `levelup-${n.id}`, type: 'level_up' as const, userId: n.user_id, sortTime: n.created_at, levelName: n.review_title ?? 'nuevo nivel' }))
 
-    setRawFeed([...reviews, ...ratings, ...watchlist, ...stats, ...levelUps].sort((a, b) => b.sortTime.localeCompare(a.sortTime)))
+    // Fetch list item previews
+    const listRows = (listsRes.data ?? []) as { id: string; user_id: string; title: string; description: string | null; created_at: string }[]
+    let listFeeds: ListFeed[] = []
+    if (listRows.length > 0) {
+      const { data: listItems } = await supabase.from('list_items').select('list_id,poster_path').in('list_id', listRows.map(l => l.id)).order('position').limit(200)
+      const previewMap: Record<string, (string | null)[]> = {}
+      const countMap: Record<string, number> = {}
+      for (const i of (listItems ?? [])) {
+        previewMap[i.list_id] = previewMap[i.list_id] ?? []
+        previewMap[i.list_id].push(i.poster_path)
+        countMap[i.list_id] = (countMap[i.list_id] ?? 0) + 1
+      }
+      listFeeds = listRows.map(l => ({ key: `list-${l.id}`, type: 'list_created' as const, userId: l.user_id, sortTime: l.created_at, listId: l.id, listTitle: l.title, listDescription: l.description, previews: (previewMap[l.id] ?? []).slice(0, 4), itemCount: countMap[l.id] ?? 0 }))
+    }
+
+    setRawFeed([...reviews, ...ratings, ...watchlist, ...stats, ...levelUps, ...listFeeds].sort((a, b) => b.sortTime.localeCompare(a.sortTime)))
     setFeedLoading(false)
   }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -901,6 +964,7 @@ export default function ComunidadPage() {
                   if (item.type === 'watchlist') return <WatchlistCard key={item.key} item={item} profiles={profiles} currentUserId={currentUserId} onAdd={addToWatchlist} />
                   if (item.type === 'shared_stat') return <SharedStatCard key={item.key} item={item} profiles={profiles} currentUserId={currentUserId} onLike={toggleStatLike} />
                   if (item.type === 'level_up') return <LevelUpCard key={item.key} item={item} profiles={profiles} />
+                  if (item.type === 'list_created') return <ListCard key={item.key} item={item} profiles={profiles} />
                   if (item.type === 'recommendation') return <RecommendationCard key={item.key} item={item} currentUserId={currentUserId} supabase={supabase} />
                   return null
                 })}
