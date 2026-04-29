@@ -495,6 +495,10 @@ interface OfficialList {
 }
 
 function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loading: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scroll = (dir: 'left' | 'right') =>
+    scrollRef.current?.scrollBy({ left: dir === 'right' ? 400 : -400, behavior: 'smooth' })
+
   if (!loading && !lists.length) return null
 
   return (
@@ -507,41 +511,67 @@ function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loadi
           </h2>
           <p className="text-xs text-[#A0A0B0] mt-0.5">Colecciones curadas por el equipo</p>
         </div>
-        <Link href="/listas" className="text-xs text-[#FFFD02] hover:underline shrink-0">Ver todas →</Link>
+        <div className="flex items-center gap-2">
+          <Link href="/listas" className="text-xs text-[#FFFD02] hover:underline mr-1 shrink-0">Ver todas →</Link>
+          <button onClick={() => scroll('left')}
+            className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors">
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => scroll('right')}
+            className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors">
+            <ChevronRight size={16} />
+          </button>
+        </div>
       </div>
 
       {loading ? (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
-          {Array.from({ length: 3 }).map((_, i) => (
-            <div key={i} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 h-40" />
+        <div className="flex gap-4 overflow-hidden animate-pulse">
+          {Array.from({ length: 4 }).map((_, i) => (
+            <div key={i} className="shrink-0 w-52 bg-[#13131A] border border-[#2A2A3A] rounded-xl h-52" />
           ))}
         </div>
       ) : (
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+        <div ref={scrollRef} className="flex gap-4 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
           {lists.map(l => (
-            <Link key={l.id} href={`/listas/${l.id}`}
-              className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
-              <div className="flex items-center gap-2 mb-3">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: 'rgba(255,253,2,0.15)', color: '#FFFD02' }}>
-                  Glynbox
-                </span>
-              </div>
-              <div className="flex gap-1 mb-3 h-[64px]">
-                {l.previews.slice(0, 4).map((p, i) => (
-                  <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
-                    {p ? (
-                      <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={60} height={64}
-                        className="w-full h-full object-cover" />
+            <Link
+              key={l.id}
+              href={`/listas/${l.id}`}
+              className="shrink-0 w-52 group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block carousel-snap"
+            >
+              {/* 2×2 poster grid — Letterboxd style */}
+              <div className="grid grid-cols-2 gap-0.5 mb-3 rounded-lg overflow-hidden" style={{ height: 96 }}>
+                {[0, 1, 2, 3].map(i => (
+                  <div key={i} className="relative overflow-hidden bg-[#1C1C27]">
+                    {l.previews[i] ? (
+                      <Image
+                        src={`https://image.tmdb.org/t/p/w185${l.previews[i]}`}
+                        alt=""
+                        fill
+                        className="object-cover"
+                        sizes="96px"
+                      />
                     ) : null}
                   </div>
                 ))}
-                {Array.from({ length: Math.max(0, 4 - l.previews.length) }).map((_, i) => (
-                  <div key={`e-${i}`} className="flex-1 rounded-md bg-[#1C1C27]" />
-                ))}
               </div>
-              <p className="font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-1 text-sm mb-1">{l.title}</p>
-              <p className="text-xs text-[#A0A0B0]">{l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}</p>
+
+              {/* Badge */}
+              <div className="mb-2">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#FFFD02', color: '#000' }}>
+                  Glynbox
+                </span>
+              </div>
+
+              {/* Title */}
+              <p className="font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-2 text-sm leading-snug mb-1">
+                {l.title}
+              </p>
+
+              {/* Count */}
+              <p className="text-xs text-[#A0A0B0]">
+                {l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}
+              </p>
             </Link>
           ))}
         </div>

@@ -538,9 +538,6 @@ export default function Navbar() {
             <Compass size={16} />
             Qué ver
           </Link>
-          <Link href="/listas" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
-            Listas
-          </Link>
           {user ? (
             <>
               <Link href="/comunidad" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
