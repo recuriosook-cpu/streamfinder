@@ -15,8 +15,6 @@ interface ListCard {
   itemCount: number
 }
 
-export const metadata = { title: 'Listas — Glynbox' }
-
 export default function ListasPage() {
   const supabase = useRef(createClient()).current
   const [tab, setTab] = useState<'popular' | 'recent'>('popular')

@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { Suspense, useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { X, Plus, Search, ArrowLeft, Tag, ArrowUp, ArrowDown } from 'lucide-react'
@@ -18,7 +18,7 @@ interface SearchResult {
   title: string; poster_path: string | null; year: string
 }
 
-export default function NuevaListaPage() {
+function NuevaListaContent() {
   const router = useRouter()
   const searchParams = useSearchParams()
   const editId = searchParams.get('edit')
@@ -287,5 +287,17 @@ export default function NuevaListaPage() {
         </div>
       </div>
     </div>
+  )
+}
+
+export default function NuevaListaPage() {
+  return (
+    <Suspense fallback={
+      <div className="flex justify-center items-center min-h-[60vh]">
+        <div className="w-8 h-8 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+      </div>
+    }>
+      <NuevaListaContent />
+    </Suspense>
   )
 }
