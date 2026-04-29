@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy } from 'lucide-react'
+import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
@@ -75,7 +75,14 @@ interface ListFeed {
 
 type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed | ListFeed
 
-type Tab = 'feed' | 'compat' | 'achievements'
+interface CommunityListCard {
+  id: string; title: string; description: string | null; tags: string[]
+  created_at: string; user_id: string
+  author: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+  likeCount: number; previews: (string | null)[]; itemCount: number
+}
+
+type Tab = 'feed' | 'compat' | 'achievements' | 'listas'
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
 
@@ -609,7 +616,7 @@ function AchievementCard({ a }: { a: Achievement }) {
 function TabButton({ active, onClick, icon, label }: { active: boolean; onClick: () => void; icon: React.ReactNode; label: string }) {
   return (
     <button onClick={onClick}
-      className={`flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
+      className={`shrink-0 flex items-center gap-1.5 px-4 py-2 text-sm font-medium rounded-lg transition-all ${
         active ? 'bg-[#FFFD02]/15 text-[#FFFD02]' : 'text-[#A0A0B0] hover:text-zinc-300 hover:bg-[#1C1C27]'
       }`}>
       {icon}{label}
@@ -646,6 +653,11 @@ export default function ComunidadPage() {
   const [achievements,        setAchievements]        = useState<Achievement[]>([])
   const [achievementsLoading, setAchievementsLoading] = useState(false)
   const [achievementsLoaded,  setAchievementsLoaded]  = useState(false)
+
+  // Community lists state
+  const [communityLists, setCommunityLists] = useState<CommunityListCard[]>([])
+  const [listsLoading,   setListsLoading]   = useState(false)
+  const [listsLoaded,    setListsLoaded]    = useState(false)
 
   // ── Bootstrap ──────────────────────────────────────────────────────────────
   useEffect(() => {
@@ -878,6 +890,54 @@ export default function ComunidadPage() {
 
   useEffect(() => { if (tab === 'achievements' && !achievementsLoaded) loadAchievements() }, [tab, achievementsLoaded, loadAchievements])
 
+  // ── Community Lists (lazy) ─────────────────────────────────────────────────
+  const loadCommunityLists = useCallback(async () => {
+    setListsLoading(true)
+    const { data: rawLists } = await supabase
+      .from('lists')
+      .select('id, title, description, tags, created_at, user_id')
+      .eq('is_public', true)
+      .order('created_at', { ascending: false })
+      .limit(8)
+
+    if (!rawLists?.length) { setCommunityLists([]); setListsLoading(false); setListsLoaded(true); return }
+
+    const userIds = [...new Set(rawLists.map(l => l.user_id))]
+    const listIds = rawLists.map(l => l.id)
+
+    const [profilesRes, likesRes, itemsRes] = await Promise.all([
+      supabase.from('profiles').select('id,username,display_name,avatar_url').in('id', userIds),
+      supabase.from('list_likes').select('list_id').in('list_id', listIds),
+      supabase.from('list_items').select('list_id,poster_path').in('list_id', listIds).order('position').limit(100),
+    ])
+
+    const profileMap = Object.fromEntries((profilesRes.data ?? []).map(p => [p.id, p]))
+    const likesByList: Record<string, number> = {}
+    for (const l of (likesRes.data ?? [])) likesByList[l.list_id] = (likesByList[l.list_id] ?? 0) + 1
+    const itemsByList: Record<string, { poster_path: string | null }[]> = {}
+    for (const i of (itemsRes.data ?? [])) {
+      itemsByList[i.list_id] = itemsByList[i.list_id] ?? []
+      itemsByList[i.list_id].push(i)
+    }
+
+    setCommunityLists(
+      rawLists
+        .map(l => ({
+          ...l,
+          // eslint-disable-next-line @typescript-eslint/no-explicit-any
+          author: (profileMap as any)[l.user_id] ?? null,
+          likeCount: likesByList[l.id] ?? 0,
+          previews: (itemsByList[l.id] ?? []).slice(0, 4).map(i => i.poster_path),
+          itemCount: (itemsByList[l.id] ?? []).length,
+        }))
+        .sort((a, b) => b.likeCount - a.likeCount)
+    )
+    setListsLoading(false)
+    setListsLoaded(true)
+  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  useEffect(() => { if (tab === 'listas' && !listsLoaded) loadCommunityLists() }, [tab, listsLoaded, loadCommunityLists])
+
   // ── Like toggles ───────────────────────────────────────────────────────────
   const toggleReviewLike = (reviewId: string) => {
     if (!currentUserId) return
@@ -937,10 +997,11 @@ export default function ComunidadPage() {
       <h1 className="text-2xl font-bold mb-5 flex items-center gap-2"><Users size={22} /> Comunidad</h1>
 
       {/* Tabs */}
-      <div className="flex gap-1 mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1">
+      <div className="flex gap-1 mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1 overflow-x-auto no-scrollbar">
         <TabButton active={tab === 'feed'}         onClick={() => setTab('feed')}         icon={<Zap size={15} />}    label="Feed" />
         <TabButton active={tab === 'compat'}       onClick={() => setTab('compat')}       icon={<Heart size={15} />}  label="Compatibilidad" />
         <TabButton active={tab === 'achievements'} onClick={() => setTab('achievements')} icon={<Trophy size={15} />} label="Logros" />
+        <TabButton active={tab === 'listas'}       onClick={() => setTab('listas')}       icon={<List size={15} />}   label="Listas" />
       </div>
 
       {/* ── FEED ── */}
@@ -1046,6 +1107,65 @@ export default function ComunidadPage() {
               <div className="space-y-3">{achievements.filter(a => a.completed).map(a => <AchievementCard key={a.id} a={a} />)}</div>
               {achievements.filter(a => !a.completed).length > 0 && <p className="text-xs text-zinc-600 uppercase tracking-wider font-semibold mt-5 mb-2">En progreso</p>}
               <div className="space-y-3">{achievements.filter(a => !a.completed).map(a => <AchievementCard key={a.id} a={a} />)}</div>
+            </>
+          )}
+        </>
+      )}
+
+      {/* ── LISTAS ── */}
+      {tab === 'listas' && (
+        <>
+          <div className="flex items-center justify-between mb-5">
+            <p className="text-xs text-[#A0A0B0]">Listas públicas, ordenadas por popularidad</p>
+            <Link href="/listas" className="text-xs text-[#FFFD02] hover:underline shrink-0">Ver todas →</Link>
+          </div>
+          {listsLoading ? (
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
+              {Array.from({ length: 4 }).map((_, i) => (
+                <div key={i} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 h-44" />
+              ))}
+            </div>
+          ) : communityLists.length === 0 ? (
+            <div className="text-center py-16 text-[#A0A0B0]">
+              <p>No hay listas públicas todavía.</p>
+              <Link href="/listas/nueva" className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] transition-colors">
+                <Plus size={14} /> Crear la primera
+              </Link>
+            </div>
+          ) : (
+            <>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mb-5">
+                {communityLists.map(l => (
+                  <Link key={l.id} href={`/listas/${l.id}`}
+                    className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
+                    <div className="flex gap-1 mb-3 h-[60px]">
+                      {l.previews.slice(0, 4).map((p, i) => (
+                        <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
+                          {p ? <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={60} height={60} className="w-full h-full object-cover" /> : null}
+                        </div>
+                      ))}
+                      {Array.from({ length: Math.max(0, 4 - l.previews.length) }).map((_, i) => (
+                        <div key={`e-${i}`} className="flex-1 rounded-md bg-[#1C1C27]" />
+                      ))}
+                    </div>
+                    <p className="font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-1 mb-1 text-sm">{l.title}</p>
+                    {l.description && <p className="text-xs text-[#A0A0B0] line-clamp-1 mb-1">{l.description}</p>}
+                    <div className="flex items-center justify-between text-xs text-[#A0A0B0] mt-1">
+                      <span>{l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}</span>
+                      <span className="flex items-center gap-2">
+                        <span className="flex items-center gap-1"><Heart size={10} /> {l.likeCount}</span>
+                        <span>@{l.author?.username ?? 'usuario'}</span>
+                      </span>
+                    </div>
+                  </Link>
+                ))}
+              </div>
+              <div className="text-center">
+                <Link href="/listas"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold border border-[#FFFD02]/40 text-[#FFFD02] hover:bg-[#FFFD02]/10 transition-colors">
+                  Ver todas las listas →
+                </Link>
+              </div>
             </>
           )}
         </>

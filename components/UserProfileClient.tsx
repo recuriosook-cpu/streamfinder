@@ -1108,10 +1108,19 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
         {/* ── LISTAS ── */}
         {activeTab === 'listas' && (
-          userLists.length === 0 ? (
-            <EmptyCard>Sin listas públicas todavía.</EmptyCard>
-          ) : (
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+          <>
+            {isOwner && (
+              <div className="mb-5">
+                <Link href="/listas/nueva"
+                  className="inline-flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] transition-colors">
+                  <Plus size={16} /> Crear nueva lista
+                </Link>
+              </div>
+            )}
+            {userLists.length === 0 ? (
+              <EmptyCard>{isOwner ? 'No tenés listas creadas todavía.' : 'Sin listas públicas todavía.'}</EmptyCard>
+            ) : (
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {userLists.map(l => (
                 <Link key={l.id} href={`/listas/${l.id}`}
                   className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
@@ -1132,8 +1141,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   <p className="text-xs text-[#A0A0B0]">{l.itemCount} títulos · {l.likeCount} likes</p>
                 </Link>
               ))}
-            </div>
-          )
+              </div>
+            )}
+          </>
         )}
 
         {/* ── PARA VER ── */}

@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingUp, Star, Heart } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, Star, Heart, List } from 'lucide-react'
 import MoodRecommender from '@/components/MoodRecommender'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
@@ -487,6 +487,69 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
   )
 }
 
+// ── Official Lists Section ────────────────────────────────────────────────────
+
+interface OfficialList {
+  id: string; title: string; description: string | null
+  previews: (string | null)[]; itemCount: number
+}
+
+function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loading: boolean }) {
+  if (!loading && !lists.length) return null
+
+  return (
+    <section className="mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+            <List size={17} style={{ color: '#FFFD02' }} />
+            Listas de Glynbox
+          </h2>
+          <p className="text-xs text-[#A0A0B0] mt-0.5">Colecciones curadas por el equipo</p>
+        </div>
+        <Link href="/listas" className="text-xs text-[#FFFD02] hover:underline shrink-0">Ver todas →</Link>
+      </div>
+
+      {loading ? (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4 animate-pulse">
+          {Array.from({ length: 3 }).map((_, i) => (
+            <div key={i} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 h-40" />
+          ))}
+        </div>
+      ) : (
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-3 gap-4">
+          {lists.map(l => (
+            <Link key={l.id} href={`/listas/${l.id}`}
+              className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
+              <div className="flex items-center gap-2 mb-3">
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: 'rgba(255,253,2,0.15)', color: '#FFFD02' }}>
+                  Glynbox
+                </span>
+              </div>
+              <div className="flex gap-1 mb-3 h-[64px]">
+                {l.previews.slice(0, 4).map((p, i) => (
+                  <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
+                    {p ? (
+                      <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={60} height={64}
+                        className="w-full h-full object-cover" />
+                    ) : null}
+                  </div>
+                ))}
+                {Array.from({ length: Math.max(0, 4 - l.previews.length) }).map((_, i) => (
+                  <div key={`e-${i}`} className="flex-1 rounded-md bg-[#1C1C27]" />
+                ))}
+              </div>
+              <p className="font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-1 text-sm mb-1">{l.title}</p>
+              <p className="text-xs text-[#A0A0B0]">{l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}</p>
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HomeClient() {
@@ -523,6 +586,8 @@ export default function HomeClient() {
   const [trendingLoading, setTrendingLoading] = useState(true)
   const [featuredReviews, setFeaturedReviews] = useState<FeaturedReview[]>([])
   const [reviewsLoading,  setReviewsLoading]  = useState(true)
+  const [officialLists,        setOfficialLists]        = useState<OfficialList[]>([])
+  const [officialListsLoading, setOfficialListsLoading] = useState(true)
 
   // ── Auth + hero movie ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -749,6 +814,42 @@ export default function HomeClient() {
     loadReviews()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  // ── Official lists (Glynbox curated) ─────────────────────────────────────
+  useEffect(() => {
+    async function loadOfficialLists() {
+      const { data: glynboxProfile } = await supabase
+        .from('profiles').select('id').eq('username', 'Ferlageok').maybeSingle()
+      if (!glynboxProfile) { setOfficialListsLoading(false); return }
+
+      const { data: lists } = await supabase
+        .from('lists').select('id, title, description')
+        .eq('user_id', glynboxProfile.id).eq('is_public', true)
+        .order('created_at', { ascending: true }).limit(6)
+      if (!lists?.length) { setOfficialListsLoading(false); return }
+
+      const listIds = lists.map(l => l.id)
+      const { data: items } = await supabase
+        .from('list_items').select('list_id, poster_path')
+        .in('list_id', listIds).order('position').limit(200)
+
+      const previewMap: Record<string, (string | null)[]> = {}
+      const countMap: Record<string, number> = {}
+      for (const item of items ?? []) {
+        previewMap[item.list_id] = previewMap[item.list_id] ?? []
+        previewMap[item.list_id].push(item.poster_path)
+        countMap[item.list_id] = (countMap[item.list_id] ?? 0) + 1
+      }
+
+      setOfficialLists(lists.map(l => ({
+        id: l.id, title: l.title, description: l.description,
+        previews: (previewMap[l.id] ?? []).slice(0, 4),
+        itemCount: countMap[l.id] ?? 0,
+      })))
+      setOfficialListsLoading(false)
+    }
+    loadOfficialLists()
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
   // ── Render ────────────────────────────────────────────────────────────────
   return (
     <>
@@ -794,6 +895,9 @@ export default function HomeClient() {
           ? <ReviewsSkeleton />
           : <FeaturedReviewsSection reviews={featuredReviews} />
         }
+
+        {/* SECCIÓN 6b — LISTAS DE GLYNBOX */}
+        <OfficialListsSection lists={officialLists} loading={officialListsLoading} />
 
         {/* SECCIÓN 7 — CUMPLEAÑOS */}
         <BirthdayCarousel />
