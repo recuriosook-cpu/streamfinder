@@ -282,19 +282,21 @@ export default function Navbar() {
   return (
     <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
-        <Link href="/" className="shrink-0 flex items-center">
+        <Link href="/" className="shrink-0">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
             alt="Glynbox"
-            className="h-6 sm:h-8 w-auto object-contain"
-            onError={(e) => {
-              const t = e.currentTarget; t.style.display = 'none'
-              const fb = t.nextElementSibling as HTMLElement | null
-              if (fb) fb.style.display = 'block'
-            }}
+            style={{ height: '24px', width: 'auto', objectFit: 'contain' }}
+            className="sm:hidden"
           />
-          <span className="hidden text-lg sm:text-xl font-bold text-[#FFFD02]">Glynbox</span>
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src="/logo.png"
+            alt="Glynbox"
+            style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
+            className="hidden sm:block"
+          />
         </Link>
 
         {/* Search box + live dropdown */}

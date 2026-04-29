@@ -704,14 +704,8 @@ export default function OnboardingPage() {
         <img
           src="/logo.png"
           alt="Glynbox"
-          style={{ height: 40, width: 'auto' }}
-          onError={(e) => {
-            const t = e.currentTarget; t.style.display = 'none'
-            const fb = t.nextElementSibling as HTMLElement | null
-            if (fb) fb.style.display = 'block'
-          }}
+          style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
         />
-        <span className="hidden text-2xl font-bold" style={{ color: '#FFFD02' }}>Glynbox</span>
       </div>
 
       {/* Progress */}
