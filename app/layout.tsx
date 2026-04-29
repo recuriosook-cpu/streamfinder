@@ -1,6 +1,7 @@
 ﻿import type { Metadata, Viewport } from 'next'
 import './globals.css'
 import Navbar from '@/components/Navbar'
+import Footer from '@/components/Footer'
 import { CountryProvider } from '@/context/CountryContext'
 
 export const viewport: Viewport = {
@@ -49,11 +50,17 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@400;500;600&family=Inter:wght@400;500&display=swap"
           rel="stylesheet"
         />
+        <script
+          async
+          src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7004694054304140"
+          crossOrigin="anonymous"
+        />
       </head>
       <body className="min-h-screen bg-[#0A0A0F] text-white">
         <CountryProvider>
           <Navbar />
           <main>{children}</main>
+          <Footer />
         </CountryProvider>
       </body>
     </html>
