@@ -67,7 +67,7 @@ export default function ListPage() {
       setList(listData)
 
       const [itemsRes, authorRes, likesRes, commentsRes] = await Promise.all([
-        supabase.from('list_items').select('*').eq('list_id', id).order('position'),
+        supabase.from('list_items').select('*').eq('list_id', id).order('position').limit(1000),
         supabase.from('profiles').select('id,username,display_name,avatar_url').eq('id', listData.user_id).maybeSingle(),
         supabase.from('list_likes').select('user_id').eq('list_id', id),
         supabase.from('list_comments').select('*').eq('list_id', id).order('created_at'),

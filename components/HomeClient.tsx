@@ -865,7 +865,7 @@ export default function HomeClient() {
       const listIds = lists.map(l => l.id)
       const { data: items } = await supabase
         .from('list_items').select('list_id, poster_path')
-        .in('list_id', listIds).order('position').limit(200)
+        .in('list_id', listIds).order('list_id').order('position').limit(1500)
 
       const previewMap: Record<string, (string | null)[]> = {}
       const countMap: Record<string, number> = {}
