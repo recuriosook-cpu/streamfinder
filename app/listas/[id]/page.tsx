@@ -173,19 +173,36 @@ export default function ListPage() {
 
         {/* Author */}
         {author && (
-          <Link href={`/usuario/${author.username}`} className="flex items-center gap-2.5 mb-4 group w-fit">
-            <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0">
-              {author.avatar_url
-                // eslint-disable-next-line @next/next/no-img-element
-                ? <img src={author.avatar_url} alt={author.display_name ?? ''} className="w-full h-full object-cover" />
-                : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{(author.display_name ?? author.username ?? '?')[0]?.toUpperCase()}</div>
-              }
+          author.username === 'Ferlageok' ? (
+            <div className="flex items-center gap-2.5 mb-4 w-fit">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+                {/* eslint-disable-next-line @next/next/no-img-element */}
+                <img src="/favicon.jpg" alt="Glynbox" className="w-full h-full object-cover" />
+              </div>
+              <div className="flex items-center gap-2 flex-wrap">
+                <span className="text-sm font-semibold text-white">Glynbox</span>
+                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
+                  style={{ backgroundColor: '#FFFD02', color: '#000' }}>
+                  Oficial
+                </span>
+                <span className="text-xs text-[#A0A0B0]">{timeAgo(list.created_at)}</span>
+              </div>
             </div>
-            <div>
-              <span className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors">{author.display_name ?? author.username}</span>
-              <span className="text-xs text-[#A0A0B0] ml-2">{timeAgo(list.created_at)}</span>
-            </div>
-          </Link>
+          ) : (
+            <Link href={`/usuario/${author.username}`} className="flex items-center gap-2.5 mb-4 group w-fit">
+              <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+                {author.avatar_url
+                  // eslint-disable-next-line @next/next/no-img-element
+                  ? <img src={author.avatar_url} alt={author.display_name ?? ''} className="w-full h-full object-cover" />
+                  : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{(author.display_name ?? author.username ?? '?')[0]?.toUpperCase()}</div>
+                }
+              </div>
+              <div>
+                <span className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors">{author.display_name ?? author.username}</span>
+                <span className="text-xs text-[#A0A0B0] ml-2">{timeAgo(list.created_at)}</span>
+              </div>
+            </Link>
+          )
         )}
 
         {list.description && <p className="text-[#A0A0B0] leading-relaxed mb-4">{list.description}</p>}

@@ -10,6 +10,7 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://glynbox.com'),
+  icons: { icon: '/favicon.jpg' },
   title: 'Glynbox — Descubrí qué ver hoy',
   description: 'Encontrá películas y series según tu estado de ánimo. Reseñas, recomendaciones personalizadas y disponibilidad en streaming por país.',
   keywords: [
@@ -44,6 +45,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <head>
+        <link rel="icon" href="/favicon.jpg" />
         <link rel="preconnect" href="https://fonts.googleapis.com" />
         <link rel="preconnect" href="https://fonts.gstatic.com" crossOrigin="" />
         <link
