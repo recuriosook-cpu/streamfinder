@@ -23,6 +23,8 @@ interface Props {
   whatsappUrl: string
   twitterUrl: string
   copyUrl: string
+  /** Plain text for navigator.share (title + content summary) */
+  shareText?: string
   /** Which side the dropdown aligns to. Default: left */
   align?: 'left' | 'right'
   /** Custom trigger; defaults to a Share2 icon button */
@@ -35,6 +37,7 @@ export default function ShareDropdown({
   whatsappUrl,
   twitterUrl,
   copyUrl,
+  shareText,
   align = 'left',
   trigger,
   triggerClassName = '',
@@ -52,13 +55,22 @@ export default function ShareDropdown({
     return () => document.removeEventListener('mousedown', handler)
   }, [open])
 
+  const handleTrigger = async () => {
+    if (typeof navigator !== 'undefined' && navigator.share) {
+      try {
+        await navigator.share({ title: shareText ?? 'Glynbox', url: copyUrl })
+        return
+      } catch { /* user cancelled or not supported */ }
+    }
+    setOpen(v => !v)
+  }
+
   const handleCopy = async () => {
     try {
       await navigator.clipboard.writeText(copyUrl)
       setCopied(true)
       setTimeout(() => { setCopied(false); setOpen(false) }, 1500)
     } catch {
-      // fallback: just close
       setOpen(false)
     }
   }
@@ -66,7 +78,7 @@ export default function ShareDropdown({
   return (
     <div className={`relative ${triggerClassName}`} ref={ref}>
       <button
-        onClick={() => setOpen(v => !v)}
+        onClick={handleTrigger}
         title="Compartir"
         className="flex items-center gap-1.5 text-[#A0A0B0] hover:text-white transition-colors"
       >

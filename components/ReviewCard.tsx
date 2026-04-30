@@ -365,21 +365,23 @@ export default function ReviewCard({
           </button>
 
           {(() => {
-            const BASE = 'https://glynbox.com'
+            const BASE = typeof window !== 'undefined' ? window.location.origin : 'https://glynbox.com'
             const reviewUrl = `${BASE}/review/${id}`
-            const excerpt = body ? body.slice(0, 100).trim() : ''
             const ratingStr = rating ? `⭐${rating}/5` : ''
+            const shareText = `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en Glynbox`
+            const excerpt = body ? body.slice(0, 100).trim() : ''
             const waText = encodeURIComponent(
-              `${authorUsername} opinó sobre "${mediaTitle}": "${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}" ${ratingStr}\n👉 ${reviewUrl}`
+              `${shareText}\n"${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}"\n👉 ${reviewUrl}`
             )
             const tweetText = encodeURIComponent(
-              `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en #Glynbox\n"${body ? body.slice(0, 80).trim() : ''}${(body?.length ?? 0) > 80 ? '...' : ''}"\n👉 ${reviewUrl}`
+              `${shareText}\n"${body ? body.slice(0, 80).trim() : ''}${(body?.length ?? 0) > 80 ? '...' : ''}"\n👉 ${reviewUrl}`
             )
             return (
               <ShareDropdown
                 whatsappUrl={`https://wa.me/?text=${waText}`}
                 twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}`}
                 copyUrl={reviewUrl}
+                shareText={shareText}
                 align="left"
                 triggerClassName="text-[#A0A0B0] hover:text-zinc-300"
                 trigger={
