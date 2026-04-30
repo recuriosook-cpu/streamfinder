@@ -282,8 +282,8 @@ function RateMoviesStep({
 
   return (
     <div
-      className="relative flex flex-col items-center justify-end overflow-hidden"
-      style={{ height: 'calc(100vh - 57px)', backgroundColor: '#0A0A0F' }}
+      className="relative flex flex-col items-center justify-center overflow-hidden"
+      style={{ height: '100dvh', backgroundColor: '#0A0A0F' }}
     >
       {/* Backdrop */}
       {backdropUrl && (
@@ -322,17 +322,17 @@ function RateMoviesStep({
       </div>
 
       {/* Content */}
-      <div className="relative z-10 flex flex-col items-center pb-6 sm:pb-10 px-4 w-full max-w-sm mx-auto">
+      <div className="relative z-10 flex flex-col items-center pt-20 pb-6 sm:pb-10 px-4 w-full max-w-sm mx-auto">
 
         {/* Poster */}
-        <div className="relative w-36 sm:w-44 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl mb-4">
+        <div className="relative w-[280px] sm:w-[320px] aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl mb-5">
           {movie.posterPath ? (
             <Image
-              src={`https://image.tmdb.org/t/p/w342${movie.posterPath}`}
+              src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
               alt={movie.title}
               fill
               className="object-cover"
-              sizes="176px"
+              sizes="(max-width: 640px) 280px, 320px"
             />
           ) : (
             <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">
@@ -658,6 +658,7 @@ export default function OnboardingPage() {
 
   const handleFinish = async () => {
     if (!user) return
+    document.cookie = 'new_user=; max-age=0; path=/'
     await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
     localStorage.setItem('glynbox_welcome', '1')
     router.replace('/')

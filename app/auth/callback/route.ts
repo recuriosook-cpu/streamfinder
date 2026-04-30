@@ -45,7 +45,9 @@ export async function GET(request: Request) {
           level: 1,
           onboarding_completed: false,
         })
-        return NextResponse.redirect('https://glynbox.com/onboarding')
+        const res = NextResponse.redirect('https://glynbox.com/onboarding')
+        res.cookies.set('new_user', 'true', { maxAge: 300, path: '/', sameSite: 'lax', httpOnly: false })
+        return res
       }
 
       if (profile.onboarding_completed !== true) {

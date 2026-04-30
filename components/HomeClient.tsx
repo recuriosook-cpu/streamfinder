@@ -638,8 +638,16 @@ export default function HomeClient() {
 
       const u = authRes.data.user ?? null
 
-      // Redirect to onboarding if not completed — catches all auth methods
       if (u) {
+        // Cookie set by callback for new Google/OAuth users — catches timing issues
+        const isNewUser = document.cookie.split(';').some(c => c.trim() === 'new_user=true')
+        if (isNewUser) {
+          document.cookie = 'new_user=; max-age=0; path=/'
+          router.replace('/onboarding')
+          return
+        }
+
+        // Regular check — catches existing users who haven't finished onboarding
         const { data: profile } = await supabase
           .from('profiles')
           .select('onboarding_completed')
