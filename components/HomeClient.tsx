@@ -555,23 +555,28 @@ function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loadi
                 ))}
               </div>
 
-              {/* Badge */}
-              <div className="mb-2">
-                <span className="text-[10px] font-bold px-2 py-0.5 rounded-full"
-                  style={{ backgroundColor: '#FFFD02', color: '#000' }}>
-                  Glynbox
-                </span>
-              </div>
-
               {/* Title */}
               <p className="font-semibold text-white group-hover:text-[#FFFD02] transition-colors line-clamp-2 text-sm leading-snug mb-1">
                 {l.title}
               </p>
 
               {/* Count */}
-              <p className="text-xs text-[#A0A0B0]">
+              <p className="text-xs text-[#A0A0B0] mb-3">
                 {l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}
               </p>
+
+              {/* Author — always shown as Glynbox */}
+              <div className="flex items-center gap-2 pt-2.5 border-t border-[#2A2A3A]">
+                <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-[#1C1C27]">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
+                  <img src="/favicon.jpg" alt="Glynbox" className="w-full h-full object-cover" />
+                </div>
+                <span className="text-xs text-white font-medium">Glynbox</span>
+                <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full ml-auto shrink-0"
+                  style={{ backgroundColor: '#FFFD02', color: '#000' }}>
+                  Oficial
+                </span>
+              </div>
             </Link>
           ))}
         </div>
