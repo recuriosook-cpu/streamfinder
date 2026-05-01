@@ -7,6 +7,7 @@ import { useParams, useRouter } from 'next/navigation'
 import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, ArrowLeft, Tag } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -337,6 +338,7 @@ export default function ListPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <Link href={`/usuario/${c.author?.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">{name}</Link>
+                    {isVerified(c.author?.username) && <VerifiedBadge size={13} />}
                     <span className="text-[11px] text-[#A0A0B0]">{timeAgo(c.created_at)}</span>
                     {(currentUserId === c.user_id || isOwner) && (
                       <button onClick={() => deleteComment(c.id)} className="text-zinc-700 hover:text-red-400 transition-colors ml-auto">

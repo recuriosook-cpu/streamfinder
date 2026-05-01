@@ -4,6 +4,7 @@ import MediaCard from '@/components/MediaCard'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Search, UserCircle } from 'lucide-react'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 interface Props {
   searchParams: Promise<{ q?: string; page?: string }>
@@ -90,8 +91,9 @@ export default async function SearchPage({ searchParams }: Props) {
                     )}
                   </div>
                   <div>
-                    <p className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors">
+                    <p className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors flex items-center gap-1">
                       {display}
+                      {isVerified(u.username) && <VerifiedBadge size={14} />}
                     </p>
                     {u.display_name && (
                       <p className="text-xs text-[#A0A0B0]">@{u.username}</p>

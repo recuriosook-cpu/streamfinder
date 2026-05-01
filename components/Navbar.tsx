@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
 import type { User } from '@supabase/supabase-js'
+import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -345,7 +346,10 @@ export default function Navbar() {
                         )}
                       </div>
                       <div className="min-w-0">
-                        <p className="text-sm text-white truncate">{u.display_name ?? u.username}</p>
+                        <div className="flex items-center gap-1">
+                          <p className="text-sm text-white truncate">{u.display_name ?? u.username}</p>
+                          {isVerified(u.username) && <VerifiedBadge size={13} />}
+                        </div>
                         {u.username && <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>}
                       </div>
                     </Link>
@@ -593,6 +597,7 @@ export default function Navbar() {
                           const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
                           const time     = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
                           const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
+                          const actorVerified = isVerified(n.actor?.username)
                           return (
                             <button
                               key={n.id}
@@ -611,19 +616,19 @@ export default function Navbar() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-zinc-200 leading-snug">
                                   {n.type === 'follow' && (
-                                    <><span className="font-semibold text-white">{actor}</span> te empezó a seguir</>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> te empezó a seguir</>
                                   )}
                                   {n.type === 'review_like' && (
-                                    <><span className="font-semibold text-white">{actor}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'review_comment' && (
-                                    <><span className="font-semibold text-white">{actor}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <><span className="font-semibold text-white">{actor}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
-                                    <><span className="font-semibold text-white">{actor}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'level_up' && (
                                     <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#FFFD02]">{n.review_title}</span></>
