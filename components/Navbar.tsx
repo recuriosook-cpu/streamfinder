@@ -345,9 +345,9 @@ export default function Navbar() {
                           </div>
                         )}
                       </div>
-                      <div className="min-w-0">
-                        <div className="flex items-center gap-1">
-                          <p className="text-sm text-white truncate">{u.display_name ?? u.username}</p>
+                      <div className="min-w-0 flex-1">
+                        <div className="flex items-center gap-1 min-w-0">
+                          <p className="text-sm text-white truncate min-w-0 flex-1">{u.display_name ?? u.username}</p>
                           {isVerified(u.username) && <VerifiedBadge size={13} />}
                         </div>
                         {u.username && <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>}
