@@ -6,7 +6,6 @@ import Link from 'next/link'
 import { Heart, MessageSquare, Pencil, Trash2, Send, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
@@ -237,7 +236,7 @@ export default function ReviewCard({
               >
                 {displayName}
               </Link>
-              {isVerified(authorUsername) && <VerifiedBadge />}
+              {(authorUsername === 'Ferlageok' || authorUsername === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             </div>
             <Link
               href={`/${mediaType}/${mediaId}`}
@@ -485,7 +484,7 @@ export default function ReviewCard({
                             >
                               {cName}
                             </Link>
-                            {isVerified(comment.author?.username) && <VerifiedBadge size={12} />}
+                            {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             <span className="text-[10px] text-zinc-600">{cDate}</span>
                           </div>
                           <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={comment.content} /></p>
@@ -529,7 +528,7 @@ export default function ReviewCard({
                                     >
                                       {rName}
                                     </Link>
-                                    {isVerified(reply.author?.username) && <VerifiedBadge size={12} />}
+                                    {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                     <span className="text-[10px] text-zinc-600">{rDate}</span>
                                   </div>
                                   <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={reply.content} /></p>

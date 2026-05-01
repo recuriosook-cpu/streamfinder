@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Search, Plus, Heart, Tag, Film } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 interface ListCard {
   id: string; title: string; description: string | null; tags: string[]
@@ -170,7 +169,7 @@ export default function ListasPage() {
                 <span>{l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}</span>
                 <div className="flex items-center gap-3">
                   <span className="flex items-center gap-1"><Heart size={11} /> {l.likeCount}</span>
-                  <span className="flex items-center gap-1">@{l.author?.username ?? 'usuario'}{isVerified(l.author?.username) && <VerifiedBadge size={11} />}</span>
+                  <span className="flex items-center gap-1">@{l.author?.username ?? 'usuario'}{(l.author?.username === 'Ferlageok' || l.author?.username === 'ferlageok') && <svg width="11" height="11" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span>
                 </div>
               </div>
             </Link>

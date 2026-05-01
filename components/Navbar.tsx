@@ -9,7 +9,6 @@ import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
 import type { User } from '@supabase/supabase-js'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -348,7 +347,7 @@ export default function Navbar() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1 min-w-0">
                           <p className="text-sm text-white truncate min-w-0 flex-1">{u.display_name ?? u.username}</p>
-                          {isVerified(u.username) && <VerifiedBadge size={13} />}
+                          {(u.username === 'Ferlageok' || u.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         </div>
                         {u.username && <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>}
                       </div>
@@ -597,7 +596,7 @@ export default function Navbar() {
                           const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
                           const time     = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
                           const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
-                          const actorVerified = isVerified(n.actor?.username)
+                          const actorVerified = n.actor?.username === 'Ferlageok' || n.actor?.username === 'ferlageok'
                           return (
                             <button
                               key={n.id}
@@ -616,19 +615,19 @@ export default function Navbar() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-zinc-200 leading-snug">
                                   {n.type === 'follow' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> te empezó a seguir</>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> te empezó a seguir</>
                                   )}
                                   {n.type === 'review_like' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'review_comment' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <VerifiedBadge size={12} />}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'level_up' && (
                                     <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#FFFD02]">{n.review_title}</span></>

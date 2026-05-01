@@ -12,7 +12,6 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import { addPoints, getLevelInfo } from '@/lib/points'
 import ReviewCard from '@/components/ReviewCard'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 
 // ── Social icons ───────────────────────────────────────────────────────────
@@ -708,9 +707,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Name + badge row */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
-                {isVerified(localProfile.username) && (
-                  <VerifiedBadge size={20} />
-                )}
+                {(localProfile.username === 'Ferlageok' || localProfile.username === 'ferlageok') && <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                 {followsMe && (
                   <span className="text-xs bg-[#1C1C27] border border-[#2A2A3A] text-[#A0A0B0] px-2.5 py-1 rounded-full">
                     Te sigue

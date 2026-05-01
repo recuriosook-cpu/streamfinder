@@ -13,7 +13,6 @@ import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
@@ -437,7 +436,7 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate flex items-center gap-1">
                     {name}
-                    {isVerified(review.authorUsername) && <VerifiedBadge size={13} />}
+                    {(review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </p>
                   <span
                     className="text-[10px] font-bold px-1.5 py-0.5 rounded"

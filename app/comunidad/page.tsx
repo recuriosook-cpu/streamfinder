@@ -5,7 +5,6 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 import type { User } from '@supabase/supabase-js'
 
@@ -209,7 +208,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Reseña" color="green" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -251,7 +250,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Valoró" color="yellow" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -288,7 +287,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Quiere ver" color="blue" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -340,7 +339,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Estadística" color="purple" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -385,7 +384,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Logro" color="gold" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -411,7 +410,7 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified(p.username) && <VerifiedBadge size={13} />}
+            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
             <Badge label="Lista" color="orange" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -569,7 +568,7 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-white">{username}</span>
-            {isVerified(username) && <VerifiedBadge />}
+            {(username === 'Ferlageok' || username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
           </div>
           <span className="text-sm font-bold tabular-nums" style={{ color }}>{item.score}%</span>
         </div>

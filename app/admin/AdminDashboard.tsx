@@ -544,6 +544,7 @@ export default function AdminDashboard() {
                     <div className="flex-1 min-w-0">
                       <div className="flex flex-wrap items-center gap-2 mb-1">
                         <span className="text-sm font-semibold text-white">@{r.username ?? 'usuario'}</span>
+                        {(r.username === 'Ferlageok' || r.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         <span className="text-xs text-[#A0A0B0]">sobre</span>
                         <span className="text-sm text-[#FFFD02] font-medium truncate max-w-[180px]">{r.title}</span>
                         {r.rating != null && (
@@ -594,6 +595,7 @@ export default function AdminDashboard() {
                         <p className="text-sm font-semibold text-white">
                           {u.display_name ?? u.username ?? 'Sin nombre'}
                         </p>
+                        {(u.username === 'Ferlageok' || u.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                         {u.level != null && (
                           <span className="text-[10px] bg-[#FFFD02]/20 text-[#FFFD02] px-1.5 py-0.5 rounded-full font-medium">
                             Nv. {u.level}

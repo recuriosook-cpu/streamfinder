@@ -7,7 +7,6 @@ import { useRouter } from 'next/navigation'
 import { ArrowLeft, Heart, Link2, MessageSquare, Send, Share2, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
-import VerifiedBadge, { isVerified } from '@/components/VerifiedBadge'
 import StarDisplay from '@/components/StarDisplay'
 
 // ── Types ──────────────────────────────────────────────────────────────────
@@ -284,7 +283,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                     >
                       {displayName}
                     </Link>
-                    {isVerified(review.authorUsername) && <VerifiedBadge />}
+                    {(review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                   </div>
                   <p className="text-xs text-[#A0A0B0]">@{review.authorUsername}</p>
                 </div>
@@ -498,7 +497,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                 >
                                   {cName}
                                 </Link>
-                                {isVerified(comment.author?.username) && <VerifiedBadge size={14} />}
+                                {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                 <span className="text-xs text-zinc-600">{cDate}</span>
                               </div>
                               <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
@@ -542,7 +541,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                         >
                                           {rName}
                                         </Link>
-                                        {isVerified(reply.author?.username) && <VerifiedBadge size={14} />}
+                                        {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                         <span className="text-xs text-zinc-600">{rDate}</span>
                                       </div>
                                       <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>
