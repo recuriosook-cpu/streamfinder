@@ -15,22 +15,21 @@ const GENRE_MAP: Record<number, string> = {
   10767: 'Talk show', 10768: 'Guerra y política',
 }
 
-// ── Simple concurrency limiter ─────────────────────────────────────────────
-async function withConcurrency<T>(
+// ── Batch processor with delay between batches (avoids TMDB rate limiting) ─
+async function withBatches<T>(
   tasks: (() => Promise<T>)[],
-  limit: number,
-): Promise<T[]> {
-  const results: T[] = new Array(tasks.length)
-  let next = 0
-
-  async function worker() {
-    while (next < tasks.length) {
-      const idx = next++
-      results[idx] = await tasks[idx]()
+  batchSize = 5,
+  delayMs = 500,
+): Promise<(T | null)[]> {
+  const results: (T | null)[] = []
+  for (let i = 0; i < tasks.length; i += batchSize) {
+    const batch = tasks.slice(i, i + batchSize)
+    const settled = await Promise.allSettled(batch.map(t => t()))
+    results.push(...settled.map(r => r.status === 'fulfilled' ? r.value : null))
+    if (i + batchSize < tasks.length) {
+      await new Promise(r => setTimeout(r, delayMs))
     }
   }
-
-  await Promise.all(Array.from({ length: Math.min(limit, tasks.length) }, worker))
   return results
 }
 
@@ -95,7 +94,8 @@ export async function GET(req: NextRequest) {
     return { row, details, credits }
   })
 
-  const items = await withConcurrency(tasks, 15)
+  const rawItems = await withBatches(tasks, 5, 500)
+  const items = rawItems.filter((item): item is ItemData => item !== null)
 
   // ── Compute metrics ───────────────────────────────────────────────────────
   let totalMinutes   = 0

@@ -371,9 +371,10 @@ export default function MoodRecommender() {
         {/* Loading */}
         {loading && (
           <div>
-            <p className="text-center text-[#A0A0B0] text-sm mt-2 mb-1">
-              Buscando lo mejor para vos…
-            </p>
+            <div className="flex items-center justify-center gap-3 mt-4 mb-3">
+              <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin shrink-0" />
+              <p className="text-[#A0A0B0] text-sm font-medium">Buscando lo mejor para vos…</p>
+            </div>
             <SkeletonCards />
           </div>
         )}

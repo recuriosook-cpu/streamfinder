@@ -118,7 +118,7 @@ export default function MentionTextarea({
                   // eslint-disable-next-line @next/next/no-img-element
                   <img src={s.avatar_url} alt={s.username} className="w-full h-full object-cover" />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">
+                  <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">
                     {s.username[0]?.toUpperCase()}
                   </div>
                 )}

@@ -136,7 +136,7 @@ export default function BirthdayCarousel() {
                 <div
                   data-initial
                   style={{ display: person.profilePath ? 'none' : 'flex' }}
-                  className="absolute inset-0 items-center justify-center bg-zinc-700 text-zinc-300 text-3xl font-bold select-none"
+                  className="absolute inset-0 items-center justify-center bg-[#2A2A3A] text-[#FFFD02] text-3xl font-bold select-none"
                 >
                   {person.name.charAt(0).toUpperCase()}
                 </div>

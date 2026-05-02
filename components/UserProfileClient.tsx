@@ -694,7 +694,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {localProfile.avatar_url ? (
                   <Image src={localProfile.avatar_url} alt={displayName} width={112} height={112} className="w-full h-full object-cover" unoptimized />
                 ) : (
-                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold text-[#A0A0B0]">
+                  <div className="w-full h-full flex items-center justify-center text-4xl font-bold bg-[#2A2A3A] text-[#FFFD02]">
                     {displayName[0]?.toUpperCase()}
                   </div>
                 )}
@@ -1416,7 +1416,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                                       style={{ objectPosition: 'top center' }}
                                     />
                                   ) : (
-                                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold text-[#A0A0B0]">
+                                    <div className="w-full h-full flex items-center justify-center text-2xl font-bold bg-[#2A2A3A] text-[#FFFD02]">
                                       {person!.name.charAt(0).toUpperCase()}
                                     </div>
                                   )}
@@ -1504,7 +1504,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             {u.avatar_url ? (
                               <Image src={u.avatar_url} alt={name} width={36} height={36} className="w-full h-full object-cover" unoptimized />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
                                 {name[0]?.toUpperCase()}
                               </div>
                             )}
@@ -1564,7 +1564,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       unoptimized
                     />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold text-[#A0A0B0]">
+                    <div className="w-full h-full flex items-center justify-center text-3xl font-bold bg-[#2A2A3A] text-[#FFFD02]">
                       {displayName[0]?.toUpperCase()}
                     </div>
                   )}

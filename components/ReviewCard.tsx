@@ -220,7 +220,7 @@ export default function ReviewCard({
               {authorAvatarUrl ? (
                 <img src={authorAvatarUrl} alt={displayName} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0] select-none">
+                <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02] select-none">
                   {initials}
                 </div>
               )}
@@ -470,7 +470,7 @@ export default function ReviewCard({
                             {comment.author?.avatar_url ? (
                               <img src={comment.author.avatar_url} alt={cName} className="w-full h-full object-cover" />
                             ) : (
-                              <div className="w-full h-full flex items-center justify-center text-[10px] font-bold text-[#A0A0B0]">
+                              <div className="w-full h-full flex items-center justify-center text-[10px] font-bold bg-[#2A2A3A] text-[#FFFD02]">
                                 {cName[0]?.toUpperCase()}
                               </div>
                             )}
@@ -514,7 +514,7 @@ export default function ReviewCard({
                                     {reply.author?.avatar_url ? (
                                       <img src={reply.author.avatar_url} alt={rName} className="w-full h-full object-cover" />
                                     ) : (
-                                      <div className="w-full h-full flex items-center justify-center text-[9px] font-bold text-[#A0A0B0]">
+                                      <div className="w-full h-full flex items-center justify-center text-[9px] font-bold bg-[#2A2A3A] text-[#FFFD02]">
                                         {rName[0]?.toUpperCase()}
                                       </div>
                                     )}

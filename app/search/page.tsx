@@ -84,7 +84,7 @@ export default async function SearchPage({ searchParams }: Props) {
                         unoptimized
                       />
                     ) : (
-                      <div className="w-full h-full flex items-center justify-center text-base font-bold text-[#A0A0B0]">
+                      <div className="w-full h-full flex items-center justify-center text-base font-bold bg-[#2A2A3A] text-[#FFFD02]">
                         {display[0]?.toUpperCase()}
                       </div>
                     )}

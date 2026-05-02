@@ -538,7 +538,7 @@ export default function AdminDashboard() {
                     <div className="w-9 h-9 rounded-full bg-[#1C1C27] overflow-hidden shrink-0">
                       {r.avatar_url
                         ? <img src={r.avatar_url} alt={r.username ?? ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{(r.username ?? '?')[0].toUpperCase()}</div>
+                        : <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">{(r.username ?? '?')[0].toUpperCase()}</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">
@@ -587,7 +587,7 @@ export default function AdminDashboard() {
                     <div className="w-10 h-10 rounded-full bg-[#1C1C27] overflow-hidden shrink-0">
                       {u.avatar_url
                         ? <img src={u.avatar_url} alt={u.display_name ?? u.username ?? ''} className="w-full h-full object-cover" />
-                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">{(u.display_name ?? u.username ?? '?')[0].toUpperCase()}</div>
+                        : <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">{(u.display_name ?? u.username ?? '?')[0].toUpperCase()}</div>
                       }
                     </div>
                     <div className="flex-1 min-w-0">

@@ -215,7 +215,7 @@ function SuggestedUsersStep({
                 // eslint-disable-next-line @next/next/no-img-element
                 <img src={u.avatar_url} alt={name} className="w-full h-full object-cover" />
               ) : (
-                <div className="w-full h-full flex items-center justify-center text-base font-bold text-[#A0A0B0]">
+                <div className="w-full h-full flex items-center justify-center text-base font-bold bg-[#2A2A3A] text-[#FFFD02]">
                   {initials}
                 </div>
               )}
@@ -338,7 +338,7 @@ function RateMoviesStep({
               sizes="(max-width: 640px) 280px, 320px"
             />
           ) : (
-            <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">
+            <div className="w-full h-full flex items-center justify-center bg-[#2A2A3A] text-[#FFFD02] text-xs text-center px-2">
               {movie.title}
             </div>
           )}

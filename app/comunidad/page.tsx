@@ -142,7 +142,7 @@ function Avatar({ profile, size = 9 }: { profile: UserProfile; size?: number }) 
           <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
+          <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
             {name[0]?.toUpperCase()}
           </div>
         )}
@@ -163,7 +163,7 @@ function AvatarImg({ profile, size = 9 }: { profile: UserProfile; size?: number 
         <img src={profile.avatar_url} alt={name} className="w-full h-full object-cover"
           onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }} />
       ) : (
-        <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
+        <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
           {name[0]?.toUpperCase()}
         </div>
       )}
@@ -185,7 +185,7 @@ function Poster({ path, title, mediaType, mediaId }: {
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
           />
         ) : (
-          <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-[9px] text-center p-1">{title}</div>
+          <div className="w-full h-full flex items-center justify-center bg-[#2A2A3A] text-[#FFFD02] text-[9px] text-center p-1">{title}</div>
         )}
       </div>
     </Link>

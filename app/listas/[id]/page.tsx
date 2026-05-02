@@ -194,7 +194,7 @@ export default function ListPage() {
                 {author.avatar_url
                   // eslint-disable-next-line @next/next/no-img-element
                   ? <img src={author.avatar_url} alt={author.display_name ?? ''} className="w-full h-full object-cover" />
-                  : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{(author.display_name ?? author.username ?? '?')[0]?.toUpperCase()}</div>
+                  : <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">{(author.display_name ?? author.username ?? '?')[0]?.toUpperCase()}</div>
                 }
               </div>
               <div>
@@ -275,7 +275,7 @@ export default function ListPage() {
                     <Image src={getPosterUrl(item.poster_path, 'w185')} alt={item.title} fill
                       className="object-cover group-hover:scale-105 transition-transform duration-300" sizes="160px" />
                   ) : (
-                    <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-[10px] text-center p-1">{item.title}</div>
+                    <div className="w-full h-full flex items-center justify-center bg-[#2A2A3A] text-[#FFFD02] text-[10px] text-center p-1">{item.title}</div>
                   )}
                   {/* Hover overlay */}
                   <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
@@ -331,7 +331,7 @@ export default function ListPage() {
                   {c.author?.avatar_url
                     // eslint-disable-next-line @next/next/no-img-element
                     ? <img src={c.author.avatar_url} alt={name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">{name[0]?.toUpperCase()}</div>
+                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">{name[0]?.toUpperCase()}</div>
                   }
                 </div>
                 <div className="flex-1 min-w-0">

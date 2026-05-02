@@ -339,7 +339,7 @@ export default function Navbar() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
                             {(u.display_name ?? u.username ?? '?')[0]?.toUpperCase()}
                           </div>
                         )}
@@ -376,7 +376,7 @@ export default function Navbar() {
                             className="w-full h-full object-cover"
                           />
                         ) : (
-                          <div className="w-full h-full flex items-center justify-center text-sm font-bold text-[#A0A0B0]">
+                          <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
                             {p.name.charAt(0).toUpperCase()}
                           </div>
                         )}
@@ -607,7 +607,7 @@ export default function Navbar() {
                                 {n.actor?.avatar_url ? (
                                   <img src={n.actor.avatar_url} alt={actor} className="w-full h-full object-cover" />
                                 ) : (
-                                  <div className="w-full h-full flex items-center justify-center text-xs font-bold text-[#A0A0B0]">
+                                  <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">
                                     {initials}
                                   </div>
                                 )}
