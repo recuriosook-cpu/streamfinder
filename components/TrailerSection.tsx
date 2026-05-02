@@ -18,9 +18,12 @@ export default function TrailerSection({ videoKey }: { videoKey: string }) {
       >
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
-          src={`https://img.youtube.com/vi/${videoKey}/maxresdefault.jpg`}
+          src={`https://img.youtube.com/vi/${videoKey}/hqdefault.jpg`}
           alt="Trailer"
           className="w-full h-full object-cover"
+          onError={(e) => {
+            e.currentTarget.src = `https://img.youtube.com/vi/${videoKey}/sddefault.jpg`
+          }}
         />
         <div className="absolute inset-0 bg-black/40 group-hover:bg-black/50 transition-colors flex items-center justify-center">
           <div className="w-16 h-16 rounded-full bg-white/20 backdrop-blur-sm border-2 border-white/60 flex items-center justify-center group-hover:scale-110 transition-transform">
