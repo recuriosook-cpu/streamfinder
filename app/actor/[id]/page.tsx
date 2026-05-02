@@ -14,7 +14,7 @@ interface Credit {
   id: number
   title?: string
   name?: string
-  character: string
+  character?: string
   poster_path: string | null
   media_type: 'movie' | 'tv'
   release_date?: string
@@ -23,6 +23,8 @@ interface Credit {
   vote_average: number
   vote_count: number
 }
+
+const AWARD_KEYWORDS = ['Oscar', 'Emmy', 'Grammy', 'SAG', 'BAFTA', 'Golden Globe', 'Globo de Oro', 'Cannes', 'Venecia', 'Sundance', 'Tony']
 
 function formatDate(dateStr: string | null | undefined): string {
   if (!dateStr) return ''
@@ -97,6 +99,17 @@ export default async function ActorPage({ params }: Props) {
       filmography.push(c)
     }
   }
+
+  const movieCount = allCredits.filter(c => c.media_type === 'movie').length
+  const tvCount    = allCredits.filter(c => c.media_type === 'tv').length
+
+  // Award keywords detected in biography
+  const awardMentions = person.biography
+    ? AWARD_KEYWORDS.filter(k => person.biography.toLowerCase().includes(k.toLowerCase()))
+    : []
+
+  // Popularity bar (TMDB popularity is open-ended; 100 = very popular)
+  const popularityPct = Math.min(Math.round((person.popularity ?? 0) / 150 * 100), 100)
 
   const personAge = age(person.birthday, person.deathday)
   const profileUrl = person.profile_path
@@ -219,6 +232,80 @@ export default async function ActorPage({ params }: Props) {
             </div>
           </section>
         )}
+
+        {/* Reconocimientos */}
+        <section className="mb-10">
+          <h2 className="text-xl font-bold mb-4">Reconocimientos</h2>
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
+
+            {/* Stats card */}
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Carrera</p>
+              <div className="flex items-center justify-around text-center">
+                <div>
+                  <p className="text-2xl font-bold text-white">{movieCount}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Películas</p>
+                </div>
+                <div className="w-px h-10 bg-[#2A2A3A]" />
+                <div>
+                  <p className="text-2xl font-bold text-white">{tvCount}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Series</p>
+                </div>
+                <div className="w-px h-10 bg-[#2A2A3A]" />
+                <div>
+                  <p className="text-2xl font-bold text-white">{allCredits.length}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Total</p>
+                </div>
+              </div>
+            </div>
+
+            {/* Popularity card */}
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Popularidad TMDB</p>
+              <div className="flex items-center gap-3">
+                <div className="flex-1 h-2.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                  <div
+                    className="h-full rounded-full bg-[#FFFD02] transition-all"
+                    style={{ width: `${popularityPct}%` }}
+                  />
+                </div>
+                <span className="text-sm font-bold text-white shrink-0 tabular-nums">
+                  {(person.popularity ?? 0).toFixed(1)}
+                </span>
+              </div>
+              {topRated[0] && (
+                <p className="text-xs text-[#A0A0B0]">
+                  Mejor valorado: <span className="text-white">{topRated[0].title ?? topRated[0].name}</span>
+                  {' '}
+                  <span className="text-[#FFFD02]">★ {topRated[0].vote_average.toFixed(1)}</span>
+                </p>
+              )}
+            </div>
+
+            {/* Award keywords or placeholder */}
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
+              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Premios mencionados</p>
+              {awardMentions.length > 0 ? (
+                <div className="flex flex-wrap gap-1.5">
+                  {awardMentions.map(award => (
+                    <span
+                      key={award}
+                      className="text-xs font-bold px-2 py-1 rounded-full"
+                      style={{ backgroundColor: '#FFFD02', color: '#000' }}
+                    >
+                      🏆 {award}
+                    </span>
+                  ))}
+                </div>
+              ) : (
+                <p className="text-xs text-[#A0A0B0]">
+                  No se encontraron menciones a premios en la biografía.
+                </p>
+              )}
+            </div>
+
+          </div>
+        </section>
 
         {/* Filmografía completa */}
         {filmography.length > 0 && (
