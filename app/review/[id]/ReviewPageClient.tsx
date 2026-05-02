@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Heart, Link2, MessageSquare, Send, Share2, X } from 'lucide-react'
+import { ArrowLeft, Heart, Link2, MessageSquare, Send, Share2, Trash2, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
@@ -201,22 +201,32 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
+      const actorUsername = myProfile?.username ?? null
+      const actorAvatar   = myProfile?.avatar_url ?? null
       if (replyTo && replyTo.authorId !== currentUserId) {
         supabase.from('notifications').insert({
-          user_id:      replyTo.authorId,
-          actor_id:     currentUserId,
-          type:         'comment_reply',
-          review_id:    review.id,
-          review_title: review.mediaTitle,
-          comment_id:   replyTo.id,
+          user_id:        replyTo.authorId,
+          actor_id:       currentUserId,
+          type:           'comment_reply',
+          review_id:      review.id,
+          review_title:   review.mediaTitle,
+          entity_title:   review.mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
+          comment_id:     replyTo.id,
         })
       } else if (!replyTo && review.authorId !== currentUserId) {
         supabase.from('notifications').insert({
-          user_id:      review.authorId,
-          actor_id:     currentUserId,
-          type:         'review_comment',
-          review_id:    review.id,
-          review_title: review.mediaTitle,
+          user_id:        review.authorId,
+          actor_id:       currentUserId,
+          type:           'review_comment',
+          review_id:      review.id,
+          review_title:   review.mediaTitle,
+          entity_title:   review.mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
         })
       }
 
@@ -224,6 +234,12 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
       setReplyTo(null)
     }
     setSubmitting(false)
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!window.confirm('¿Eliminar este comentario?')) return
+    await supabase.from('review_comments').delete().eq('id', commentId)
+    setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
   }
 
   function startReply(comment: CommentData) {
@@ -478,7 +494,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                       })
                       return (
                         <div key={comment.id}>
-                          <div className="flex gap-3">
+                          <div className="flex gap-3 group/comment">
                             <Link href={`/usuario/${comment.author?.username ?? ''}`} className="shrink-0 mt-0.5">
                               <div className="w-7 h-7 rounded-full overflow-hidden bg-zinc-700">
                                 {comment.author?.avatar_url ? (
@@ -500,6 +516,15 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                 </Link>
                                 {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                 <span className="text-xs text-zinc-600">{cDate}</span>
+                                {comment.user_id === currentUserId && (
+                                  <button
+                                    onClick={() => deleteComment(comment.id)}
+                                    className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
+                                    title="Eliminar comentario"
+                                  >
+                                    <Trash2 size={13} />
+                                  </button>
+                                )}
                               </div>
                               <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
                               {currentUserId && (
@@ -522,7 +547,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                   day: 'numeric', month: 'short',
                                 })
                                 return (
-                                  <div key={reply.id} className="flex gap-2.5">
+                                  <div key={reply.id} className="flex gap-2.5 group/reply">
                                     <Link href={`/usuario/${reply.author?.username ?? ''}`} className="shrink-0 mt-0.5">
                                       <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-700">
                                         {reply.author?.avatar_url ? (
@@ -544,6 +569,15 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                         </Link>
                                         {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                         <span className="text-xs text-zinc-600">{rDate}</span>
+                                        {reply.user_id === currentUserId && (
+                                          <button
+                                            onClick={() => deleteComment(reply.id)}
+                                            className="ml-auto opacity-0 group-hover/reply:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
+                                            title="Eliminar respuesta"
+                                          >
+                                            <Trash2 size={12} />
+                                          </button>
+                                        )}
                                       </div>
                                       <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>
                                     </div>

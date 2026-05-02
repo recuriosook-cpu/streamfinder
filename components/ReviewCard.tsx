@@ -164,22 +164,32 @@ export default function ReviewCard({
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
       // Notifications (fire-and-forget)
+      const actorUsername = myProfile?.username ?? null
+      const actorAvatar   = myProfile?.avatar_url ?? null
       if (replyTo && replyTo.authorId !== currentUserId) {
         supabase.from('notifications').insert({
-          user_id:      replyTo.authorId,
-          actor_id:     currentUserId,
-          type:         'comment_reply',
-          review_id:    id,
-          review_title: mediaTitle,
-          comment_id:   replyTo.id,
+          user_id:        replyTo.authorId,
+          actor_id:       currentUserId,
+          type:           'comment_reply',
+          review_id:      id,
+          review_title:   mediaTitle,
+          entity_title:   mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
+          comment_id:     replyTo.id,
         })
       } else if (!replyTo && authorId !== currentUserId) {
         supabase.from('notifications').insert({
-          user_id:      authorId,
-          actor_id:     currentUserId,
-          type:         'review_comment',
-          review_id:    id,
-          review_title: mediaTitle,
+          user_id:        authorId,
+          actor_id:       currentUserId,
+          type:           'review_comment',
+          review_id:      id,
+          review_title:   mediaTitle,
+          entity_title:   mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
         })
       }
 
@@ -187,6 +197,12 @@ export default function ReviewCard({
       setReplyTo(null)
     }
     setSubmitting(false)
+  }
+
+  async function deleteComment(commentId: string) {
+    if (!window.confirm('¿Eliminar este comentario?')) return
+    await supabase.from('review_comments').delete().eq('id', commentId)
+    setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
   }
 
   function startReply(comment: CommentData) {
@@ -464,7 +480,7 @@ export default function ReviewCard({
                   return (
                     <div key={comment.id}>
                       {/* Top-level comment */}
-                      <div className="flex gap-2.5">
+                      <div className="flex gap-2.5 group/comment">
                         <Link href={`/usuario/${comment.author?.username ?? ''}`} className="shrink-0 mt-0.5">
                           <div className="w-6 h-6 rounded-full overflow-hidden bg-zinc-700">
                             {comment.author?.avatar_url ? (
@@ -486,6 +502,15 @@ export default function ReviewCard({
                             </Link>
                             {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                             <span className="text-[10px] text-zinc-600">{cDate}</span>
+                            {comment.user_id === currentUserId && (
+                              <button
+                                onClick={() => deleteComment(comment.id)}
+                                className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
+                                title="Eliminar comentario"
+                              >
+                                <Trash2 size={11} />
+                              </button>
+                            )}
                           </div>
                           <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={comment.content} /></p>
                           {currentUserId && (
@@ -508,7 +533,7 @@ export default function ReviewCard({
                               day: 'numeric', month: 'short',
                             })
                             return (
-                              <div key={reply.id} className="flex gap-2">
+                              <div key={reply.id} className="flex gap-2 group/reply">
                                 <Link href={`/usuario/${reply.author?.username ?? ''}`} className="shrink-0 mt-0.5">
                                   <div className="w-5 h-5 rounded-full overflow-hidden bg-zinc-700">
                                     {reply.author?.avatar_url ? (
@@ -530,6 +555,15 @@ export default function ReviewCard({
                                     </Link>
                                     {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
                                     <span className="text-[10px] text-zinc-600">{rDate}</span>
+                                    {reply.user_id === currentUserId && (
+                                      <button
+                                        onClick={() => deleteComment(reply.id)}
+                                        className="ml-auto opacity-0 group-hover/reply:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
+                                        title="Eliminar respuesta"
+                                      >
+                                        <Trash2 size={10} />
+                                      </button>
+                                    )}
                                   </div>
                                   <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed"><BodyWithMentions text={reply.content} /></p>
                                 </div>
