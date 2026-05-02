@@ -18,6 +18,7 @@ import TrailerSection from '@/components/TrailerSection'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
+import CollectionSection, { type CollectionData } from '@/components/CollectionSection'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -36,6 +37,17 @@ async function getTrailerKey(id: number, type: 'movie' | 'tv'): Promise<string |
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
     const t2 = (d2.results ?? []).find((v: any) => v.type === 'Trailer' && v.site === 'YouTube')
     return t2?.key ?? null
+  } catch { return null }
+}
+
+async function getCollection(collectionId: number): Promise<CollectionData | null> {
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/collection/${collectionId}?api_key=${TMDB_KEY}&language=es-AR`,
+      { next: { revalidate: 3600 } }
+    )
+    if (!res.ok) return null
+    return res.json()
   } catch { return null }
 }
 
@@ -63,7 +75,10 @@ export default async function MoviePage({ params }: Props) {
     getTrailerKey(numId, 'movie'),
     getSimilar(numId, 'movie'),
   ])
-  const omdb = await getOMDBRatings(movie.imdb_id)
+  const [omdb, collectionData] = await Promise.all([
+    getOMDBRatings(movie.imdb_id),
+    movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
+  ])
 
   // Cast: top 10 billed actors
   const cast = (credits.cast ?? [])
@@ -234,6 +249,9 @@ export default async function MoviePage({ params }: Props) {
         </div>
 
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
+        {collectionData && collectionData.parts?.length > 1 && (
+          <CollectionSection collection={collectionData} currentMovieId={movie.id} />
+        )}
         <CastCarousel cast={cast} />
         <CrewSection crew={crew} />
         {parsedAwards && <AwardsSection awards={parsedAwards} />}

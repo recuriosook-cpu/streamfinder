@@ -1,10 +1,10 @@
 'use client'
 
-import { useState, useEffect, useRef } from 'react'
+import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, ArrowLeft, Tag } from 'lucide-react'
+import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, ArrowLeft, Tag, Search } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 
@@ -15,6 +15,7 @@ interface ListData {
 interface ListItem {
   id: string; media_id: number; media_type: string; title: string
   poster_path: string | null; position: number
+  release_year?: number | null; vote_average?: number | null
 }
 interface Author {
   id: string; username: string | null; display_name: string | null; avatar_url: string | null
@@ -51,6 +52,8 @@ export default function ListPage() {
   const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
+  const [search, setSearch] = useState('')
+  const [sortOrder, setSortOrder] = useState<'original' | 'az' | 'za' | 'year_desc' | 'year_asc' | 'rating'>('original')
 
   useEffect(() => {
     if (!id) return
@@ -152,6 +155,37 @@ export default function ListPage() {
   const watchedCount = items.filter(i => watchedIds.has(`${i.media_type}:${i.media_id}`)).length
   const pct = items.length > 0 ? Math.round((watchedCount / items.length) * 100) : 0
 
+  const displayItems = useMemo(() => {
+    const q = search.trim().toLowerCase()
+    const filtered = q ? items.filter(i => i.title.toLowerCase().includes(q)) : items
+    if (sortOrder === 'original') return filtered
+    return [...filtered].sort((a, b) => {
+      switch (sortOrder) {
+        case 'az': return a.title.localeCompare(b.title, 'es')
+        case 'za': return b.title.localeCompare(a.title, 'es')
+        case 'year_desc': {
+          if (!a.release_year && !b.release_year) return 0
+          if (!a.release_year) return 1
+          if (!b.release_year) return -1
+          return b.release_year - a.release_year
+        }
+        case 'year_asc': {
+          if (!a.release_year && !b.release_year) return 0
+          if (!a.release_year) return 1
+          if (!b.release_year) return -1
+          return a.release_year - b.release_year
+        }
+        case 'rating': {
+          if (!a.vote_average && !b.vote_average) return 0
+          if (!a.vote_average) return 1
+          if (!b.vote_average) return -1
+          return b.vote_average - a.vote_average
+        }
+        default: return 0
+      }
+    })
+  }, [items, search, sortOrder])
+
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
       {/* Back */}
@@ -251,6 +285,34 @@ export default function ListPage() {
         )}
       </div>
 
+      {/* Search + Sort */}
+      {items.length > 0 && (
+        <div className="flex flex-col sm:flex-row gap-2 mb-5">
+          <div className="relative flex-1">
+            <Search size={14} className="absolute left-3 top-1/2 -translate-y-1/2 text-[#A0A0B0] pointer-events-none" />
+            <input
+              type="text"
+              value={search}
+              onChange={e => setSearch(e.target.value)}
+              placeholder="Buscar en esta lista..."
+              className="w-full bg-[#13131A] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-xl pl-8 pr-4 py-2.5 text-sm text-white placeholder-zinc-600 outline-none transition-colors"
+            />
+          </div>
+          <select
+            value={sortOrder}
+            onChange={e => setSortOrder(e.target.value as typeof sortOrder)}
+            className="bg-[#13131A] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-xl px-3 py-2.5 text-sm text-white outline-none transition-colors cursor-pointer"
+          >
+            <option value="original">Orden original</option>
+            <option value="az">Nombre A-Z</option>
+            <option value="za">Nombre Z-A</option>
+            <option value="year_desc">Año (más nuevo)</option>
+            <option value="year_asc">Año (más antiguo)</option>
+            <option value="rating">Mejor calificación</option>
+          </select>
+        </div>
+      )}
+
       {/* Grid */}
       {items.length === 0 ? (
         <div className="text-center py-16 text-[#A0A0B0]">
@@ -264,9 +326,13 @@ export default function ListPage() {
             </div>
           ) : <p>Esta lista no tiene títulos todavía.</p>}
         </div>
+      ) : displayItems.length === 0 ? (
+        <div className="text-center py-16 text-[#A0A0B0]">
+          <p>No hay resultados para <span className="text-white">&ldquo;{search}&rdquo;</span></p>
+        </div>
       ) : (
         <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3 mb-12">
-          {items.map(item => {
+          {displayItems.map(item => {
             const seen = watchedIds.has(`${item.media_type}:${item.media_id}`)
             return (
               <Link key={item.id} href={`/${item.media_type}/${item.media_id}`} className="group relative">
