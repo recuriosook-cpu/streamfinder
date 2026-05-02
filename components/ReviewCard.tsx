@@ -163,34 +163,45 @@ export default function ReviewCard({
 
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
-      // Notifications (fire-and-forget)
-      const actorUsername = myProfile?.username ?? null
-      const actorAvatar   = myProfile?.avatar_url ?? null
+      // Notification for reply or top-level comment
       if (replyTo && replyTo.authorId !== currentUserId) {
-        supabase.from('notifications').insert({
-          user_id:        replyTo.authorId,
-          actor_id:       currentUserId,
-          type:           'comment_reply',
-          review_id:      id,
-          review_title:   mediaTitle,
-          entity_title:   mediaTitle,
-          actor_username: actorUsername,
-          actor_avatar:   actorAvatar,
-          read:           false,
-          comment_id:     replyTo.id,
+        await supabase.from('notifications').insert({
+          user_id:      replyTo.authorId,
+          actor_id:     currentUserId,
+          type:         'comment_reply',
+          review_id:    id,
+          review_title: mediaTitle,
+          read:         false,
+          comment_id:   replyTo.id,
         })
       } else if (!replyTo && authorId !== currentUserId) {
-        supabase.from('notifications').insert({
-          user_id:        authorId,
-          actor_id:       currentUserId,
-          type:           'review_comment',
-          review_id:      id,
-          review_title:   mediaTitle,
-          entity_title:   mediaTitle,
-          actor_username: actorUsername,
-          actor_avatar:   actorAvatar,
-          read:           false,
+        await supabase.from('notifications').insert({
+          user_id:      authorId,
+          actor_id:     currentUserId,
+          type:         'review_comment',
+          review_id:    id,
+          review_title: mediaTitle,
+          read:         false,
         })
+      }
+
+      // Mention notifications — one per unique @username in the comment
+      const mentioned = [...new Set((data.content.match(/@(\w+)/g) ?? []).map((m: string) => m.slice(1)))]
+      if (mentioned.length > 0) {
+        const { data: mentionedProfiles } = await supabase
+          .from('profiles').select('id').in('username', mentioned)
+        for (const mp of mentionedProfiles ?? []) {
+          if (mp.id !== currentUserId) {
+            supabase.from('notifications').insert({
+              user_id:      mp.id,
+              actor_id:     currentUserId,
+              type:         'mention',
+              review_id:    id,
+              review_title: mediaTitle,
+              read:         false,
+            })
+          }
+        }
       }
 
       setNewComment('')

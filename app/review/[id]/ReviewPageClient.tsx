@@ -10,6 +10,21 @@ import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
 
+// ── Render @mentions as yellow links ──────────────────────────────────────
+function WithMentions({ text }: { text: string }) {
+  return (
+    <>
+      {text.split(/(@\w+)/g).map((part, i) =>
+        /^@\w+$/.test(part) ? (
+          <Link key={i} href={`/usuario/${part.slice(1)}`} style={{ color: '#FFFD02' }} className="hover:underline">
+            {part}
+          </Link>
+        ) : <span key={i}>{part}</span>
+      )}
+    </>
+  )
+}
+
 // ── Types ──────────────────────────────────────────────────────────────────
 
 interface ReviewData {
@@ -201,33 +216,44 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
-      const actorUsername = myProfile?.username ?? null
-      const actorAvatar   = myProfile?.avatar_url ?? null
       if (replyTo && replyTo.authorId !== currentUserId) {
-        supabase.from('notifications').insert({
-          user_id:        replyTo.authorId,
-          actor_id:       currentUserId,
-          type:           'comment_reply',
-          review_id:      review.id,
-          review_title:   review.mediaTitle,
-          entity_title:   review.mediaTitle,
-          actor_username: actorUsername,
-          actor_avatar:   actorAvatar,
-          read:           false,
-          comment_id:     replyTo.id,
+        await supabase.from('notifications').insert({
+          user_id:      replyTo.authorId,
+          actor_id:     currentUserId,
+          type:         'comment_reply',
+          review_id:    review.id,
+          review_title: review.mediaTitle,
+          read:         false,
+          comment_id:   replyTo.id,
         })
       } else if (!replyTo && review.authorId !== currentUserId) {
-        supabase.from('notifications').insert({
-          user_id:        review.authorId,
-          actor_id:       currentUserId,
-          type:           'review_comment',
-          review_id:      review.id,
-          review_title:   review.mediaTitle,
-          entity_title:   review.mediaTitle,
-          actor_username: actorUsername,
-          actor_avatar:   actorAvatar,
-          read:           false,
+        await supabase.from('notifications').insert({
+          user_id:      review.authorId,
+          actor_id:     currentUserId,
+          type:         'review_comment',
+          review_id:    review.id,
+          review_title: review.mediaTitle,
+          read:         false,
         })
+      }
+
+      // Mention notifications
+      const mentioned = [...new Set((data.content.match(/@(\w+)/g) ?? []).map((m: string) => m.slice(1)))]
+      if (mentioned.length > 0) {
+        const { data: mentionedProfiles } = await supabase
+          .from('profiles').select('id').in('username', mentioned)
+        for (const mp of mentionedProfiles ?? []) {
+          if (mp.id !== currentUserId) {
+            supabase.from('notifications').insert({
+              user_id:      mp.id,
+              actor_id:     currentUserId,
+              type:         'mention',
+              review_id:    review.id,
+              review_title: review.mediaTitle,
+              read:         false,
+            })
+          }
+        }
       }
 
       setNewComment('')
@@ -526,7 +552,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                   </button>
                                 )}
                               </div>
-                              <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{comment.content}</p>
+                              <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed"><WithMentions text={comment.content} /></p>
                               {currentUserId && (
                                 <button
                                   onClick={() => startReply(comment)}
@@ -579,7 +605,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                           </button>
                                         )}
                                       </div>
-                                      <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed">{reply.content}</p>
+                                      <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed"><WithMentions text={reply.content} /></p>
                                     </div>
                                   </div>
                                 )
