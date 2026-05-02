@@ -139,22 +139,6 @@ export default function ListPage() {
     setComments(prev => prev.filter(c => c.id !== cId))
   }
 
-  if (loading) return (
-    <div className="flex justify-center items-center min-h-[60vh]">
-      <div className="w-8 h-8 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
-    </div>
-  )
-  if (notFound || !list) return (
-    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
-      <p className="text-[#A0A0B0]">Esta lista no existe o es privada.</p>
-      <Link href="/listas" className="text-[#FFFD02] hover:underline">Ver todas las listas</Link>
-    </div>
-  )
-
-  const isOwner = currentUserId === list.user_id
-  const watchedCount = items.filter(i => watchedIds.has(`${i.media_type}:${i.media_id}`)).length
-  const pct = items.length > 0 ? Math.round((watchedCount / items.length) * 100) : 0
-
   const displayItems = useMemo(() => {
     const q = search.trim().toLowerCase()
     const filtered = q ? items.filter(i => i.title.toLowerCase().includes(q)) : items
@@ -185,6 +169,22 @@ export default function ListPage() {
       }
     })
   }, [items, search, sortOrder])
+
+  if (loading) return (
+    <div className="flex justify-center items-center min-h-[60vh]">
+      <div className="w-8 h-8 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+    </div>
+  )
+  if (notFound || !list) return (
+    <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
+      <p className="text-[#A0A0B0]">Esta lista no existe o es privada.</p>
+      <Link href="/listas" className="text-[#FFFD02] hover:underline">Ver todas las listas</Link>
+    </div>
+  )
+
+  const isOwner = currentUserId === list.user_id
+  const watchedCount = items.filter(i => watchedIds.has(`${i.media_type}:${i.media_id}`)).length
+  const pct = items.length > 0 ? Math.round((watchedCount / items.length) * 100) : 0
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
