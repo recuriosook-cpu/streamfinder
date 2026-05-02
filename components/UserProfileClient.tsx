@@ -254,14 +254,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         wlCountRes, wlPreviewRes,
       ] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
-        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
-        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
-        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
+        supabase.from('follows').select('id').eq('following_id', profile.id),
+        supabase.from('follows').select('id').eq('follower_id', profile.id),
+        supabase.from('watched').select('id').eq('user_id', profile.id).eq('media_type', 'movie'),
+        supabase.from('watched').select('id').eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
         supabase.from('reviews').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
         supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
-        supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
+        supabase.from('watchlist').select('id').eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
 
@@ -277,11 +277,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
       const uid = authRes.data.user?.id ?? null
       setCurrentUserId(uid)
-      setFollowersCount(followersRes.count ?? 0)
-      setFollowingCount(followingRes.count ?? 0)
-      setMoviesWatched(moviesRes.count ?? 0)
-      setSeriesWatched(seriesRes.count ?? 0)
-      setWatchlistCount(wlCountRes.count ?? 0)
+      setFollowersCount(followersRes.data?.length ?? 0)
+      setFollowingCount(followingRes.data?.length ?? 0)
+      setMoviesWatched(moviesRes.data?.length ?? 0)
+      setSeriesWatched(seriesRes.data?.length ?? 0)
+      setWatchlistCount(wlCountRes.data?.length ?? 0)
       setWatchlistPreview(wlPreviewRes.data ?? [])
 
       // Merge reviews + ratings, deduplicating by media_id:
