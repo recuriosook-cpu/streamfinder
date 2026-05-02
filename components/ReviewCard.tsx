@@ -435,12 +435,11 @@ export default function ReviewCard({
                   </span>
                 }
                 instagram={{
-                  mediaId,
-                  mediaType,
-                  posterPath: mediaPosterPath ?? null,
-                  title: mediaTitle,
-                  rating: rating ?? null,
-                  body: body ?? null,
+                  posterPath:     mediaPosterPath ?? null,
+                  backdropPath:   null,
+                  mediaTitle,
+                  rating:         rating ?? null,
+                  body:           body ?? null,
                   authorUsername,
                   authorAvatarUrl: authorAvatarUrl ?? null,
                 }}
