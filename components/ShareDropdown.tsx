@@ -33,13 +33,13 @@ function InstagramIcon() {
 
 // ── Canvas helpers ─────────────────────────────────────────────────────────
 
-function loadImg(src: string): Promise<HTMLImageElement> {
+const loadImage = (url: string): Promise<HTMLImageElement> => {
   return new Promise((resolve, reject) => {
-    const img = new window.Image()
+    const img = new Image()
     img.crossOrigin = 'anonymous'
-    img.onload  = () => resolve(img)
-    img.onerror = () => reject(new Error(`load failed: ${src}`))
-    img.src = src
+    img.onload = () => resolve(img)
+    img.onerror = () => reject(new Error('Failed to load: ' + url))
+    img.src = url
   })
 }
 
@@ -90,7 +90,7 @@ async function generateStoryBlob(opts: {
   }
   if (backdropPath) {
     try {
-      const bg = await loadImg(`https://image.tmdb.org/t/p/w1280${backdropPath}`)
+      const bg = await loadImage(`https://image.tmdb.org/t/p/w1280${backdropPath}`)
       const scale = Math.max(W / bg.naturalWidth, H / bg.naturalHeight)
       const sw = bg.naturalWidth * scale, sh = bg.naturalHeight * scale
       ctx.drawImage(bg, (W - sw) / 2, (H - sh) / 2, sw, sh)
@@ -107,7 +107,7 @@ async function generateStoryBlob(opts: {
   let drawnAvatar = false
   if (authorAvatarUrl) {
     try {
-      const av = await loadImg(authorAvatarUrl)
+      const av = await loadImage(authorAvatarUrl)
       ctx.drawImage(av, AX - AVR, AY - AVR, AVR * 2, AVR * 2)
       drawnAvatar = true
     } catch { /* fall through to initials */ }
@@ -125,7 +125,7 @@ async function generateStoryBlob(opts: {
   const PW = 700, PH = 1050, PX = (W - PW) / 2, PY = curY
   if (posterPath) {
     try {
-      const p = await loadImg(`https://image.tmdb.org/t/p/w500${posterPath}`)
+      const p = await loadImage(`https://image.tmdb.org/t/p/w500${posterPath}`)
       ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 20
       ctx.save(); rrPath(ctx, PX, PY, PW, PH, 20); ctx.clip()
       ctx.drawImage(p, PX, PY, PW, PH)
