@@ -254,14 +254,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         wlCountRes, wlPreviewRes,
       ] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('follows').select('id').eq('following_id', profile.id),
-        supabase.from('follows').select('id').eq('follower_id', profile.id),
-        supabase.from('watched').select('id').eq('user_id', profile.id).eq('media_type', 'movie'),
-        supabase.from('watched').select('id').eq('user_id', profile.id).eq('media_type', 'tv'),
+        supabase.from('follows').select('follower_id').eq('following_id', profile.id),
+        supabase.from('follows').select('follower_id').eq('follower_id', profile.id),
+        supabase.from('watched').select('media_id').eq('user_id', profile.id).eq('media_type', 'movie'),
+        supabase.from('watched').select('media_id').eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
         supabase.from('reviews').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
         supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
-        supabase.from('watchlist').select('id').eq('user_id', profile.id),
+        supabase.from('watchlist').select('media_id').eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
 
