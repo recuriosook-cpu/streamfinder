@@ -38,22 +38,24 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown country' }, { status: 400 })
   }
 
-  const [upcomingData, platformData, regionProviders] = await Promise.all([
-    getUpcomingMovies(country),
-    Promise.all(
+  // Use Promise.allSettled so one TMDB failure doesn't kill all platform data
+  const [upcomingResult, platformResults, regionResult] = await Promise.all([
+    getUpcomingMovies(country).catch(() => ({ results: [] })),
+    Promise.allSettled(
       CAROUSEL_PLATFORMS.map(p =>
         Promise.all([getProviderMovies(p.id, country), getProviderTV(p.id, country)])
       )
     ),
-    getRegionProviders(country),
+    getRegionProviders(country).catch(() => []),
   ])
 
-  const upcomingMovies = ((upcomingData.results ?? []) as RawMovie[])
+  const upcomingMovies = ((upcomingResult.results ?? []) as RawMovie[])
     .filter(m => m.backdrop_path)
     .slice(0, 10)
 
+  const regionProviders = Array.isArray(regionResult) ? regionResult : []
   const logoMap = new Map<number, string>(
-    regionProviders.map(p => [p.provider_id, p.logo_path])
+    regionProviders.map((p: { provider_id: number; logo_path: string }) => [p.provider_id, p.logo_path])
   )
   const platformsWithLogos = ALL_PLATFORMS.map(p => ({
     ...p,
@@ -61,7 +63,9 @@ export async function GET(req: NextRequest) {
   }))
 
   const platformContent = CAROUSEL_PLATFORMS.map((platform, i) => {
-    const [moviesData, tvData] = platformData[i]
+    const result = platformResults[i]
+    if (result.status === 'rejected') return { ...platform, items: [] }
+    const [moviesData, tvData] = result.value
     const movies = ((moviesData.results ?? []) as RawMovie[]).map(m => ({
       id: m.id, title: m.title, posterPath: m.poster_path,
       mediaType: 'movie' as const, date: m.release_date ?? '',

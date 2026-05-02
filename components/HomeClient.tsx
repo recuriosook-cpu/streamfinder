@@ -695,14 +695,14 @@ export default function HomeClient() {
     prevCountry.current = country
     setPlatformLoading(true)
     fetch(`/api/home?country=${country}`)
-      .then(r => r.json())
+      .then(r => r.ok ? r.json() : Promise.reject(new Error(`HTTP ${r.status}`)))
       .then((d: HomeData) => { setPlatformData(d); setPlatformLoading(false) })
       .catch(() => setPlatformLoading(false))
   }, [country])
 
   // ── Recent releases (TMDB, country-dependent) ─────────────────────────────
   useEffect(() => {
-    if (!TMDB_KEY || !country) return
+    if (!TMDB_KEY || !country) { setRecentLoading(false); return }
     setRecentLoading(true)
 
     async function loadRecent() {
@@ -818,20 +818,29 @@ export default function HomeClient() {
   // ── Featured reviews ──────────────────────────────────────────────────────
   useEffect(() => {
     async function loadReviews() {
+      // Fetch reviews without embedded relation to avoid FK issues
       const { data: reviewsData } = await supabase
         .from('reviews')
-        .select('id, media_id, media_type, title, poster_path, rating, body, user_id, review_likes(user_id)')
+        .select('id, media_id, media_type, title, poster_path, rating, body, user_id')
+        .not('body', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(30)
+        .limit(50)
 
       if (!reviewsData?.length) { setReviewsLoading(false); return }
 
-      type RawReview = typeof reviewsData[number]
-      const sorted = (reviewsData as RawReview[])
-        .map(r => ({
-          ...r,
-          likeCount: Array.isArray(r.review_likes) ? r.review_likes.length : 0,
-        }))
+      // Fetch like counts separately to avoid embed failures
+      const reviewIds = reviewsData.slice(0, 20).map(r => r.id)
+      const { data: likesData } = await supabase
+        .from('review_likes')
+        .select('review_id')
+        .in('review_id', reviewIds)
+      const likesByReview: Record<string, number> = {}
+      for (const l of likesData ?? []) {
+        likesByReview[l.review_id] = (likesByReview[l.review_id] ?? 0) + 1
+      }
+
+      const sorted = reviewsData
+        .map(r => ({ ...r, likeCount: likesByReview[r.id] ?? 0 }))
         .sort((a, b) => b.likeCount - a.likeCount)
         .slice(0, 3)
 
