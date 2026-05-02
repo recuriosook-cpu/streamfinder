@@ -210,8 +210,13 @@ export default function ShareDropdown({
     const handler = (e: MouseEvent) => {
       if (ref.current && !ref.current.contains(e.target as Node)) setOpen(false)
     }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
+    const timer = setTimeout(() => {
+      document.addEventListener('click', handler)
+    }, 100)
+    return () => {
+      clearTimeout(timer)
+      document.removeEventListener('click', handler)
+    }
   }, [open])
 
   const handleCopy = async () => {
