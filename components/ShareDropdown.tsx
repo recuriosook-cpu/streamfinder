@@ -1,7 +1,11 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef, useEffect } from 'react'
-import { Share2, Link2, Check } from 'lucide-react'
+import { Share2, Link2, Check, Loader2 } from 'lucide-react'
+
+const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+
+// ── Icons ──────────────────────────────────────────────────────────────────
 
 function WhatsAppIcon() {
   return (
@@ -19,19 +23,175 @@ function XIcon() {
   )
 }
 
+function InstagramIcon() {
+  return (
+    <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" className="text-pink-400">
+      <rect x="2" y="2" width="20" height="20" rx="5" ry="5"/>
+      <circle cx="12" cy="12" r="4"/>
+      <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none"/>
+    </svg>
+  )
+}
+
+// ── Canvas helpers ─────────────────────────────────────────────────────────
+
+function loadImg(src: string): Promise<HTMLImageElement> {
+  return new Promise((resolve, reject) => {
+    const img = new window.Image()
+    img.crossOrigin = 'anonymous'
+    img.onload  = () => resolve(img)
+    img.onerror = () => reject(new Error(`load failed: ${src}`))
+    img.src = src
+  })
+}
+
+function wrapText(ctx: CanvasRenderingContext2D, text: string, maxWidth: number): string[] {
+  const words = text.split(' ')
+  const lines: string[] = []
+  let cur = ''
+  for (const word of words) {
+    const test = cur ? `${cur} ${word}` : word
+    if (ctx.measureText(test).width > maxWidth && cur) { lines.push(cur); cur = word }
+    else cur = test
+  }
+  if (cur) lines.push(cur)
+  return lines
+}
+
+function rrPath(ctx: CanvasRenderingContext2D, x: number, y: number, w: number, h: number, r: number) {
+  ctx.beginPath()
+  ctx.moveTo(x + r, y)
+  ctx.lineTo(x + w - r, y); ctx.arcTo(x + w, y, x + w, y + r, r)
+  ctx.lineTo(x + w, y + h - r); ctx.arcTo(x + w, y + h, x + w - r, y + h, r)
+  ctx.lineTo(x + r, y + h); ctx.arcTo(x, y + h, x, y + h - r, r)
+  ctx.lineTo(x, y + r); ctx.arcTo(x, y, x + r, y, r)
+  ctx.closePath()
+}
+
+async function generateStoryBlob(opts: {
+  title: string
+  rating: number | null
+  body: string | null
+  authorUsername: string
+  authorAvatarUrl: string | null
+  posterPath: string | null
+  backdropPath: string | null
+}): Promise<Blob | null> {
+  const { title, rating, body, authorUsername, authorAvatarUrl, posterPath, backdropPath } = opts
+  const W = 1080, H = 1920
+  const canvas = document.createElement('canvas')
+  canvas.width = W; canvas.height = H
+  const ctx = canvas.getContext('2d')
+  if (!ctx) return null
+
+  // Background
+  const drawGrad = () => {
+    const g = ctx.createLinearGradient(0, 0, 0, H)
+    g.addColorStop(0, '#1a1a2e'); g.addColorStop(1, '#0a0a0f')
+    ctx.fillStyle = g; ctx.fillRect(0, 0, W, H)
+  }
+  if (backdropPath) {
+    try {
+      const bg = await loadImg(`https://image.tmdb.org/t/p/w1280${backdropPath}`)
+      const scale = Math.max(W / bg.naturalWidth, H / bg.naturalHeight)
+      const sw = bg.naturalWidth * scale, sh = bg.naturalHeight * scale
+      ctx.drawImage(bg, (W - sw) / 2, (H - sh) / 2, sw, sh)
+    } catch { drawGrad() }
+  } else { drawGrad() }
+
+  ctx.fillStyle = 'rgba(0,0,0,0.75)'; ctx.fillRect(0, 0, W, H)
+
+  // Avatar
+  const AVR = 40, AX = W / 2, AY = 110
+  ctx.beginPath(); ctx.arc(AX, AY, AVR + 3, 0, Math.PI * 2)
+  ctx.fillStyle = '#FFFD02'; ctx.fill()
+  ctx.save(); ctx.beginPath(); ctx.arc(AX, AY, AVR, 0, Math.PI * 2); ctx.clip()
+  let drawnAvatar = false
+  if (authorAvatarUrl) {
+    try {
+      const av = await loadImg(authorAvatarUrl)
+      ctx.drawImage(av, AX - AVR, AY - AVR, AVR * 2, AVR * 2)
+      drawnAvatar = true
+    } catch { /* fall through */ }
+  }
+  if (!drawnAvatar) {
+    ctx.fillStyle = '#2A2A3A'; ctx.fillRect(AX - AVR, AY - AVR, AVR * 2, AVR * 2)
+    ctx.fillStyle = '#FFFD02'; ctx.font = 'bold 40px system-ui'; ctx.textAlign = 'center'; ctx.textBaseline = 'middle'
+    ctx.fillText(authorUsername[0]?.toUpperCase() ?? '?', AX, AY)
+  }
+  ctx.restore(); ctx.textBaseline = 'alphabetic'
+
+  let curY = AY + AVR + 32  // ~182
+
+  // Poster 700×1050 (~55% of height)
+  const PW = 700, PH = 1050, PX = (W - PW) / 2, PY = curY
+  if (posterPath) {
+    try {
+      const p = await loadImg(`https://image.tmdb.org/t/p/w500${posterPath}`)
+      ctx.shadowColor = 'rgba(0,0,0,0.9)'; ctx.shadowBlur = 60; ctx.shadowOffsetY = 20
+      ctx.save(); rrPath(ctx, PX, PY, PW, PH, 20); ctx.clip()
+      ctx.drawImage(p, PX, PY, PW, PH)
+      ctx.restore(); ctx.shadowBlur = 0; ctx.shadowOffsetY = 0
+    } catch { ctx.fillStyle = '#27272A'; rrPath(ctx, PX, PY, PW, PH, 20); ctx.fill() }
+  } else { ctx.fillStyle = '#27272A'; rrPath(ctx, PX, PY, PW, PH, 20); ctx.fill() }
+  curY = PY + PH + 50  // ~1282
+
+  // Title
+  ctx.fillStyle = '#FFFFFF'; ctx.font = 'bold 52px system-ui,-apple-system,sans-serif'; ctx.textAlign = 'center'
+  for (const line of wrapText(ctx, title, W - 120).slice(0, 2)) { ctx.fillText(line, W / 2, curY); curY += 65 }
+  curY += 12
+
+  // Stars
+  if (rating != null) {
+    const full = Math.floor(rating), half = rating % 1 >= 0.5, empty = 5 - full - (half ? 1 : 0)
+    ctx.fillStyle = '#1DB954'; ctx.font = 'bold 56px system-ui,-apple-system,sans-serif'; ctx.textAlign = 'center'
+    ctx.fillText(`${'★'.repeat(full)}${half ? '½' : ''}${'☆'.repeat(empty)}  ${rating}/5`, W / 2, curY)
+    curY += 75
+  }
+
+  // Body excerpt (max 4 lines)
+  if (body?.trim()) {
+    curY += 20
+    const excerpt = body.trim().slice(0, 200) + (body.trim().length > 200 ? '...' : '')
+    ctx.fillStyle = '#FFFFFF'; ctx.font = '36px system-ui,-apple-system,sans-serif'; ctx.textAlign = 'center'
+    for (const line of wrapText(ctx, excerpt, W - 160).slice(0, 4)) { ctx.fillText(line, W / 2, curY); curY += 50 }
+  }
+
+  // Logo
+  ctx.fillStyle = '#FFFD02'; ctx.font = 'bold 44px system-ui,-apple-system,sans-serif'; ctx.textAlign = 'center'
+  ctx.fillText('Glynbox', W / 2, H - 130)
+  ctx.fillStyle = 'rgba(255,255,255,0.45)'; ctx.font = '30px system-ui,-apple-system,sans-serif'
+  ctx.fillText('glynbox.com', W / 2, H - 84)
+
+  return new Promise(resolve => canvas.toBlob(blob => resolve(blob), 'image/png'))
+}
+
+// ── Types ──────────────────────────────────────────────────────────────────
+
+interface InstagramOpts {
+  mediaId: number
+  mediaType: 'movie' | 'tv'
+  posterPath: string | null
+  title: string
+  rating: number | null
+  body: string | null
+  authorUsername: string
+  authorAvatarUrl: string | null
+}
+
 interface Props {
   whatsappUrl: string
   twitterUrl: string
   copyUrl: string
-  /** Plain text for navigator.share (title + content summary) */
   shareText?: string
-  /** Which side the dropdown aligns to. Default: left */
   align?: 'left' | 'right'
-  /** Custom trigger; defaults to a Share2 icon button */
   trigger?: React.ReactNode
-  /** Extra class on the trigger wrapper */
   triggerClassName?: string
+  /** When provided, shows the "Imagen para Instagram Stories" button */
+  instagram?: InstagramOpts
 }
+
+// ── Component ──────────────────────────────────────────────────────────────
 
 export default function ShareDropdown({
   whatsappUrl,
@@ -41,9 +201,12 @@ export default function ShareDropdown({
   align = 'left',
   trigger,
   triggerClassName = '',
+  instagram,
 }: Props) {
-  const [open,   setOpen]   = useState(false)
-  const [copied, setCopied] = useState(false)
+  const [open,      setOpen]      = useState(false)
+  const [copied,    setCopied]    = useState(false)
+  const [igLoading, setIgLoading] = useState(false)
+  const [igToast,   setIgToast]   = useState(false)
   const ref = useRef<HTMLDivElement>(null)
 
   useEffect(() => {
@@ -70,13 +233,65 @@ export default function ShareDropdown({
       await navigator.clipboard.writeText(copyUrl)
       setCopied(true)
       setTimeout(() => { setCopied(false); setOpen(false) }, 1500)
-    } catch {
-      setOpen(false)
+    } catch { setOpen(false) }
+  }
+
+  const handleInstagram = async () => {
+    if (!instagram) return
+    setIgLoading(true)
+    setOpen(false)
+    try {
+      let backdropPath: string | null = null
+      if (TMDB_KEY) {
+        try {
+          const res = await fetch(
+            `https://api.themoviedb.org/3/${instagram.mediaType}/${instagram.mediaId}?api_key=${TMDB_KEY}`
+          )
+          if (res.ok) { const d = await res.json(); backdropPath = d.backdrop_path ?? null }
+        } catch { /* proceed without backdrop */ }
+      }
+
+      const blob = await generateStoryBlob({
+        title:          instagram.title,
+        rating:         instagram.rating,
+        body:           instagram.body,
+        authorUsername: instagram.authorUsername,
+        authorAvatarUrl: instagram.authorAvatarUrl,
+        posterPath:     instagram.posterPath,
+        backdropPath,
+      })
+      if (!blob) return
+
+      const fileName = `glynbox-${instagram.title.replace(/\s+/g, '-').toLowerCase()}.png`
+      const file = new File([blob], fileName, { type: 'image/png' })
+
+      if (navigator.canShare?.({ files: [file] })) {
+        await navigator.share({ files: [file], title: `Reseña de ${instagram.title} — Glynbox` })
+      } else {
+        const url = URL.createObjectURL(blob)
+        const a = document.createElement('a')
+        a.href = url; a.download = fileName
+        document.body.appendChild(a); a.click(); document.body.removeChild(a)
+        URL.revokeObjectURL(url)
+        setIgToast(true)
+        setTimeout(() => setIgToast(false), 4000)
+      }
+    } catch (err) {
+      console.error('[Instagram story]', err)
+    } finally {
+      setIgLoading(false)
     }
   }
 
   return (
     <div className={`relative ${triggerClassName}`} ref={ref}>
+      {/* Toast */}
+      {igToast && (
+        <div className="absolute bottom-full mb-2 left-1/2 -translate-x-1/2 bg-[#1C1C27] border border-pink-500/40 text-white text-xs px-3 py-2 rounded-lg shadow-xl whitespace-nowrap z-50 pointer-events-none">
+          ¡Imagen lista! Subila a tus Instagram Stories
+        </div>
+      )}
+
       <button
         onClick={handleTrigger}
         title="Compartir"
@@ -86,10 +301,7 @@ export default function ShareDropdown({
       </button>
 
       {open && (
-        <div
-          className={`absolute top-full mt-2 z-50 w-52 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden
-            ${align === 'right' ? 'right-0' : 'left-0'}`}
-        >
+        <div className={`absolute top-full mt-2 z-50 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden ${instagram ? 'w-64' : 'w-52'} ${align === 'right' ? 'right-0' : 'left-0'}`}>
           <a
             href={whatsappUrl}
             target="_blank"
@@ -117,6 +329,20 @@ export default function ShareDropdown({
             {copied ? <Check size={15} className="text-[#FFFD02]" /> : <Link2 size={15} />}
             {copied ? '¡Link copiado!' : 'Copiar link'}
           </button>
+
+          {instagram && (
+            <button
+              onClick={handleInstagram}
+              disabled={igLoading}
+              className="w-full flex items-center gap-3 px-4 py-3 text-sm text-zinc-200 hover:bg-zinc-700/70 transition-colors border-t border-[#2A2A3A]/50 disabled:opacity-60"
+            >
+              {igLoading
+                ? <Loader2 size={15} className="animate-spin text-pink-400" />
+                : <InstagramIcon />
+              }
+              {igLoading ? 'Generando imagen...' : 'Imagen para Instagram Stories'}
+            </button>
+          )}
         </div>
       )}
     </div>
