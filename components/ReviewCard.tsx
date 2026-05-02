@@ -163,26 +163,35 @@ export default function ReviewCard({
 
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
+      const actorUsername = myProfile?.username ?? ''
+      const actorAvatar   = myProfile?.avatar_url ?? null
+
       // Notification for reply or top-level comment
       if (replyTo && replyTo.authorId !== currentUserId) {
-        await supabase.from('notifications').insert({
-          user_id:      replyTo.authorId,
-          actor_id:     currentUserId,
-          type:         'comment_reply',
-          review_id:    id,
-          review_title: mediaTitle,
-          read:         false,
-          comment_id:   replyTo.id,
+        const { error: notifError } = await supabase.from('notifications').insert({
+          user_id:        replyTo.authorId,
+          actor_id:       currentUserId,
+          type:           'comment_reply',
+          review_id:      id,
+          review_title:   mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
+          comment_id:     replyTo.id,
         })
+        if (notifError) console.error('[notification insert error] comment_reply:', notifError)
       } else if (!replyTo && authorId !== currentUserId) {
-        await supabase.from('notifications').insert({
-          user_id:      authorId,
-          actor_id:     currentUserId,
-          type:         'review_comment',
-          review_id:    id,
-          review_title: mediaTitle,
-          read:         false,
+        const { error: notifError } = await supabase.from('notifications').insert({
+          user_id:        authorId,
+          actor_id:       currentUserId,
+          type:           'review_comment',
+          review_id:      id,
+          review_title:   mediaTitle,
+          actor_username: actorUsername,
+          actor_avatar:   actorAvatar,
+          read:           false,
         })
+        if (notifError) console.error('[notification insert error] review_comment:', notifError)
       }
 
       // Mention notifications — one per unique @username in the comment
@@ -192,14 +201,17 @@ export default function ReviewCard({
           .from('profiles').select('id').in('username', mentioned)
         for (const mp of mentionedProfiles ?? []) {
           if (mp.id !== currentUserId) {
-            supabase.from('notifications').insert({
-              user_id:      mp.id,
-              actor_id:     currentUserId,
-              type:         'mention',
-              review_id:    id,
-              review_title: mediaTitle,
-              read:         false,
+            const { error: mentionError } = await supabase.from('notifications').insert({
+              user_id:        mp.id,
+              actor_id:       currentUserId,
+              type:           'mention',
+              review_id:      id,
+              review_title:   mediaTitle,
+              actor_username: actorUsername,
+              actor_avatar:   actorAvatar,
+              read:           false,
             })
+            if (mentionError) console.error('[notification insert error] mention:', mentionError)
           }
         }
       }
