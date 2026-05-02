@@ -8,6 +8,7 @@ import { ArrowLeft, Heart, Link2, MessageSquare, Send, Share2, X } from 'lucide-
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
+import MentionTextarea from '@/components/MentionTextarea'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -436,10 +437,10 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                     </div>
                   )}
                   <div className="flex gap-3">
-                    <textarea
-                      ref={inputRef}
+                    <MentionTextarea
+                      textareaRef={inputRef}
                       value={newComment}
-                      onChange={e => setNewComment(e.target.value)}
+                      onChange={setNewComment}
                       onKeyDown={e => {
                         if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() }
                       }}
