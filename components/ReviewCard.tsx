@@ -194,26 +194,29 @@ export default function ReviewCard({
         if (notifError) console.error('[notification insert error] review_comment:', notifError)
       }
 
-      // Mention notifications — one per unique @username in the comment
-      const mentioned = [...new Set((data.content.match(/@(\w+)/g) ?? []).map((m: string) => m.slice(1)))]
-      if (mentioned.length > 0) {
-        const { data: mentionedProfiles } = await supabase
-          .from('profiles').select('id').in('username', mentioned)
-        for (const mp of mentionedProfiles ?? []) {
-          if (mp.id !== currentUserId) {
-            const { error: mentionError } = await supabase.from('notifications').insert({
-              user_id:        mp.id,
-              actor_id:       currentUserId,
-              type:           'mention',
-              review_id:      id,
-              review_title:   mediaTitle,
-              actor_username: actorUsername,
-              actor_avatar:   actorAvatar,
-              read:           false,
-            })
-            if (mentionError) console.error('[notification insert error] mention:', mentionError)
+      // Mention notifications — wrapped in try/catch so errors never interrupt the flow
+      try {
+        const mentioned = [...new Set((data.content.match(/@(\w+)/g) ?? []).map((m: string) => m.slice(1)))]
+        if (mentioned.length > 0) {
+          const { data: mentionedProfiles } = await supabase
+            .from('profiles').select('id').in('username', mentioned)
+          for (const mp of mentionedProfiles ?? []) {
+            if (mp.id !== currentUserId) {
+              await supabase.from('notifications').insert({
+                user_id:        mp.id,
+                actor_id:       currentUserId,
+                type:           'mention',
+                review_id:      id,
+                review_title:   mediaTitle,
+                actor_username: actorUsername,
+                actor_avatar:   actorAvatar,
+                read:           false,
+              })
+            }
           }
         }
+      } catch (mentionError) {
+        console.error('[mention notification error]', mentionError)
       }
 
       setNewComment('')
