@@ -15,23 +15,6 @@ const GENRE_MAP: Record<number, string> = {
   10767: 'Talk show', 10768: 'Guerra y política',
 }
 
-// ── Batch processor with delay between batches (avoids TMDB rate limiting) ─
-async function withBatches<T>(
-  tasks: (() => Promise<T>)[],
-  batchSize = 5,
-  delayMs = 500,
-): Promise<(T | null)[]> {
-  const results: (T | null)[] = []
-  for (let i = 0; i < tasks.length; i += batchSize) {
-    const batch = tasks.slice(i, i + batchSize)
-    const settled = await Promise.allSettled(batch.map(t => t()))
-    results.push(...settled.map(r => r.status === 'fulfilled' ? r.value : null))
-    if (i + batchSize < tasks.length) {
-      await new Promise(r => setTimeout(r, delayMs))
-    }
-  }
-  return results
-}
 
 // ── Safe TMDB fetch (returns null on error) ────────────────────────────────
 async function tmdb(path: string): Promise<Record<string, unknown> | null> {
@@ -86,16 +69,19 @@ export async function GET(req: NextRequest) {
     credits: any
   }
 
-  const tasks = rows.map(row => async (): Promise<ItemData> => {
-    const [details, credits] = await Promise.all([
-      tmdb(`/${row.media_type}/${row.media_id}`),
-      tmdb(`/${row.media_type}/${row.media_id}/credits`),
-    ])
-    return { row, details, credits }
-  })
-
-  const rawItems = await withBatches(tasks, 5, 500)
-  const items = rawItems.filter((item): item is ItemData => item !== null)
+  const items: ItemData[] = []
+  for (const row of rows) {
+    try {
+      const [details, credits] = await Promise.all([
+        tmdb(`/${row.media_type}/${row.media_id}`),
+        tmdb(`/${row.media_type}/${row.media_id}/credits`),
+      ])
+      items.push({ row, details, credits })
+    } catch {
+      // skip item on error, continue with next
+    }
+    await new Promise(r => setTimeout(r, 200))
+  }
 
   // ── Compute metrics ───────────────────────────────────────────────────────
   let totalMinutes   = 0

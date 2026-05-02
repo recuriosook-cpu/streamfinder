@@ -370,12 +370,13 @@ export default function MoodRecommender() {
 
         {/* Loading */}
         {loading && (
-          <div>
-            <div className="flex items-center justify-center gap-3 mt-4 mb-3">
-              <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin shrink-0" />
-              <p className="text-[#A0A0B0] text-sm font-medium">Buscando lo mejor para vos…</p>
+          <div className="flex flex-col items-center justify-center py-12 gap-4">
+            <div className="flex gap-2">
+              <div className="w-3 h-3 rounded-full bg-[#FFFD02] animate-bounce" style={{ animationDelay: '0ms' }} />
+              <div className="w-3 h-3 rounded-full bg-[#FFFD02] animate-bounce" style={{ animationDelay: '150ms' }} />
+              <div className="w-3 h-3 rounded-full bg-[#FFFD02] animate-bounce" style={{ animationDelay: '300ms' }} />
             </div>
-            <SkeletonCards />
+            <p className="text-[#A0A0B0] text-sm">Buscando lo mejor para vos...</p>
           </div>
         )}
 
