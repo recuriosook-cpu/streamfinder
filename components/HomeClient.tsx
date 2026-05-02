@@ -271,7 +271,7 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
       </div>
 
       <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
-        {items.map(item => (
+        {items.filter(item => item.posterPath).map(item => (
           <Link
             key={`${item.mediaType}-${item.id}`}
             href={`/${item.mediaType}/${item.id}`}
@@ -713,12 +713,12 @@ export default function HomeClient() {
       ])
 
       type RawMovie = { id: number; title?: string; name?: string; poster_path: string | null; release_date?: string; first_air_date?: string }
-      const movies: RecentItem[] = ((movRes.results ?? []) as RawMovie[]).slice(0, 8).map(m => ({
+      const movies: RecentItem[] = ((movRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.title ?? '', posterPath: m.poster_path,
         mediaType: 'movie', year: (m.release_date ?? '').slice(0, 4),
         providerLogoPath: null, providerName: null,
       }))
-      const tv: RecentItem[] = ((tvRes.results ?? []) as RawMovie[]).slice(0, 8).map(m => ({
+      const tv: RecentItem[] = ((tvRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.name ?? '', posterPath: m.poster_path,
         mediaType: 'tv', year: (m.first_air_date ?? '').slice(0, 4),
         providerLogoPath: null, providerName: null,
@@ -803,7 +803,7 @@ export default function HomeClient() {
         const res = await fetch(`${TMDB}/movie/popular?api_key=${TMDB_KEY}&language=es-AR&page=1`)
         const d = await res.json()
         type Pop = { id: number; title: string; poster_path: string | null }
-        const items: TrendingItem[] = ((d.results ?? []) as Pop[]).slice(0, 10).map(m => ({
+        const items: TrendingItem[] = ((d.results ?? []) as Pop[]).filter(m => m.poster_path).slice(0, 10).map(m => ({
           mediaId: m.id, mediaType: 'movie', title: m.title,
           posterPath: m.poster_path, viewCount: null,
         }))

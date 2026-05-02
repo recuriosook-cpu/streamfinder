@@ -69,7 +69,7 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll"
       >
-        {items.map(item => (
+        {items.filter(item => item.posterPath).map(item => (
           <Link
             key={`${item.mediaType}-${item.id}`}
             href={item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`}
