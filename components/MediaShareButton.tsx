@@ -29,6 +29,7 @@ export default function MediaShareButton({ mediaId, mediaType, title, year, scor
       whatsappUrl={whatsappUrl}
       twitterUrl={twitterUrl}
       copyUrl={url}
+      shareText={`Te recomiendo ${label} en Glynbox`}
       align="left"
       trigger={
         <span className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors w-full sm:w-auto">
