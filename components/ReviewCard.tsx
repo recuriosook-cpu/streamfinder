@@ -8,7 +8,7 @@ import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
-import ShareDropdown from '@/components/ShareDropdown'
+import ReviewShareDropdown from '@/components/ReviewShareDropdown'
 import { addPoints } from '@/lib/points'
 
 // Render text with @mentions as green links
@@ -405,38 +405,28 @@ export default function ReviewCard({
             </span>
           </button>
 
-          {(() => {
-            const BASE = typeof window !== 'undefined' ? window.location.origin : 'https://glynbox.com'
-            const reviewUrl = `${BASE}/review/${id}`
-            const ratingStr = rating ? `⭐${rating}/5` : ''
-            const shareText = `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en Glynbox`
-            const excerpt = body ? body.slice(0, 100).trim() : ''
-            const waText = encodeURIComponent(
-              `${shareText}\n"${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}"\n👉 ${reviewUrl}`
-            )
-            const tweetText = encodeURIComponent(
-              `${shareText}\n"${body ? body.slice(0, 80).trim() : ''}${(body?.length ?? 0) > 80 ? '...' : ''}"\n👉 ${reviewUrl}`
-            )
-            return (
-              <ShareDropdown
-                whatsappUrl={`https://wa.me/?text=${waText}`}
-                twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}`}
-                copyUrl={reviewUrl}
-                shareText={shareText}
-                align="left"
-                triggerClassName="text-[#A0A0B0] hover:text-zinc-300"
-                trigger={
-                  <span className="flex items-center gap-1.5 text-xs font-medium">
-                    <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
-                      <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
-                      <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
-                    </svg>
-                    Compartir
-                  </span>
-                }
-              />
-            )
-          })()}
+          <ReviewShareDropdown
+            reviewId={id}
+            mediaId={mediaId}
+            mediaType={mediaType}
+            mediaTitle={mediaTitle}
+            mediaPosterPath={mediaPosterPath ?? null}
+            mediaYear={null}
+            rating={rating ?? null}
+            body={body ?? null}
+            authorUsername={authorUsername}
+            authorAvatarUrl={authorAvatarUrl ?? null}
+            align="left"
+            trigger={
+              <span className="flex items-center gap-1.5 text-xs font-medium text-[#A0A0B0] hover:text-zinc-300">
+                <svg width="13" height="13" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round">
+                  <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
+                  <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
+                </svg>
+                Compartir
+              </span>
+            }
+          />
         </div>
       </div>
 
