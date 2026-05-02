@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
 import BackButton from '@/components/BackButton'
 import ActorFilmography from '@/components/ActorFilmography'
+import ActorAwards from '@/components/ActorAwards'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -232,6 +233,9 @@ export default async function ActorPage({ params }: Props) {
             </div>
           </section>
         )}
+
+        {/* Premios desde Wikidata — carga bajo demanda */}
+        <ActorAwards tmdbId={Number(id)} />
 
         {/* Reconocimientos */}
         <section className="mb-10">
