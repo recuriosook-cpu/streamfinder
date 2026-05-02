@@ -33,6 +33,14 @@ const AWARD_MAP: { match: string; key: string; name: string; emoji: string }[] =
   { match: 'César',         key: 'cesar',  name: 'César Award',  emoji: '🥇' },
 ]
 
+const AWARD_IMAGES: Record<string, string> = {
+  'oscar':  '/awards/oscar.png',
+  'gg':     '/awards/golden-globe.png',
+  'bafta':  '/awards/bafta.png',
+  'sag':    '/awards/sag.png',
+  'emmy':   '/awards/emmy.png',
+}
+
 function groupAwards(entries: AwardEntry[]): AwardGroup[] {
   const map = new Map<string, AwardGroup>()
 
@@ -80,7 +88,12 @@ function AwardModal({ group, onClose }: { group: AwardGroup; onClose: () => void
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A3A]">
           <div className="flex items-center gap-3">
-            <span style={{ fontSize: 28 }}>{group.emoji}</span>
+            {AWARD_IMAGES[group.key] ? (
+              // eslint-disable-next-line @next/next/no-img-element
+              <img src={AWARD_IMAGES[group.key]} alt={group.name} style={{ width: 32, height: 32, objectFit: 'contain' }} />
+            ) : (
+              <span style={{ fontSize: 28 }}>{group.emoji}</span>
+            )}
             <div>
               <h3 className="text-lg font-bold text-white">{group.name}</h3>
               <p className="text-xs text-[#A0A0B0]">
@@ -185,7 +198,12 @@ export default function ActorAwards({ tmdbId }: { tmdbId: number }) {
               onClick={() => setOpenGroup(g)}
               className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col items-center gap-1 text-center hover:border-[#FFFD02]/60 hover:bg-[#1C1C27] transition-all cursor-pointer active:scale-95"
             >
-              <span style={{ fontSize: 32 }}>{g.emoji}</span>
+              {AWARD_IMAGES[g.key] ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={AWARD_IMAGES[g.key]} alt={g.name} style={{ width: 64, height: 64, objectFit: 'contain', margin: '0 auto' }} />
+              ) : (
+                <span style={{ fontSize: 32 }}>{g.emoji}</span>
+              )}
 
               <p className="text-xs text-[#A0A0B0] font-medium leading-tight">{g.name}</p>
 
