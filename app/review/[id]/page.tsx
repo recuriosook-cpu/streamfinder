@@ -1,10 +1,52 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import ReviewPageClient from './ReviewPageClient'
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  const { id } = await params
+  const supabase = createServerClient()
+
+  const { data: review } = await supabase
+    .from('reviews')
+    .select('title, body, rating, poster_path, media_id, media_type')
+    .eq('id', id)
+    .maybeSingle()
+
+  if (!review) return {}
+
+  const posterUrl = review.poster_path
+    ? `https://image.tmdb.org/t/p/w500${review.poster_path}`
+    : 'https://glynbox.com/logo.png'
+
+  const stars = review.rating
+    ? '★'.repeat(Math.floor(review.rating)) + (review.rating % 1 >= 0.5 ? '½' : '')
+    : ''
+
+  const title       = `${stars} ${review.title} — Glynbox`.trim()
+  const description = review.body?.slice(0, 160) ?? `Reseña de ${review.title} en Glynbox`
+
+  return {
+    title,
+    description,
+    openGraph: {
+      title:       `${stars} ${review.title}`.trim(),
+      description,
+      images:      [{ url: posterUrl, width: 500, height: 750 }],
+      type:        'article',
+    },
+    twitter: {
+      card:        'summary_large_image',
+      title,
+      description,
+      images:      [posterUrl],
+    },
+  }
 }
 
 export default async function ReviewPage({ params }: Props) {

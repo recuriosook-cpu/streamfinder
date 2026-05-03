@@ -88,7 +88,8 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
   const bodySlice100 = (review.body ?? '').slice(0, 100)
   const bodySlice80  = (review.body ?? '').slice(0, 80)
   const waText     = encodeURIComponent(`${review.authorUsername} le dio ${ratingStr} a "${review.mediaTitle}" en Glynbox\n"${bodySlice100}${(review.body ?? '').length > 100 ? '...' : ''}"\n👉 ${reviewUrl}`)
-  const tweetText  = encodeURIComponent(`Le di ${ratingStr} a "${review.mediaTitle}" en #Glynbox\n"${bodySlice80}${(review.body ?? '').length > 80 ? '...' : ''}"\n👉 ${reviewUrl}`)
+  const stars      = review.rating ? '★'.repeat(Math.floor(review.rating)) + (review.rating % 1 >= 0.5 ? '½' : '') : ''
+  const tweetText  = encodeURIComponent(`Mi reseña de ${stars} de "${review.mediaTitle}" en @GlynboxApp\n`)
   const shareText  = `${review.authorUsername} le dio ${ratingStr} a "${review.mediaTitle}" en Glynbox`
 
   // ── Comments state ─────────────────────────────────────────────

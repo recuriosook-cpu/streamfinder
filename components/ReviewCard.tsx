@@ -414,9 +414,8 @@ export default function ReviewCard({
             const waText = encodeURIComponent(
               `${shareText}\n"${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}"\n👉 ${reviewUrl}`
             )
-            const tweetText = encodeURIComponent(
-              `${shareText}\n"${body ? body.slice(0, 80).trim() : ''}${(body?.length ?? 0) > 80 ? '...' : ''}"\n👉 ${reviewUrl}`
-            )
+            const stars = rating ? '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '½' : '') : ''
+            const tweetText = encodeURIComponent(`Mi reseña de ${stars} de "${mediaTitle}" en @GlynboxApp\n`)
             return (
               <ShareDropdown
                 whatsappUrl={`https://wa.me/?text=${waText}`}
