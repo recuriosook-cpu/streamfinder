@@ -72,7 +72,18 @@ interface ListFeed {
   previews: (string | null)[]; itemCount: number
 }
 
-type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed | ListFeed
+interface ActorBirthdayFeed {
+  key: string; type: 'actor_birthday'; sortTime: string
+  actorId: number; actorName: string; actorPhoto: string | null; age: number
+}
+interface ActorReleaseFeed {
+  key: string; type: 'actor_release'; sortTime: string
+  actorId: number; actorName: string; actorPhoto: string | null
+  mediaId: number; mediaType: 'movie' | 'tv'
+  mediaTitle: string; mediaPosterPath: string | null; mediaYear: string
+}
+
+type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed | ListFeed | ActorBirthdayFeed | ActorReleaseFeed
 
 interface CommunityListCard {
   id: string; title: string; description: string | null; tags: string[]
@@ -623,6 +634,76 @@ function TabButton({ active, onClick, icon, label }: { active: boolean; onClick:
   )
 }
 
+function ActorBirthdayCard({ item }: { item: ActorBirthdayFeed }) {
+  return (
+    <div className="bg-[#13131A] border border-[#FFFD02]/20 rounded-xl p-4">
+      <div className="flex items-center gap-3">
+        <div className="relative shrink-0">
+          <div className="w-12 h-12 rounded-full overflow-hidden bg-[#1C1C27]">
+            {item.actorPhoto ? (
+              <Image src={`https://image.tmdb.org/t/p/w185${item.actorPhoto}`} alt={item.actorName}
+                width={48} height={48} className="w-full h-full object-cover object-top" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-lg bg-[#2A2A3A]">🎂</div>
+            )}
+          </div>
+          <span className="absolute -bottom-1 -right-1 text-base">🎂</span>
+        </div>
+        <div className="flex-1 min-w-0">
+          <Badge label="Cumpleaños" color="gold" />
+          <p className="text-sm font-semibold text-white mt-1">
+            Hoy es el cumpleaños de{' '}
+            <Link href={`/actor/${item.actorId}`} className="text-[#FFFD02] hover:underline">{item.actorName}</Link>
+          </p>
+          <p className="text-xs text-[#A0A0B0]">¡{item.age} años!</p>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function ActorReleaseCard({ item }: { item: ActorReleaseFeed }) {
+  return (
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+      <div className="flex items-start gap-3">
+        <div className="relative shrink-0">
+          <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1C1C27]">
+            {item.actorPhoto ? (
+              <Image src={`https://image.tmdb.org/t/p/w185${item.actorPhoto}`} alt={item.actorName}
+                width={40} height={40} className="w-full h-full object-cover object-top" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-sm bg-[#2A2A3A] text-[#FFFD02]">
+                {item.actorName[0]}
+              </div>
+            )}
+          </div>
+        </div>
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1">
+            <Link href={`/actor/${item.actorId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
+              {item.actorName}
+            </Link>
+            <Badge label="Nuevo estreno" color="blue" />
+            <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{item.mediaYear}</span>
+          </div>
+          <div className="flex gap-3 mt-1">
+            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
+            <div className="min-w-0">
+              <Link href={`/${item.mediaType}/${item.mediaId}`}
+                className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-2 block">
+                {item.mediaTitle}
+              </Link>
+              <p className="text-xs text-[#A0A0B0] mt-0.5">
+                {item.mediaType === 'movie' ? 'Película' : 'Serie'} nueva con {item.actorName}
+              </p>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function ComunidadPage() {
@@ -765,7 +846,71 @@ export default function ComunidadPage() {
       listFeeds = listRows.map(l => ({ key: `list-${l.id}`, type: 'list_created' as const, userId: l.user_id, sortTime: l.created_at, listId: l.id, listTitle: l.title, listDescription: l.description, previews: (previewMap[l.id] ?? []).slice(0, 4), itemCount: countMap[l.id] ?? 0 }))
     }
 
-    setRawFeed([...reviews, ...ratings, ...watchlist, ...stats, ...levelUps, ...listFeeds].sort((a, b) => b.sortTime.localeCompare(a.sortTime)))
+    // Actor feed: birthdays (from DB) + recent releases (TMDB, max 3 actors)
+    const actorItems: (ActorBirthdayFeed | ActorReleaseFeed)[] = []
+    const { data: followedActors } = await supabase
+      .from('followed_actors')
+      .select('actor_id, actor_name, actor_photo, birthday')
+      .eq('user_id', uid)
+      .limit(10)
+
+    if (followedActors?.length) {
+      const todayDate = new Date()
+      const todayMD = `${String(todayDate.getMonth() + 1).padStart(2, '0')}-${String(todayDate.getDate()).padStart(2, '0')}`
+      const thirtyDaysAgo = new Date(todayDate.getTime() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const todayStr = todayDate.toISOString().slice(0, 10)
+
+      // Birthday check (stored in DB — no TMDB call needed)
+      for (const actor of followedActors) {
+        if (actor.birthday && actor.birthday.slice(5) === todayMD) {
+          const currentAge = todayDate.getFullYear() - new Date(actor.birthday).getFullYear()
+          actorItems.push({
+            key:       `actor-bday-${actor.actor_id}`,
+            type:      'actor_birthday',
+            sortTime:  todayDate.toISOString(),
+            actorId:   actor.actor_id,
+            actorName: actor.actor_name,
+            actorPhoto: actor.actor_photo,
+            age:       currentAge,
+          })
+        }
+      }
+
+      // Recent releases: fetch combined_credits for up to 3 actors
+      if (TMDB_KEY) {
+        await Promise.all(followedActors.slice(0, 3).map(async actor => {
+          try {
+            const res = await fetch(`${TMDB}/person/${actor.actor_id}/combined_credits?api_key=${TMDB_KEY}&language=es-AR`)
+            if (!res.ok) return
+            const credits = await res.json()
+            // eslint-disable-next-line @typescript-eslint/no-explicit-any
+            const recent = ((credits.cast ?? []) as any[])
+              .filter(c => {
+                const date = c.release_date ?? c.first_air_date ?? ''
+                return date >= thirtyDaysAgo && date <= todayStr && c.poster_path
+              })
+              .slice(0, 2)
+            for (const c of recent) {
+              actorItems.push({
+                key:        `actor-release-${actor.actor_id}-${c.id}`,
+                type:       'actor_release',
+                sortTime:   `${c.release_date ?? c.first_air_date ?? todayStr}T12:00:00.000Z`,
+                actorId:    actor.actor_id,
+                actorName:  actor.actor_name,
+                actorPhoto: actor.actor_photo,
+                mediaId:    c.id,
+                mediaType:  c.media_type as 'movie' | 'tv',
+                mediaTitle: c.title ?? c.name ?? '',
+                mediaPosterPath: c.poster_path,
+                mediaYear:  (c.release_date ?? c.first_air_date ?? '').slice(0, 4),
+              })
+            }
+          } catch { /* skip */ }
+        }))
+      }
+    }
+
+    setRawFeed([...reviews, ...ratings, ...watchlist, ...stats, ...levelUps, ...listFeeds, ...actorItems].sort((a, b) => b.sortTime.localeCompare(a.sortTime)))
     setFeedLoading(false)
   }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -1026,6 +1171,8 @@ export default function ComunidadPage() {
                   if (item.type === 'level_up') return <LevelUpCard key={item.key} item={item} profiles={profiles} />
                   if (item.type === 'list_created') return <ListCard key={item.key} item={item} profiles={profiles} />
                   if (item.type === 'recommendation') return <RecommendationCard key={item.key} item={item} currentUserId={currentUserId} supabase={supabase} />
+                  if (item.type === 'actor_birthday') return <ActorBirthdayCard key={item.key} item={item} />
+                  if (item.type === 'actor_release') return <ActorReleaseCard key={item.key} item={item} />
                   return null
                 })}
               </div>

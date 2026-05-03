@@ -6,6 +6,7 @@ import { Calendar, MapPin, Star } from 'lucide-react'
 import BackButton from '@/components/BackButton'
 import ActorFilmography from '@/components/ActorFilmography'
 import ActorAwards from '@/components/ActorAwards'
+import FollowActorButton from '@/components/FollowActorButton'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -155,7 +156,14 @@ export default async function ActorPage({ params }: Props) {
 
           {/* Info */}
           <div className="flex-1">
-            <h1 className="text-3xl font-bold mb-1">{person.name}</h1>
+            <div className="flex items-center gap-3 flex-wrap mb-1">
+              <h1 className="text-3xl font-bold">{person.name}</h1>
+              <FollowActorButton
+                actorId={Number(id)}
+                actorName={person.name}
+                actorPhoto={person.profile_path ?? null}
+              />
+            </div>
 
             {knownFor && (
               <p className="text-sm text-[#FFFD02] font-medium mb-4">{knownFor}</p>
