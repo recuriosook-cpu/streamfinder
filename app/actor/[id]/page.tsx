@@ -1,5 +1,6 @@
 ﻿import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
@@ -43,6 +44,35 @@ function age(birthday: string | null | undefined, deathday: string | null | unde
   const a = end.getFullYear() - birth.getFullYear()
   const m = end.getMonth() - birth.getMonth()
   return m < 0 || (m === 0 && end.getDate() < birth.getDate()) ? a - 1 : a
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  try {
+    const { id } = await params
+    const person = await getPersonDetails(Number(id))
+    if (!person?.name) return {}
+    const photoUrl = person.profile_path
+      ? `https://image.tmdb.org/t/p/w500${person.profile_path}`
+      : 'https://glynbox.com/logo.png'
+    const description = person.biography?.slice(0, 160) ?? `Filmografía completa de ${person.name} en Glynbox`
+    return {
+      title:       `${person.name} — Filmografía y premios — Glynbox`,
+      description,
+      openGraph: {
+        title:       person.name,
+        description,
+        images:      [{ url: photoUrl, width: 500, height: 750, alt: person.name }],
+        siteName:    'Glynbox',
+      },
+      twitter: {
+        card:        'summary_large_image',
+        title:       `${person.name} — Glynbox`,
+        description,
+        images:      [photoUrl],
+      },
+      alternates: { canonical: `https://glynbox.com/actor/${id}` },
+    }
+  } catch { return {} }
 }
 
 export default async function ActorPage({ params }: Props) {

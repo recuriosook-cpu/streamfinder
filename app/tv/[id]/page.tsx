@@ -62,9 +62,11 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
       : 'https://glynbox.com/logo.png'
     const title       = show.name ?? show.title ?? 'Serie'
-    const description = show.overview?.slice(0, 160) ?? `${title} en Glynbox`
+    const year        = (show.first_air_date ?? '').slice(0, 4)
+    const description = show.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${title} en Glynbox`
+    const fullTitle   = year ? `${title} (${year}) — Glynbox` : `${title} — Glynbox`
     return {
-      title:       `${title} — Glynbox`,
+      title:       fullTitle,
       description,
       openGraph: {
         title,
@@ -80,6 +82,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         images:      [posterUrl],
       },
+      alternates: { canonical: `https://glynbox.com/tv/${id}` },
     }
   } catch { return {} }
 }

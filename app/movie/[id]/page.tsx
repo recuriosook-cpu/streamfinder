@@ -70,12 +70,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   try {
     const { id } = await params
     const movie = await getMovieDetails(Number(id))
+    const year = movie.release_date?.slice(0, 4)
     const posterUrl = movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
       : 'https://glynbox.com/logo.png'
-    const description = movie.overview?.slice(0, 160) ?? `${movie.title} en Glynbox`
+    const description = movie.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${movie.title} en Glynbox`
+    const fullTitle = year ? `${movie.title} (${year}) — Glynbox` : `${movie.title} — Glynbox`
     return {
-      title:       `${movie.title} — Glynbox`,
+      title:       fullTitle,
       description,
       openGraph: {
         title:       movie.title,
@@ -91,6 +93,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         images:      [posterUrl],
       },
+      alternates: { canonical: `https://glynbox.com/movie/${id}` },
     }
   } catch { return {} }
 }
@@ -144,8 +147,30 @@ export default async function MoviePage({ params }: Props) {
   const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
 
+  const jsonLd = {
+    '@context': 'https://schema.org',
+    '@type': 'Movie',
+    name: movie.title,
+    description: movie.overview,
+    image: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
+    datePublished: movie.release_date,
+    ...(movie.vote_average > 0 && movie.vote_count > 0 && {
+      aggregateRating: {
+        '@type': 'AggregateRating',
+        ratingValue: movie.vote_average,
+        ratingCount: movie.vote_count,
+        bestRating: 10,
+        worstRating: 0,
+      },
+    }),
+  }
+
   return (
     <div className="min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+      />
       {/* Records visit to watch_history for logged-in users */}
       <HistoryTracker
         mediaId={movie.id}
