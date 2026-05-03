@@ -33,8 +33,7 @@ function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: numb
   ctx.fill()
 }
 
-function drawStars(ctx: CanvasRenderingContext2D, rating: number, x: number, y: number) {
-  const starSize = 50
+function drawStars(ctx: CanvasRenderingContext2D, rating: number, x: number, y: number, starSize = 50) {
   const gap = 10
   const totalWidth = (starSize + gap) * 5 - gap
   let startX = x - totalWidth / 2
@@ -105,34 +104,28 @@ export default function ShareDropdown({
         } catch { /* keep gradient bg */ }
       }
 
-      // Avatar: y=120, tamaño 100px, sin borde
+      // Avatar: centro y=120, radio=60 — solo círculo, sin borde ni texto
       if (instagram.authorAvatarUrl) {
         try {
           const avatar = new Image()
           avatar.crossOrigin = 'anonymous'
           await new Promise<void>((res, rej) => { avatar.onload = () => res(); avatar.onerror = rej; avatar.src = instagram.authorAvatarUrl! })
-          const avatarSize = 100
-          const avatarX = 540, avatarY = 120
           ctx.save()
           ctx.beginPath()
-          ctx.arc(avatarX, avatarY, avatarSize / 2, 0, Math.PI * 2)
+          ctx.arc(540, 120, 60, 0, Math.PI * 2)
           ctx.clip()
-          ctx.drawImage(avatar, avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize)
+          ctx.drawImage(avatar, 480, 60, 120, 120)
           ctx.restore()
-          ctx.fillStyle = '#FFFFFF'
-          ctx.font = 'bold 36px Arial'
-          ctx.textAlign = 'center'
-          ctx.fillText('@' + instagram.authorUsername, 540, avatarY + avatarSize / 2 + 45)
         } catch { /* skip avatar */ }
       }
 
-      // Póster: y=230, alto=850 → termina en y=1080
+      // Póster: y=200, alto=800 → termina en y=1000
       if (instagram.posterPath) {
         try {
           const poster = new Image()
           poster.crossOrigin = 'anonymous'
           await new Promise<void>((res, rej) => { poster.onload = () => res(); poster.onerror = rej; poster.src = `https://image.tmdb.org/t/p/w500${instagram.posterPath}` })
-          const pw = 600, ph = 850, px = (1080 - pw) / 2, py = 230
+          const pw = 600, ph = 800, px = (1080 - pw) / 2, py = 200
           ctx.save()
           ctx.beginPath()
           ctx.roundRect(px, py, pw, ph, 30)
@@ -142,18 +135,23 @@ export default function ShareDropdown({
         } catch { /* skip poster */ }
       }
 
-      // Título: y=1130 (debajo del póster que termina en 1080)
+      // Título: y=1080 (80px después del póster que termina en 1000)
       ctx.fillStyle = '#FFFFFF'
       ctx.font = 'bold 60px Arial'
       ctx.textAlign = 'center'
-      ctx.fillText(instagram.mediaTitle, 540, 1130)
+      ctx.fillText(instagram.mediaTitle, 540, 1080)
 
-      // Estrellas: y=1220
+      // Estrellas: y=1180, tamaño 65px con sombra
       if (instagram.rating) {
-        drawStars(ctx, instagram.rating, 540, 1220)
+        ctx.save()
+        ctx.shadowColor = 'rgba(0,0,0,0.5)'
+        ctx.shadowBlur = 10
+        ctx.shadowOffsetY = 3
+        drawStars(ctx, instagram.rating, 540, 1180, 65)
+        ctx.restore()
       }
 
-      // Texto de reseña: empieza en y=1300
+      // Texto de reseña: empieza en y=1280
       if (instagram.body) {
         ctx.fillStyle = 'rgba(255,255,255,0.85)'
         ctx.font = '36px Arial'
@@ -161,7 +159,7 @@ export default function ShareDropdown({
         const maxChars = 120
         const text  = instagram.body.length > maxChars ? instagram.body.slice(0, maxChars) + '...' : instagram.body
         const words = text.split(' ')
-        let line = '', y = 1300
+        let line = '', y = 1280
         for (const word of words) {
           const test = line + word + ' '
           if (ctx.measureText(test).width > 900 && line) {
@@ -176,19 +174,19 @@ export default function ShareDropdown({
         if (line.trim()) ctx.fillText(line.trim(), 540, y)
       }
 
-      // Logo: y=1850 — imagen /logo.png con fallback a texto
+      // Logo: y=1820 — imagen /logo.png con fallback a texto
       try {
         const logo = new Image()
         logo.crossOrigin = 'anonymous'
         await new Promise<void>((res, rej) => { logo.onload = () => res(); logo.onerror = rej; logo.src = window.location.origin + '/logo.png' })
         const logoW = 300
         const logoH = (logo.height / logo.width) * logoW
-        ctx.drawImage(logo, 540 - logoW / 2, 1850 - logoH / 2, logoW, logoH)
+        ctx.drawImage(logo, 540 - logoW / 2, 1820 - logoH / 2, logoW, logoH)
       } catch {
         ctx.fillStyle = '#FFFD02'
         ctx.font = 'bold 36px Arial'
         ctx.textAlign = 'center'
-        ctx.fillText('glynbox.com', 540, 1870)
+        ctx.fillText('glynbox.com', 540, 1820)
       }
 
       // Descargar
