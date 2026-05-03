@@ -31,8 +31,8 @@ export const metadata: Metadata = {
   },
   twitter: {
     card:        'summary_large_image',
-    site:        '@GlynboxApp',
-    creator:     '@GlynboxApp',
+    site:        '@Glynboxapp',
+    creator:     '@Glynboxapp',
     title:       'Glynbox — Descubrí qué ver hoy',
     description: 'Encontrá películas y series según tu estado de ánimo. Reseñas y recomendaciones personalizadas.',
     images:      ['https://glynbox.com/logo.png'],
