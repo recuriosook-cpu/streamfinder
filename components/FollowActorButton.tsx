@@ -51,13 +51,14 @@ export default function FollowActorButton({ actorId, actorName, actorPhoto }: Pr
           if (res.ok) { const d = await res.json(); birthday = d.birthday ?? null }
         } catch { /* proceed without birthday */ }
       }
-      await supabase.from('followed_actors').insert({
-        user_id:    userId,
-        actor_id:   actorId,
-        actor_name: actorName,
+      const { error } = await supabase.from('followed_actors').insert({
+        user_id:     userId,
+        actor_id:    actorId,
+        actor_name:  actorName,
         actor_photo: actorPhoto,
         birthday,
       })
+      if (error) console.error('[follow actor error]', error)
       setFollowing(true)
     }
     setBusy(false)
