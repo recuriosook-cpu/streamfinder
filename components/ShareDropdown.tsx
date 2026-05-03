@@ -268,7 +268,13 @@ export default function ShareDropdown({
 
               {/* Facebook */}
               <a
-                href={`https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(copyUrl)}`}
+                href={(() => {
+                  const base = `https://www.facebook.com/sharer/sharer.php?u=${encodeURIComponent(copyUrl)}`
+                  if (!instagram) return base
+                  const igStars = instagram.rating ? '★'.repeat(Math.floor(instagram.rating)) + (instagram.rating % 1 >= 0.5 ? '½' : '') : ''
+                  const quote   = `Mi reseña de ${igStars} "${instagram.mediaTitle}" en Glynbox`
+                  return `${base}&quote=${encodeURIComponent(quote)}`
+                })()}
                 target="_blank"
                 rel="noopener noreferrer"
                 onClick={() => setOpen(false)}

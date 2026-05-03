@@ -18,6 +18,7 @@ import TrailerSection from '@/components/TrailerSection'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
+import type { Metadata } from 'next'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -51,6 +52,36 @@ async function getSimilar(id: number, type: 'movie' | 'tv'): Promise<any[]> {
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  try {
+    const { id } = await params
+    const show = await getTVDetails(Number(id))
+    const posterUrl = show.poster_path
+      ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
+      : 'https://glynbox.com/logo.png'
+    const title       = show.name ?? show.title ?? 'Serie'
+    const description = show.overview?.slice(0, 160) ?? `${title} en Glynbox`
+    return {
+      title:       `${title} — Glynbox`,
+      description,
+      openGraph: {
+        title,
+        description,
+        images:      [{ url: posterUrl, width: 500, height: 750, alt: title }],
+        url:         `https://glynbox.com/tv/${id}`,
+        type:        'video.tv_show',
+        siteName:    'Glynbox',
+      },
+      twitter: {
+        card:        'summary_large_image',
+        title:       `${title} — Glynbox`,
+        description,
+        images:      [posterUrl],
+      },
+    }
+  } catch { return {} }
 }
 
 export default async function TVPage({ params }: Props) {

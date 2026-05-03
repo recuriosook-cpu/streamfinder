@@ -19,6 +19,7 @@ import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
 import CollectionSection, { type CollectionData } from '@/components/CollectionSection'
+import type { Metadata } from 'next'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -63,6 +64,35 @@ async function getSimilar(id: number, type: 'movie' | 'tv'): Promise<any[]> {
 
 interface Props {
   params: Promise<{ id: string }>
+}
+
+export async function generateMetadata({ params }: Props): Promise<Metadata> {
+  try {
+    const { id } = await params
+    const movie = await getMovieDetails(Number(id))
+    const posterUrl = movie.poster_path
+      ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
+      : 'https://glynbox.com/logo.png'
+    const description = movie.overview?.slice(0, 160) ?? `${movie.title} en Glynbox`
+    return {
+      title:       `${movie.title} — Glynbox`,
+      description,
+      openGraph: {
+        title:       movie.title,
+        description,
+        images:      [{ url: posterUrl, width: 500, height: 750, alt: movie.title }],
+        url:         `https://glynbox.com/movie/${id}`,
+        type:        'video.movie',
+        siteName:    'Glynbox',
+      },
+      twitter: {
+        card:        'summary_large_image',
+        title:       `${movie.title} — Glynbox`,
+        description,
+        images:      [posterUrl],
+      },
+    }
+  } catch { return {} }
 }
 
 export default async function MoviePage({ params }: Props) {

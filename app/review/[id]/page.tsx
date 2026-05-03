@@ -35,10 +35,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     openGraph: {
-      title:       `${stars} ${review.title}`.trim(),
+      title:       `${stars} ${review.title} — Glynbox`.trim(),
       description,
-      images:      [{ url: posterUrl, width: 500, height: 750 }],
+      images:      [{ url: posterUrl, width: 500, height: 750, alt: review.title }],
+      url:         `https://glynbox.com/review/${id}`,
       type:        'article',
+      siteName:    'Glynbox',
     },
     twitter: {
       card:        'summary_large_image',
