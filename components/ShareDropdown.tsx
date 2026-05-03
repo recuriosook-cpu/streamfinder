@@ -20,6 +20,42 @@ interface ShareDropdownProps {
   }
 }
 
+function drawStar(ctx: CanvasRenderingContext2D, cx: number, cy: number, r: number) {
+  ctx.beginPath()
+  for (let i = 0; i < 5; i++) {
+    const angle = (i * 4 * Math.PI) / 5 - Math.PI / 2
+    const x = cx + r * Math.cos(angle)
+    const y = cy + r * Math.sin(angle)
+    if (i === 0) ctx.moveTo(x, y)
+    else ctx.lineTo(x, y)
+  }
+  ctx.closePath()
+  ctx.fill()
+}
+
+function drawStars(ctx: CanvasRenderingContext2D, rating: number, x: number, y: number) {
+  const starSize = 50
+  const gap = 10
+  const totalWidth = (starSize + gap) * 5 - gap
+  let startX = x - totalWidth / 2
+
+  for (let i = 0; i < 5; i++) {
+    const fill = Math.min(1, Math.max(0, rating - i))
+    ctx.fillStyle = 'rgba(255,253,2,0.3)'
+    drawStar(ctx, startX + starSize / 2, y, starSize / 2)
+    if (fill > 0) {
+      ctx.save()
+      ctx.beginPath()
+      ctx.rect(startX, y - starSize / 2, starSize * fill, starSize)
+      ctx.clip()
+      ctx.fillStyle = '#FFFD02'
+      drawStar(ctx, startX + starSize / 2, y, starSize / 2)
+      ctx.restore()
+    }
+    startX += starSize + gap
+  }
+}
+
 export default function ShareDropdown({
   whatsappUrl,
   twitterUrl,
@@ -87,13 +123,9 @@ export default function ShareDropdown({
       ctx.textAlign = 'center'
       ctx.fillText(instagram.mediaTitle, 540, 1180)
 
-      // Estrellas
+      // Estrellas con canvas (soporta medias estrellas)
       if (instagram.rating) {
-        const full  = Math.round(instagram.rating)
-        const stars = '★'.repeat(full) + '☆'.repeat(5 - full)
-        ctx.fillStyle = '#FFFD02'
-        ctx.font = '50px Arial'
-        ctx.fillText(stars, 540, 1260)
+        drawStars(ctx, instagram.rating, 540, 1260)
       }
 
       // Texto de reseña con word wrap
