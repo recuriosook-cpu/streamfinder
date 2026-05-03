@@ -105,20 +105,15 @@ export default function ShareDropdown({
         } catch { /* keep gradient bg */ }
       }
 
-      // Avatar circular arriba del póster
+      // Avatar: y=120, tamaño 100px, sin borde
       if (instagram.authorAvatarUrl) {
         try {
           const avatar = new Image()
           avatar.crossOrigin = 'anonymous'
           await new Promise<void>((res, rej) => { avatar.onload = () => res(); avatar.onerror = rej; avatar.src = instagram.authorAvatarUrl! })
-          const avatarSize = 120
-          const avatarX = 540
-          const avatarY = 220
+          const avatarSize = 100
+          const avatarX = 540, avatarY = 120
           ctx.save()
-          ctx.beginPath()
-          ctx.arc(avatarX, avatarY, avatarSize / 2 + 6, 0, Math.PI * 2)
-          ctx.fillStyle = '#FFFD02'
-          ctx.fill()
           ctx.beginPath()
           ctx.arc(avatarX, avatarY, avatarSize / 2, 0, Math.PI * 2)
           ctx.clip()
@@ -131,13 +126,13 @@ export default function ShareDropdown({
         } catch { /* skip avatar */ }
       }
 
-      // Póster centrado con rounded corners
+      // Póster: y=230, alto=850 → termina en y=1080
       if (instagram.posterPath) {
         try {
           const poster = new Image()
           poster.crossOrigin = 'anonymous'
           await new Promise<void>((res, rej) => { poster.onload = () => res(); poster.onerror = rej; poster.src = `https://image.tmdb.org/t/p/w500${instagram.posterPath}` })
-          const pw = 600, ph = 900, px = (1080 - pw) / 2, py = 290
+          const pw = 600, ph = 850, px = (1080 - pw) / 2, py = 230
           ctx.save()
           ctx.beginPath()
           ctx.roundRect(px, py, pw, ph, 30)
@@ -147,25 +142,26 @@ export default function ShareDropdown({
         } catch { /* skip poster */ }
       }
 
-      // Título
+      // Título: y=1130 (debajo del póster que termina en 1080)
       ctx.fillStyle = '#FFFFFF'
       ctx.font = 'bold 60px Arial'
       ctx.textAlign = 'center'
-      ctx.fillText(instagram.mediaTitle, 540, 1180)
+      ctx.fillText(instagram.mediaTitle, 540, 1130)
 
-      // Estrellas con canvas (soporta medias estrellas)
+      // Estrellas: y=1220
       if (instagram.rating) {
-        drawStars(ctx, instagram.rating, 540, 1260)
+        drawStars(ctx, instagram.rating, 540, 1220)
       }
 
-      // Texto de reseña con word wrap
+      // Texto de reseña: empieza en y=1300
       if (instagram.body) {
         ctx.fillStyle = 'rgba(255,255,255,0.85)'
         ctx.font = '36px Arial'
+        ctx.textAlign = 'center'
         const maxChars = 120
         const text  = instagram.body.length > maxChars ? instagram.body.slice(0, maxChars) + '...' : instagram.body
         const words = text.split(' ')
-        let line = '', y = 1340
+        let line = '', y = 1300
         for (const word of words) {
           const test = line + word + ' '
           if (ctx.measureText(test).width > 900 && line) {
@@ -180,11 +176,20 @@ export default function ShareDropdown({
         if (line.trim()) ctx.fillText(line.trim(), 540, y)
       }
 
-      // Logo Glynbox
-      ctx.fillStyle = '#FFFD02'
-      ctx.font = 'bold 40px Arial'
-      ctx.textAlign = 'center'
-      ctx.fillText('glynbox.com', 540, 1850)
+      // Logo: y=1850 — imagen /logo.png con fallback a texto
+      try {
+        const logo = new Image()
+        logo.crossOrigin = 'anonymous'
+        await new Promise<void>((res, rej) => { logo.onload = () => res(); logo.onerror = rej; logo.src = window.location.origin + '/logo.png' })
+        const logoW = 300
+        const logoH = (logo.height / logo.width) * logoW
+        ctx.drawImage(logo, 540 - logoW / 2, 1850 - logoH / 2, logoW, logoH)
+      } catch {
+        ctx.fillStyle = '#FFFD02'
+        ctx.font = 'bold 36px Arial'
+        ctx.textAlign = 'center'
+        ctx.fillText('glynbox.com', 540, 1870)
+      }
 
       // Descargar
       canvas.toBlob(blob => {
