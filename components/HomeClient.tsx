@@ -633,7 +633,7 @@ export default function HomeClient() {
       const [authRes, heroRes] = await Promise.all([
         supabase.auth.getUser(),
         TMDB_KEY
-          ? fetch(`${TMDB}/trending/movie/day?api_key=${TMDB_KEY}&language=es-AR`)
+          ? fetch(`${TMDB}/trending/movie/week?api_key=${TMDB_KEY}&language=es-AR`)
               .then(r => r.ok ? r.json() : null)
               .catch(() => null)
           : Promise.resolve(null),
@@ -664,14 +664,20 @@ export default function HomeClient() {
 
       setUser(u)
 
-      // Hero backdrop: mejor vote_average del trending del día, sin animaciones
-      type TrendingMovie = { backdrop_path: string | null; title?: string; vote_count: number; vote_average: number; genre_ids: number[] }
+      // Hero: trending semanal — prioriza El diablo viste de Prada 2 esta semana,
+      // luego estrenos recientes con mayor popularity, sin animaciones ni documentales
+      type TrendingMovie = { id: number; backdrop_path: string | null; title?: string; vote_count: number; popularity: number; genre_ids: number[]; release_date?: string }
       const results: TrendingMovie[] = heroRes?.results ?? []
-      const pick =
-        results
-          .filter(m => m.backdrop_path && m.vote_count > 200 && !m.genre_ids.includes(16))
-          .sort((a, b) => b.vote_average - a.vote_average)[0]
-        ?? results.find(m => !!m.backdrop_path)
+      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
+      const devilPrada = results.find(m => m.id === 1314481 && m.backdrop_path)
+      const pick = devilPrada ?? results
+        .filter(m => m.backdrop_path && m.vote_count > 100 && !m.genre_ids.includes(16) && !m.genre_ids.includes(99))
+        .sort((a, b) => {
+          const aRecent = (a.release_date ?? '') >= thirtyDaysAgo ? 1 : 0
+          const bRecent = (b.release_date ?? '') >= thirtyDaysAgo ? 1 : 0
+          if (bRecent !== aRecent) return bRecent - aRecent
+          return b.popularity - a.popularity
+        })[0]
         ?? null
       if (pick?.backdrop_path) {
         setHeroMovie({ backdropPath: pick.backdrop_path, title: pick.title ?? '' })
