@@ -415,11 +415,11 @@ export default function ReviewCard({
               `${shareText}\n"${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}"\n👉 ${reviewUrl}`
             )
             const stars = rating ? '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '½' : '') : ''
-            const tweetText = encodeURIComponent(`Mi reseña de ${stars} de "${mediaTitle}" en @GlynboxApp\n`)
+            const tweetText = encodeURIComponent(`Mi reseña de ${stars} de "${mediaTitle}" en @GlynboxApp`)
             return (
               <ShareDropdown
                 whatsappUrl={`https://wa.me/?text=${waText}`}
-                twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}`}
+                twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(reviewUrl)}`}
                 copyUrl={reviewUrl}
                 shareText={shareText}
                 align="left"

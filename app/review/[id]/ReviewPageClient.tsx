@@ -89,7 +89,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
   const bodySlice80  = (review.body ?? '').slice(0, 80)
   const waText     = encodeURIComponent(`${review.authorUsername} le dio ${ratingStr} a "${review.mediaTitle}" en Glynbox\n"${bodySlice100}${(review.body ?? '').length > 100 ? '...' : ''}"\n👉 ${reviewUrl}`)
   const stars      = review.rating ? '★'.repeat(Math.floor(review.rating)) + (review.rating % 1 >= 0.5 ? '½' : '') : ''
-  const tweetText  = encodeURIComponent(`Mi reseña de ${stars} de "${review.mediaTitle}" en @GlynboxApp\n`)
+  const tweetText  = encodeURIComponent(`Mi reseña de ${stars} de "${review.mediaTitle}" en @GlynboxApp`)
   const shareText  = `${review.authorUsername} le dio ${ratingStr} a "${review.mediaTitle}" en Glynbox`
 
   // ── Comments state ─────────────────────────────────────────────
@@ -391,7 +391,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
             <ShareDropdown
               whatsappUrl={`https://wa.me/?text=${waText}`}
-              twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}`}
+              twitterUrl={`https://twitter.com/intent/tweet?text=${tweetText}&url=${encodeURIComponent(reviewUrl)}`}
               copyUrl={reviewUrl}
               shareText={shareText}
               triggerClassName="flex items-center gap-2 text-sm font-medium text-[#A0A0B0] hover:text-zinc-300 transition-colors"
