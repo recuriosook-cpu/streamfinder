@@ -139,10 +139,10 @@ export default function PrivacidadPage() {
               Si tienes preguntas sobre esta política de privacidad, deseas ejercer alguno de tus derechos o necesitas soporte, puedes contactarnos en:
             </p>
             <a
-              href="mailto:fd.lage@gmail.com"
+              href="mailto:contacto@glynbox.com"
               className="inline-block mt-3 text-[#FFFD02] hover:text-[#FFF84D] transition-colors font-medium"
             >
-              fd.lage@gmail.com
+              contacto@glynbox.com
             </a>
           </section>
         </div>
