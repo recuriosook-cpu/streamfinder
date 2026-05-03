@@ -83,11 +83,15 @@ export default function ShareDropdown({
       canvas.height = 1920
       const ctx = canvas.getContext('2d')!
 
-      // Fondo negro
-      ctx.fillStyle = '#0A0A0F'
+      // Fondo con degradé
+      const gradient = ctx.createLinearGradient(0, 0, 1080, 1920)
+      gradient.addColorStop(0, '#1a1a2e')
+      gradient.addColorStop(0.5, '#16213e')
+      gradient.addColorStop(1, '#0f3460')
+      ctx.fillStyle = gradient
       ctx.fillRect(0, 0, 1080, 1920)
 
-      // Backdrop con overlay
+      // Backdrop con overlay suave
       if (instagram.backdropPath) {
         try {
           const bg = new Image()
@@ -96,9 +100,35 @@ export default function ShareDropdown({
           const scale = Math.max(1080 / bg.naturalWidth, 1920 / bg.naturalHeight)
           const sw = bg.naturalWidth * scale, sh = bg.naturalHeight * scale
           ctx.drawImage(bg, (1080 - sw) / 2, (1920 - sh) / 2, sw, sh)
-          ctx.fillStyle = 'rgba(0,0,0,0.75)'
+          ctx.fillStyle = 'rgba(0,0,0,0.6)'
           ctx.fillRect(0, 0, 1080, 1920)
-        } catch { /* keep black bg */ }
+        } catch { /* keep gradient bg */ }
+      }
+
+      // Avatar circular arriba del póster
+      if (instagram.authorAvatarUrl) {
+        try {
+          const avatar = new Image()
+          avatar.crossOrigin = 'anonymous'
+          await new Promise<void>((res, rej) => { avatar.onload = () => res(); avatar.onerror = rej; avatar.src = instagram.authorAvatarUrl! })
+          const avatarSize = 120
+          const avatarX = 540
+          const avatarY = 220
+          ctx.save()
+          ctx.beginPath()
+          ctx.arc(avatarX, avatarY, avatarSize / 2 + 6, 0, Math.PI * 2)
+          ctx.fillStyle = '#FFFD02'
+          ctx.fill()
+          ctx.beginPath()
+          ctx.arc(avatarX, avatarY, avatarSize / 2, 0, Math.PI * 2)
+          ctx.clip()
+          ctx.drawImage(avatar, avatarX - avatarSize / 2, avatarY - avatarSize / 2, avatarSize, avatarSize)
+          ctx.restore()
+          ctx.fillStyle = '#FFFFFF'
+          ctx.font = 'bold 36px Arial'
+          ctx.textAlign = 'center'
+          ctx.fillText('@' + instagram.authorUsername, 540, avatarY + avatarSize / 2 + 45)
+        } catch { /* skip avatar */ }
       }
 
       // Póster centrado con rounded corners
@@ -107,7 +137,7 @@ export default function ShareDropdown({
           const poster = new Image()
           poster.crossOrigin = 'anonymous'
           await new Promise<void>((res, rej) => { poster.onload = () => res(); poster.onerror = rej; poster.src = `https://image.tmdb.org/t/p/w500${instagram.posterPath}` })
-          const pw = 600, ph = 900, px = (1080 - pw) / 2, py = 200
+          const pw = 600, ph = 900, px = (1080 - pw) / 2, py = 290
           ctx.save()
           ctx.beginPath()
           ctx.roundRect(px, py, pw, ph, 30)
