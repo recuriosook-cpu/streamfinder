@@ -143,10 +143,23 @@ function SectionLabel({ children }: { children: React.ReactNode }) {
   )
 }
 
-function EmptyCard({ children }: { children: React.ReactNode }) {
+function EmptyCard({
+  children, icon, actionLabel, actionHref,
+}: {
+  children: React.ReactNode; icon?: string; actionLabel?: string; actionHref?: string
+}) {
   return (
-    <div className="flex flex-col items-center justify-center py-16 text-center">
-      <p className="text-zinc-600 text-sm">{children}</p>
+    <div className="flex flex-col items-center justify-center py-20 text-center gap-4">
+      {icon && <div className="text-6xl select-none">{icon}</div>}
+      <p className="text-zinc-500 text-sm max-w-xs leading-relaxed">{children}</p>
+      {actionLabel && actionHref && (
+        <Link
+          href={actionHref}
+          className="text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-5 py-2.5 rounded-full transition-colors"
+        >
+          {actionLabel} →
+        </Link>
+      )}
     </div>
   )
 }
@@ -212,6 +225,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
   // ── Tab state ──────────────────────────────────────────────────
   const [activeTab, setActiveTab] = useState<Tab>('perfil')
+
+  // ── Ya vi filters ──────────────────────────────────────────────
+  const [watchedFilter,  setWatchedFilter]  = useState<'all' | 'movie' | 'tv'>('all')
+  const [watchedSort,    setWatchedSort]    = useState<'recent' | 'name' | 'rated'>('recent')
+  const [watchedRatings, setWatchedRatings] = useState<Map<string, number>>(new Map())
 
   // ── Data ───────────────────────────────────────────────────────
   const [recentActivity,   setRecentActivity]   = useState<ActivityItem[]>([])
@@ -332,6 +350,15 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at')
         .eq('user_id', profile.id).order('watched_at', { ascending: false })
         .then(({ data }) => setAllWatched(data ?? []))
+      supabase.from('ratings').select('media_id,media_type,rating')
+        .eq('user_id', profile.id)
+        .then(({ data }) => {
+          setWatchedRatings(new Map(
+            (data ?? []).map((r: { media_id: number; media_type: string; rating: number }) =>
+              [`${r.media_type}:${r.media_id}`, r.rating]
+            )
+          ))
+        })
     }
     if (activeTab === 'resenas') {
       supabase.from('reviews').select('*, review_likes(user_id)')
@@ -681,13 +708,13 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const displayName = localProfile.display_name ?? localProfile.username ?? 'Usuario'
   const hasPinned   = pinned.some(Boolean)
 
-  const TABS: { id: Tab; label: string }[] = [
-    { id: 'perfil',     label: 'Perfil'        },
-    { id: 'yavi',       label: 'Ya vi'         },
-    { id: 'resenas',    label: 'Reseñas'       },
-    { id: 'listas',     label: 'Listas'        },
-    { id: 'paraVer',    label: 'Para ver'      },
-    { id: 'favoritos',  label: 'Me gusta'      },
+  const TABS: { id: Tab; label: string; count?: number }[] = [
+    { id: 'perfil',    label: 'Perfil'                                                         },
+    { id: 'yavi',      label: 'Ya vi',     count: moviesWatched + seriesWatched || undefined   },
+    { id: 'resenas',   label: 'Reseñas',   count: allReviews.length || undefined               },
+    { id: 'listas',    label: 'Listas',    count: userLists.length || undefined                },
+    { id: 'paraVer',   label: 'Para ver',  count: watchlistCount || undefined                  },
+    { id: 'favoritos', label: 'Me gusta',  count: allFavorites.length || undefined             },
     ...(isOwner ? [{ id: 'stats' as Tab, label: 'Estadísticas' }] : []),
   ]
 
@@ -696,15 +723,31 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     <div className="min-h-screen bg-[#0A0A0F]">
 
       {/* ── HEADER ─────────────────────────────────────────────── */}
-      <div className="bg-[#13131A] border-b border-[#2A2A3A]/60">
-        <div className="max-w-5xl mx-auto px-4 py-8 sm:py-10">
+      <div className="relative bg-[#13131A] border-b border-[#2A2A3A]/60 overflow-hidden">
+        {/* Backdrop blur from first pinned poster */}
+        {(() => {
+          const bannerPoster = pinned.find(Boolean)?.poster_path
+            ?? (recentActivity[0]?.data as { poster_path?: string | null } | undefined)?.poster_path
+          return bannerPoster ? (
+            <div className="absolute inset-0 z-0">
+              {/* eslint-disable-next-line @next/next/no-img-element */}
+              <img
+                src={`https://image.tmdb.org/t/p/w342${bannerPoster}`}
+                alt=""
+                className="w-full h-full object-cover blur-2xl scale-110 opacity-15"
+              />
+              <div className="absolute inset-0 bg-gradient-to-b from-[#13131A]/50 to-[#13131A]" />
+            </div>
+          ) : null
+        })()}
+        <div className="relative z-10 max-w-5xl mx-auto px-4 py-8 sm:py-10">
           <div className="flex flex-col sm:flex-row items-center sm:items-start gap-6">
 
             {/* Avatar */}
             <div className="shrink-0">
-              <div className="w-24 h-24 sm:w-28 sm:h-28 rounded-full overflow-hidden bg-zinc-700 ring-4 ring-zinc-700">
+              <div className="w-20 h-20 sm:w-24 sm:h-24 rounded-full overflow-hidden bg-zinc-700 ring-4 ring-[#FFFD02]/30 shadow-xl">
                 {localProfile.avatar_url ? (
-                  <Image src={localProfile.avatar_url} alt={displayName} width={112} height={112} className="w-full h-full object-cover" unoptimized />
+                  <Image src={localProfile.avatar_url} alt={displayName} width={96} height={96} className="w-full h-full object-cover" unoptimized />
                 ) : (
                   <div className="w-full h-full flex items-center justify-center text-4xl font-bold bg-[#2A2A3A] text-[#FFFD02]">
                     {displayName[0]?.toUpperCase()}
@@ -806,28 +849,29 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 </div>
               )}
 
-              {/* Stats */}
-              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-x-4 sm:gap-x-6 gap-y-2 mb-5">
+              {/* Stats — cards */}
+              <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-5">
                 {[
                   { value: moviesWatched,  label: 'Películas',  onClick: undefined },
                   { value: seriesWatched,  label: 'Series',     onClick: undefined },
                   { value: followingCount, label: 'Siguiendo',  onClick: () => loadFollowList('following') },
                   { value: followersCount, label: 'Seguidores', onClick: () => loadFollowList('followers') },
-                ].map((s, i) => (
-                  <div key={s.label} className="flex items-center gap-6">
-                    {i > 0 && <span className="text-zinc-700 hidden sm:block select-none">·</span>}
-                    {s.onClick ? (
-                      <button onClick={s.onClick} className="text-center sm:text-left group cursor-pointer">
-                        <p className="text-xl font-bold text-white leading-none group-hover:text-[#FFFD02] transition-colors">{s.value}</p>
-                        <p className="text-[11px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide group-hover:text-[#A0A0B0] transition-colors">{s.label}</p>
-                      </button>
-                    ) : (
-                      <div className="text-center sm:text-left">
-                        <p className="text-xl font-bold text-white leading-none">{s.value}</p>
-                        <p className="text-[11px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide">{s.label}</p>
-                      </div>
-                    )}
-                  </div>
+                ].map(s => (
+                  s.onClick ? (
+                    <button
+                      key={s.label}
+                      onClick={s.onClick}
+                      className="bg-[#0A0A0F] border border-[#2A2A3A] hover:border-[#FFFD02]/40 rounded-xl px-4 py-2.5 text-center transition-colors group min-w-[72px]"
+                    >
+                      <p className="text-xl font-bold text-white leading-none group-hover:text-[#FFFD02] transition-colors">{s.value}</p>
+                      <p className="text-[10px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide">{s.label}</p>
+                    </button>
+                  ) : (
+                    <div key={s.label} className="bg-[#0A0A0F] border border-[#2A2A3A] rounded-xl px-4 py-2.5 text-center min-w-[72px]">
+                      <p className="text-xl font-bold text-white leading-none">{s.value}</p>
+                      <p className="text-[10px] text-[#A0A0B0] mt-0.5 uppercase tracking-wide">{s.label}</p>
+                    </div>
+                  )
                 ))}
               </div>
 
@@ -871,7 +915,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             </div>
           </div>
         </div>
-      </div>
+        </div>
 
       {/* ── TAB BAR ────────────────────────────────────────────── */}
       <div className="sticky top-[57px] z-30 bg-[#0A0A0F]/95 backdrop-blur border-b border-[#2A2A3A]">
@@ -880,13 +924,20 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             <button
               key={tab.id}
               onClick={() => setActiveTab(tab.id)}
-              className={`px-3 sm:px-5 py-3 sm:py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
+              className={`flex items-center gap-1.5 px-3 sm:px-4 py-3 sm:py-3.5 text-sm font-medium whitespace-nowrap border-b-2 transition-colors ${
                 activeTab === tab.id
                   ? 'border-[#FFFD02] text-white'
                   : 'border-transparent text-[#A0A0B0] hover:text-zinc-300'
               }`}
             >
               {tab.label}
+              {tab.count !== undefined && (
+                <span className={`text-[10px] px-1.5 py-0.5 rounded-full tabular-nums ${
+                  activeTab === tab.id ? 'bg-[#FFFD02]/20 text-[#FFFD02]' : 'bg-[#2A2A3A] text-[#A0A0B0]'
+                }`}>
+                  {tab.count}
+                </span>
+              )}
             </button>
           ))}
         </div>
@@ -1066,25 +1117,97 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         )}
 
         {/* ── YA VI ── */}
-        {activeTab === 'yavi' && (
-          allWatched.length === 0 ? (
-            <EmptyCard>Sin contenido visto todavía.</EmptyCard>
+        {activeTab === 'yavi' && (() => {
+          const filtered = watchedFilter === 'all'
+            ? allWatched
+            : allWatched.filter(w => w.media_type === watchedFilter)
+          const displayed = [...filtered].sort((a, b) => {
+            if (watchedSort === 'name') return a.title.localeCompare(b.title, 'es')
+            if (watchedSort === 'rated') {
+              const ra = watchedRatings.get(`${a.media_type}:${a.media_id}`) ?? 0
+              const rb = watchedRatings.get(`${b.media_type}:${b.media_id}`) ?? 0
+              return rb - ra
+            }
+            return 0
+          })
+          return allWatched.length === 0 ? (
+            <EmptyCard icon="🎬" actionLabel="Empezá a explorar títulos" actionHref="/que-ver">
+              Todavía no marcaste nada como visto.
+            </EmptyCard>
           ) : (
             <>
-              <p className="text-xs text-zinc-600 mb-4">{allWatched.length} título{allWatched.length !== 1 ? 's' : ''}</p>
-              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
-                {allWatched.map(w => (
-                  <PosterLink key={w.id} mediaId={w.media_id} mediaType={w.media_type} posterPath={w.poster_path} title={w.title} />
-                ))}
+              {/* Filter + sort bar */}
+              <div className="flex flex-wrap items-center justify-between gap-3 mb-5">
+                <div className="flex items-center gap-1.5">
+                  {(['all', 'movie', 'tv'] as const).map(f => (
+                    <button
+                      key={f}
+                      onClick={() => setWatchedFilter(f)}
+                      className={`px-3 py-1.5 rounded-full text-xs font-medium transition-colors ${
+                        watchedFilter === f ? 'bg-[#FFFD02] text-black' : 'bg-[#1C1C27] text-[#A0A0B0] hover:text-white'
+                      }`}
+                    >
+                      {f === 'all' ? 'Todo' : f === 'movie' ? 'Películas' : 'Series'}
+                    </button>
+                  ))}
+                </div>
+                <select
+                  value={watchedSort}
+                  onChange={e => setWatchedSort(e.target.value as 'recent' | 'name' | 'rated')}
+                  className="bg-[#1C1C27] text-zinc-300 text-xs rounded-lg px-3 py-1.5 border border-[#2A2A3A] outline-none focus:border-[#FFFD02] cursor-pointer"
+                >
+                  <option value="recent">Más reciente</option>
+                  <option value="rated">Mejor calificadas</option>
+                  <option value="name">Nombre</option>
+                </select>
+              </div>
+              <p className="text-xs text-zinc-600 mb-4">
+                {displayed.length} título{displayed.length !== 1 ? 's' : ''}
+              </p>
+              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+                {displayed.map(w => {
+                  const rating = watchedRatings.get(`${w.media_type}:${w.media_id}`)
+                  return (
+                    <Link key={w.id} href={`/${w.media_type}/${w.media_id}`} className="group block">
+                      <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] mb-1.5">
+                        {w.poster_path ? (
+                          <Image
+                            src={getPosterUrl(w.poster_path, 'w185')}
+                            alt={w.title} fill
+                            className="object-cover transition-transform duration-300 group-hover:scale-105"
+                            sizes="160px"
+                          />
+                        ) : (
+                          <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] text-center px-1">
+                            {w.title}
+                          </div>
+                        )}
+                        {rating && (
+                          <div className="absolute inset-0 bg-black/65 opacity-0 group-hover:opacity-100 transition-opacity flex items-center justify-center">
+                            <div className="text-center">
+                              <p className="text-2xl font-bold" style={{ color: '#FFFD02' }}>{rating}</p>
+                              <p className="text-[11px] text-white/70 mt-0.5">★ Tu nota</p>
+                            </div>
+                          </div>
+                        )}
+                      </div>
+                      <p className="text-[11px] text-zinc-400 leading-tight line-clamp-1 group-hover:text-white transition-colors">
+                        {w.title}
+                      </p>
+                    </Link>
+                  )
+                })}
               </div>
             </>
           )
-        )}
+        })()}
 
         {/* ── RESEÑAS ── */}
         {activeTab === 'resenas' && (
           allReviews.length === 0 ? (
-            <EmptyCard>Sin reseñas todavía.</EmptyCard>
+            <EmptyCard icon="✍️" actionLabel="Escribir primera reseña" actionHref="/que-ver">
+              {isOwner ? 'Todavía no escribiste ninguna reseña.' : 'Este usuario no tiene reseñas todavía.'}
+            </EmptyCard>
           ) : (
             <div className="space-y-4">
               {allReviews.map(r => (
@@ -1127,7 +1250,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </div>
             )}
             {userLists.length === 0 ? (
-              <EmptyCard>{isOwner ? 'No tenés listas creadas todavía.' : 'Sin listas públicas todavía.'}</EmptyCard>
+              <EmptyCard icon="📋" actionLabel={isOwner ? 'Crear primera lista' : undefined} actionHref={isOwner ? '/listas/nueva' : undefined}>
+                {isOwner ? 'No tenés listas creadas todavía.' : 'Sin listas públicas todavía.'}
+              </EmptyCard>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
               {userLists.map(l => (
@@ -1158,7 +1283,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         {/* ── PARA VER ── */}
         {activeTab === 'paraVer' && (
           allWatchlist.length === 0 ? (
-            <EmptyCard>Lista de pendientes vacía.</EmptyCard>
+            <EmptyCard icon="🔖" actionLabel="Explorar títulos" actionHref="/que-ver">
+              {isOwner ? 'Tu lista de pendientes está vacía.' : 'Sin títulos pendientes todavía.'}
+            </EmptyCard>
           ) : (
             <>
               <p className="text-xs text-zinc-600 mb-4">{allWatchlist.length} título{allWatchlist.length !== 1 ? 's' : ''}</p>
@@ -1174,7 +1301,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         {/* ── ME GUSTA ── */}
         {activeTab === 'favoritos' && (
           allFavorites.length === 0 ? (
-            <EmptyCard>Todavía no marcaste nada como favorito.</EmptyCard>
+            <EmptyCard icon="❤️" actionLabel="Descubrir qué ver" actionHref="/que-ver">
+              {isOwner ? 'Todavía no marcaste nada como favorito.' : 'Sin favoritos todavía.'}
+            </EmptyCard>
           ) : (
             <>
               <p className="text-xs text-zinc-600 mb-4">{allFavorites.length} título{allFavorites.length !== 1 ? 's' : ''}</p>
