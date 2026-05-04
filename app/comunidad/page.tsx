@@ -116,8 +116,9 @@ function timeAgo(dateStr: string): string {
 }
 
 function compatColor(score: number): string {
-  if (score >= 60) return '#FFFD02'
-  if (score >= 30) return '#F59E0B'
+  if (score >= 81) return '#22c55e'
+  if (score >= 61) return '#86efac'
+  if (score >= 31) return '#FFFD02'
   return '#EF4444'
 }
 
@@ -182,16 +183,17 @@ function AvatarImg({ profile, size = 9 }: { profile: UserProfile; size?: number 
   )
 }
 
-function Poster({ path, title, mediaType, mediaId }: {
-  path: string | null; title: string; mediaType: string; mediaId: number
+function Poster({ path, title, mediaType, mediaId, large }: {
+  path: string | null; title: string; mediaType: string; mediaId: number; large?: boolean
 }) {
+  const w = large ? 48 : 40
   return (
     <Link href={`/${mediaType}/${mediaId}`} className="shrink-0">
-      <div className="w-10 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]">
+      <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] hover:opacity-90 transition-opacity" style={{ width: w }}>
         {path ? (
           <Image
             src={`https://image.tmdb.org/t/p/w185${path}`}
-            alt={title} width={40} height={60}
+            alt={title} width={w} height={Math.round(w * 1.5)}
             className="w-full h-full object-cover"
             onError={(e) => { (e.currentTarget as HTMLImageElement).style.display = 'none' }}
           />
@@ -211,7 +213,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
   const p = profiles.get(item.userId)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -224,7 +226,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
           <div className="flex gap-3 mt-2">
-            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
+            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} large />
             <div className="flex-1 min-w-0">
               <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
                 {item.mediaTitle}
@@ -253,7 +255,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
   const p = profiles.get(item.userId)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -290,7 +292,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
   const [adding, setAdding] = useState(false)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -342,7 +344,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
   const p = profiles.get(item.userId)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -387,7 +389,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
   const p = profiles.get(item.userId)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-center gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -413,7 +415,7 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
   const p = profiles.get(item.userId)
   if (!p) return null
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <Avatar profile={p} />
         <div className="flex-1 min-w-0">
@@ -596,13 +598,27 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
 
 function AchievementCard({ a }: { a: Achievement }) {
   const pct = Math.min(Math.round((a.current / a.target) * 100), 100)
+  const tooltip = !a.completed ? `Te faltan ${a.target - a.current} para desbloquear "${a.name}"` : undefined
   return (
-    <div className={`flex items-start gap-3.5 rounded-xl p-4 border transition-colors ${
-      a.completed ? 'bg-[#F5A623]/10 border-[#F5A623]/30' : 'bg-[#1C1C27]/50 border-[#2A2A3A]/40'
-    }`}>
-      <div className="w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
-        style={{ backgroundColor: a.completed ? 'rgba(245,166,35,0.15)' : 'rgba(28,28,39,0.6)' }}>
+    <div
+      title={tooltip}
+      className={`flex items-start gap-3.5 rounded-xl p-4 border transition-all ${
+        a.completed
+          ? 'bg-[#F5A623]/10 border-[#F5A623]/30 shadow-[0_0_16px_rgba(245,166,35,0.08)]'
+          : 'bg-[#1C1C27]/50 border-[#2A2A3A]/40 opacity-70 hover:opacity-90'
+      }`}
+    >
+      <div className="relative w-12 h-12 rounded-full flex items-center justify-center text-2xl shrink-0"
+        style={{ backgroundColor: a.completed ? 'rgba(245,166,35,0.18)' : 'rgba(28,28,39,0.6)' }}>
         {a.emoji}
+        {!a.completed && (
+          <div className="absolute -bottom-0.5 -right-0.5 w-4 h-4 bg-[#1C1C27] border border-[#2A2A3A] rounded-full flex items-center justify-center">
+            <svg width="8" height="8" viewBox="0 0 24 24" fill="none" stroke="#A0A0B0" strokeWidth="2.5" strokeLinecap="round">
+              <rect x="3" y="11" width="18" height="11" rx="2" ry="2"/>
+              <path d="M7 11V7a5 5 0 0 1 10 0v4"/>
+            </svg>
+          </div>
+        )}
       </div>
       <div className="flex-1 min-w-0">
         <div className="flex items-center justify-between gap-2 mb-0.5">
@@ -611,7 +627,8 @@ function AchievementCard({ a }: { a: Achievement }) {
         </div>
         <p className="text-xs text-[#A0A0B0] mb-2 leading-snug">{a.description}</p>
         <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${pct}%`, backgroundColor: '#FFFD02' }} />
+          <div className="h-full rounded-full transition-all duration-700"
+            style={{ width: `${pct}%`, backgroundColor: a.completed ? '#F5A623' : '#FFFD02' }} />
         </div>
         <p className="text-xs" style={{ color: a.completed ? '#F5A623' : '#71717a' }}>
           {a.completed ? `✓ ${a.current} de ${a.target}` : `${a.current} de ${a.target} · Faltan ${a.target - a.current}`}
@@ -664,7 +681,7 @@ function ActorBirthdayCard({ item }: { item: ActorBirthdayFeed }) {
 
 function ActorReleaseCard({ item }: { item: ActorReleaseFeed }) {
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
         <div className="relative shrink-0">
           <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1C1C27]">
@@ -1138,7 +1155,15 @@ export default function ComunidadPage() {
 
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
-      <h1 className="text-2xl font-bold mb-5 flex items-center gap-2"><Users size={22} /> Comunidad</h1>
+
+      {/* Header */}
+      <div className="mb-6">
+        <h1 className="text-3xl font-bold flex items-center gap-3 mb-1">
+          <Users size={26} style={{ color: '#FFFD02' }} />
+          Comunidad
+        </h1>
+        <p className="text-[#A0A0B0] text-sm">Descubrí qué están viendo tus amigos</p>
+      </div>
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1 overflow-x-auto no-scrollbar">
@@ -1152,7 +1177,19 @@ export default function ComunidadPage() {
       {tab === 'feed' && (
         <>
           {followingIds.length === 0 && (
-            <p className="text-sm text-[#A0A0B0] mb-6">Seguí a otros usuarios para ver su actividad acá.</p>
+            <div className="mb-6 bg-[#13131A] border border-[#FFFD02]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              <div className="text-3xl select-none">👥</div>
+              <div className="flex-1">
+                <p className="text-white font-semibold text-sm mb-1">Seguí a otros usuarios para ver su actividad acá</p>
+                <p className="text-[#A0A0B0] text-xs">Cuando sigas gente, verás sus reseñas, calificaciones y listas en este feed.</p>
+              </div>
+              <Link
+                href="/comunidad?tab=compat"
+                className="shrink-0 text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-4 py-2 rounded-full transition-colors"
+              >
+                Descubrir usuarios →
+              </Link>
+            </div>
           )}
 
           {feedLoading ? <FeedSkeleton /> : displayFeed.length === 0 && followingIds.length > 0 ? (
@@ -1263,7 +1300,12 @@ export default function ComunidadPage() {
         <>
           <div className="flex items-center justify-between mb-5">
             <p className="text-xs text-[#A0A0B0]">Listas públicas, ordenadas por popularidad</p>
-            <Link href="/listas" className="text-xs text-[#FFFD02] hover:underline shrink-0">Ver todas →</Link>
+            <div className="flex items-center gap-3">
+              <Link href="/listas" className="text-xs text-[#A0A0B0] hover:text-white transition-colors shrink-0">Ver todas →</Link>
+              <Link href="/listas/nueva" className="flex items-center gap-1.5 text-xs font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-3 py-1.5 rounded-full transition-colors shrink-0">
+                <Plus size={12} /> Crear lista
+              </Link>
+            </div>
           </div>
           {listsLoading ? (
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 animate-pulse">
@@ -1284,10 +1326,10 @@ export default function ComunidadPage() {
                 {communityLists.map(l => (
                   <Link key={l.id} href={`/listas/${l.id}`}
                     className="group bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/50 transition-all block">
-                    <div className="flex gap-1 mb-3 h-[60px]">
+                    <div className="flex gap-1 mb-3 h-[80px]">
                       {l.previews.slice(0, 4).map((p, i) => (
                         <div key={i} className="flex-1 rounded-md overflow-hidden bg-[#1C1C27]">
-                          {p ? <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={60} height={60} className="w-full h-full object-cover" /> : null}
+                          {p ? <Image src={`https://image.tmdb.org/t/p/w185${p}`} alt="" width={80} height={80} className="w-full h-full object-cover" /> : null}
                         </div>
                       ))}
                       {Array.from({ length: Math.max(0, 4 - l.previews.length) }).map((_, i) => (
