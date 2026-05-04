@@ -34,6 +34,7 @@ interface RecentItem {
   id: number; title: string; posterPath: string | null
   mediaType: 'movie' | 'tv'; year: string; voteAverage?: number
   providerLogoPath: string | null; providerName: string | null
+  inCinemas?: boolean
 }
 
 interface TrendingItem {
@@ -72,11 +73,12 @@ function CarouselSkeleton() {
 // ── Shared carousel poster card ───────────────────────────────────────────────
 
 function CarouselCard({
-  id, mediaType, posterPath, title, year, voteAverage, providerLogoPath, providerName,
+  id, mediaType, posterPath, title, year, voteAverage, providerLogoPath, providerName, inCinemas,
 }: {
   id: number; mediaType: 'movie' | 'tv'; posterPath: string | null
   title: string; year?: string; voteAverage?: number
   providerLogoPath?: string | null; providerName?: string | null
+  inCinemas?: boolean
 }) {
   const href = `/${mediaType}/${id}`
   return (
@@ -113,8 +115,8 @@ function CarouselCard({
             </div>
           )}
 
-          {/* Provider logo — bottom right */}
-          {providerLogoPath && (
+          {/* Provider logo or Cinema badge — bottom right */}
+          {providerLogoPath ? (
             <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-[4px] overflow-hidden shadow-lg ring-1 ring-white/20">
               <Image
                 src={`https://image.tmdb.org/t/p/original${providerLogoPath}`}
@@ -122,7 +124,12 @@ function CarouselCard({
                 className="w-full h-full object-cover"
               />
             </div>
-          )}
+          ) : inCinemas ? (
+            <div className="absolute bottom-1.5 right-1.5 flex flex-col items-center gap-0.5 bg-black/80 rounded-md px-1.5 py-1 shadow-lg">
+              <span className="text-sm leading-none select-none">🎥</span>
+              <span className="text-[9px] font-bold leading-none" style={{ color: '#FFFD02' }}>Cine</span>
+            </div>
+          ) : null}
 
           {/* Hover overlay with quick actions */}
           <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-end pb-3 gap-1.5">
@@ -387,6 +394,7 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
             voteAverage={item.voteAverage}
             providerLogoPath={item.providerLogoPath}
             providerName={item.providerName}
+            inCinemas={item.inCinemas}
           />
         ))}
       </div>
@@ -800,31 +808,51 @@ export default function HomeClient() {
 
     async function loadRecent() {
       const base = `api_key=${TMDB_KEY}&language=es-AR&page=1&watch_region=${country}&with_watch_providers=${PROVIDER_IDS}`
-      const [movRes, tvRes] = await Promise.all([
+      const [movRes, tvRes, nowPlayingRes] = await Promise.all([
         fetch(`${TMDB}/discover/movie?${base}&sort_by=release_date.desc`).then(r => r.ok ? r.json() : { results: [] }),
         fetch(`${TMDB}/discover/tv?${base}&sort_by=first_air_date.desc`).then(r => r.ok ? r.json() : { results: [] }),
+        fetch(`${TMDB}/movie/now_playing?api_key=${TMDB_KEY}&language=es-AR&region=${country}&page=1`).then(r => r.ok ? r.json() : { results: [] }),
       ])
 
       type RawMovie = { id: number; title?: string; name?: string; poster_path: string | null; release_date?: string; first_air_date?: string; vote_average?: number }
-      const movies: RecentItem[] = ((movRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
+
+      // Streaming movies from discover
+      const streamingMovies: RecentItem[] = ((movRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.title ?? '', posterPath: m.poster_path,
         mediaType: 'movie', year: (m.release_date ?? '').slice(0, 4),
         voteAverage: m.vote_average, providerLogoPath: null, providerName: null,
       }))
+
+      // Cinema movies from now_playing — marked with inCinemas: true
+      const cinemaMovies: RecentItem[] = ((nowPlayingRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
+        id: m.id, title: m.title ?? '', posterPath: m.poster_path,
+        mediaType: 'movie', year: (m.release_date ?? '').slice(0, 4),
+        voteAverage: m.vote_average, providerLogoPath: null, providerName: null,
+        inCinemas: true,
+      }))
+
+      // Merge movies — dedup by id; streaming takes priority but preserves inCinemas flag
+      const movieMap = new Map<number, RecentItem>()
+      for (const m of [...cinemaMovies, ...streamingMovies]) {
+        const existing = movieMap.get(m.id)
+        movieMap.set(m.id, existing ? { ...m, inCinemas: existing.inCinemas || m.inCinemas } : m)
+      }
+      const movies = [...movieMap.values()].sort((a, b) => (b.year ?? '').localeCompare(a.year ?? ''))
+
       const tv: RecentItem[] = ((tvRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.name ?? '', posterPath: m.poster_path,
         mediaType: 'tv', year: (m.first_air_date ?? '').slice(0, 4),
         voteAverage: m.vote_average, providerLogoPath: null, providerName: null,
       }))
 
-      // Interleave movies and TV, take top 10
+      // Interleave movies and TV, take top 12
       const merged: RecentItem[] = []
       const maxLen = Math.max(movies.length, tv.length)
-      for (let i = 0; i < maxLen && merged.length < 10; i++) {
+      for (let i = 0; i < maxLen && merged.length < 12; i++) {
         if (movies[i]) merged.push(movies[i])
-        if (merged.length < 10 && tv[i]) merged.push(tv[i])
+        if (merged.length < 12 && tv[i]) merged.push(tv[i])
       }
-      const top10 = merged.slice(0, 10)
+      const top10 = merged.slice(0, 12)
 
       // Fetch watch providers in parallel
       const withProviders = await Promise.all(
