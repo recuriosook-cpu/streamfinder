@@ -74,7 +74,7 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
         {items.filter(item => item.posterPath).map(item => {
           const href = item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`
           return (
-            <div key={`${item.mediaType}-${item.id}`} className="flex-shrink-0 w-28 sm:w-32 carousel-snap group">
+            <div key={`${item.mediaType}-${item.id}`} className="flex-shrink-0 w-36 sm:w-36 carousel-snap group">
               <Link href={href} className="block">
                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
                   <Image

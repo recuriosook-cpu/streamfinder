@@ -54,9 +54,16 @@ button, input, select, textarea, label {
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
   touch-action: pan-x;
+  scroll-behavior: smooth;
 }
 .carousel-snap {
   scroll-snap-align: start;
+  flex-shrink: 0;
+}
+
+/* Mobile font-size minimum: prevent text smaller than 12px on small viewports */
+@media (max-width: 640px) {
+  .text-xs { font-size: 12px; }
 }
 
 /* Horizontal chip strip (nowrap + touch scroll) */

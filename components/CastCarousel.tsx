@@ -60,7 +60,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
               className="shrink-0 w-[72px] sm:w-[88px] flex flex-col items-center text-center group/actor carousel-snap"
             >
               {/* Photo — 80px on desktop as requested */}
-              <div className="relative w-16 h-16 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#1C1C27] mb-2 ring-2 ring-zinc-700 group-hover/actor:ring-[#FFFD02]/50 transition-all">
+              <div className="relative w-14 h-14 sm:w-20 sm:h-20 rounded-full overflow-hidden bg-[#1C1C27] mb-2 ring-2 ring-zinc-700 group-hover/actor:ring-[#FFFD02]/50 transition-all">
                 {person.profilePath ? (
                   <Image
                     src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}

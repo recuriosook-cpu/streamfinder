@@ -1164,7 +1164,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <p className="text-xs text-zinc-600 mb-4">
                 {displayed.length} título{displayed.length !== 1 ? 's' : ''}
               </p>
-              <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 gap-3">
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
                 {displayed.map(w => {
                   const rating = watchedRatings.get(`${w.media_type}:${w.media_id}`)
                   return (

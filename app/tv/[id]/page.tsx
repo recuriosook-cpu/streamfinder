@@ -288,7 +288,7 @@ export default async function TVPage({ params }: Props) {
             )}
 
             {/* Action buttons */}
-            <div className="flex flex-col sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4">
+            <div className="grid grid-cols-2 sm:flex sm:flex-row sm:flex-wrap gap-2 sm:gap-3 mb-4">
               <FavoriteButton
                 mediaId={show.id}
                 mediaType="tv"

@@ -62,6 +62,7 @@ export default function Navbar() {
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
+  const [searchFocused, setSearchFocused] = useState(false)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
   const [notifOpen,    setNotifOpen]    = useState(false)
@@ -290,7 +291,7 @@ export default function Navbar() {
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
 
-  const closeSearch = () => { setSearchOpen(false); setSearchResults(null); setShowRecent(false) }
+  const closeSearch = () => { setSearchOpen(false); setSearchResults(null); setShowRecent(false); setSearchFocused(false) }
 
   function handleResultClick() {
     if (query.trim()) saveSearch(query.trim())
@@ -336,7 +337,7 @@ export default function Navbar() {
   return (
     <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
       <div className="max-w-7xl mx-auto px-3 sm:px-4 py-2.5 sm:py-3 flex items-center gap-2 sm:gap-3">
-        <Link href="/" className="shrink-0">
+        <Link href="/" className={searchFocused ? 'hidden sm:block shrink-0' : 'shrink-0'}>
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img
             src="/logo.png"
@@ -353,6 +354,7 @@ export default function Navbar() {
               value={query}
               onChange={handleQueryChange}
               onFocus={() => {
+                setSearchFocused(true)
                 if (searchResults) setSearchOpen(true)
                 if (!query.trim()) setShowRecent(true)
               }}
@@ -568,8 +570,18 @@ export default function Navbar() {
           )}
         </div>
 
+        {/* Cancel button — mobile only, shown when search is focused */}
+        {searchFocused && (
+          <button
+            onClick={() => { setSearchFocused(false); setQuery(''); closeSearch() }}
+            className="sm:hidden text-sm text-[#A0A0B0] hover:text-white transition-colors shrink-0 whitespace-nowrap"
+          >
+            Cancelar
+          </button>
+        )}
+
         {/* Country selector */}
-        <div className="relative shrink-0" ref={countryRef}>
+        <div className={`relative shrink-0 ${searchFocused ? 'hidden sm:block' : ''}`} ref={countryRef}>
           <button
             onClick={() => setCountryOpen(v => !v)}
             className="flex items-center gap-1.5 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
@@ -744,7 +756,7 @@ export default function Navbar() {
           )}
         </div>
 
-        <button className="md:hidden" onClick={() => setMenuOpen(!menuOpen)}>
+        <button className={`md:hidden ${searchFocused ? 'hidden' : ''}`} onClick={() => setMenuOpen(!menuOpen)}>
           {menuOpen ? <X size={20} /> : <Menu size={20} />}
         </button>
       </div>
@@ -756,6 +768,7 @@ export default function Navbar() {
           </Link>
           {user ? (
             <>
+              <div className="border-t border-[#2A2A3A]" />
               <Link href="/comunidad" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
                 <Users size={16} /> Comunidad
               </Link>
@@ -776,12 +789,14 @@ export default function Navbar() {
                 </span>
                 Notificaciones {unreadCount > 0 && <span className="text-[#FFFD02]">({unreadCount})</span>}
               </button>
+              <div className="border-t border-[#2A2A3A]" />
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir
               </button>
             </>
           ) : (
             <>
+              <div className="border-t border-[#2A2A3A]" />
               <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm border border-zinc-600 text-zinc-300 px-3 py-2 rounded-lg">
                 <LogIn size={16} /> Iniciar sesión
               </Link>
