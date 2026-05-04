@@ -1,9 +1,10 @@
-﻿'use client'
+'use client'
 
 import { useState, useRef } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
+import Link from 'next/link'
+import { Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { LogIn, UserPlus, Eye, EyeOff } from 'lucide-react'
 
 function GoogleIcon() {
   return (
@@ -32,7 +33,7 @@ export default function AuthPage() {
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
   const [loading, setLoading] = useState(false)
-  const [socialLoading, setSocialLoading] = useState<'google'|'facebook'|null>(null)
+  const [socialLoading, setSocialLoading] = useState<'google' | 'facebook' | null>(null)
   const [error, setError] = useState('')
   const [message, setMessage] = useState('')
   const router = useRouter()
@@ -74,7 +75,6 @@ export default function AuthPage() {
           .select('username, onboarding_completed')
           .eq('id', data.user.id)
           .maybeSingle()
-        console.log('onboarding_completed:', profile?.onboarding_completed)
         if (profile?.onboarding_completed !== true) {
           router.replace('/onboarding')
         } else {
@@ -92,49 +92,128 @@ export default function AuthPage() {
     setLoading(false)
   }
 
+  const inputClass =
+    'w-full bg-[#0A0A0F] border border-[#2A2A3A] rounded-xl px-4 py-3 text-white text-sm outline-none transition-colors placeholder-[#A0A0B0] hover:border-zinc-600 focus:border-[#FFFD02]'
+
   return (
-    <div className="min-h-[80vh] flex items-center justify-center px-4">
-      <div className="w-full max-w-md bg-[#13131A] rounded-2xl p-8 border border-[#2A2A3A]">
-        <div className="text-center mb-8">
-          <h1 className="text-2xl font-bold mb-1">
-            {mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+    <div className="min-h-screen bg-[#0A0A0F] flex items-center justify-center px-4 py-12 relative overflow-hidden">
+
+      {/* Atmospheric glow */}
+      <div className="absolute inset-0 pointer-events-none select-none">
+        <div
+          className="absolute top-1/3 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[700px] h-[700px] rounded-full opacity-[0.045]"
+          style={{ background: 'radial-gradient(circle, #FFFD02 0%, transparent 65%)' }}
+        />
+      </div>
+
+      {/* Card */}
+      <div className="relative w-full max-w-[440px] bg-[#13131A] rounded-[20px] p-10 border border-[#2A2A3A] shadow-2xl">
+
+        {/* Logo */}
+        <div className="flex justify-center mb-8">
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img src="/logo.png" alt="Glynbox" style={{ height: '36px', width: 'auto', objectFit: 'contain' }} />
+        </div>
+
+        {/* Heading */}
+        <div className="text-center mb-7">
+          <h1 className="text-2xl font-bold text-white mb-1.5">
+            {mode === 'login' ? 'Bienvenido de vuelta' : 'Creá tu cuenta gratis'}
           </h1>
           <p className="text-[#A0A0B0] text-sm">
-            {mode === 'login' ? 'Accedé a tus favoritos' : 'Empezá a guardar tus contenidos favoritos'}
+            {mode === 'login' ? 'Ingresá tus datos para continuar' : 'Empezá a descubrir y compartir'}
           </p>
         </div>
 
-        {/* Mode toggle */}
-        <div className="flex bg-[#1C1C27] rounded-lg p-1 mb-6">
+        {/* Tabs */}
+        <div className="flex bg-[#0A0A0F] rounded-xl p-1 mb-7 border border-[#2A2A3A]">
           <button
-            onClick={() => setMode('login')}
-            className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
+            onClick={() => { setMode('login'); setError(''); setMessage('') }}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-colors ${
               mode === 'login' ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
-            <span className="flex items-center justify-center gap-1.5">
-              <LogIn size={14} /> Iniciar sesión
-            </span>
+            Iniciar sesión
           </button>
           <button
-            onClick={() => setMode('register')}
-            className={`flex-1 py-2 text-sm font-medium rounded transition-colors ${
+            onClick={() => { setMode('register'); setError(''); setMessage('') }}
+            className={`flex-1 py-2.5 text-sm font-bold rounded-lg transition-colors ${
               mode === 'register' ? 'bg-[#FFFD02] text-black' : 'text-[#A0A0B0] hover:text-white'
             }`}
           >
-            <span className="flex items-center justify-center gap-1.5">
-              <UserPlus size={14} /> Registrarse
-            </span>
+            Crear cuenta
           </button>
         </div>
 
-        {/* Social login buttons */}
-        <div className="flex flex-col gap-3 mb-5">
+        {/* Form */}
+        <form onSubmit={handleSubmit} className="flex flex-col gap-4 mb-5">
+          <div>
+            <label className="text-white text-xs font-medium block mb-1.5">Email</label>
+            <input
+              type="email"
+              value={email}
+              onChange={e => setEmail(e.target.value)}
+              required
+              placeholder="tu@email.com"
+              className={inputClass}
+            />
+          </div>
+          <div>
+            <label className="text-white text-xs font-medium block mb-1.5">Contraseña</label>
+            <div className="relative">
+              <input
+                type={showPass ? 'text' : 'password'}
+                value={password}
+                onChange={e => setPassword(e.target.value)}
+                required
+                minLength={6}
+                placeholder="Mínimo 6 caracteres"
+                className={`${inputClass} pr-11`}
+              />
+              <button
+                type="button"
+                onClick={() => setShowPass(!showPass)}
+                className="absolute right-3.5 top-1/2 -translate-y-1/2 text-[#A0A0B0] hover:text-white transition-colors"
+              >
+                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
+              </button>
+            </div>
+          </div>
+
+          {error && (
+            <div className="bg-red-900/40 border border-red-800 text-red-300 text-sm px-4 py-3 rounded-xl">
+              {error}
+            </div>
+          )}
+          {message && (
+            <div className="bg-[#FFFD02]/10 border border-[#F5A623] text-[#FFF84D] text-sm px-4 py-3 rounded-xl">
+              {message}
+            </div>
+          )}
+
+          <button
+            type="submit"
+            disabled={loading}
+            className="w-full bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-full transition-colors text-sm mt-1"
+          >
+            {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
+          </button>
+        </form>
+
+        {/* Separator */}
+        <div className="flex items-center gap-3 mb-5">
+          <div className="flex-1 h-px bg-[#2A2A3A]" />
+          <span className="text-xs text-[#A0A0B0] whitespace-nowrap">o continuá con</span>
+          <div className="flex-1 h-px bg-[#2A2A3A]" />
+        </div>
+
+        {/* OAuth buttons */}
+        <div className="flex flex-col gap-3">
           <button
             type="button"
             onClick={handleGoogle}
             disabled={!!socialLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-60 text-zinc-900 font-medium py-2.5 rounded-lg transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
           >
             {socialLoading === 'google'
               ? <span className="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
@@ -146,7 +225,7 @@ export default function AuthPage() {
             type="button"
             onClick={handleFacebook}
             disabled={!!socialLoading}
-            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166fe5] disabled:opacity-60 text-white font-medium py-2.5 rounded-lg transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166fe5] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
           >
             {socialLoading === 'facebook'
               ? <span className="w-4 h-4 border-2 border-blue-300 border-t-white rounded-full animate-spin" />
@@ -156,66 +235,19 @@ export default function AuthPage() {
           </button>
         </div>
 
-        {/* Separator */}
-        <div className="flex items-center gap-3 mb-5">
-          <div className="flex-1 h-px bg-[#1C1C27]" />
-          <span className="text-xs text-[#A0A0B0] font-medium">o</span>
-          <div className="flex-1 h-px bg-[#1C1C27]" />
-        </div>
-
-        <form onSubmit={handleSubmit} className="flex flex-col gap-4">
-          <div>
-            <label className="text-sm text-[#A0A0B0] block mb-1.5">Email</label>
-            <input
-              type="email"
-              value={email}
-              onChange={e => setEmail(e.target.value)}
-              required
-              placeholder="tu@email.com"
-              className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors"
-            />
-          </div>
-          <div>
-            <label className="text-sm text-[#A0A0B0] block mb-1.5">Contraseña</label>
-            <div className="relative">
-              <input
-                type={showPass ? 'text' : 'password'}
-                value={password}
-                onChange={e => setPassword(e.target.value)}
-                required
-                minLength={6}
-                placeholder="Mínimo 6 caracteres"
-                className="w-full bg-[#1C1C27] border border-[#2A2A3A] rounded-lg px-3 py-2.5 pr-10 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors"
-              />
-              <button
-                type="button"
-                onClick={() => setShowPass(!showPass)}
-                className="absolute right-3 top-1/2 -translate-y-1/2 text-[#A0A0B0] hover:text-white"
-              >
-                {showPass ? <EyeOff size={16} /> : <Eye size={16} />}
-              </button>
-            </div>
-          </div>
-
-          {error && (
-            <div className="bg-red-900/40 border border-red-800 text-red-300 text-sm px-3 py-2.5 rounded-lg">
-              {error}
-            </div>
-          )}
-          {message && (
-            <div className="bg-[#FFFD02]/10 border border-[#F5A623] text-[#FFF84D] text-sm px-3 py-2.5 rounded-lg">
-              {message}
-            </div>
-          )}
-
-          <button
-            type="submit"
-            disabled={loading}
-            className="w-full bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 text-black font-medium py-2.5 rounded-lg transition-colors mt-2"
-          >
-            {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
-          </button>
-        </form>
+        {/* Legal — only on register */}
+        {mode === 'register' && (
+          <p className="text-[11px] text-[#A0A0B0] text-center mt-6 leading-relaxed">
+            Al registrarte aceptás nuestros{' '}
+            <Link href="/terminos" className="underline hover:text-white transition-colors">
+              Términos
+            </Link>
+            {' '}y la{' '}
+            <Link href="/privacidad" className="underline hover:text-white transition-colors">
+              Política de privacidad
+            </Link>
+          </p>
+        )}
       </div>
     </div>
   )
