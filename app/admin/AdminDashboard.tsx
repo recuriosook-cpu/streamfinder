@@ -202,6 +202,20 @@ export default function AdminDashboard() {
   const [topProviders, setTopProviders] = useState<{ label: string; count: number }[]>([])
   const [topGenres,    setTopGenres]    = useState<{ label: string; count: number }[]>([])
 
+  // New metrics
+  const [usersActiveToday, setUsersActiveToday] = useState(0)
+  const [totalLists,       setTotalLists]       = useState(0)
+  const [totalComments,    setTotalComments]    = useState(0)
+  const [weeklyGrowth,     setWeeklyGrowth]     = useState<{ week: string; count: number }[]>([])
+  const [topActiveUsers,   setTopActiveUsers]   = useState<Profile[]>([])
+  const [tvVsMovie,        setTvVsMovie]        = useState({ movies: 0, tv: 0 })
+  const [mostReviewed,     setMostReviewed]     = useState<{ title: string; media_id: number; media_type: string; poster_path: string | null; count: number }[]>([])
+  const [usersByLevel,     setUsersByLevel]     = useState<Record<number, number>>({})
+  const [avgRating,        setAvgRating]        = useState(0)
+  const [ratingDist,       setRatingDist]       = useState<Record<number, number>>({})
+  const [reviewsByDay,     setReviewsByDay]     = useState<{ day: string; count: number }[]>([])
+  const [topReviewsWeek,   setTopReviewsWeek]   = useState<{ reviewId: string; title: string; posterPath: string | null; mediaId: number; mediaType: string; authorUsername: string | null; authorAvatar: string | null; rating: number | null; likeCount: number }[]>([])
+
   const [deletingId, setDeletingId] = useState<string | null>(null)
 
   useEffect(() => {
@@ -226,6 +240,10 @@ export default function AdminDashboard() {
       favsRawRes, watchedRawRes,
       reviewsRawRes,
       providersRawRes, genresRawRes,
+      totalListsRes, totalCommentsRes,
+      ratingsRawRes, reviewLikesWeekRes,
+      mostReviewedRawRes, reviewDatesRes,
+      topFollowsRawRes,
     ] = await Promise.all([
       supabase.from('profiles').select('*').order('updated_at', { ascending: false }),
       supabase.from('reviews').select('*', { count: 'exact', head: true }),
@@ -236,6 +254,13 @@ export default function AdminDashboard() {
       supabase.from('reviews').select('id, user_id, media_type, title, rating, body, created_at').order('created_at', { ascending: false }).limit(20),
       supabase.from('favorites').select('provider_name').not('provider_name', 'is', null).limit(5000),
       supabase.from('favorites').select('genre_ids').not('genre_ids', 'is', null).limit(5000),
+      supabase.from('lists').select('*', { count: 'exact', head: true }),
+      supabase.from('review_comments').select('*', { count: 'exact', head: true }),
+      supabase.from('ratings').select('rating').limit(10000),
+      supabase.from('review_likes').select('review_id').gte('created_at', weekAgo).limit(5000),
+      supabase.from('reviews').select('media_id, media_type, title, poster_path').limit(10000),
+      supabase.from('reviews').select('created_at').gte('created_at', monthAgo.toISOString()).limit(5000),
+      supabase.from('follows').select('following_id').limit(10000),
     ])
 
     if (profilesRes.error) {
@@ -322,6 +347,85 @@ export default function AdminDashboard() {
       Object.entries(genreCount).sort((a, b) => b[1] - a[1]).slice(0, 5)
         .map(([id, count]) => ({ label: GENRE_NAMES[Number(id)] ?? `Género ${id}`, count }))
     )
+
+    // ── New metrics ────────────────────────────────────────────────
+    const today = new Date().toISOString().slice(0, 10)
+    setUsersActiveToday(allProfiles.filter(p => p.updated_at.slice(0, 10) === today).length)
+    setTotalLists(totalListsRes.count ?? 0)
+    setTotalComments(totalCommentsRes.count ?? 0)
+
+    // Weekly growth (8 weeks)
+    const wg: { week: string; count: number }[] = []
+    for (let i = 7; i >= 0; i--) {
+      const ws = new Date(Date.now() - (i + 1) * 7 * 86400000)
+      const we = new Date(Date.now() - i * 7 * 86400000)
+      wg.push({
+        week: ws.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' }),
+        count: allProfiles.filter(p => { const d = new Date(p.updated_at); return d >= ws && d < we }).length,
+      })
+    }
+    setWeeklyGrowth(wg)
+
+    // Top 5 active users (by points)
+    setTopActiveUsers(allProfiles.filter(p => (p.points ?? 0) > 0).sort((a, b) => (b.points ?? 0) - (a.points ?? 0)).slice(0, 5))
+
+    // TV vs Movie
+    const allWatchedRows = watchedRawRes.data ?? []
+    setTvVsMovie({
+      movies: allWatchedRows.filter((w: { media_type: string }) => w.media_type === 'movie').length,
+      tv: allWatchedRows.filter((w: { media_type: string }) => w.media_type === 'tv').length,
+    })
+
+    // Most reviewed titles
+    const revCount: Record<string, { title: string; media_id: number; media_type: string; poster_path: string | null; count: number }> = {}
+    for (const r of (mostReviewedRawRes.data ?? []) as { media_id: number; media_type: string; title: string; poster_path: string | null }[]) {
+      const key = `${r.media_type}:${r.media_id}`
+      if (!revCount[key]) revCount[key] = { title: r.title, media_id: r.media_id, media_type: r.media_type, poster_path: r.poster_path, count: 0 }
+      revCount[key].count++
+    }
+    setMostReviewed(Object.values(revCount).sort((a, b) => b.count - a.count).slice(0, 5))
+
+    // Rating distribution + average
+    const rd: Record<number, number> = {}; let rSum = 0
+    const rl = (ratingsRawRes.data ?? []) as { rating: number }[]
+    for (const r of rl) { const s = Math.round(r.rating); rd[s] = (rd[s] ?? 0) + 1; rSum += r.rating }
+    setRatingDist(rd)
+    setAvgRating(rl.length > 0 ? rSum / rl.length : 0)
+
+    // Reviews by day (last 30 days)
+    const rdMap: Record<string, number> = {}
+    for (const r of (reviewDatesRes.data ?? []) as { created_at: string }[]) {
+      const k = r.created_at.slice(0, 10); rdMap[k] = (rdMap[k] ?? 0) + 1
+    }
+    const rdArr: { day: string; count: number }[] = []
+    for (let i = 29; i >= 0; i--) {
+      const d = new Date(Date.now() - i * 86400000); const k = d.toISOString().slice(0, 10)
+      rdArr.push({ day: k, count: rdMap[k] ?? 0 })
+    }
+    setReviewsByDay(rdArr)
+
+    // Level distribution
+    const ld: Record<number, number> = {}
+    for (const p of allProfiles) if (p.level != null) ld[p.level] = (ld[p.level] ?? 0) + 1
+    setUsersByLevel(ld)
+
+    // Top reviews this week by likes
+    const likeCounts: Record<string, number> = {}
+    for (const l of (reviewLikesWeekRes.data ?? []) as { review_id: string }[]) {
+      likeCounts[l.review_id] = (likeCounts[l.review_id] ?? 0) + 1
+    }
+    const topLikedIds = Object.entries(likeCounts).sort((a, b) => b[1] - a[1]).slice(0, 5).map(e => e[0])
+    if (topLikedIds.length > 0) {
+      const { data: topRevRows } = await supabase.from('reviews').select('id, user_id, media_id, media_type, title, poster_path, rating').in('id', topLikedIds)
+      const topRevUserIds = [...new Set((topRevRows ?? []).map((r: { user_id: string }) => r.user_id))]
+      const { data: topRevProfiles } = await supabase.from('profiles').select('id, username, avatar_url').in('id', topRevUserIds)
+      const trpMap = Object.fromEntries((topRevProfiles ?? []).map((p: { id: string }) => [p.id, p])) as unknown as Record<string, { username: string | null; avatar_url: string | null } | undefined>
+      setTopReviewsWeek((topRevRows ?? []).map((r: { id: string; user_id: string; media_id: number; media_type: string; title: string; poster_path: string | null; rating: number | null }) => ({
+        reviewId: r.id, title: r.title, posterPath: r.poster_path, mediaId: r.media_id, mediaType: r.media_type, rating: r.rating,
+        authorUsername: trpMap[r.user_id]?.username ?? null, authorAvatar: trpMap[r.user_id]?.avatar_url ?? null,
+        likeCount: likeCounts[r.id] ?? 0,
+      })).sort((a: { likeCount: number }, b: { likeCount: number }) => b.likeCount - a.likeCount))
+    }
 
     setLoading(false)
   }
@@ -417,10 +521,16 @@ export default function AdminDashboard() {
           <div className="space-y-6">
 
             <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
-              <StatCard icon={<TrendingUp size={18} />} label="Nuevos esta semana"      value={newUsersWeek}   color="emerald" />
-              <StatCard icon={<FileText size={18} />}   label="Reseñas escritas"        value={totalReviews}   color="purple" />
-              <StatCard icon={<Eye size={18} />}         label="Películas/series vistas" value={totalWatched}   color="amber" />
-              <StatCard icon={<Bookmark size={18} />}    label="En lista para ver"       value={totalWatchlist} color="blue" />
+              <StatCard icon={<TrendingUp size={18} />} label="Nuevos esta semana"      value={newUsersWeek}     color="emerald" />
+              <StatCard icon={<FileText size={18} />}   label="Reseñas escritas"        value={totalReviews}     color="purple" />
+              <StatCard icon={<Eye size={18} />}         label="Películas/series vistas" value={totalWatched}     color="amber" />
+              <StatCard icon={<Bookmark size={18} />}    label="En lista para ver"       value={totalWatchlist}   color="blue" />
+            </div>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+              <StatCard icon={<Users size={18} />}      label="Activos hoy"             value={usersActiveToday} color="emerald" />
+              <StatCard icon={<Film size={18} />}       label="Listas creadas"           value={totalLists}       color="blue" />
+              <StatCard icon={<FileText size={18} />}   label="Comentarios escritos"     value={totalComments}    color="purple" />
+              <StatCard icon={<Star size={18} />}       label="Calificación promedio"    value={Math.round(avgRating * 10) / 10} color="amber" />
             </div>
 
             {/* Registrations chart */}
@@ -439,6 +549,30 @@ export default function AdminDashboard() {
                 </div>
               )}
             </div>
+
+            {/* Weekly growth */}
+            {weeklyGrowth.some(w => w.count > 0) && (
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+                <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                  <TrendingUp size={16} className="text-[#FFFD02]" />
+                  Crecimiento semanal — últimas 8 semanas
+                </h2>
+                {(() => {
+                  const max = Math.max(...weeklyGrowth.map(w => w.count), 1)
+                  return (
+                    <div className="flex items-end gap-2 h-24">
+                      {weeklyGrowth.map((w, i) => (
+                        <div key={i} className="flex-1 flex flex-col items-center gap-1 h-full justify-end">
+                          {w.count > 0 && <span className="text-[9px] text-zinc-500">{w.count}</span>}
+                          <div className="w-full rounded-t-sm" style={{ height: `${Math.max((w.count / max) * 100, w.count > 0 ? 4 : 0)}%`, backgroundColor: i === weeklyGrowth.length - 1 ? '#FFFD02' : '#2A2A3A' }} />
+                          <span className="text-[9px] text-zinc-600 truncate w-full text-center">{w.week}</span>
+                        </div>
+                      ))}
+                    </div>
+                  )
+                })()}
+              </div>
+            )}
 
             {/* Usage stats */}
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -459,6 +593,49 @@ export default function AdminDashboard() {
 
         {/* ── CONTENT ──────────────────────────────────────────── */}
         {activeTab === 'content' && (
+          <div className="space-y-6">
+          {/* TV vs Películas */}
+          {(tvVsMovie.movies + tvVsMovie.tv) > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4">Series vs Películas vistas</h2>
+              <div className="flex items-center gap-4">
+                <div className="text-center flex-1">
+                  <p className="text-2xl font-bold text-[#FFFD02]">{tvVsMovie.movies.toLocaleString('es-AR')}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Películas</p>
+                </div>
+                <div className="flex-1 h-3 bg-[#1C1C27] rounded-full overflow-hidden">
+                  <div className="h-full rounded-l-full bg-[#FFFD02]" style={{ width: `${(tvVsMovie.movies / (tvVsMovie.movies + tvVsMovie.tv)) * 100}%` }} />
+                </div>
+                <div className="text-center flex-1">
+                  <p className="text-2xl font-bold text-purple-400">{tvVsMovie.tv.toLocaleString('es-AR')}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Series</p>
+                </div>
+              </div>
+            </div>
+          )}
+          {/* Titles with most reviews */}
+          {mostReviewed.length > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
+                <FileText size={15} className="text-purple-400" /> Títulos con más reseñas
+              </h2>
+              <div className="space-y-2.5">
+                {mostReviewed.map((item, i) => (
+                  <div key={`${item.media_type}:${item.media_id}`} className="flex items-center gap-3">
+                    <span className="text-sm font-bold text-zinc-600 w-5 text-right shrink-0">{i + 1}</span>
+                    {item.poster_path
+                      ? <img src={getPosterUrl(item.poster_path, 'w92')} alt={item.title} className="w-8 h-12 object-cover rounded shrink-0" /> // eslint-disable-line @next/next/no-img-element
+                      : <div className="w-8 h-12 bg-[#1C1C27] rounded shrink-0" />}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm text-white truncate">{item.title}</p>
+                      <p className="text-xs text-[#A0A0B0]">{item.media_type === 'tv' ? 'Serie' : 'Película'}</p>
+                    </div>
+                    <span className="text-sm font-semibold text-purple-400 shrink-0">{item.count} reseñas</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
 
             <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
@@ -521,10 +698,65 @@ export default function AdminDashboard() {
               )}
             </div>
           </div>
+          </div>
         )}
 
         {/* ── REVIEWS ──────────────────────────────────────────── */}
         {activeTab === 'reviews' && (
+          <div className="space-y-6">
+          {/* Rating distribution */}
+          {Object.keys(ratingDist).length > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <div className="flex items-center justify-between mb-4">
+                <h2 className="text-sm font-semibold text-white flex items-center gap-2"><Star size={15} className="text-amber-400" /> Distribución de calificaciones</h2>
+                {avgRating > 0 && <span className="text-sm font-bold text-[#FFFD02]">Promedio: {avgRating.toFixed(2)}/5</span>}
+              </div>
+              <div className="space-y-2">
+                {[5,4,3,2,1].map(star => {
+                  const count = ratingDist[star] ?? 0
+                  const total = Object.values(ratingDist).reduce((a,b)=>a+b,0)
+                  const pct = total > 0 ? (count/total)*100 : 0
+                  return (
+                    <div key={star} className="flex items-center gap-3">
+                      <span className="text-xs text-[#A0A0B0] w-4 text-right shrink-0">{star}★</span>
+                      <div className="flex-1 h-2 bg-[#1C1C27] rounded-full overflow-hidden">
+                        <div className="h-full rounded-full bg-amber-400" style={{ width: `${pct}%` }} />
+                      </div>
+                      <span className="text-xs text-[#A0A0B0] w-8 text-right shrink-0 tabular-nums">{count}</span>
+                    </div>
+                  )
+                })}
+              </div>
+            </div>
+          )}
+          {/* Reviews by day */}
+          {reviewsByDay.some(d => d.count > 0) && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><BarChart2 size={15} className="text-purple-400" /> Reseñas por día — últimos 30 días</h2>
+              <RegistrationsChart data={reviewsByDay} />
+            </div>
+          )}
+          {/* Top reviews this week */}
+          {topReviewsWeek.length > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><TrendingUp size={15} className="text-[#FFFD02]" /> Reseñas más populares esta semana</h2>
+              <div className="space-y-3">
+                {topReviewsWeek.map(r => (
+                  <div key={r.reviewId} className="flex items-center gap-3">
+                    <div className="w-7 h-7 rounded-full overflow-hidden bg-[#1C1C27] shrink-0">
+                      {r.authorAvatar ? <img src={r.authorAvatar} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full bg-[#2A2A3A]" />} {/* eslint-disable-line @next/next/no-img-element */}
+                    </div>
+                    {r.posterPath ? <img src={getPosterUrl(r.posterPath,'w92')} alt={r.title} className="w-7 h-10 object-cover rounded shrink-0" /> : <div className="w-7 h-10 bg-[#1C1C27] rounded shrink-0" />} {/* eslint-disable-line @next/next/no-img-element */}
+                    <div className="flex-1 min-w-0">
+                      <p className="text-xs font-semibold text-white truncate">{r.title}</p>
+                      <p className="text-[11px] text-[#A0A0B0]">@{r.authorUsername ?? 'usuario'}{r.rating != null && ` · ${r.rating}★`}</p>
+                    </div>
+                    <span className="text-xs font-bold text-[#FFFD02] shrink-0">❤ {r.likeCount}</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#2A2A3A]">
               <h2 className="text-sm font-semibold text-white">Últimas 20 reseñas</h2>
@@ -569,10 +801,48 @@ export default function AdminDashboard() {
               </div>
             )}
           </div>
+          </div>
         )}
 
         {/* ── USERS ────────────────────────────────────────────── */}
         {activeTab === 'users' && (
+          <div className="space-y-6">
+          {/* Top active users */}
+          {topActiveUsers.length > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><Star size={15} className="text-[#FFFD02]" /> Usuarios más activos</h2>
+              <div className="space-y-3">
+                {topActiveUsers.map((u, i) => (
+                  <div key={u.id} className="flex items-center gap-3">
+                    <span className="text-xs text-zinc-600 w-4 text-right shrink-0">{i+1}</span>
+                    <div className="w-9 h-9 rounded-full overflow-hidden bg-[#1C1C27] shrink-0">
+                      {u.avatar_url ? <img src={u.avatar_url} alt="" className="w-full h-full object-cover" /> : <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">{(u.display_name ?? u.username ?? '?')[0]?.toUpperCase()}</div>} {/* eslint-disable-line @next/next/no-img-element */}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm font-semibold text-white truncate">{u.display_name ?? u.username}</p>
+                      <p className="text-xs text-[#A0A0B0]">@{u.username} · Nv.{u.level}</p>
+                    </div>
+                    <span className="text-sm font-bold text-amber-400 shrink-0">{(u.points ?? 0).toLocaleString('es-AR')} pts</span>
+                  </div>
+                ))}
+              </div>
+            </div>
+          )}
+          {/* Level distribution */}
+          {Object.keys(usersByLevel).length > 0 && (
+            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+              <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><BarChart2 size={15} className="text-[#FFFD02]" /> Distribución por nivel</h2>
+              <BarList items={([1,2,3,4,5] as const).map(lvl => {
+                const names: Record<number,string> = {1:'Espectador 👁',2:'Cinéfilo 🎬',3:'Crítico ⭐',4:'Experto 🎭',5:'Maestro 🏆'}
+                return { label: names[lvl] ?? `Nivel ${lvl}`, count: usersByLevel[lvl] ?? 0 }
+              }).filter(i => i.count > 0)} />
+            </div>
+          )}
+          {/* User registrations chart (reuse) */}
+          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+            <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2"><TrendingUp size={15} className="text-[#FFFD02]" /> Registros por día — últimos 30 días</h2>
+            <RegistrationsChart data={regsByDay} />
+          </div>
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl overflow-hidden">
             <div className="px-5 py-4 border-b border-[#2A2A3A] flex items-center justify-between">
               <h2 className="text-sm font-semibold text-white">Últimos 20 usuarios</h2>
@@ -621,6 +891,7 @@ export default function AdminDashboard() {
                 ))}
               </div>
             )}
+          </div>
           </div>
         )}
 
