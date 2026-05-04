@@ -1,5 +1,6 @@
 ﻿import { getTVDetails, getTVProviders, getTVExternalIds, getTVCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
+import { createServerClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Star, Tv, Calendar } from 'lucide-react'
@@ -123,7 +124,11 @@ export default async function TVPage({ params }: Props) {
     )
   }
 
-  const omdb = await getOMDBRatings(externalIds?.imdb_id)
+  const supabase = createServerClient()
+  const [omdb, { count: watchedCount }] = await Promise.all([
+    getOMDBRatings(externalIds?.imdb_id),
+    supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'tv'),
+  ])
 
   // Cast: top 10
   const cast = (credits.cast ?? [])
@@ -151,6 +156,13 @@ export default async function TVPage({ params }: Props) {
   const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = show.genres?.map((g: { id: number }) => g.id) ?? []
 
+  const LANG: Record<string, string> = {
+    en: 'Inglés', es: 'Español', fr: 'Francés', de: 'Alemán', it: 'Italiano',
+    ja: 'Japonés', ko: 'Coreano', zh: 'Chino', pt: 'Portugués', ru: 'Ruso',
+    ar: 'Árabe', hi: 'Hindi', tr: 'Turco', sv: 'Sueco', da: 'Danés',
+  }
+  const fmtCount = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n)
+
   return (
     <div className="min-h-screen">
       <HistoryTracker
@@ -161,13 +173,13 @@ export default async function TVPage({ params }: Props) {
       />
 
       {backdrop && (
-        <div className="relative h-72 md:h-96 w-full">
-          <Image src={backdrop} alt={show.name} fill className="object-cover" priority />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+        <div className="relative h-64 sm:h-80 md:h-[500px] w-full overflow-hidden">
+          <Image src={backdrop} alt={show.name} fill className="object-cover object-top" priority />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0) 0%, rgba(10,10,15,0.35) 45%, rgba(10,10,15,0.95) 80%, #0A0A0F 100%)' }} />
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 pb-10 relative z-10" style={{ marginTop: backdrop ? '-130px' : '24px' }}>
         <Breadcrumb items={[
           { label: 'Qué ver', href: '/que-ver' },
           { label: show.name ?? show.title ?? 'Serie' },
@@ -175,7 +187,7 @@ export default async function TVPage({ params }: Props) {
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           <div className="shrink-0 flex justify-center md:justify-start">
-            <div className="relative w-36 sm:w-44 md:w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
+            <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
               {show.poster_path ? (
                 <Image src={getPosterUrl(show.poster_path, 'w342')} alt={show.name} fill className="object-cover" />
               ) : (
@@ -184,11 +196,11 @@ export default async function TVPage({ params }: Props) {
             </div>
           </div>
 
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">{show.name}</h1>
-            {show.tagline && <p className="text-[#A0A0B0] italic mb-4">{show.tagline}</p>}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-white">{show.name}</h1>
+            {show.tagline && <p className="text-[#A0A0B0] italic mb-3 text-sm">{show.tagline}</p>}
 
-            <div className="flex flex-wrap gap-4 text-sm text-[#A0A0B0] mb-4">
+            <div className="flex flex-wrap gap-3 text-sm text-[#A0A0B0] mb-3">
               {show.vote_average > 0 && (
                 <span className="flex items-center gap-1">
                   <Star size={14} className="text-yellow-400" fill="currentColor" />
@@ -199,6 +211,7 @@ export default async function TVPage({ params }: Props) {
                 <span className="flex items-center gap-1">
                   <Tv size={14} />
                   {show.number_of_seasons} temporada{show.number_of_seasons !== 1 ? 's' : ''}
+                  {show.number_of_episodes > 0 && ` · ${show.number_of_episodes} ep.`}
                 </span>
               )}
               {show.first_air_date && (
@@ -210,18 +223,19 @@ export default async function TVPage({ params }: Props) {
               {show.status && (
                 <span className={`text-xs px-2 py-0.5 rounded-full ${
                   show.status === 'Ended' || show.status === 'Canceled'
-                    ? 'bg-red-900 text-red-300'
+                    ? 'bg-red-900/50 text-red-300'
                     : 'bg-[#FFFD02]/10 text-[#FFFD02]'
                 }`}>
                   {show.status === 'Returning Series' ? 'En emisión'
                     : show.status === 'Ended' ? 'Finalizada'
+                    : show.status === 'Canceled' ? 'Cancelada'
                     : show.status}
                 </span>
               )}
             </div>
 
             {show.genres?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-3">
                 {show.genres.map((g: { id: number; name: string }) => (
                   <Link
                     key={g.id}
@@ -241,11 +255,36 @@ export default async function TVPage({ params }: Props) {
               </div>
             )}
 
-            {show.networks?.length > 0 && (
-              <p className="text-sm text-[#A0A0B0] mb-4">
-                <span className="text-[#A0A0B0]">Red:</span>{' '}
-                {show.networks.map((n: { name: string }) => n.name).join(', ')}
-              </p>
+            {/* Extended info grid */}
+            {(show.original_language || show.production_countries?.length > 0 || show.networks?.length > 0 || watchedCount) && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs mb-4 py-3 border-t border-[#2A2A3A]">
+                {show.original_language && (
+                  <div>
+                    <p className="text-[#A0A0B0]">Idioma</p>
+                    <p className="text-white font-medium mt-0.5">{LANG[show.original_language] ?? show.original_language.toUpperCase()}</p>
+                  </div>
+                )}
+                {show.production_countries?.length > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">País</p>
+                    <p className="text-white font-medium mt-0.5">
+                      {(show.production_countries as { name: string }[]).slice(0, 2).map(c => c.name).join(', ')}
+                    </p>
+                  </div>
+                )}
+                {show.networks?.length > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">Red</p>
+                    <p className="text-white font-medium mt-0.5">{(show.networks as { name: string }[]).slice(0,2).map(n => n.name).join(', ')}</p>
+                  </div>
+                )}
+                {watchedCount != null && watchedCount > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">En Glynbox</p>
+                    <p className="text-white font-medium mt-0.5">👁 {fmtCount(watchedCount)} la vieron</p>
+                  </div>
+                )}
+              </div>
             )}
 
             {/* Action buttons */}

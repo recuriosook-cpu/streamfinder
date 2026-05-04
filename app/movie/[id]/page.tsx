@@ -1,5 +1,6 @@
 ﻿import { getMovieDetails, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
+import { createServerClient } from '@/lib/supabase-server'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Star, Clock, Calendar } from 'lucide-react'
@@ -133,10 +134,13 @@ export default async function MoviePage({ params }: Props) {
     )
   }
 
-  const [omdb, collectionData] = await Promise.all([
+  const supabase = createServerClient()
+  const [omdbResult, collectionData, { count: watchedCount }] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
+    supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
   ])
+  const omdb = omdbResult
 
   // Cast: top 10 billed actors
   const cast = (credits.cast ?? [])
@@ -172,6 +176,14 @@ export default async function MoviePage({ params }: Props) {
   const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
 
+  const LANG: Record<string, string> = {
+    en: 'Inglés', es: 'Español', fr: 'Francés', de: 'Alemán', it: 'Italiano',
+    ja: 'Japonés', ko: 'Coreano', zh: 'Chino', pt: 'Portugués', ru: 'Ruso',
+    ar: 'Árabe', hi: 'Hindi', tr: 'Turco', sv: 'Sueco', da: 'Danés',
+  }
+  const fmtMoney = (n: number) => n >= 1e9 ? `$${(n/1e9).toFixed(1)}B` : `$${(n/1e6).toFixed(0)}M`
+  const fmtCount = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n)
+
   const jsonLd = {
     '@context': 'https://schema.org',
     '@type': 'Movie',
@@ -204,15 +216,15 @@ export default async function MoviePage({ params }: Props) {
         posterPath={movie.poster_path}
       />
 
-      {/* Backdrop */}
+      {/* Cinematic backdrop */}
       {backdrop && (
-        <div className="relative h-72 md:h-96 w-full">
-          <Image src={backdrop} alt={movie.title} fill className="object-cover" priority />
-          <div className="absolute inset-0 bg-gradient-to-t from-zinc-950 via-zinc-950/60 to-transparent" />
+        <div className="relative h-64 sm:h-80 md:h-[500px] w-full overflow-hidden">
+          <Image src={backdrop} alt={movie.title} fill className="object-cover object-top" priority />
+          <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0) 0%, rgba(10,10,15,0.35) 45%, rgba(10,10,15,0.95) 80%, #0A0A0F 100%)' }} />
         </div>
       )}
 
-      <div className="max-w-5xl mx-auto px-4 py-6">
+      <div className="max-w-5xl mx-auto px-4 pb-10 relative z-10" style={{ marginTop: backdrop ? '-130px' : '24px' }}>
         <Breadcrumb items={[
           { label: 'Qué ver', href: '/que-ver' },
           { label: movie.title },
@@ -221,7 +233,7 @@ export default async function MoviePage({ params }: Props) {
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Poster */}
           <div className="shrink-0 flex justify-center md:justify-start">
-            <div className="relative w-36 sm:w-44 md:w-48 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27]">
+            <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
               {movie.poster_path ? (
                 <Image src={getPosterUrl(movie.poster_path, 'w342')} alt={movie.title} fill className="object-cover" />
               ) : (
@@ -231,11 +243,11 @@ export default async function MoviePage({ params }: Props) {
           </div>
 
           {/* Info */}
-          <div className="flex-1">
-            <h1 className="text-2xl sm:text-3xl font-bold mb-2">{movie.title}</h1>
-            {movie.tagline && <p className="text-[#A0A0B0] italic mb-4">{movie.tagline}</p>}
+          <div className="flex-1 min-w-0">
+            <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-white">{movie.title}</h1>
+            {movie.tagline && <p className="text-[#A0A0B0] italic mb-3 text-sm">{movie.tagline}</p>}
 
-            <div className="flex flex-wrap gap-4 text-sm text-[#A0A0B0] mb-4">
+            <div className="flex flex-wrap gap-3 text-sm text-[#A0A0B0] mb-3">
               {movie.vote_average > 0 && (
                 <span className="flex items-center gap-1">
                   <Star size={14} className="text-yellow-400" fill="currentColor" />
@@ -254,11 +266,21 @@ export default async function MoviePage({ params }: Props) {
                   {movie.release_date.slice(0, 4)}
                 </span>
               )}
+              {movie.status && movie.status !== 'Released' && (
+                <span className={`text-xs px-2 py-0.5 rounded-full ${
+                  movie.status === 'Canceled' ? 'bg-red-900/50 text-red-300' : 'bg-[#FFFD02]/10 text-[#FFFD02]'
+                }`}>
+                  {movie.status === 'Released' ? 'Estrenada'
+                    : movie.status === 'In Production' ? 'En producción'
+                    : movie.status === 'Post Production' ? 'Post producción'
+                    : movie.status === 'Canceled' ? 'Cancelada' : movie.status}
+                </span>
+              )}
             </div>
 
             {/* Genres */}
             {movie.genres?.length > 0 && (
-              <div className="flex flex-wrap gap-2 mb-4">
+              <div className="flex flex-wrap gap-2 mb-3">
                 {movie.genres.map((g: { id: number; name: string }) => (
                   <Link
                     key={g.id}
@@ -268,6 +290,44 @@ export default async function MoviePage({ params }: Props) {
                     {g.name}
                   </Link>
                 ))}
+              </div>
+            )}
+
+            {/* Extended info grid */}
+            {(movie.original_language || movie.production_countries?.length > 0 || movie.budget > 0 || movie.revenue > 0) && (
+              <div className="grid grid-cols-2 sm:grid-cols-3 gap-x-4 gap-y-2 text-xs mb-4 py-3 border-t border-[#2A2A3A]">
+                {movie.original_language && (
+                  <div>
+                    <p className="text-[#A0A0B0]">Idioma</p>
+                    <p className="text-white font-medium mt-0.5">{LANG[movie.original_language] ?? movie.original_language.toUpperCase()}</p>
+                  </div>
+                )}
+                {movie.production_countries?.length > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">País</p>
+                    <p className="text-white font-medium mt-0.5">
+                      {(movie.production_countries as { name: string }[]).slice(0, 2).map(c => c.name).join(', ')}
+                    </p>
+                  </div>
+                )}
+                {movie.budget > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">Presupuesto</p>
+                    <p className="text-white font-medium mt-0.5">{fmtMoney(movie.budget)}</p>
+                  </div>
+                )}
+                {movie.revenue > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">Recaudación</p>
+                    <p className="text-white font-medium mt-0.5">{fmtMoney(movie.revenue)}</p>
+                  </div>
+                )}
+                {watchedCount != null && watchedCount > 0 && (
+                  <div>
+                    <p className="text-[#A0A0B0]">En Glynbox</p>
+                    <p className="text-white font-medium mt-0.5">👁 {fmtCount(watchedCount)} la vieron</p>
+                  </div>
+                )}
               </div>
             )}
 

@@ -48,10 +48,24 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [formHasSpoiler, setFormHasSpoiler]   = useState(false)
   const [submitting, setSubmitting]           = useState(false)
   const [ratingLocked, setRatingLocked]       = useState(false)
+  const [glynboxStats, setGlynboxStats]       = useState<{ avg: number; count: number; dist: Record<number, number> } | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
     loadReviews()
+    // Fetch Glynbox rating distribution
+    supabase.from('ratings').select('rating').eq('media_id', mediaId).eq('media_type', mediaType)
+      .then(({ data }) => {
+        if (!data?.length) return
+        const dist: Record<number, number> = {}
+        let sum = 0
+        for (const r of data) {
+          const star = Math.round(r.rating)
+          dist[star] = (dist[star] ?? 0) + 1
+          sum += r.rating
+        }
+        setGlynboxStats({ avg: sum / data.length, count: data.length, dist })
+      })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType])
 
@@ -224,6 +238,38 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
   return (
     <div className="mt-10">
+      {/* ── Glynbox rating distribution ─────────────────────────── */}
+      {glynboxStats && glynboxStats.count > 0 && (
+        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 mb-6 flex items-start gap-5">
+          <div className="text-center shrink-0">
+            <p className="text-4xl font-bold leading-none" style={{ color: '#FFFD02' }}>
+              {glynboxStats.avg.toFixed(1)}
+            </p>
+            <p className="text-xs text-[#A0A0B0] mt-1">/5</p>
+            <p className="text-[11px] text-zinc-600 mt-0.5">{glynboxStats.count} {glynboxStats.count === 1 ? 'calificación' : 'calificaciones'}</p>
+          </div>
+          <div className="flex-1 space-y-1.5">
+            {[5, 4, 3, 2, 1].map(star => {
+              const count = glynboxStats.dist[star] ?? 0
+              const pct = (count / glynboxStats.count) * 100
+              return (
+                <div key={star} className="flex items-center gap-2">
+                  <span className="text-[11px] text-[#A0A0B0] w-2.5 text-right tabular-nums">{star}</span>
+                  <span className="text-yellow-400 text-[10px] leading-none">★</span>
+                  <div className="flex-1 h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                    <div
+                      className="h-full rounded-full transition-all duration-500"
+                      style={{ width: `${pct}%`, backgroundColor: '#FFFD02' }}
+                    />
+                  </div>
+                  <span className="text-[11px] text-zinc-600 w-5 text-right tabular-nums">{count}</span>
+                </div>
+              )
+            })}
+          </div>
+        </div>
+      )}
+
       {/* ── Header ──────────────────────────────────────────────── */}
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold flex items-center gap-2">
