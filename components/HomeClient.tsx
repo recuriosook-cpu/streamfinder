@@ -125,8 +125,14 @@ function HeroSection({
   userName: string
   heroMovie: HeroMovie | null
 }) {
+  const [hiRes, setHiRes] = useState(false)
+  useEffect(() => {
+    if (typeof window !== 'undefined' && window.innerWidth > 1280) setHiRes(true)
+  }, [])
+
+  const imgSize = hiRes ? 'original' : 'w780'
   const backdropUrl = heroMovie?.backdropPath
-    ? `https://image.tmdb.org/t/p/original${heroMovie.backdropPath}`
+    ? `https://image.tmdb.org/t/p/${imgSize}${heroMovie.backdropPath}`
     : null
 
   return (
@@ -652,6 +658,13 @@ export default function HomeClient() {
     }
   }, [])
 
+  // Defer secondary fetches 500ms so critical content renders first
+  const [secondaryReady, setSecondaryReady] = useState(false)
+  useEffect(() => {
+    const t = setTimeout(() => setSecondaryReady(true), 500)
+    return () => clearTimeout(t)
+  }, [])
+
   // New sections
   const [recentItems,    setRecentItems]    = useState<RecentItem[]>([])
   const [recentLoading,  setRecentLoading]  = useState(true)
@@ -743,6 +756,7 @@ export default function HomeClient() {
 
   // ── Recent releases (TMDB, country-dependent) ─────────────────────────────
   useEffect(() => {
+    if (!secondaryReady) return
     if (!TMDB_KEY || !country) { setRecentLoading(false); return }
     setRecentLoading(true)
 
@@ -794,10 +808,11 @@ export default function HomeClient() {
     }
 
     loadRecent().catch(() => setRecentLoading(false))
-  }, [country]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, secondaryReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trending (Supabase watched, last 7 days) ──────────────────────────────
   useEffect(() => {
+    if (!secondaryReady) return
     async function loadTrending() {
       const weekAgo = new Date(Date.now() - 7 * 24 * 60 * 60 * 1000).toISOString()
 
@@ -854,10 +869,11 @@ export default function HomeClient() {
     }
 
     loadTrending()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondaryReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Featured reviews ──────────────────────────────────────────────────────
   useEffect(() => {
+    if (!secondaryReady) return
     async function loadReviews() {
       const { data: reviewsData } = await supabase
         .from('reviews')
@@ -890,10 +906,11 @@ export default function HomeClient() {
       setReviewsLoading(false)
     }
     loadReviews()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondaryReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Official lists (Glynbox curated) ─────────────────────────────────────
   useEffect(() => {
+    if (!secondaryReady) return
     async function loadOfficialLists() {
       const { data: glynboxProfile } = await supabase
         .from('profiles').select('id').eq('username', 'Ferlageok').maybeSingle()
@@ -926,7 +943,7 @@ export default function HomeClient() {
       setOfficialListsLoading(false)
     }
     loadOfficialLists()
-  }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [secondaryReady]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Render ────────────────────────────────────────────────────────────────
   return (

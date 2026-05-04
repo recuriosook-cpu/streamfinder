@@ -80,5 +80,8 @@ export async function GET(req: NextRequest) {
     return { ...platform, items }
   })
 
-  return NextResponse.json({ upcomingMovies, platformsWithLogos, platformContent })
+  return NextResponse.json(
+    { upcomingMovies, platformsWithLogos, platformContent },
+    { headers: { 'Cache-Control': 'public, s-maxage=300, stale-while-revalidate=600' } }
+  )
 }
