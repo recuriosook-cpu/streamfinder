@@ -3,10 +3,11 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Star } from 'lucide-react'
+import { Star, EyeOff } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
+import { createClient } from '@/lib/supabase'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -161,10 +162,14 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
   const [loading, setLoading] = useState(false)
   const [hasMore, setHasMore] = useState(true)
   const [total,   setTotal]   = useState(0)
-  // Track logo errors so we fall back to colored tile
-  const [logoErrors, setLogoErrors] = useState<Set<number>>(new Set())
-  // Track poster errors so we show a title placeholder
+  const [logoErrors,   setLogoErrors]   = useState<Set<number>>(new Set())
   const [posterErrors, setPosterErrors] = useState<Set<string>>(new Set())
+
+  // ── "Ocultar lo que ya vi" ─────────────────────────────────────
+  const [currentUserId, setCurrentUserId] = useState<string | null>(null)
+  const [hideWatched,   setHideWatched]   = useState(false)
+  const [watchedSet,    setWatchedSet]    = useState<Set<string>>(new Set())
+  const watchedLoadedRef = useRef(false)
 
   const sentinelRef = useRef<HTMLDivElement>(null)
   const loadingRef  = useRef(false)
@@ -172,6 +177,31 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
 
   useEffect(() => { loadingRef.current = loading }, [loading])
   useEffect(() => { hasMoreRef.current = hasMore }, [hasMore])
+
+  // Load auth + persist preference
+  useEffect(() => {
+    createClient().auth.getUser().then(({ data }) => {
+      setCurrentUserId(data.user?.id ?? null)
+    })
+    try {
+      if (localStorage.getItem('glynbox_hide_watched') === 'true') setHideWatched(true)
+    } catch { /* ignore */ }
+  }, [])
+
+  // Fetch watched IDs whenever toggle activates and user is known
+  useEffect(() => {
+    if (!hideWatched || !currentUserId || watchedLoadedRef.current) return
+    watchedLoadedRef.current = true
+    createClient()
+      .from('watched')
+      .select('media_id, media_type')
+      .eq('user_id', currentUserId)
+      .then(({ data }) => {
+        setWatchedSet(new Set(
+          (data ?? []).map((w: { media_id: number; media_type: string }) => `${w.media_type}:${w.media_id}`)
+        ))
+      })
+  }, [currentUserId, hideWatched])
 
   // Keep watchRegion in sync with selected country
   useEffect(() => {
@@ -247,6 +277,16 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
   const hasActiveFilters =
     params.genres.length > 0 || params.yearFrom || params.yearTo ||
     params.minScore > 0 || params.provider !== null
+
+  function toggleHideWatched() {
+    const next = !hideWatched
+    setHideWatched(next)
+    try { localStorage.setItem('glynbox_hide_watched', String(next)) } catch { /* ignore */ }
+  }
+
+  const displayItems = hideWatched
+    ? items.filter(item => !watchedSet.has(`${item.mediaType}:${item.id}`))
+    : items
 
   return (
     <div className="min-h-screen">
@@ -388,6 +428,21 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
               </button>
             )}
 
+            {/* Hide watched toggle — only for logged-in users */}
+            {currentUserId && (
+              <button
+                onClick={toggleHideWatched}
+                className={`flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg border transition-colors ${
+                  hideWatched
+                    ? 'border-[#FFFD02] bg-[#FFFD02]/10 text-[#FFFD02]'
+                    : 'border-[#2A2A3A] text-[#A0A0B0] hover:border-zinc-500 hover:text-zinc-300'
+                }`}
+              >
+                <EyeOff size={12} />
+                Ocultar lo que ya vi
+              </button>
+            )}
+
             {/* Total */}
             {total > 0 && (
               <span className="text-xs text-zinc-600 ml-auto hidden sm:block">
@@ -401,12 +456,12 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
       {/* ── Results grid ── */}
       <div className="max-w-7xl mx-auto px-4 py-8">
 
-        {items.length === 0 && !loading && (
+        {displayItems.length === 0 && !loading && (
           <p className="text-[#A0A0B0] text-center py-24">Sin resultados para los filtros seleccionados.</p>
         )}
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
-          {items.map(item => (
+          {displayItems.map(item => (
             <Link
               key={`${item.mediaType}-${item.id}`}
               href={`/${item.mediaType}/${item.id}`}
