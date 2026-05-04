@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingUp, Star, Heart, List } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, Star, List } from 'lucide-react'
 import MoodRecommender from '@/components/MoodRecommender'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
@@ -46,7 +46,7 @@ interface FeaturedReview {
   id: string; mediaId: number; mediaType: 'movie' | 'tv'
   mediaTitle: string; mediaPosterPath: string | null
   authorUsername: string; authorDisplayName: string | null; authorAvatarUrl: string | null
-  rating: number | null; body: string | null; likeCount: number
+  rating: number | null; body: string | null
 }
 
 // ── Skeletons ─────────────────────────────────────────────────────────────────
@@ -415,8 +415,10 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
 
 // ── Featured Reviews Section ──────────────────────────────────────────────────
 
-function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
+function FeaturedReviewsSection({ reviews, user }: { reviews: FeaturedReview[]; user: User | null | undefined }) {
   if (!reviews.length) return null
+
+  const isGuest = user === null
 
   return (
     <section className="mb-12">
@@ -425,18 +427,18 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
           <Star size={17} style={{ color: '#F5A623' }} />
           Reseñas destacadas
         </h2>
-        <p className="text-xs text-[#A0A0B0] mt-0.5">Las más valoradas por la comunidad</p>
+        <p className="text-xs text-[#A0A0B0] mt-0.5">Las más recientes de la comunidad</p>
       </div>
 
       <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
         {reviews.map(review => {
           const name = review.authorDisplayName ?? review.authorUsername
           const initials = name[0]?.toUpperCase() ?? '?'
+          const isVerified = review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok'
           return (
-            <Link
+            <div
               key={review.id}
-              href={`/review/${review.id}`}
-              className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/40 transition-colors group flex flex-col"
+              className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 hover:border-[#FFFD02]/40 transition-colors flex flex-col"
             >
               {/* Author row */}
               <div className="flex items-center gap-2.5 mb-3">
@@ -453,14 +455,11 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate flex items-center gap-1">
                     {name}
-                    {(review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    {isVerified && (
+                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
+                    )}
                   </p>
-                  <span
-                    className="text-[10px] font-bold px-1.5 py-0.5 rounded"
-                    style={{ backgroundColor: 'rgba(245,166,35,0.15)', color: '#F5A623' }}
-                  >
-                    ★ Destacada
-                  </span>
+                  <p className="text-[11px] text-[#A0A0B0]">@{review.authorUsername}</p>
                 </div>
                 {review.mediaPosterPath && (
                   <div className="relative w-9 aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] shrink-0">
@@ -489,20 +488,39 @@ function FeaturedReviewsSection({ reviews }: { reviews: FeaturedReview[] }) {
 
               {/* Body */}
               {review.body && (
-                <p className="text-sm text-zinc-300 line-clamp-2 sm:line-clamp-3 leading-relaxed flex-1">
-                  {review.body.slice(0, 120)}{review.body.length > 120 ? '…' : ''}
+                <p className="text-sm text-zinc-300 leading-relaxed flex-1">
+                  {review.body.slice(0, 150)}{review.body.length > 150 ? '…' : ''}
                 </p>
               )}
 
-              {/* Footer */}
-              <div className="flex items-center gap-1.5 mt-3 text-xs text-[#A0A0B0] pt-3 border-t border-[#2A2A3A]">
-                <Heart size={11} />
-                {review.likeCount} me gusta
+              {/* Leer más */}
+              <div className="mt-3 pt-3 border-t border-[#2A2A3A]">
+                <Link
+                  href={`/review/${review.id}`}
+                  className="text-xs font-medium transition-colors"
+                  style={{ color: '#FFFD02' }}
+                >
+                  Leer más →
+                </Link>
               </div>
-            </Link>
+            </div>
           )
         })}
       </div>
+
+      {/* CTA banner for guests */}
+      {isGuest && (
+        <Link
+          href="/auth?mode=register"
+          className="mt-5 flex items-center justify-between gap-3 bg-[#1C1C27] border border-[#2A2A3A] hover:border-[#FFFD02]/50 rounded-xl px-5 py-4 transition-colors group"
+        >
+          <p className="text-sm text-zinc-300 group-hover:text-white transition-colors">
+            ¿Querés compartir tu opinión?{' '}
+            <span className="font-semibold" style={{ color: '#FFFD02' }}>Creá tu cuenta gratis</span>
+          </p>
+          <span className="text-[#FFFD02] text-lg shrink-0">→</span>
+        </Link>
+      )}
     </section>
   )
 }
@@ -841,40 +859,23 @@ export default function HomeClient() {
   // ── Featured reviews ──────────────────────────────────────────────────────
   useEffect(() => {
     async function loadReviews() {
-      // Fetch reviews without embedded relation to avoid FK issues
       const { data: reviewsData } = await supabase
         .from('reviews')
-        .select('id, media_id, media_type, title, poster_path, rating, body, user_id')
+        .select('id, user_id, media_id, media_type, title, poster_path, rating, body, created_at')
         .not('body', 'is', null)
         .order('created_at', { ascending: false })
-        .limit(50)
+        .limit(3)
 
       if (!reviewsData?.length) { setReviewsLoading(false); return }
 
-      // Fetch like counts separately to avoid embed failures
-      const reviewIds = reviewsData.slice(0, 20).map(r => r.id)
-      const { data: likesData } = await supabase
-        .from('review_likes')
-        .select('review_id')
-        .in('review_id', reviewIds)
-      const likesByReview: Record<string, number> = {}
-      for (const l of likesData ?? []) {
-        likesByReview[l.review_id] = (likesByReview[l.review_id] ?? 0) + 1
-      }
-
-      const sorted = reviewsData
-        .map(r => ({ ...r, likeCount: likesByReview[r.id] ?? 0 }))
-        .sort((a, b) => b.likeCount - a.likeCount)
-        .slice(0, 3)
-
-      const userIds = [...new Set(sorted.map(r => r.user_id))]
+      const userIds = [...new Set(reviewsData.map(r => r.user_id))]
       const { data: profiles } = await supabase
         .from('profiles')
         .select('id, username, display_name, avatar_url')
         .in('id', userIds)
       const pMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
 
-      setFeaturedReviews(sorted.map(r => ({
+      setFeaturedReviews(reviewsData.map(r => ({
         id: r.id,
         mediaId: r.media_id,
         mediaType: r.media_type as 'movie' | 'tv',
@@ -885,7 +886,6 @@ export default function HomeClient() {
         authorAvatarUrl: pMap[r.user_id]?.avatar_url ?? null,
         rating: r.rating,
         body: r.body,
-        likeCount: r.likeCount,
       })))
       setReviewsLoading(false)
     }
@@ -971,7 +971,7 @@ export default function HomeClient() {
         {/* SECCIÓN 6 — RESEÑAS DESTACADAS */}
         {reviewsLoading
           ? <ReviewsSkeleton />
-          : <FeaturedReviewsSection reviews={featuredReviews} />
+          : <FeaturedReviewsSection reviews={featuredReviews} user={user} />
         }
 
         {/* SECCIÓN 6b — LISTAS DE GLYNBOX */}
