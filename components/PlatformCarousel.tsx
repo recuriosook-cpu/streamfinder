@@ -1,4 +1,4 @@
-﻿'use client'
+'use client'
 
 import { useRef } from 'react'
 import Image from 'next/image'
@@ -11,6 +11,8 @@ interface MediaItem {
   title: string
   posterPath: string | null
   mediaType: 'movie' | 'tv'
+  voteAverage?: number
+  year?: string
 }
 
 interface PlatformCarouselProps {
@@ -69,42 +71,60 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
         ref={scrollRef}
         className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll"
       >
-        {items.filter(item => item.posterPath).map(item => (
-          <Link
-            key={`${item.mediaType}-${item.id}`}
-            href={item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`}
-            className="flex-shrink-0 w-28 sm:w-32 group carousel-snap"
-          >
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
-              {item.posterPath ? (
-                <Image
-                  src={getPosterUrl(item.posterPath)}
-                  alt={item.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  sizes="128px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-zinc-600 text-xs text-center px-2">
-                  Sin imagen
+        {items.filter(item => item.posterPath).map(item => {
+          const href = item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`
+          return (
+            <div key={`${item.mediaType}-${item.id}`} className="flex-shrink-0 w-28 sm:w-32 carousel-snap group">
+              <Link href={href} className="block">
+                <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
+                  <Image
+                    src={getPosterUrl(item.posterPath, 'w185')}
+                    alt={item.title}
+                    fill
+                    className="object-cover"
+                    sizes="128px"
+                  />
+
+                  {/* Type badge — top left */}
+                  <div className="absolute top-1.5 left-1.5">
+                    <span
+                      className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                      style={{ backgroundColor: item.mediaType === 'movie' ? '#2563eb' : '#7c3aed', color: '#fff' }}
+                    >
+                      {item.mediaType === 'movie' ? 'Peli' : 'Serie'}
+                    </span>
+                  </div>
+
+                  {/* Rating badge — top right */}
+                  {item.voteAverage && item.voteAverage > 0 && (
+                    <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/70 rounded px-1.5 py-0.5">
+                      <span className="text-[10px] font-bold" style={{ color: '#FFFD02' }}>
+                        ★ {item.voteAverage.toFixed(1)}
+                      </span>
+                    </div>
+                  )}
+
+                  {/* Hover overlay with quick actions */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-end pb-3 gap-1.5">
+                    <span className="w-4/5 flex items-center justify-center gap-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+                      + Para ver
+                    </span>
+                    <span className="w-4/5 flex items-center justify-center gap-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+                      ♥ Me gusta
+                    </span>
+                  </div>
                 </div>
-              )}
-              <div className="absolute inset-0 bg-gradient-to-t from-black/50 via-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-              <div className="absolute top-1.5 right-1.5">
-                <span
-                  className={`text-[10px] px-1.5 py-0.5 rounded font-medium ${
-                    item.mediaType === 'movie' ? 'bg-blue-600' : 'bg-purple-600'
-                  }`}
-                >
-                  {item.mediaType === 'movie' ? 'Peli' : 'Serie'}
-                </span>
-              </div>
+              </Link>
+
+              <Link href={href}>
+                <p className="text-xs font-semibold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
+                  {item.title}
+                </p>
+                {item.year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{item.year}</p>}
+              </Link>
             </div>
-            <p className="text-xs text-zinc-300 line-clamp-2 leading-tight group-hover:text-white transition-colors">
-              {item.title}
-            </p>
-          </Link>
-        ))}
+          )
+        })}
       </div>
     </section>
   )

@@ -27,7 +27,7 @@ interface RawMovie {
 }
 interface RawTV {
   id: number; name: string; poster_path: string | null
-  first_air_date: string
+  first_air_date: string; vote_average?: number
 }
 
 export async function GET(req: NextRequest) {
@@ -69,10 +69,12 @@ export async function GET(req: NextRequest) {
     const movies = ((moviesData.results ?? []) as RawMovie[]).map(m => ({
       id: m.id, title: m.title, posterPath: m.poster_path,
       mediaType: 'movie' as const, date: m.release_date ?? '',
+      year: (m.release_date ?? '').slice(0, 4), voteAverage: m.vote_average ?? 0,
     }))
     const tv = ((tvData.results ?? []) as RawTV[]).map(t => ({
       id: t.id, title: t.name, posterPath: t.poster_path,
       mediaType: 'tv' as const, date: t.first_air_date ?? '',
+      year: (t.first_air_date ?? '').slice(0, 4), voteAverage: t.vote_average ?? 0,
     }))
     const items = [...movies, ...tv]
       .sort((a, b) => b.date.localeCompare(a.date))

@@ -22,7 +22,7 @@ const PROVIDER_IDS = '8|337|119|384|531|350'
 
 interface PlatformItem {
   id: number; title: string; posterPath: string | null
-  mediaType: 'movie' | 'tv'; date: string
+  mediaType: 'movie' | 'tv'; date: string; voteAverage?: number; year?: string
 }
 interface PlatformData { id: number; name: string; color: string; items: PlatformItem[] }
 interface PlatformLogo { id: number; slug: string; name: string; color: string; logoPath: string | null }
@@ -32,7 +32,7 @@ interface HeroMovie { backdropPath: string | null; title: string }
 
 interface RecentItem {
   id: number; title: string; posterPath: string | null
-  mediaType: 'movie' | 'tv'; year: string
+  mediaType: 'movie' | 'tv'; year: string; voteAverage?: number
   providerLogoPath: string | null; providerName: string | null
 }
 
@@ -54,12 +54,94 @@ interface FeaturedReview {
 function CarouselSkeleton() {
   return (
     <div className="animate-pulse mb-12">
-      <div className="h-6 w-40 bg-[#1C1C27] rounded mb-4" />
+      <div className="h-6 w-40 bg-[#1C1C27] rounded mb-1.5" />
+      <div className="h-3 w-32 bg-[#1C1C27] rounded mb-4" />
       <div className="flex gap-3 overflow-hidden">
         {Array.from({ length: 6 }).map((_, i) => (
-          <div key={i} className="shrink-0 w-32 aspect-[2/3] bg-[#1C1C27] rounded-lg" />
+          <div key={i} className="shrink-0 w-28 sm:w-32">
+            <div className="aspect-[2/3] bg-[#1C1C27] rounded-lg mb-1.5" />
+            <div className="h-3 bg-[#1C1C27] rounded w-4/5 mb-1" />
+            <div className="h-2.5 bg-[#1C1C27] rounded w-1/3" />
+          </div>
         ))}
       </div>
+    </div>
+  )
+}
+
+// ── Shared carousel poster card ───────────────────────────────────────────────
+
+function CarouselCard({
+  id, mediaType, posterPath, title, year, voteAverage, providerLogoPath, providerName,
+}: {
+  id: number; mediaType: 'movie' | 'tv'; posterPath: string | null
+  title: string; year?: string; voteAverage?: number
+  providerLogoPath?: string | null; providerName?: string | null
+}) {
+  const href = `/${mediaType}/${id}`
+  return (
+    <div className="flex-shrink-0 w-28 sm:w-32 carousel-snap group">
+      <Link href={href} className="block">
+        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
+          {posterPath ? (
+            <Image
+              src={`https://image.tmdb.org/t/p/w185${posterPath}`}
+              alt={title} fill className="object-cover" sizes="128px"
+            />
+          ) : (
+            <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">
+              Sin imagen
+            </div>
+          )}
+
+          {/* Type badge — top left */}
+          <div className="absolute top-1.5 left-1.5">
+            <span
+              className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+              style={{ backgroundColor: mediaType === 'movie' ? '#2563eb' : '#7c3aed', color: '#fff' }}
+            >
+              {mediaType === 'movie' ? 'Peli' : 'Serie'}
+            </span>
+          </div>
+
+          {/* Rating badge — top right */}
+          {voteAverage && voteAverage > 0 && (
+            <div className="absolute top-1.5 right-1.5 flex items-center gap-0.5 bg-black/70 rounded px-1.5 py-0.5">
+              <span className="text-[10px] font-bold" style={{ color: '#FFFD02' }}>
+                ★ {voteAverage.toFixed(1)}
+              </span>
+            </div>
+          )}
+
+          {/* Provider logo — bottom right */}
+          {providerLogoPath && (
+            <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-[4px] overflow-hidden shadow-lg ring-1 ring-white/20">
+              <Image
+                src={`https://image.tmdb.org/t/p/original${providerLogoPath}`}
+                alt={providerName ?? ''} width={24} height={24}
+                className="w-full h-full object-cover"
+              />
+            </div>
+          )}
+
+          {/* Hover overlay with quick actions */}
+          <div className="absolute inset-0 bg-black/60 opacity-0 group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-end pb-3 gap-1.5">
+            <span className="w-4/5 flex items-center justify-center gap-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+              + Para ver
+            </span>
+            <span className="w-4/5 flex items-center justify-center gap-1 bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+              ♥ Me gusta
+            </span>
+          </div>
+        </div>
+      </Link>
+
+      <Link href={href}>
+        <p className="text-xs font-semibold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
+          {title}
+        </p>
+        {year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{year}</p>}
+      </Link>
     </div>
   )
 }
@@ -295,61 +377,17 @@ function RecentReleasesSection({ items }: { items: RecentItem[] }) {
 
       <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
         {items.filter(item => item.posterPath).map(item => (
-          <Link
+          <CarouselCard
             key={`${item.mediaType}-${item.id}`}
-            href={`/${item.mediaType}/${item.id}`}
-            className="flex-shrink-0 w-28 sm:w-32 group carousel-snap"
-          >
-            <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
-              {item.posterPath ? (
-                <Image
-                  src={`https://image.tmdb.org/t/p/w185${item.posterPath}`}
-                  alt={item.title}
-                  fill
-                  className="object-cover group-hover:scale-105 transition-transform duration-300"
-                  sizes="128px"
-                />
-              ) : (
-                <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">
-                  Sin imagen
-                </div>
-              )}
-
-              {/* Type badge */}
-              <div className="absolute top-1.5 left-1.5">
-                <span
-                  className="text-[10px] px-1.5 py-0.5 rounded font-medium"
-                  style={{
-                    backgroundColor: item.mediaType === 'movie' ? '#2563eb' : '#FFFD02',
-                    color: item.mediaType === 'movie' ? '#fff' : '#000',
-                  }}
-                >
-                  {item.mediaType === 'movie' ? 'Peli' : 'Serie'}
-                </span>
-              </div>
-
-              {/* Provider logo */}
-              {item.providerLogoPath && (
-                <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-md overflow-hidden shadow-lg ring-1 ring-white/20">
-                  <Image
-                    src={`https://image.tmdb.org/t/p/original${item.providerLogoPath}`}
-                    alt={item.providerName ?? ''}
-                    width={24}
-                    height={24}
-                    className="w-full h-full object-cover"
-                  />
-                </div>
-              )}
-
-              <div className="absolute inset-0 bg-gradient-to-t from-black/40 via-transparent opacity-0 group-hover:opacity-100 transition-opacity" />
-            </div>
-            <p className="text-xs text-zinc-300 line-clamp-2 leading-tight group-hover:text-white transition-colors">
-              {item.title}
-            </p>
-            {item.year && (
-              <p className="text-[11px] text-[#A0A0B0] mt-0.5">{item.year}</p>
-            )}
-          </Link>
+            id={item.id}
+            mediaType={item.mediaType}
+            posterPath={item.posterPath}
+            title={item.title}
+            year={item.year}
+            voteAverage={item.voteAverage}
+            providerLogoPath={item.providerLogoPath}
+            providerName={item.providerName}
+          />
         ))}
       </div>
     </section>
@@ -767,16 +805,16 @@ export default function HomeClient() {
         fetch(`${TMDB}/discover/tv?${base}&sort_by=first_air_date.desc`).then(r => r.ok ? r.json() : { results: [] }),
       ])
 
-      type RawMovie = { id: number; title?: string; name?: string; poster_path: string | null; release_date?: string; first_air_date?: string }
+      type RawMovie = { id: number; title?: string; name?: string; poster_path: string | null; release_date?: string; first_air_date?: string; vote_average?: number }
       const movies: RecentItem[] = ((movRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.title ?? '', posterPath: m.poster_path,
         mediaType: 'movie', year: (m.release_date ?? '').slice(0, 4),
-        providerLogoPath: null, providerName: null,
+        voteAverage: m.vote_average, providerLogoPath: null, providerName: null,
       }))
       const tv: RecentItem[] = ((tvRes.results ?? []) as RawMovie[]).filter(m => m.poster_path).slice(0, 8).map(m => ({
         id: m.id, title: m.name ?? '', posterPath: m.poster_path,
         mediaType: 'tv', year: (m.first_air_date ?? '').slice(0, 4),
-        providerLogoPath: null, providerName: null,
+        voteAverage: m.vote_average, providerLogoPath: null, providerName: null,
       }))
 
       // Interleave movies and TV, take top 10
