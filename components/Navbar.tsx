@@ -641,10 +641,15 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link href="/auth" className="flex items-center gap-1.5 text-sm bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-3 py-1.5 rounded-lg transition-colors">
-              <LogIn size={16} />
-              Iniciar sesión
-            </Link>
+            <div className="flex items-center gap-2">
+              <Link href="/auth" className="flex items-center gap-1.5 text-sm border border-zinc-600 hover:border-zinc-400 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors">
+                <LogIn size={16} />
+                Iniciar sesión
+              </Link>
+              <Link href="/auth?mode=register" className="flex items-center gap-1.5 text-sm bg-[#FFFD02] hover:bg-[#E5EB00] text-black font-semibold px-3 py-1.5 rounded-lg transition-colors">
+                Registrarme
+              </Link>
+            </div>
           )}
         </div>
 
@@ -685,9 +690,14 @@ export default function Navbar() {
               </button>
             </>
           ) : (
-            <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-[#FFFD02]">
-              <LogIn size={16} /> Iniciar sesión
-            </Link>
+            <>
+              <Link href="/auth" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm border border-zinc-600 text-zinc-300 px-3 py-2 rounded-lg">
+                <LogIn size={16} /> Iniciar sesión
+              </Link>
+              <Link href="/auth?mode=register" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm bg-[#FFFD02] text-black font-semibold px-3 py-2 rounded-lg">
+                Registrarme
+              </Link>
+            </>
           )}
         </div>
       )}

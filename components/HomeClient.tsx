@@ -206,20 +206,37 @@ function HeroSection({
             👋
           </p>
         ) : (
-          <Link
-            href="/auth"
-            className="inline-block text-black font-semibold transition-all active:scale-95"
-            style={{
-              backgroundColor: '#FFFD02',
-              borderRadius: '50px',
-              padding: '14px 32px',
-              fontSize: 'clamp(14px, 2vw, 16px)',
-            }}
-            onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#E5EB00' }}
-            onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FFFD02' }}
-          >
-            Empezá ahora, ¡es gratis!
-          </Link>
+          <div className="flex flex-col sm:flex-row items-center justify-center gap-3">
+            <Link
+              href="/auth?mode=register"
+              className="inline-block text-black font-semibold transition-all active:scale-95"
+              style={{
+                backgroundColor: '#FFFD02',
+                borderRadius: '50px',
+                padding: '14px 32px',
+                fontSize: 'clamp(14px, 2vw, 16px)',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#E5EB00' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FFFD02' }}
+            >
+              Crear cuenta gratis
+            </Link>
+            <Link
+              href="/auth"
+              className="inline-block font-medium transition-all active:scale-95"
+              style={{
+                color: 'rgba(255,255,255,0.8)',
+                border: '1px solid rgba(255,255,255,0.35)',
+                borderRadius: '50px',
+                padding: '12px 24px',
+                fontSize: 'clamp(13px, 1.8vw, 15px)',
+              }}
+              onMouseEnter={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.7)'; (e.currentTarget as HTMLElement).style.color = '#fff' }}
+              onMouseLeave={e => { (e.currentTarget as HTMLElement).style.borderColor = 'rgba(255,255,255,0.35)'; (e.currentTarget as HTMLElement).style.color = 'rgba(255,255,255,0.8)' }}
+            >
+              Ya tengo cuenta
+            </Link>
+          </div>
         )}
       </div>
 

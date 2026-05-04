@@ -1,7 +1,7 @@
 ﻿'use client'
 
 import { useState, useRef } from 'react'
-import { useRouter } from 'next/navigation'
+import { useRouter, useSearchParams } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
 import { LogIn, UserPlus, Eye, EyeOff } from 'lucide-react'
 
@@ -25,7 +25,9 @@ function FacebookIcon() {
 }
 
 export default function AuthPage() {
-  const [mode, setMode] = useState<'login' | 'register'>('login')
+  const searchParams = useSearchParams()
+  const mode_param = searchParams.get('mode')
+  const [mode, setMode] = useState<'login' | 'register'>(mode_param === 'register' ? 'register' : 'login')
   const [email, setEmail] = useState('')
   const [password, setPassword] = useState('')
   const [showPass, setShowPass] = useState(false)
