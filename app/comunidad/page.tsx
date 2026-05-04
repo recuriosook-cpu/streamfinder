@@ -903,6 +903,8 @@ export default function ComunidadPage() {
 
 
       if (ids.length > 0) {
+        console.log('[friendReviews] following ids:', ids)
+
         const [profilesRes, reviewsRes] = await Promise.all([
           supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', ids),
           supabase.from('reviews')
@@ -912,6 +914,8 @@ export default function ComunidadPage() {
             .order('created_at', { ascending: false })
             .limit(50),
         ])
+
+        console.log('[friendReviews] reviewsRes.data:', reviewsRes?.data?.length, reviewsRes?.error)
 
         const map = new Map<string, UserProfile>()
         for (const p of (profilesRes.data ?? []) as UserProfile[]) map.set(p.id, p)
@@ -926,6 +930,7 @@ export default function ComunidadPage() {
             latest.push({ id: r.id, userId: r.user_id, mediaId: r.media_id, mediaType: r.media_type, mediaTitle: r.title, mediaPosterPath: r.poster_path, rating: r.rating, body: r.body, createdAt: r.created_at })
           }
         }
+        console.log('[friendReviews] latest:', latest.length)
         setFriendReviews(latest)
 
         loadFeed(ids, u.id)
