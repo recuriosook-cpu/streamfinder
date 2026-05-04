@@ -413,6 +413,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
 }) {
   const p = profiles.get(item.userId)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
@@ -458,6 +459,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
 function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-center gap-3">
@@ -484,6 +486,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
 function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
