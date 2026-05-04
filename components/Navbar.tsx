@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell } from 'lucide-react'
+import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -57,6 +57,8 @@ export default function Navbar() {
   const [searchResults, setSearchResults] = useState<SearchResult | null>(null)
   const [searchOpen, setSearchOpen] = useState(false)
   const [searchLoading, setSearchLoading] = useState(false)
+  const [recentSearches, setRecentSearches] = useState<string[]>([])
+  const [showRecent, setShowRecent] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
@@ -73,6 +75,37 @@ export default function Navbar() {
   const router = useRouter()
   const supabase = useRef(createClient()).current
   const { country, countryData, setCountry } = useCountry()
+
+  useEffect(() => {
+    try {
+      const stored = localStorage.getItem('glynbox_recent_searches')
+      if (stored) setRecentSearches(JSON.parse(stored))
+    } catch { /* ignore */ }
+  }, [])
+
+  function saveSearch(term: string) {
+    const t = term.trim()
+    if (t.length < 2) return
+    setRecentSearches(prev => {
+      const filtered = prev.filter(s => s.toLowerCase() !== t.toLowerCase())
+      const next = [t, ...filtered].slice(0, 5)
+      try { localStorage.setItem('glynbox_recent_searches', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  function removeSearch(term: string) {
+    setRecentSearches(prev => {
+      const next = prev.filter(s => s !== term)
+      try { localStorage.setItem('glynbox_recent_searches', JSON.stringify(next)) } catch { /* ignore */ }
+      return next
+    })
+  }
+
+  function clearSearches() {
+    setRecentSearches([])
+    try { localStorage.removeItem('glynbox_recent_searches') } catch { /* ignore */ }
+  }
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -202,15 +235,16 @@ export default function Navbar() {
 
   // Close search dropdown when clicking outside
   useEffect(() => {
-    if (!searchOpen) return
+    if (!searchOpen && !showRecent) return
     const handler = (e: MouseEvent) => {
       if (searchRef.current && !searchRef.current.contains(e.target as Node)) {
         setSearchOpen(false)
+        setShowRecent(false)
       }
     }
     document.addEventListener('mousedown', handler)
     return () => document.removeEventListener('mousedown', handler)
-  }, [searchOpen])
+  }, [searchOpen, showRecent])
 
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults(null); setSearchOpen(false); return }
@@ -246,20 +280,40 @@ export default function Navbar() {
     const val = e.target.value
     setQuery(val)
     if (debounceRef.current) clearTimeout(debounceRef.current)
-    if (!val.trim()) { setSearchResults(null); setSearchOpen(false); return }
+    if (!val.trim()) {
+      setSearchResults(null)
+      setSearchOpen(false)
+      setShowRecent(true)
+      return
+    }
+    setShowRecent(false)
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
 
-  const closeSearch = () => { setSearchOpen(false); setSearchResults(null) }
+  const closeSearch = () => { setSearchOpen(false); setSearchResults(null); setShowRecent(false) }
+
+  function handleResultClick() {
+    if (query.trim()) saveSearch(query.trim())
+    closeSearch()
+  }
 
   const handleSearch = (e: React.FormEvent) => {
     e.preventDefault()
     if (query.trim()) {
+      saveSearch(query.trim())
       router.push(`/search?q=${encodeURIComponent(query.trim())}`)
       setQuery('')
       closeSearch()
       setMenuOpen(false)
     }
+  }
+
+  function runRecentSearch(term: string) {
+    saveSearch(term)
+    router.push(`/search?q=${encodeURIComponent(term)}`)
+    setQuery('')
+    closeSearch()
+    setMenuOpen(false)
   }
 
   const handleLogout = async () => {
@@ -298,7 +352,10 @@ export default function Navbar() {
             <input
               value={query}
               onChange={handleQueryChange}
-              onFocus={() => { if (searchResults) setSearchOpen(true) }}
+              onFocus={() => {
+                if (searchResults) setSearchOpen(true)
+                if (!query.trim()) setShowRecent(true)
+              }}
               placeholder="Buscar..."
               className="bg-transparent text-sm outline-none text-white placeholder-zinc-500 flex-1 min-w-0"
             />
@@ -306,6 +363,39 @@ export default function Navbar() {
               <div className="w-3.5 h-3.5 border-2 border-zinc-500 border-t-transparent rounded-full animate-spin shrink-0" />
             )}
           </form>
+
+          {/* Recent searches dropdown */}
+          {showRecent && !query && recentSearches.length > 0 && (
+            <div className="absolute left-0 right-0 top-full mt-1 bg-[#13131A] border border-[#2A2A3A] rounded-xl shadow-2xl z-50 overflow-hidden">
+              <div className="flex items-center justify-between px-4 pt-3 pb-1">
+                <p className="text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Búsquedas recientes</p>
+                <button
+                  onClick={clearSearches}
+                  className="text-[11px] text-[#A0A0B0] hover:text-white transition-colors"
+                >
+                  Borrar todo
+                </button>
+              </div>
+              {recentSearches.map(term => (
+                <div key={term} className="flex items-center px-4 hover:bg-[#1C1C27] transition-colors">
+                  <button
+                    className="flex items-center gap-3 flex-1 py-2.5 text-left"
+                    onClick={() => runRecentSearch(term)}
+                  >
+                    <Clock size={13} className="text-[#A0A0B0] shrink-0" />
+                    <span className="text-sm text-zinc-300">{term}</span>
+                  </button>
+                  <button
+                    onClick={() => removeSearch(term)}
+                    className="text-[#A0A0B0] hover:text-white transition-colors p-1.5 ml-1 shrink-0"
+                    aria-label={`Eliminar "${term}"`}
+                  >
+                    <X size={13} />
+                  </button>
+                </div>
+              ))}
+            </div>
+          )}
 
           {/* Dropdown */}
           {searchOpen && searchResults && (
@@ -319,7 +409,7 @@ export default function Navbar() {
                     <Link
                       key={u.id}
                       href={`/usuario/${u.username}`}
-                      onClick={closeSearch}
+                      onClick={handleResultClick}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
@@ -356,7 +446,7 @@ export default function Navbar() {
                     <Link
                       key={p.id}
                       href={`/actor/${p.id}`}
-                      onClick={closeSearch}
+                      onClick={handleResultClick}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-9 rounded-full overflow-hidden bg-zinc-700 shrink-0">
@@ -392,7 +482,7 @@ export default function Navbar() {
                     <Link
                       key={m.id}
                       href={`/movie/${m.id}`}
-                      onClick={closeSearch}
+                      onClick={handleResultClick}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
@@ -428,7 +518,7 @@ export default function Navbar() {
                     <Link
                       key={t.id}
                       href={`/tv/${t.id}`}
-                      onClick={closeSearch}
+                      onClick={handleResultClick}
                       className="flex items-center gap-3 px-4 py-2.5 hover:bg-[#1C1C27] transition-colors"
                     >
                       <div className="w-9 h-[54px] rounded overflow-hidden bg-zinc-700 shrink-0">
@@ -465,6 +555,7 @@ export default function Navbar() {
               <div className="border-t border-[#2A2A3A]/50 px-4 py-2.5">
                 <button
                   onClick={() => {
+                    saveSearch(query.trim())
                     router.push(`/search?q=${encodeURIComponent(query.trim())}`)
                     closeSearch()
                   }}
