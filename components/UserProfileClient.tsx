@@ -82,6 +82,11 @@ interface WatchlistItem {
   title: string; poster_path: string | null; added_at: string
 }
 
+interface FavoriteItem {
+  id: string; media_id: number; media_type: 'movie' | 'tv'
+  title: string; poster_path: string | null; created_at: string
+}
+
 interface RatingItem {
   id: string; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null
@@ -99,7 +104,7 @@ interface TmdbResult {
   title?: string; name?: string; poster_path: string | null
 }
 
-type Tab = 'perfil' | 'yavi' | 'resenas' | 'listas' | 'paraVer' | 'stats'
+type Tab = 'perfil' | 'yavi' | 'resenas' | 'listas' | 'paraVer' | 'favoritos' | 'stats'
 
 interface StatsData {
   moviesMonth: number
@@ -215,6 +220,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [allWatched,       setAllWatched]       = useState<WatchedItem[]>([])
   const [allReviews,       setAllReviews]       = useState<ReviewItem[]>([])
   const [allWatchlist,     setAllWatchlist]     = useState<WatchlistItem[]>([])
+  const [allFavorites,     setAllFavorites]     = useState<FavoriteItem[]>([])
   const [userLists,        setUserLists]        = useState<{ id: string; title: string; itemCount: number; likeCount: number; previews: (string | null)[] }[]>([])
 
   // ── Stats tab data ─────────────────────────────────────────────
@@ -336,6 +342,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at')
         .eq('user_id', profile.id).order('added_at', { ascending: false })
         .then(({ data }) => setAllWatchlist(data ?? []))
+    }
+    if (activeTab === 'favoritos') {
+      supabase.from('favorites').select('id,media_id,media_type,title,poster_path,created_at')
+        .eq('user_id', profile.id).order('created_at', { ascending: false })
+        .then(({ data }) => setAllFavorites(data ?? []))
     }
     if (activeTab === 'listas') {
       supabase.from('lists')
@@ -671,11 +682,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const hasPinned   = pinned.some(Boolean)
 
   const TABS: { id: Tab; label: string }[] = [
-    { id: 'perfil',  label: 'Perfil'       },
-    { id: 'yavi',    label: 'Ya vi'        },
-    { id: 'resenas', label: 'Reseñas'      },
-    { id: 'listas',  label: 'Listas'       },
-    { id: 'paraVer', label: 'Para ver'     },
+    { id: 'perfil',     label: 'Perfil'        },
+    { id: 'yavi',       label: 'Ya vi'         },
+    { id: 'resenas',    label: 'Reseñas'       },
+    { id: 'listas',     label: 'Listas'        },
+    { id: 'paraVer',    label: 'Para ver'      },
+    { id: 'favoritos',  label: 'Me gusta'      },
     ...(isOwner ? [{ id: 'stats' as Tab, label: 'Estadísticas' }] : []),
   ]
 
@@ -1153,6 +1165,41 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                 {allWatchlist.map(w => (
                   <PosterLink key={w.id} mediaId={w.media_id} mediaType={w.media_type} posterPath={w.poster_path} title={w.title} />
+                ))}
+              </div>
+            </>
+          )
+        )}
+
+        {/* ── ME GUSTA ── */}
+        {activeTab === 'favoritos' && (
+          allFavorites.length === 0 ? (
+            <EmptyCard>Todavía no marcaste nada como favorito.</EmptyCard>
+          ) : (
+            <>
+              <p className="text-xs text-zinc-600 mb-4">{allFavorites.length} título{allFavorites.length !== 1 ? 's' : ''}</p>
+              <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
+                {allFavorites.map(f => (
+                  <Link key={f.id} href={`/${f.media_type}/${f.media_id}`} className="group block">
+                    <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] mb-1.5">
+                      {f.poster_path ? (
+                        <Image
+                          src={getPosterUrl(f.poster_path, 'w185')}
+                          alt={f.title}
+                          fill
+                          className="object-cover transition-transform duration-300 group-hover:scale-105"
+                          sizes="160px"
+                        />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-zinc-600 text-[10px] text-center px-1">
+                          {f.title}
+                        </div>
+                      )}
+                    </div>
+                    <p className="text-[11px] text-zinc-400 leading-tight line-clamp-2 group-hover:text-white transition-colors">
+                      {f.title}
+                    </p>
+                  </Link>
                 ))}
               </div>
             </>
