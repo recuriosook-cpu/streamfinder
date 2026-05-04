@@ -205,6 +205,17 @@ function Poster({ path, title, mediaType, mediaId, large }: {
   )
 }
 
+// ── Verified badge helper ─────────────────────────────────────────────────────
+
+function VerifiedBadge() {
+  return (
+    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" className="shrink-0">
+      <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
+      <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
+    </svg>
+  )
+}
+
 // ── Feed card components ──────────────────────────────────────────────────────
 
 function ReviewCard({ item, profiles, currentUserId, onLike }: {
@@ -212,39 +223,70 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
 }) {
   const p = profiles.get(item.userId)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
+  const name = p.display_name ?? p.username ?? 'Usuario'
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
-      <div className="flex items-start gap-3">
-        <Avatar profile={p} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
-              {p.display_name ?? p.username}
-            </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            <Badge label="Reseña" color="green" />
-            <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
-          </div>
-          <div className="flex gap-3 mt-2">
-            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} large />
-            <div className="flex-1 min-w-0">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
-                {item.mediaTitle}
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl overflow-hidden transition-colors">
+      {/* Backdrop / poster image area */}
+      <Link href={`/${item.mediaType}/${item.mediaId}`} className="block relative overflow-hidden bg-[#1C1C27]" style={{ height: 180 }}>
+        {item.mediaPosterPath && (
+          <Image
+            src={`https://image.tmdb.org/t/p/w780${item.mediaPosterPath}`}
+            alt={item.mediaTitle}
+            fill
+            className="object-cover object-top"
+            sizes="680px"
+          />
+        )}
+        <div
+          className="absolute inset-0"
+          style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0) 0%, rgba(10,10,15,0.45) 55%, rgba(10,10,15,0.97) 100%)' }}
+        />
+        <div className="absolute bottom-0 left-0 right-0 px-4 pb-3">
+          <h3 className="text-lg font-bold text-white leading-tight line-clamp-1">{item.mediaTitle}</h3>
+          {item.sortTime && (
+            <p className="text-xs text-white/50">{new Date(item.sortTime).getFullYear()}</p>
+          )}
+        </div>
+      </Link>
+
+      {/* Content area */}
+      <div className="px-4 pt-3 pb-4">
+        {/* Author row */}
+        <div className="flex items-center gap-2.5 mb-3">
+          <Avatar profile={p} size={8} />
+          <div className="flex-1 min-w-0">
+            <div className="flex items-center gap-1">
+              <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors truncate">
+                {name}
               </Link>
-              {item.rating != null && <div className="mt-1"><StarDisplay rating={item.rating} size={11} /></div>}
-              {item.body && <p className="text-sm text-zinc-300 line-clamp-3 leading-relaxed mt-1">{item.body}</p>}
-              <div className="flex items-center gap-4 mt-2">
-                <button onClick={() => onLike(item.reviewId)}
-                  className={`flex items-center gap-1.5 text-xs transition-colors ${item.likedByMe ? 'text-red-400' : 'text-[#A0A0B0] hover:text-red-400'}`}>
-                  <Heart size={13} fill={item.likedByMe ? 'currentColor' : 'none'} />
-                  {item.likeCount > 0 ? `${item.likeCount} me gusta` : 'Me gusta'}
-                </button>
-                <Link href={`/review/${item.reviewId}`} className="flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors">
-                  <MessageCircle size={13} />Comentar
-                </Link>
-              </div>
+              {isVerified && <VerifiedBadge />}
             </div>
+            <p className="text-[11px] text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
           </div>
+          {item.rating != null && (
+            <div className="shrink-0"><StarDisplay rating={item.rating} size={12} /></div>
+          )}
+        </div>
+
+        {/* Body */}
+        {item.body && (
+          <p className="text-sm text-zinc-300 line-clamp-2 leading-relaxed mb-3">{item.body}</p>
+        )}
+
+        {/* Actions */}
+        <div className="flex items-center gap-5 pt-3 border-t border-[#2A2A3A]">
+          <button
+            onClick={() => onLike(item.reviewId)}
+            className={`flex items-center gap-1.5 text-sm transition-colors ${item.likedByMe ? 'text-red-400' : 'text-[#A0A0B0] hover:text-red-400'}`}
+          >
+            <Heart size={15} fill={item.likedByMe ? 'currentColor' : 'none'} />
+            <span className="text-xs">{item.likeCount > 0 ? item.likeCount : 'Me gusta'}</span>
+          </button>
+          <Link href={`/review/${item.reviewId}`} className="flex items-center gap-1.5 text-sm text-[#A0A0B0] hover:text-zinc-300 transition-colors">
+            <MessageCircle size={15} />
+            <span className="text-xs">Comentar</span>
+          </Link>
         </div>
       </div>
     </div>
@@ -254,29 +296,37 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
 function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
+  const name = p.display_name ?? p.username ?? 'Usuario'
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
-      <div className="flex items-start gap-3">
-        <Avatar profile={p} />
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
+      <div className="flex gap-3">
+        {/* Poster */}
+        <Link href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
+          <div className="rounded-lg overflow-hidden bg-[#1C1C27]" style={{ width: 47, height: 70 }}>
+            {item.mediaPosterPath ? (
+              <Image src={`https://image.tmdb.org/t/p/w185${item.mediaPosterPath}`} alt={item.mediaTitle} width={47} height={70} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[9px] text-[#A0A0B0] text-center p-1">{item.mediaTitle}</div>
+            )}
+          </div>
+        </Link>
+
+        {/* Info */}
         <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
+          <div className="flex items-center gap-1.5 flex-wrap mb-1.5">
+            <AvatarImg profile={p} size={6} />
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
-              {p.display_name ?? p.username}
+              {name}
             </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            <Badge label="Valoró" color="yellow" />
-            <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
+            {isVerified && <VerifiedBadge />}
+            <span className="text-xs text-[#A0A0B0]">vio</span>
+            <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
+              {item.mediaTitle}
+            </Link>
           </div>
-          <div className="flex gap-3 mt-2">
-            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
-            <div className="min-w-0">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block mb-1.5">
-                {item.mediaTitle}
-              </Link>
-              <StarDisplay rating={item.rating} size={14} />
-              <p className="text-xs text-[#A0A0B0] mt-1">Le dio {item.rating}/5 ⭐</p>
-            </div>
-          </div>
+          <StarDisplay rating={item.rating} size={13} />
+          <p className="text-[11px] text-[#A0A0B0] mt-1.5">{timeAgo(item.sortTime)}</p>
         </div>
       </div>
     </div>
@@ -291,46 +341,59 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
   const [added, setAdded] = useState(false)
   const [adding, setAdding] = useState(false)
   if (!p) return null
+  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
+  const name = p.display_name ?? p.username ?? 'Usuario'
   return (
-    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
-      <div className="flex items-start gap-3">
-        <Avatar profile={p} />
-        <div className="flex-1 min-w-0">
-          <div className="flex items-center gap-1.5 flex-wrap mb-0.5">
-            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
-              {p.display_name ?? p.username}
-            </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
-            <Badge label="Quiere ver" color="blue" />
-            <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
+    <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
+      <div className="flex gap-3">
+        {/* Poster */}
+        <Link href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
+          <div className="rounded-lg overflow-hidden bg-[#1C1C27]" style={{ width: 47, height: 70 }}>
+            {item.mediaPosterPath ? (
+              <Image src={`https://image.tmdb.org/t/p/w185${item.mediaPosterPath}`} alt={item.mediaTitle} width={47} height={70} className="w-full h-full object-cover" />
+            ) : (
+              <div className="w-full h-full flex items-center justify-center text-[9px] text-[#A0A0B0] text-center p-1">{item.mediaTitle}</div>
+            )}
           </div>
-          <div className="flex gap-3 mt-2">
-            <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
-            <div className="min-w-0 flex flex-col gap-2">
-              <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
-                {item.mediaTitle}
-              </Link>
-              {item.userId !== currentUserId && (
-                <button
-                  onClick={async () => {
-                    if (added || adding) return
-                    setAdding(true)
-                    const ok = await onAdd(item.mediaId, item.mediaType, item.mediaTitle, item.mediaPosterPath)
-                    if (ok) setAdded(true)
-                    setAdding(false)
-                  }}
-                  disabled={added || adding}
-                  className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full self-start transition-all"
-                  style={{
-                    backgroundColor: added ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.12)',
-                    color: added ? '#22c55e' : '#60a5fa',
-                  }}
-                >
-                  {added ? <Check size={12} /> : <Plus size={12} />}
-                  {added ? 'Agregado' : 'Agregar a mi lista'}
-                </button>
-              )}
-            </div>
+        </Link>
+
+        {/* Info */}
+        <div className="flex-1 min-w-0">
+          <div className="flex items-center gap-1.5 flex-wrap mb-2">
+            <AvatarImg profile={p} size={6} />
+            <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
+              {name}
+            </Link>
+            {isVerified && <VerifiedBadge />}
+            <span className="text-xs text-[#A0A0B0]">quiere ver</span>
+            <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
+              {item.mediaTitle}
+            </Link>
+          </div>
+
+          <div className="flex items-center justify-between gap-2">
+            <p className="text-[11px] text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
+            {item.userId !== currentUserId && (
+              <button
+                onClick={async () => {
+                  if (added || adding) return
+                  setAdding(true)
+                  const ok = await onAdd(item.mediaId, item.mediaType, item.mediaTitle, item.mediaPosterPath)
+                  if (ok) setAdded(true)
+                  setAdding(false)
+                }}
+                disabled={added || adding}
+                className="flex items-center gap-1.5 text-xs font-semibold px-3 py-1.5 rounded-full transition-all shrink-0"
+                style={{
+                  backgroundColor: added ? 'rgba(34,197,94,0.12)' : 'rgba(59,130,246,0.12)',
+                  color: added ? '#22c55e' : '#60a5fa',
+                  border: `1px solid ${added ? 'rgba(34,197,94,0.25)' : 'rgba(59,130,246,0.25)'}`,
+                }}
+              >
+                {added ? <Check size={11} /> : <Plus size={11} />}
+                {added ? 'Agregado' : 'Yo también'}
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -352,7 +415,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            {{isVerified && <VerifiedBadge />}}
             <Badge label="Estadística" color="purple" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -397,7 +460,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            {{isVerified && <VerifiedBadge />}}
             <Badge label="Logro" color="gold" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -423,7 +486,7 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {(p.username === 'Ferlageok' || p.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            {{isVerified && <VerifiedBadge />}}
             <Badge label="Lista" color="orange" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -581,7 +644,7 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-white">{username}</span>
-            {(username === 'Ferlageok' || username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+            {(username === 'Ferlageok' || username === 'ferlageok') && <VerifiedBadge />}
           </div>
           <span className="text-sm font-bold tabular-nums" style={{ color }}>{item.score}%</span>
         </div>
