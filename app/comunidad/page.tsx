@@ -1324,7 +1324,7 @@ export default function ComunidadPage() {
       {tab === 'feed' && (
         <>
           {/* Carrusel de últimas reseñas de amigos */}
-          {followingIds.length > 0 && friendReviews.length > 0 && (
+          {friendReviews.length > 0 && (
             <FriendReviewsCarousel reviews={friendReviews} profiles={profiles} />
           )}
 
