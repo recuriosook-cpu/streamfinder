@@ -54,7 +54,7 @@ export default function HeroCarousel({ movies }: HeroCarouselProps) {
           sizes="100vw"
         />
       ) : (
-        <div className="absolute inset-0 bg-gradient-to-br from-zinc-800 to-zinc-950" />
+        <div className="absolute inset-0" style={{ background: 'linear-gradient(135deg, #1C1C27 0%, #0A0A0F 100%)' }} />
       )}
 
       {/* Gradients */}

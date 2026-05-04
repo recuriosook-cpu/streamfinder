@@ -3,6 +3,7 @@
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
+import ErrorState from '@/components/ErrorState'
 
 interface BirthdayPerson {
   id:          number
@@ -62,12 +63,10 @@ export default function BirthdayCarousel() {
     )
   }
 
-  // ── Error (visible in dev/prod for debugging) ─────────────────────────────
   if (error) {
     return (
       <section className="mb-10">
-        <h2 className="text-xl font-bold text-white mb-2">🎂 Cumplen años hoy</h2>
-        <p className="text-red-400 text-sm">Error cargando cumpleaños: {error}</p>
+        <ErrorState onRetry={() => window.location.reload()} />
       </section>
     )
   }

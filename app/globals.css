@@ -66,6 +66,35 @@ button, input, select, textarea, label {
   .text-xs { font-size: 12px; }
 }
 
+/* ── Standard transitions ───────────────────────────────────────── */
+:root {
+  --t-fast:   150ms ease;
+  --t-normal: 200ms ease;
+}
+
+/* Interactive elements default transition */
+a, button {
+  transition-property: color, background-color, border-color, opacity;
+  transition-duration: 150ms;
+  transition-timing-function: ease;
+}
+
+/* Card hover scale */
+.card-hover {
+  transition: transform var(--t-normal), border-color var(--t-fast), box-shadow var(--t-normal);
+}
+.card-hover:hover {
+  transform: scale(1.02);
+}
+
+/* ── Skeleton utility ───────────────────────────────────────────── */
+.skeleton {
+  background-color: #1C1C27;
+  border-radius: inherit;
+  animation: pulse 2s cubic-bezier(0.4, 0, 0.6, 1) infinite;
+}
+
+/* ── Horizontal chip strip (nowrap + touch scroll) ──────────────── */
 /* Horizontal chip strip (nowrap + touch scroll) */
 .chip-scroll {
   display: flex;
