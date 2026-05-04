@@ -287,15 +287,7 @@ export default function Navbar() {
           <img
             src="/logo.png"
             alt="Glynbox"
-            style={{ height: '24px', width: 'auto', objectFit: 'contain' }}
-            className="sm:hidden"
-          />
-          {/* eslint-disable-next-line @next/next/no-img-element */}
-          <img
-            src="/logo.png"
-            alt="Glynbox"
             style={{ height: '32px', width: 'auto', objectFit: 'contain' }}
-            className="hidden sm:block"
           />
         </Link>
 
