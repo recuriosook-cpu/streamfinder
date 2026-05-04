@@ -4,7 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ChevronLeft, ChevronRight, TrendingUp, Star, List } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users } from 'lucide-react'
 import MoodRecommender from '@/components/MoodRecommender'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
@@ -46,6 +46,12 @@ interface WatchlistPreviewItem {
 interface ForYouItem {
   id: number; title: string; posterPath: string | null
   year: string; voteAverage: number; matchPct: number
+}
+
+interface FriendActivityItem {
+  reviewId: string; mediaTitle: string; mediaPosterPath: string | null
+  mediaType: string; mediaId: number; userId: string
+  userName: string; avatarUrl: string | null; createdAt: string
 }
 
 interface RecentItem {
@@ -812,6 +818,115 @@ function ForYouSection({ items, loading }: { items: ForYouItem[]; loading: boole
   )
 }
 
+// ── Time-relative helper ──────────────────────────────────────────────────────
+
+function timeAgo(dateStr: string): string {
+  const diff = Date.now() - new Date(dateStr).getTime()
+  const mins = Math.floor(diff / 60000)
+  if (mins < 2) return 'ahora'
+  if (mins < 60) return `hace ${mins} min`
+  const hours = Math.floor(mins / 60)
+  if (hours < 24) return `hace ${hours}h`
+  const days = Math.floor(hours / 24)
+  if (days === 1) return 'ayer'
+  if (days < 7) return `hace ${days} días`
+  return new Date(dateStr).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+}
+
+// ── Welcome banner (logged-in users only) ────────────────────────────────────
+
+function WelcomeBanner({ userName }: { userName: string }) {
+  const h = new Date().getHours()
+  const subtitle =
+    h >= 6 && h < 12 ? '¿Qué vas a ver esta mañana?' :
+    h >= 12 && h < 18 ? '¿Qué vas a ver esta tarde?' :
+    h >= 18 ? '¿Qué vas a ver esta noche?' :
+    '¿Noche de cine?'
+  return (
+    <div className="bg-[#13131A] border-b border-[#2A2A3A]/60">
+      <div className="max-w-7xl mx-auto px-4 py-8 sm:py-10">
+        <h1 className="text-2xl sm:text-3xl font-bold text-white mb-1">
+          Bienvenido de vuelta, {userName} 👋
+        </h1>
+        <p className="text-[#A0A0B0] text-base">{subtitle}</p>
+      </div>
+    </div>
+  )
+}
+
+// ── Friend activity preview section ──────────────────────────────────────────
+
+function FriendActivitySection({ activity, hasFollowing }: { activity: FriendActivityItem[]; hasFollowing: boolean }) {
+  if (!hasFollowing) {
+    return (
+      <section className="mb-12">
+        <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center gap-2">
+          <Users size={17} /> Actividad de amigos
+        </h2>
+        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl px-5 py-4 flex items-center justify-between gap-3">
+          <p className="text-sm text-[#A0A0B0]">Seguí a otros usuarios para ver su actividad acá.</p>
+          <Link href="/comunidad" className="text-sm font-semibold shrink-0 transition-colors hover:opacity-80" style={{ color: '#FFFD02' }}>
+            Descubrir →
+          </Link>
+        </div>
+      </section>
+    )
+  }
+  if (activity.length === 0) return null
+  return (
+    <section className="mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+          <Users size={17} /> Actividad de amigos
+        </h2>
+        <Link href="/comunidad" className="text-xs hover:underline transition-colors" style={{ color: '#FFFD02' }}>
+          Ver todo en Comunidad →
+        </Link>
+      </div>
+      <div className="space-y-3">
+        {activity.map(item => (
+          <Link
+            key={item.reviewId}
+            href={`/review/${item.reviewId}`}
+            className="flex items-center gap-3 bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-3 transition-colors"
+          >
+            {/* Avatar */}
+            <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0">
+              {item.avatarUrl ? (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img src={item.avatarUrl} alt={item.userName} className="w-full h-full object-cover" />
+              ) : (
+                <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">
+                  {item.userName[0]?.toUpperCase()}
+                </div>
+              )}
+            </div>
+            {/* Poster */}
+            {item.mediaPosterPath && (
+              <div className="w-8 h-12 rounded-md overflow-hidden shrink-0">
+                <Image
+                  src={`https://image.tmdb.org/t/p/w92${item.mediaPosterPath}`}
+                  alt={item.mediaTitle} width={32} height={48}
+                  className="w-full h-full object-cover"
+                />
+              </div>
+            )}
+            {/* Text */}
+            <div className="flex-1 min-w-0">
+              <p className="text-xs text-zinc-300 line-clamp-1">
+                <span className="font-semibold text-white">{item.userName}</span>
+                {' reseñó '}
+                <span className="font-semibold" style={{ color: '#FFFD02' }}>{item.mediaTitle}</span>
+              </p>
+              <p className="text-[11px] text-[#A0A0B0] mt-0.5">{timeAgo(item.createdAt)}</p>
+            </div>
+          </Link>
+        ))}
+      </div>
+    </section>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HomeClient() {
@@ -847,6 +962,8 @@ export default function HomeClient() {
   const [favoriteGenres,   setFavoriteGenres]   = useState<string[]>([])
   const [forYouItems,      setForYouItems]      = useState<ForYouItem[]>([])
   const [forYouLoading,    setForYouLoading]    = useState(false)
+  const [followingIds,     setFollowingIds]     = useState<string[]>([])
+  const [friendActivity,   setFriendActivity]   = useState<FriendActivityItem[]>([])
 
   // Defer secondary fetches 500ms so critical content renders first
   const [secondaryReady, setSecondaryReady] = useState(false)
@@ -922,14 +1039,37 @@ export default function HomeClient() {
       }
 
       if (u) {
-        const [profileRes, watchlistRes] = await Promise.all([
+        const [profileRes, watchlistRes, followsRes] = await Promise.all([
           supabase.from('profiles').select('username, display_name, favorite_genres').eq('id', u.id).maybeSingle(),
           supabase.from('watchlist').select('id, media_id, media_type, title, poster_path, added_at').eq('user_id', u.id).order('added_at', { ascending: false }).limit(5),
+          supabase.from('follows').select('following_id').eq('follower_id', u.id),
         ])
         const profile = profileRes.data
         setUserName(profile?.display_name ?? profile?.username ?? u.email?.split('@')[0] ?? '')
         setFavoriteGenres(profile?.favorite_genres ?? [])
         setContinueWatching((watchlistRes.data ?? []) as WatchlistPreviewItem[])
+
+        const fIds = (followsRes.data ?? []).map((f: { following_id: string }) => f.following_id)
+        setFollowingIds(fIds)
+
+        if (fIds.length > 0) {
+          const { data: reviewsData } = await supabase
+            .from('reviews')
+            .select('id, user_id, media_id, media_type, title, poster_path, created_at')
+            .in('user_id', fIds)
+            .not('poster_path', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(10)
+          if (reviewsData?.length) {
+            const userIds = [...new Set(reviewsData.map(r => r.user_id))]
+            const { data: pRows } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', userIds)
+            const pMap = Object.fromEntries((pRows ?? []).map((p: { id: string }) => [p.id, p])) as unknown as Record<string, { username: string | null; display_name: string | null; avatar_url: string | null } | undefined>
+            setFriendActivity(reviewsData.slice(0, 3).map(r => {
+              const p = pMap[r.user_id]
+              return { reviewId: r.id, mediaTitle: r.title, mediaPosterPath: r.poster_path, mediaType: r.media_type, mediaId: r.media_id, userId: r.user_id, userName: p?.display_name ?? p?.username ?? 'Usuario', avatarUrl: p?.avatar_url ?? null, createdAt: r.created_at }
+            }))
+          }
+        }
       }
     }
     boot()
@@ -1208,8 +1348,12 @@ export default function HomeClient() {
         </div>
       )}
 
-      {/* SECCIÓN 1 — HERO */}
-      <HeroSection user={user} userName={userName} heroMovie={heroMovie} />
+      {/* SECCIÓN 1 — HERO (guests) / WELCOME BANNER (logged-in) */}
+      {user ? (
+        <WelcomeBanner userName={userName} />
+      ) : (
+        <HeroSection user={user} userName={userName} heroMovie={heroMovie} />
+      )}
 
       {/* SECCIÓN 2 — PLATAFORMAS */}
       {platformData
@@ -1219,7 +1363,11 @@ export default function HomeClient() {
 
       <div className="max-w-7xl mx-auto px-4 py-10">
 
-        {/* SECCIÓN: CONTINUÁ VIENDO — solo para logueados con watchlist */}
+        {/* Para usuarios logueados: secciones personalizadas primero */}
+        {user && (forYouLoading || forYouItems.length > 0) && (
+          <ForYouSection items={forYouItems} loading={forYouLoading} />
+        )}
+
         {user && continueWatching.length > 0 && (
           <ContinueWatchingSection
             items={continueWatching}
@@ -1240,9 +1388,12 @@ export default function HomeClient() {
           : <TrendingSection items={trendingItems} />
         }
 
-        {/* SECCIÓN: PARA VOS — solo para logueados con géneros favoritos */}
-        {user && (forYouLoading || forYouItems.length > 0) && (
-          <ForYouSection items={forYouItems} loading={forYouLoading} />
+        {/* Actividad de amigos — solo para logueados (muestra aunque hasFollowing=false) */}
+        {user !== undefined && user !== null && (
+          <FriendActivitySection
+            activity={friendActivity}
+            hasFollowing={followingIds.length > 0}
+          />
         )}
       </div>
 
