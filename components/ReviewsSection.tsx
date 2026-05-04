@@ -47,6 +47,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [formRecommended, setFormRecommended] = useState(true)
   const [formHasSpoiler, setFormHasSpoiler]   = useState(false)
   const [submitting, setSubmitting]           = useState(false)
+  const [ratingLocked, setRatingLocked]       = useState(false)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
@@ -94,19 +95,35 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
   const myReview = reviews.find(r => r.user_id === currentUserId)
 
-  function openForm(review?: Review) {
+  async function openForm(review?: Review) {
     if (review) {
       setEditingId(review.id)
       setFormRating(review.rating ?? 0)
       setFormBody(review.body ?? '')
       setFormRecommended(review.recommended)
       setFormHasSpoiler(review.has_spoiler ?? false)
+      setRatingLocked(false)
     } else {
       setEditingId(null)
       setFormRating(0)
       setFormBody('')
       setFormRecommended(true)
       setFormHasSpoiler(false)
+      setRatingLocked(false)
+
+      if (currentUserId) {
+        const { data } = await supabase
+          .from('ratings')
+          .select('rating')
+          .eq('user_id', currentUserId)
+          .eq('media_id', mediaId)
+          .eq('media_type', mediaType)
+          .maybeSingle()
+        if (data?.rating) {
+          setFormRating(data.rating)
+          setRatingLocked(true)
+        }
+      }
     }
     setShowForm(true)
   }
@@ -230,32 +247,53 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       {showForm && currentUserId && (
         <div className="bg-[#1C1C27]/70 border border-[#2A2A3A] rounded-xl p-5 mb-6">
           {/* Star selector */}
-          <div className="flex items-center gap-1.5 mb-4">
-            <span className="text-sm text-[#A0A0B0] mr-1">Nota:</span>
-            {[1, 2, 3, 4, 5].map(s => {
-              const fill: 'full' | 'half' | 'empty' =
-                displayRating >= s ? 'full' : displayRating >= s - 0.5 ? 'half' : 'empty'
-              return (
-                <button
-                  key={s}
-                  type="button"
-                  onMouseMove={e => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setHoverRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
-                  }}
-                  onMouseLeave={() => setHoverRating(0)}
-                  onClick={e => {
-                    const rect = e.currentTarget.getBoundingClientRect()
-                    setFormRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
-                  }}
-                  className="transition-transform hover:scale-110"
-                >
-                  <StarIcon fill={fill} size={24} />
-                </button>
-              )
-            })}
-            {formRating > 0 && <span className="text-sm text-[#A0A0B0] ml-1">{formRating}/5</span>}
-          </div>
+          {ratingLocked ? (
+            <div className="flex items-center gap-1.5 mb-4">
+              <span className="text-sm text-[#A0A0B0] mr-1">Tu calificación:</span>
+              <div className="flex items-center gap-0.5">
+                {[1, 2, 3, 4, 5].map(s => {
+                  const fill: 'full' | 'half' | 'empty' =
+                    formRating >= s ? 'full' : formRating >= s - 0.5 ? 'half' : 'empty'
+                  return <StarIcon key={s} fill={fill} size={22} />
+                })}
+              </div>
+              <span className="text-sm text-[#A0A0B0] ml-1">{formRating}/5</span>
+              <button
+                type="button"
+                onClick={() => setRatingLocked(false)}
+                className="text-xs text-zinc-500 hover:text-zinc-300 underline ml-2 transition-colors"
+              >
+                Cambiar
+              </button>
+            </div>
+          ) : (
+            <div className="flex items-center gap-1.5 mb-4">
+              <span className="text-sm text-[#A0A0B0] mr-1">Nota:</span>
+              {[1, 2, 3, 4, 5].map(s => {
+                const fill: 'full' | 'half' | 'empty' =
+                  displayRating >= s ? 'full' : displayRating >= s - 0.5 ? 'half' : 'empty'
+                return (
+                  <button
+                    key={s}
+                    type="button"
+                    onMouseMove={e => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      setHoverRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
+                    }}
+                    onMouseLeave={() => setHoverRating(0)}
+                    onClick={e => {
+                      const rect = e.currentTarget.getBoundingClientRect()
+                      setFormRating(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
+                    }}
+                    className="transition-transform hover:scale-110"
+                  >
+                    <StarIcon fill={fill} size={24} />
+                  </button>
+                )
+              })}
+              {formRating > 0 && <span className="text-sm text-[#A0A0B0] ml-1">{formRating}/5</span>}
+            </div>
+          )}
 
           {/* Recommended */}
           <div className="flex items-center gap-2 mb-4">
