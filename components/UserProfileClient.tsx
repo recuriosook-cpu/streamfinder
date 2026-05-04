@@ -994,6 +994,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 >
                   <Pencil size={13} /> Editar perfil
                 </button>
+                <Link
+                  href="/importar"
+                  className="inline-flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-white border border-[#2A2A3A] hover:border-zinc-500 px-3 py-2 rounded-lg transition-colors"
+                >
+                  📥 Importar desde Letterboxd →
+                </Link>
               ) : currentUserId ? (
                 <button
                   onClick={toggleFollow}
