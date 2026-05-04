@@ -171,46 +171,11 @@ function ResultCard({ rec }: { rec: Recommendation }) {
   )
 }
 
-function AuthModal({ onClose }: { onClose: () => void }) {
-  return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center p-4" onClick={onClose}>
-      <div className="absolute inset-0 bg-black/70 backdrop-blur-sm" />
-      <div
-        className="relative bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-7 max-w-sm w-full text-center shadow-2xl"
-        onClick={e => e.stopPropagation()}
-      >
-        <div className="text-4xl mb-3">🎬</div>
-        <h3 className="text-lg font-bold text-white mb-2">
-          Iniciá sesión para usar el recomendador
-        </h3>
-        <p className="text-[#A0A0B0] text-sm mb-6">
-          Personalizamos las sugerencias según lo que ya viste y tus gustos.
-        </p>
-        <Link
-          href="/auth"
-          className="block w-full py-3 rounded-xl font-bold text-sm text-white transition-opacity hover:opacity-90"
-          style={{ backgroundColor: '#FFFD02' }}
-        >
-          Iniciar sesión
-        </Link>
-        <button
-          onClick={onClose}
-          className="mt-3 text-[#A0A0B0] text-sm hover:text-zinc-300 transition-colors"
-        >
-          Cancelar
-        </button>
-      </div>
-    </div>
-  )
-}
-
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function MoodRecommender() {
   const { country } = useCountry()
   const [user, setUser] = useState<User | null>(null)
-  const [authChecked, setAuthChecked] = useState(false)
-  const [showAuthModal, setShowAuthModal] = useState(false)
 
   const [step, setStep] = useState(1)
   const [moodKey, setMoodKey] = useState('')
@@ -224,7 +189,6 @@ export default function MoodRecommender() {
     const supabase = createClient()
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
-      setAuthChecked(true)
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_, session) => {
       setUser(session?.user ?? null)
@@ -239,7 +203,7 @@ export default function MoodRecommender() {
       const res = await fetch('/api/mood-recommendations', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ moodKey, durationKey, companyKey: selectedCompany, userId: user!.id, country }),
+        body: JSON.stringify({ moodKey, durationKey, companyKey: selectedCompany, userId: user?.id ?? null, country }),
       })
       const data = await res.json()
       setRecommendations(data.recommendations ?? [])
@@ -251,7 +215,6 @@ export default function MoodRecommender() {
   }
 
   function selectOption(key: string, setter: (v: string) => void, onAdvance: (key: string) => void) {
-    if (!user) { setShowAuthModal(true); return }
     setter(key)
     setTimeout(() => onAdvance(key), 300)
   }
@@ -260,8 +223,6 @@ export default function MoodRecommender() {
     setStep(1); setMoodKey(''); setDurationKey(''); setCompanyKey('')
     setRecommendations(null); setLoading(false)
   }
-
-  const isGuest = authChecked && !user
 
   const stepTitle = ['¿Cómo te sentís hoy?', '¿Cuánto tiempo tenés?', '¿Con quién vas a ver?']
   const currentTitle = stepTitle[step - 1] ?? ''
@@ -274,17 +235,6 @@ export default function MoodRecommender() {
         className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 opacity-20 pointer-events-none blur-3xl"
         style={{ background: 'radial-gradient(ellipse, #FFFD02 0%, transparent 70%)' }}
       />
-
-      {/* Guest overlay */}
-      {isGuest && (
-        <div
-          className="absolute inset-0 z-10 cursor-pointer"
-          style={{ background: 'rgba(5,5,7,0.6)', backdropFilter: 'blur(1px)' }}
-          onClick={() => setShowAuthModal(true)}
-        />
-      )}
-
-      {showAuthModal && <AuthModal onClose={() => setShowAuthModal(false)} />}
 
       <div className="relative max-w-2xl mx-auto px-4 py-10">
 
