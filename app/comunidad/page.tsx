@@ -415,7 +415,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {{isVerified && <VerifiedBadge />}}
+            {isVerified && <VerifiedBadge />}
             <Badge label="Estadística" color="purple" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -460,7 +460,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {{isVerified && <VerifiedBadge />}}
+            {isVerified && <VerifiedBadge />}
             <Badge label="Logro" color="gold" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -486,7 +486,7 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {{isVerified && <VerifiedBadge />}}
+            {isVerified && <VerifiedBadge />}
             <Badge label="Lista" color="orange" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
