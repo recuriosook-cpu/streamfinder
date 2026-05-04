@@ -18,6 +18,14 @@ const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
 const PROVIDER_IDS = '8|337|119|384|531|350'
 
+const GENRE_TO_ID: Record<string, number> = {
+  'Acción': 28, 'Comedia': 35, 'Drama': 18, 'Terror': 27,
+  'Ciencia ficción': 878, 'Thriller': 53, 'Animación': 16,
+  'Romance': 10749, 'Documental': 99, 'Aventura': 12,
+  'Fantasía': 14, 'Misterio': 9648, 'Historia': 36,
+  'Crimen': 80, 'Musical': 10402, 'Western': 37, 'Guerra': 10752, 'Familia': 10751,
+}
+
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface PlatformItem {
@@ -29,6 +37,16 @@ interface PlatformLogo { id: number; slug: string; name: string; color: string; 
 interface HomeData { platformsWithLogos: PlatformLogo[]; platformContent: PlatformData[] }
 
 interface HeroMovie { backdropPath: string | null; title: string }
+
+interface WatchlistPreviewItem {
+  id: string; media_id: number; media_type: 'movie' | 'tv'
+  title: string; poster_path: string | null; added_at: string
+}
+
+interface ForYouItem {
+  id: number; title: string; posterPath: string | null
+  year: string; voteAverage: number; matchPct: number
+}
 
 interface RecentItem {
   id: number; title: string; posterPath: string | null
@@ -675,6 +693,125 @@ function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loadi
   )
 }
 
+// ── "Continuá viendo" section ────────────────────────────────────────────────
+
+function ContinueWatchingSection({
+  items, onMarkWatched, loading,
+}: {
+  items: WatchlistPreviewItem[]
+  onMarkWatched: (item: WatchlistPreviewItem) => void
+  loading: Set<number>
+}) {
+  if (items.length === 0) return null
+  return (
+    <section className="mb-12">
+      <div className="mb-4">
+        <h2 className="text-lg sm:text-xl font-bold text-white">Continuá donde dejaste</h2>
+        <p className="text-xs text-[#A0A0B0] mt-0.5">Títulos en tu lista de pendientes</p>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
+        {items.map(item => (
+          <div key={item.id} className="flex-shrink-0 w-36 carousel-snap group">
+            <Link href={`/${item.media_type}/${item.media_id}`} className="block mb-1.5">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] transition-transform duration-200 group-hover:scale-105">
+                {item.poster_path ? (
+                  <Image src={`https://image.tmdb.org/t/p/w185${item.poster_path}`} alt={item.title} fill className="object-cover" sizes="144px" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">{item.title}</div>
+                )}
+                <div className="absolute top-1.5 left-1.5">
+                  <span className="text-[10px] px-1.5 py-0.5 rounded font-medium"
+                    style={{ backgroundColor: item.media_type === 'movie' ? '#2563eb' : '#7c3aed', color: '#fff' }}>
+                    {item.media_type === 'movie' ? 'Peli' : 'Serie'}
+                  </span>
+                </div>
+              </div>
+            </Link>
+            <p className="text-xs font-semibold text-white line-clamp-1 mb-1.5">{item.title}</p>
+            <button
+              onClick={() => onMarkWatched(item)}
+              disabled={loading.has(item.media_id)}
+              className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold py-1.5 rounded-full transition-colors disabled:opacity-50"
+              style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
+            >
+              {loading.has(item.media_id) ? '...' : '✓ Ya la vi'}
+            </button>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+// ── "Para vos" personalized section ──────────────────────────────────────────
+
+function ForYouSection({ items, loading }: { items: ForYouItem[]; loading: boolean }) {
+  const scrollRef = useRef<HTMLDivElement>(null)
+  const scroll = (dir: 'left' | 'right') =>
+    scrollRef.current?.scrollBy({ left: dir === 'right' ? 400 : -400, behavior: 'smooth' })
+
+  if (!loading && items.length === 0) return null
+
+  return (
+    <section className="mb-12">
+      <div className="flex items-center justify-between mb-4">
+        <div>
+          <h2 className="text-lg sm:text-xl font-bold text-white flex items-center gap-2">
+            ✨ Para vos
+          </h2>
+          <p className="text-xs text-[#A0A0B0] mt-0.5">Basado en tus géneros favoritos</p>
+        </div>
+        <div className="flex gap-2">
+          <button onClick={() => scroll('left')} className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors" aria-label="Anteriores">
+            <ChevronLeft size={16} />
+          </button>
+          <button onClick={() => scroll('right')} className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors" aria-label="Siguientes">
+            <ChevronRight size={16} />
+          </button>
+        </div>
+      </div>
+
+      {loading ? (
+        <div className="flex gap-3 overflow-hidden">
+          {Array.from({ length: 5 }).map((_, i) => (
+            <div key={i} className="shrink-0 w-36">
+              <div className="aspect-[2/3] bg-[#1C1C27] rounded-lg mb-1.5 animate-pulse" />
+              <div className="h-3 bg-[#1C1C27] rounded w-4/5 mb-1 animate-pulse" />
+              <div className="h-2.5 bg-[#1C1C27] rounded w-1/2 animate-pulse" />
+            </div>
+          ))}
+        </div>
+      ) : (
+        <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
+          {items.map(item => (
+            <Link key={item.id} href={`/movie/${item.id}`} className="flex-shrink-0 w-36 carousel-snap group block">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
+                {item.posterPath ? (
+                  <Image src={`https://image.tmdb.org/t/p/w185${item.posterPath}`} alt={item.title} fill className="object-cover" sizes="144px" />
+                ) : (
+                  <div className="w-full h-full flex items-center justify-center text-[#A0A0B0] text-xs text-center px-2">{item.title}</div>
+                )}
+                {/* Match badge */}
+                <div className="absolute top-1.5 right-1.5 bg-black/75 rounded px-1.5 py-0.5">
+                  <span className="text-[10px] font-bold" style={{ color: '#FFFD02' }}>{item.matchPct}%</span>
+                </div>
+                {/* Rating */}
+                {item.voteAverage > 0 && (
+                  <div className="absolute bottom-1.5 left-1.5 bg-black/70 rounded px-1.5 py-0.5 flex items-center gap-0.5">
+                    <span className="text-[10px] font-bold" style={{ color: '#FFFD02' }}>★ {item.voteAverage.toFixed(1)}</span>
+                  </div>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">{item.title}</p>
+              {item.year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{item.year}</p>}
+            </Link>
+          ))}
+        </div>
+      )}
+    </section>
+  )
+}
+
 // ── Main component ────────────────────────────────────────────────────────────
 
 export default function HomeClient() {
@@ -703,6 +840,13 @@ export default function HomeClient() {
       return () => clearTimeout(t)
     }
   }, [])
+
+  // Personalized sections
+  const [continueWatching, setContinueWatching] = useState<WatchlistPreviewItem[]>([])
+  const [markingWatched,   setMarkingWatched]   = useState<Set<number>>(new Set())
+  const [favoriteGenres,   setFavoriteGenres]   = useState<string[]>([])
+  const [forYouItems,      setForYouItems]      = useState<ForYouItem[]>([])
+  const [forYouLoading,    setForYouLoading]    = useState(false)
 
   // Defer secondary fetches 500ms so critical content renders first
   const [secondaryReady, setSecondaryReady] = useState(false)
@@ -778,16 +922,58 @@ export default function HomeClient() {
       }
 
       if (u) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('username, display_name')
-          .eq('id', u.id)
-          .maybeSingle()
+        const [profileRes, watchlistRes] = await Promise.all([
+          supabase.from('profiles').select('username, display_name, favorite_genres').eq('id', u.id).maybeSingle(),
+          supabase.from('watchlist').select('id, media_id, media_type, title, poster_path, added_at').eq('user_id', u.id).order('added_at', { ascending: false }).limit(5),
+        ])
+        const profile = profileRes.data
         setUserName(profile?.display_name ?? profile?.username ?? u.email?.split('@')[0] ?? '')
+        setFavoriteGenres(profile?.favorite_genres ?? [])
+        setContinueWatching((watchlistRes.data ?? []) as WatchlistPreviewItem[])
       }
     }
     boot()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Mark watchlist item as watched ───────────────────────────────────────
+  async function markAsWatched(item: WatchlistPreviewItem) {
+    if (!user?.id) return
+    setMarkingWatched(prev => new Set(prev).add(item.media_id))
+    await Promise.all([
+      supabase.from('watched').upsert(
+        { user_id: user.id, media_id: item.media_id, media_type: item.media_type, title: item.title, poster_path: item.poster_path, watched_at: new Date().toISOString() },
+        { onConflict: 'user_id,media_id,media_type' }
+      ),
+      supabase.from('watchlist').delete().eq('id', item.id),
+    ])
+    setContinueWatching(prev => prev.filter(w => w.id !== item.id))
+    setMarkingWatched(prev => { const next = new Set(prev); next.delete(item.media_id); return next })
+  }
+
+  // ── "Para vos" personalized recommendations ───────────────────────────────
+  useEffect(() => {
+    if (!secondaryReady || !user?.id || favoriteGenres.length === 0 || !TMDB_KEY) return
+    setForYouLoading(true)
+    const genreIds = favoriteGenres.map(g => GENRE_TO_ID[g]).filter(Boolean).slice(0, 3)
+    Promise.all([
+      fetch(`${TMDB}/discover/movie?api_key=${TMDB_KEY}&language=es-AR&sort_by=vote_average.desc&vote_count.gte=300&with_genres=${genreIds.join(',')}&page=1`).then(r => r.ok ? r.json() : { results: [] }),
+      supabase.from('watched').select('media_id').eq('user_id', user.id),
+    ]).then(([data, watchedRes]) => {
+      const watchedSet = new Set((watchedRes.data ?? []).map((w: { media_id: number }) => w.media_id))
+      type M = { id: number; title: string; poster_path: string | null; release_date?: string; vote_average: number; genre_ids: number[] }
+      const items: ForYouItem[] = ((data.results ?? []) as M[])
+        .filter(m => m.poster_path && !watchedSet.has(m.id))
+        .slice(0, 10)
+        .map(m => {
+          const movieGenres = new Set(m.genre_ids)
+          const matches = genreIds.filter(gid => movieGenres.has(gid)).length
+          const matchPct = Math.round(65 + (matches / Math.max(genreIds.length, 1)) * 30)
+          return { id: m.id, title: m.title, posterPath: m.poster_path, year: (m.release_date ?? '').slice(0, 4), voteAverage: m.vote_average, matchPct }
+        })
+      setForYouItems(items)
+      setForYouLoading(false)
+    }).catch(() => setForYouLoading(false))
+  }, [secondaryReady, user?.id, favoriteGenres]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Platform data (country-dependent) ────────────────────────────────────
   useEffect(() => {
@@ -1033,6 +1219,15 @@ export default function HomeClient() {
 
       <div className="max-w-7xl mx-auto px-4 py-10">
 
+        {/* SECCIÓN: CONTINUÁ VIENDO — solo para logueados con watchlist */}
+        {user && continueWatching.length > 0 && (
+          <ContinueWatchingSection
+            items={continueWatching}
+            onMarkWatched={markAsWatched}
+            loading={markingWatched}
+          />
+        )}
+
         {/* SECCIÓN 3 — ÚLTIMOS ESTRENOS */}
         {recentLoading
           ? <CarouselSkeleton />
@@ -1044,6 +1239,11 @@ export default function HomeClient() {
           ? <TrendingSkeleton />
           : <TrendingSection items={trendingItems} />
         }
+
+        {/* SECCIÓN: PARA VOS — solo para logueados con géneros favoritos */}
+        {user && (forYouLoading || forYouItems.length > 0) && (
+          <ForYouSection items={forYouItems} loading={forYouLoading} />
+        )}
       </div>
 
       {/* SECCIÓN 5 — RECOMENDADOR (full-width) */}

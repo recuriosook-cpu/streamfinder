@@ -8,6 +8,7 @@ import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
+import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -63,6 +64,7 @@ export default function Navbar() {
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
+  const [userLevel, setUserLevel] = useState<{ emoji: string; name: string; pct: number; pts: number; nextMin: number } | null>(null)
   const [countryOpen, setCountryOpen] = useState(false)
   const [countrySearch, setCountrySearch] = useState('')
   const [notifOpen,    setNotifOpen]    = useState(false)
@@ -111,12 +113,21 @@ export default function Navbar() {
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
       setUser(data.user)
-      if (data.user) fetchUnreadCount(data.user.id)
+      if (data.user) {
+        fetchUnreadCount(data.user.id)
+        supabase.from('profiles').select('points, level').eq('id', data.user.id).maybeSingle()
+          .then(({ data: p }) => {
+            if (p) {
+              const info = getLevelInfo(p.level ?? 1, p.points ?? 0)
+              setUserLevel({ emoji: info.emoji, name: info.name, pct: info.pct, pts: p.points ?? 0, nextMin: info.next?.min ?? 0 })
+            }
+          })
+      }
     })
     const { data: { subscription } } = supabase.auth.onAuthStateChange((_e, session) => {
       setUser(session?.user ?? null)
       if (session?.user) fetchUnreadCount(session.user.id)
-      else { setUnreadCount(0); setNotifs([]) }
+      else { setUnreadCount(0); setNotifs([]); setUserLevel(null) }
     })
     return () => subscription.unsubscribe()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
@@ -642,6 +653,26 @@ export default function Navbar() {
                 <Users size={16} />
                 Comunidad
               </Link>
+
+              {/* Level badge */}
+              {userLevel && (
+                <div className="relative group/level">
+                  <div className="flex items-center gap-1.5 px-2.5 py-1.5 rounded-lg bg-[#1C1C27] hover:bg-zinc-700 cursor-default transition-colors text-xs">
+                    <span>{userLevel.emoji}</span>
+                    <span className="text-[#A0A0B0] hidden lg:block">{userLevel.name}</span>
+                  </div>
+                  <div className="absolute right-0 top-full mt-2 w-52 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl p-4 opacity-0 invisible group-hover/level:opacity-100 group-hover/level:visible transition-all duration-150 shadow-2xl z-50 pointer-events-none">
+                    <p className="text-sm font-semibold text-white mb-2">{userLevel.emoji} {userLevel.name}</p>
+                    <div className="h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
+                      <div className="h-full rounded-full" style={{ width: `${userLevel.pct}%`, backgroundColor: '#FFFD02' }} />
+                    </div>
+                    <p className="text-[11px] text-zinc-500 tabular-nums">
+                      {userLevel.pts} pts{userLevel.nextMin > 0 ? ` · ${userLevel.nextMin - userLevel.pts} para el siguiente` : ' · Nivel máximo'}
+                    </p>
+                  </div>
+                </div>
+              )}
+
               <Link href="/profile" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
                 <UserCircle size={16} />
                 Mi perfil
