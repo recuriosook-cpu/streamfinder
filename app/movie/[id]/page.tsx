@@ -108,6 +108,30 @@ export default async function MoviePage({ params }: Props) {
     getTrailerKey(numId, 'movie'),
     getSimilar(numId, 'movie'),
   ])
+  if (!movie || movie.success === false || !movie.title) {
+    return (
+      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center gap-6 px-4">
+        {/* eslint-disable-next-line @next/next/no-img-element */}
+        <img src="/logo.png" alt="Glynbox" style={{ height: '48px' }} />
+        <div style={{ fontSize: '80px' }}>🎬</div>
+        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 700, textAlign: 'center' }}>
+          Esta película no existe
+        </h1>
+        <p style={{ color: '#A0A0B0', textAlign: 'center', maxWidth: '400px' }}>
+          No encontramos información sobre este título. Puede que el ID sea incorrecto o que la película haya sido eliminada de nuestra base de datos.
+        </p>
+        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
+          <a href="/" style={{ background: '#FFFD02', color: '#000', padding: '12px 24px', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>
+            Volver al inicio
+          </a>
+          <a href="/que-ver" style={{ border: '1px solid #2A2A3A', color: '#fff', padding: '12px 24px', borderRadius: '50px', textDecoration: 'none' }}>
+            Explorar títulos
+          </a>
+        </div>
+      </div>
+    )
+  }
+
   const [omdb, collectionData] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
