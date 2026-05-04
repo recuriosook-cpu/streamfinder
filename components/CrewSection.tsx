@@ -1,4 +1,5 @@
 ﻿import Image from 'next/image'
+import Link from 'next/link'
 
 export interface CrewMember {
   id: number
@@ -34,7 +35,13 @@ function CrewCard({ member }: { member: CrewMember }) {
         )}
       </div>
       <div className="min-w-0">
-        <p className="text-sm font-semibold text-white leading-tight truncate">{member.name}</p>
+        {member.job === 'Director' ? (
+          <Link href={`/director/${member.id}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors leading-tight truncate block">
+            {member.name}
+          </Link>
+        ) : (
+          <p className="text-sm font-semibold text-white leading-tight truncate">{member.name}</p>
+        )}
         <p className="text-xs text-[#A0A0B0] mt-0.5">{member.job}</p>
       </div>
     </div>
