@@ -113,6 +113,11 @@ interface StatsData {
   seriesYear: number
 }
 
+interface MonthlyData    { month: string; year: number; count: number }
+interface FavPlatform    { name: string; logoPath: string; count: number }
+interface ExtRating      { title: string; posterPath: string | null; rating: number; mediaId: number; mediaType: string }
+interface TopInteractor  { userId: string; username: string | null; displayName: string | null; avatarUrl: string | null; count: number }
+
 interface PersonStat {
   id: number
   name: string
@@ -247,6 +252,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [richBusy,     setRichBusy]     = useState(false)
   const [weeklyMinutes, setWeeklyMinutes] = useState(0)
   const [sharedToast,  setSharedToast]  = useState<string | null>(null)
+  // Extended stats
+  const [monthlyData,    setMonthlyData]    = useState<MonthlyData[]>([])
+  const [favPlatform,    setFavPlatform]    = useState<FavPlatform | null>(null)
+  const [extTopRating,   setExtTopRating]   = useState<ExtRating | null>(null)
+  const [extLowRating,   setExtLowRating]   = useState<ExtRating | null>(null)
+  const [topInteractors, setTopInteractors] = useState<TopInteractor[]>([])
 
   // ── Inline edit ────────────────────────────────────────────────
   const [isEditing,        setIsEditing]        = useState(false)
@@ -668,6 +679,95 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         const mins = (data ?? []).reduce((acc: number, r: { runtime: number | null }) => acc + (r.runtime ?? 0), 0)
         setWeeklyMinutes(mins)
       })
+
+    // ── Monthly activity (last 12 months) ─────────────────────────
+    const twelveMonthsAgo = new Date()
+    twelveMonthsAgo.setMonth(twelveMonthsAgo.getMonth() - 11)
+    twelveMonthsAgo.setDate(1)
+    const { data: watchedDates } = await supabase
+      .from('watched')
+      .select('watched_at')
+      .eq('user_id', profile.id)
+      .gte('watched_at', twelveMonthsAgo.toISOString())
+    const monthly = Array.from({ length: 12 }, (_, i) => {
+      const d = new Date(); d.setMonth(d.getMonth() - (11 - i))
+      const m = d.getMonth(); const y = d.getFullYear()
+      return {
+        month: d.toLocaleString('es-AR', { month: 'short' }),
+        year: y,
+        count: (watchedDates ?? []).filter((w: { watched_at: string }) => {
+          const wd = new Date(w.watched_at)
+          return wd.getMonth() === m && wd.getFullYear() === y
+        }).length,
+      }
+    })
+    setMonthlyData(monthly)
+
+    // ── Best / worst rated ──────────────────────────────────────────
+    const { data: ratingsData } = await supabase
+      .from('ratings')
+      .select('media_id, media_type, title, poster_path, rating')
+      .eq('user_id', profile.id)
+      .order('rating', { ascending: false })
+    if (ratingsData?.length) {
+      const top = ratingsData[0] as { media_id: number; media_type: string; title: string; poster_path: string | null; rating: number }
+      const low = ratingsData[ratingsData.length - 1] as typeof top
+      setExtTopRating({ title: top.title, posterPath: top.poster_path, rating: top.rating, mediaId: top.media_id, mediaType: top.media_type })
+      setExtLowRating({ title: low.title, posterPath: low.poster_path, rating: low.rating, mediaId: low.media_id, mediaType: low.media_type })
+    }
+
+    // ── Top interactors (owner only) ────────────────────────────────
+    if (currentUserId === profile.id) {
+      const { data: myReviews } = await supabase.from('reviews').select('id').eq('user_id', profile.id)
+      const myReviewIds = (myReviews ?? []).map((r: { id: string }) => r.id)
+      if (myReviewIds.length > 0) {
+        const likersRes = await supabase.from('review_likes').select('user_id').in('review_id', myReviewIds)
+        let commentersData: { user_id: string }[] = []
+        try {
+          const cr = await supabase.from('review_comments').select('user_id').in('review_id', myReviewIds)
+          commentersData = (cr.data ?? []) as { user_id: string }[]
+        } catch { /* table may not exist */ }
+        const countMap = new Map<string, number>()
+        for (const r of [...(likersRes.data ?? []), ...commentersData]) {
+          if (r.user_id !== profile.id) countMap.set(r.user_id, (countMap.get(r.user_id) ?? 0) + 1)
+        }
+        const sorted = [...countMap.entries()].sort((a, b) => b[1] - a[1]).slice(0, 3)
+        if (sorted.length > 0) {
+          const { data: pRows } = await supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', sorted.map(s => s[0]))
+          const pMap = Object.fromEntries((pRows ?? []).map((p: { id: string }) => [p.id, p])) as unknown as Record<string, { username: string | null; display_name: string | null; avatar_url: string | null } | undefined>
+          setTopInteractors(sorted.map(([uid, count]) => {
+            const p = pMap[uid]
+            return { userId: uid, username: p?.username ?? null, displayName: p?.display_name ?? null, avatarUrl: p?.avatar_url ?? null, count }
+          }))
+        }
+      }
+    }
+
+    // ── Favorite platform — async, non-blocking ──────────────────────
+    const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+    if (TMDB_KEY) {
+      const { data: recentMovies } = await supabase
+        .from('watched').select('media_id').eq('user_id', profile.id).eq('media_type', 'movie')
+        .order('watched_at', { ascending: false }).limit(20)
+      if (recentMovies?.length) {
+        const providerCounts = new Map<string, { name: string; logoPath: string; count: number }>()
+        await Promise.all((recentMovies as { media_id: number }[]).map(async item => {
+          try {
+            const res = await fetch(`https://api.themoviedb.org/3/movie/${item.media_id}/watch/providers?api_key=${TMDB_KEY}`)
+            if (!res.ok) return
+            const d = await res.json()
+            const providers = d.results?.AR?.flatrate ?? d.results?.US?.flatrate ?? []
+            if (providers[0]) {
+              const p = providers[0]; const key = p.provider_name
+              const existing = providerCounts.get(key)
+              providerCounts.set(key, existing ? { ...existing, count: existing.count + 1 } : { name: p.provider_name, logoPath: p.logo_path, count: 1 })
+            }
+          } catch { /* skip */ }
+        }))
+        const top = [...providerCounts.values()].sort((a, b) => b.count - a.count)[0]
+        if (top) setFavPlatform(top)
+      }
+    }
 
     // ── Rich stats (genres, hours, people) — heavier, separate state ───
     setRichBusy(true)
@@ -1634,6 +1734,112 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     <p className="text-[#A0A0B0] text-sm">
                       Mirá más contenido para ver tus estadísticas detalladas.
                     </p>
+                  </div>
+                )}
+
+                {/* ── Gráfico mensual ──────────────────────────── */}
+                {monthlyData.length > 0 && monthlyData.some(m => m.count > 0) && (
+                  <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
+                    <p className="text-[13px] font-semibold uppercase tracking-wider mb-5" style={{ color: '#FFFD02' }}>Actividad mensual</p>
+                    {(() => {
+                      const maxCount = Math.max(...monthlyData.map(m => m.count), 1)
+                      const nowMonth = new Date().getMonth(); const nowYear = new Date().getFullYear()
+                      return (
+                        <div className="flex items-end gap-1.5" style={{ height: 140 }}>
+                          {monthlyData.map((m, i) => {
+                            const isCurrent = m.month === new Date().toLocaleString('es-AR', { month: 'short' }) && m.year === nowYear
+                            const barH = Math.max(m.count > 0 ? Math.round((m.count / maxCount) * 100) : 0, m.count > 0 ? 4 : 0)
+                            return (
+                              <div key={i} className="flex-1 flex flex-col items-center gap-1">
+                                {m.count > 0 && (
+                                  <span className="text-[10px] font-semibold" style={{ color: isCurrent ? '#FFFD02' : '#A0A0B0' }}>{m.count}</span>
+                                )}
+                                <div className="w-full rounded-t-sm transition-all duration-500" style={{ height: `${barH}%`, minHeight: m.count > 0 ? 4 : 0, backgroundColor: isCurrent ? '#FFFD02' : '#2A2A3A' }} />
+                                <span className="text-[10px] text-[#A0A0B0] truncate w-full text-center">{m.month}</span>
+                              </div>
+                            )
+                          })}
+                        </div>
+                      )
+                    })()}
+                  </div>
+                )}
+
+                {/* ── Mejor y peor calificada ──────────────────── */}
+                {(extTopRating || extLowRating) && (
+                  <div>
+                    <p className="text-[13px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#FFFD02' }}>Tus valoraciones extremas</p>
+                    <div className="grid grid-cols-2 gap-3">
+                      {extTopRating && (
+                        <Link href={`/${extTopRating.mediaType}/${extTopRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/40 rounded-2xl p-4 flex gap-3 transition-colors">
+                          {extTopRating.posterPath && (
+                            <Image src={getPosterUrl(extTopRating.posterPath, 'w92')} alt={extTopRating.title} width={40} height={60} className="rounded-md object-cover shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#22c55e' }}>Tu favorita ⭐</p>
+                            <p className="text-xs font-semibold text-white line-clamp-2 mb-1">{extTopRating.title}</p>
+                            <p className="text-sm font-bold" style={{ color: '#22c55e' }}>{extTopRating.rating}/5</p>
+                          </div>
+                        </Link>
+                      )}
+                      {extLowRating && extLowRating.mediaId !== extTopRating?.mediaId && (
+                        <Link href={`/${extLowRating.mediaType}/${extLowRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-red-900/40 rounded-2xl p-4 flex gap-3 transition-colors">
+                          {extLowRating.posterPath && (
+                            <Image src={getPosterUrl(extLowRating.posterPath, 'w92')} alt={extLowRating.title} width={40} height={60} className="rounded-md object-cover shrink-0" />
+                          )}
+                          <div className="min-w-0">
+                            <p className="text-[10px] font-bold uppercase tracking-wider mb-1" style={{ color: '#ef4444' }}>La peor 💀</p>
+                            <p className="text-xs font-semibold text-white line-clamp-2 mb-1">{extLowRating.title}</p>
+                            <p className="text-sm font-bold" style={{ color: '#ef4444' }}>{extLowRating.rating}/5</p>
+                          </div>
+                        </Link>
+                      )}
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Plataforma favorita ──────────────────────── */}
+                {favPlatform && (
+                  <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5 flex items-center gap-4">
+                    <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1C1C27] shrink-0">
+                      {favPlatform.logoPath ? (
+                        <Image src={`https://image.tmdb.org/t/p/original${favPlatform.logoPath}`} alt={favPlatform.name} width={56} height={56} className="w-full h-full object-cover" />
+                      ) : (
+                        <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#2A2A3A]">{favPlatform.name[0]}</div>
+                      )}
+                    </div>
+                    <div>
+                      <p className="text-[11px] font-bold uppercase tracking-wider text-[#A0A0B0] mb-0.5">Tu plataforma favorita</p>
+                      <p className="text-base font-bold text-white">{favPlatform.name}</p>
+                      <p className="text-xs text-[#A0A0B0] mt-0.5">{favPlatform.count} título{favPlatform.count !== 1 ? 's' : ''} vistos</p>
+                    </div>
+                  </div>
+                )}
+
+                {/* ── Top interactores (solo owner) ───────────── */}
+                {topInteractors.length > 0 && (
+                  <div>
+                    <p className="text-[13px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#FFFD02' }}>Quiénes más interactúan con vos</p>
+                    <div className="space-y-2">
+                      {topInteractors.map(u => (
+                        <Link key={u.userId} href={`/usuario/${u.username}`} className="flex items-center gap-3 bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-xl p-3 transition-colors">
+                          <div className="w-10 h-10 rounded-full overflow-hidden bg-[#1C1C27] shrink-0">
+                            {u.avatarUrl ? (
+                              // eslint-disable-next-line @next/next/no-img-element
+                              <img src={u.avatarUrl} alt={u.displayName ?? u.username ?? ''} className="w-full h-full object-cover" />
+                            ) : (
+                              <div className="w-full h-full flex items-center justify-center text-sm font-bold bg-[#2A2A3A] text-[#FFFD02]">
+                                {(u.displayName ?? u.username ?? '?')[0]?.toUpperCase()}
+                              </div>
+                            )}
+                          </div>
+                          <div className="flex-1 min-w-0">
+                            <p className="text-sm font-semibold text-white truncate">{u.displayName ?? u.username}</p>
+                            <p className="text-xs text-[#A0A0B0]">{u.count} interacción{u.count !== 1 ? 'es' : ''}</p>
+                          </div>
+                        </Link>
+                      ))}
+                    </div>
                   </div>
                 )}
 
