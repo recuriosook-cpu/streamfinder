@@ -2,7 +2,7 @@
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import Image from 'next/image'
 import Link from 'next/link'
-import { ArrowLeft, Star, Clock, Calendar } from 'lucide-react'
+import { Star, Clock, Calendar } from 'lucide-react'
 import StreamingSection from '@/components/StreamingSection'
 import RatingsSection from '@/components/RatingsSection'
 import CastCarousel from '@/components/CastCarousel'
@@ -19,6 +19,7 @@ import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
 import CollectionSection, { type CollectionData } from '@/components/CollectionSection'
+import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -212,9 +213,10 @@ export default async function MoviePage({ params }: Props) {
       )}
 
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <Link href="/" className="inline-flex items-center gap-2 text-[#A0A0B0] hover:text-white mb-6 transition-colors">
-          <ArrowLeft size={16} /> Volver
-        </Link>
+        <Breadcrumb items={[
+          { label: 'Qué ver', href: '/que-ver' },
+          { label: movie.title },
+        ]} />
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Poster */}

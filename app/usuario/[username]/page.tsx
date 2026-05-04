@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
 import { createServerClient } from '@/lib/supabase-server'
 import UserProfileClient from '@/components/UserProfileClient'
+import Breadcrumb from '@/components/Breadcrumb'
 
 interface Props {
   params: Promise<{ username: string }>
@@ -54,5 +55,12 @@ export default async function UserProfilePage({ params }: Props) {
 
   if (!profile) notFound()
 
-  return <UserProfileClient profile={profile} />
+  return (
+    <>
+      <div className="max-w-5xl mx-auto px-4 pt-6 pb-0">
+        <Breadcrumb items={[{ label: profile.username ?? username }]} />
+      </div>
+      <UserProfileClient profile={profile} />
+    </>
+  )
 }

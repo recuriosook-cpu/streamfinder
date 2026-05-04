@@ -4,7 +4,7 @@ import type { Metadata } from 'next'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
-import BackButton from '@/components/BackButton'
+import Breadcrumb from '@/components/Breadcrumb'
 import ActorFilmography from '@/components/ActorFilmography'
 import ActorAwards from '@/components/ActorAwards'
 import FollowActorButton from '@/components/FollowActorButton'
@@ -159,7 +159,7 @@ export default async function ActorPage({ params }: Props) {
   return (
     <div className="min-h-screen">
       <div className="max-w-5xl mx-auto px-4 py-6">
-        <BackButton />
+        <Breadcrumb items={[{ label: person.name }]} />
 
         {/* Header */}
         <div className="flex flex-col md:flex-row gap-8 mb-10">

@@ -4,7 +4,8 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, ArrowLeft, Tag, Search } from 'lucide-react'
+import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, Tag, Search } from 'lucide-react'
+import Breadcrumb from '@/components/Breadcrumb'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 
@@ -188,10 +189,10 @@ export default function ListPage() {
 
   return (
     <div className="max-w-4xl mx-auto px-4 py-8">
-      {/* Back */}
-      <Link href="/listas" className="inline-flex items-center gap-1.5 text-[#A0A0B0] hover:text-white mb-6 transition-colors text-sm">
-        <ArrowLeft size={15} /> Todas las listas
-      </Link>
+      <Breadcrumb items={[
+        { label: 'Listas', href: '/listas' },
+        { label: list.title },
+      ]} />
 
       {/* Header */}
       <div className="mb-8">
