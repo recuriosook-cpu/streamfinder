@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List } from 'lucide-react'
+import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import type { User } from '@supabase/supabase-js'
@@ -84,6 +84,13 @@ interface ActorReleaseFeed {
 }
 
 type FeedItem = ReviewFeed | RatingFeed | WatchlistFeed | SharedStatFeed | LevelUpFeed | RecommendationFeed | ListFeed | ActorBirthdayFeed | ActorReleaseFeed
+
+interface FriendReview {
+  id: string; userId: string
+  mediaId: number; mediaType: string
+  mediaTitle: string; mediaPosterPath: string | null
+  rating: number | null; body: string | null; createdAt: string
+}
 
 interface CommunityListCard {
   id: string; title: string; description: string | null; tags: string[]
@@ -600,6 +607,64 @@ function RecommendationCard({ item, currentUserId, supabase }: {
 }
 
 
+function FriendReviewsCarousel({ reviews, profiles }: { reviews: FriendReview[]; profiles: Map<string, UserProfile> }) {
+  if (reviews.length === 0) return null
+  return (
+    <section className="mb-5">
+      <div className="flex items-center gap-2 mb-3">
+        <Star size={14} fill="#F5A623" style={{ color: '#F5A623' }} />
+        <h3 className="text-sm font-semibold text-white">Últimas reseñas de amigos</h3>
+      </div>
+      <div className="flex gap-3 overflow-x-auto pb-1 no-scrollbar" style={{ WebkitOverflowScrolling: 'touch' } as React.CSSProperties}>
+        {reviews.map(review => {
+          const p = profiles.get(review.userId)
+          return (
+            <Link key={review.id} href={`/review/${review.id}`} className="shrink-0 group" style={{ width: 140 }}>
+              <div
+                className="relative rounded-xl overflow-hidden bg-[#1C1C27] transition-transform duration-200 group-hover:scale-[1.03]"
+                style={{ aspectRatio: '2/3' }}
+              >
+                {review.mediaPosterPath && (
+                  <Image
+                    src={`https://image.tmdb.org/t/p/w342${review.mediaPosterPath}`}
+                    alt={review.mediaTitle}
+                    fill
+                    className="object-cover"
+                    sizes="140px"
+                  />
+                )}
+                {/* Gradient overlays */}
+                <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(0,0,0,0.35) 0%, transparent 28%, transparent 52%, rgba(0,0,0,0.88) 100%)' }} />
+
+                {/* Avatar — top left */}
+                {p && (
+                  <div className="absolute top-2 left-2 w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shrink-0">
+                    {p.avatar_url ? (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={p.avatar_url} alt={p.display_name ?? p.username ?? ''} className="w-full h-full object-cover" />
+                    ) : (
+                      <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">
+                        {(p.display_name ?? p.username ?? '?')[0]?.toUpperCase()}
+                      </div>
+                    )}
+                  </div>
+                )}
+
+                {/* Stars — bottom center */}
+                {review.rating != null && (
+                  <div className="absolute bottom-2 left-0 right-0 flex justify-center">
+                    <StarDisplay rating={review.rating} size={10} />
+                  </div>
+                )}
+              </div>
+            </Link>
+          )
+        })}
+      </div>
+    </section>
+  )
+}
+
 function FeedSkeleton() {
   return (
     <div className="space-y-4 animate-pulse">
@@ -803,6 +868,7 @@ export default function ComunidadPage() {
   const [displayFeed,     setDisplayFeed]     = useState<FeedItem[]>([])
   const [visibleCount,    setVisibleCount]    = useState(PAGE_SIZE)
   const [feedLoading,     setFeedLoading]     = useState(false)
+  const [friendReviews,   setFriendReviews]   = useState<FriendReview[]>([])
 
   // Compat state
   const [compatItems,   setCompatItems]   = useState<CompatItem[]>([])
@@ -837,13 +903,31 @@ export default function ComunidadPage() {
 
 
       if (ids.length > 0) {
-        const { data: rows } = await supabase
-          .from('profiles')
-          .select('id, username, display_name, avatar_url')
-          .in('id', ids)
+        const [profilesRes, reviewsRes] = await Promise.all([
+          supabase.from('profiles').select('id, username, display_name, avatar_url').in('id', ids),
+          supabase.from('reviews')
+            .select('id, user_id, media_id, media_type, title, poster_path, rating, body, created_at')
+            .in('user_id', ids)
+            .not('poster_path', 'is', null)
+            .order('created_at', { ascending: false })
+            .limit(50),
+        ])
+
         const map = new Map<string, UserProfile>()
-        for (const p of (rows ?? []) as UserProfile[]) map.set(p.id, p)
+        for (const p of (profilesRes.data ?? []) as UserProfile[]) map.set(p.id, p)
         setProfiles(map)
+
+        // One review per user, most recent first, max 5
+        const seenUsers = new Set<string>()
+        const latest: FriendReview[] = []
+        for (const r of (reviewsRes.data ?? []) as { id: string; user_id: string; media_id: number; media_type: string; title: string; poster_path: string | null; rating: number | null; body: string | null; created_at: string }[]) {
+          if (!seenUsers.has(r.user_id) && latest.length < 5) {
+            seenUsers.add(r.user_id)
+            latest.push({ id: r.id, userId: r.user_id, mediaId: r.media_id, mediaType: r.media_type, mediaTitle: r.title, mediaPosterPath: r.poster_path, rating: r.rating, body: r.body, createdAt: r.created_at })
+          }
+        }
+        setFriendReviews(latest)
+
         loadFeed(ids, u.id)
       }
 
@@ -1239,6 +1323,11 @@ export default function ComunidadPage() {
       {/* ── FEED ── */}
       {tab === 'feed' && (
         <>
+          {/* Carrusel de últimas reseñas de amigos */}
+          {followingIds.length > 0 && friendReviews.length > 0 && (
+            <FriendReviewsCarousel reviews={friendReviews} profiles={profiles} />
+          )}
+
           {followingIds.length === 0 && (
             <div className="mb-6 bg-[#13131A] border border-[#FFFD02]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="text-3xl select-none">👥</div>
