@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase'
+import { addPoints } from '@/lib/points'
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Star, Bookmark, FileText, ChevronRight } from 'lucide-react'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -202,6 +203,12 @@ export default function ImportarPage() {
     }
 
     res.notFound = [...new Set(notFound)]
+
+    // Award XP for every successfully imported watched entry (2 pts each, same as marking watched manually)
+    if (res.watchedImported > 0) {
+      addPoints(user.id, res.watchedImported * 2)
+    }
+
     setResult(res)
     setPhase('done')
     addLog('🎉 Importación completada.')

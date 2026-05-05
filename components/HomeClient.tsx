@@ -1097,7 +1097,7 @@ export default function HomeClient() {
     const genreIds = favoriteGenres.map(g => GENRE_TO_ID[g]).filter(Boolean).slice(0, 3)
     Promise.all([
       fetch(`${TMDB}/discover/movie?api_key=${TMDB_KEY}&language=es-AR&sort_by=vote_average.desc&vote_count.gte=300&with_genres=${genreIds.join(',')}&page=1`).then(r => r.ok ? r.json() : { results: [] }),
-      supabase.from('watched').select('media_id').eq('user_id', user.id),
+      supabase.from('watched').select('media_id').eq('user_id', user.id).range(0, 9999),
     ]).then(([data, watchedRes]) => {
       const watchedSet = new Set((watchedRes.data ?? []).map((w: { media_id: number }) => w.media_id))
       type M = { id: number; title: string; poster_path: string | null; release_date?: string; vote_average: number; genre_ids: number[] }
