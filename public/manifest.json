@@ -3,6 +3,7 @@
   "short_name": "Glynbox",
   "description": "Descubrí qué ver hoy — películas y series",
   "start_url": "/",
+  "id": "/",
   "display": "standalone",
   "background_color": "#0A0A0F",
   "theme_color": "#FFFD02",

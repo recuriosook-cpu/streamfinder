@@ -1,4 +1,5 @@
 import type { NextConfig } from "next";
+import withPWA from "@ducanh2912/next-pwa";
 
 const nextConfig: NextConfig = {
   async redirects() {
@@ -28,4 +29,36 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default nextConfig;
+export default withPWA({
+  dest: 'public',
+  disable: process.env.NODE_ENV === 'development',
+  cacheOnFrontEndNav: true,
+  aggressiveFrontEndNavCaching: true,
+  workboxOptions: {
+    runtimeCaching: [
+      {
+        urlPattern: /^https:\/\/image\.tmdb\.org\/t\/p\/.*/i,
+        handler: 'StaleWhileRevalidate',
+        options: {
+          cacheName: 'tmdb-images',
+          expiration: {
+            maxEntries: 200,
+            maxAgeSeconds: 60 * 60 * 24 * 30,
+          },
+        },
+      },
+      {
+        urlPattern: /^https:\/\/.+/,
+        handler: 'NetworkFirst',
+        options: {
+          cacheName: 'pages-cache',
+          networkTimeoutSeconds: 10,
+          expiration: {
+            maxEntries: 50,
+            maxAgeSeconds: 60 * 60 * 24,
+          },
+        },
+      },
+    ],
+  },
+})(nextConfig);
