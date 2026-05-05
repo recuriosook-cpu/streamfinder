@@ -289,14 +289,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         wlCountRes, wlPreviewRes,
       ] = await Promise.all([
         supabase.auth.getUser(),
-        supabase.from('follows').select('follower_id').eq('following_id', profile.id),
-        supabase.from('follows').select('follower_id').eq('follower_id', profile.id),
-        supabase.from('watched').select('media_id').eq('user_id', profile.id).eq('media_type', 'movie'),
-        supabase.from('watched').select('media_id').eq('user_id', profile.id).eq('media_type', 'tv'),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', profile.id),
+        supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', profile.id),
+        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'movie'),
+        supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', profile.id).eq('media_type', 'tv'),
         supabase.from('pinned_favorites').select('*').eq('user_id', profile.id).order('slot'),
         supabase.from('reviews').select('*').eq('user_id', profile.id).order('created_at', { ascending: false }).limit(8),
         supabase.from('ratings').select('id,media_id,media_type,title,poster_path,rating,rated_at').eq('user_id', profile.id).order('rated_at', { ascending: false }).limit(8),
-        supabase.from('watchlist').select('media_id').eq('user_id', profile.id),
+        supabase.from('watchlist').select('*', { count: 'exact', head: true }).eq('user_id', profile.id),
         supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at').eq('user_id', profile.id).order('added_at', { ascending: false }).limit(6),
       ])
 
@@ -312,11 +312,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
       const uid = authRes.data.user?.id ?? null
       setCurrentUserId(uid)
-      setFollowersCount(followersRes.data?.length ?? 0)
-      setFollowingCount(followingRes.data?.length ?? 0)
-      setMoviesWatched(moviesRes.data?.length ?? 0)
-      setSeriesWatched(seriesRes.data?.length ?? 0)
-      setWatchlistCount(wlCountRes.data?.length ?? 0)
+      setFollowersCount(followersRes.count ?? 0)
+      setFollowingCount(followingRes.count ?? 0)
+      setMoviesWatched(moviesRes.count ?? 0)
+      setSeriesWatched(seriesRes.count ?? 0)
+      setWatchlistCount(wlCountRes.count ?? 0)
       setWatchlistPreview(wlPreviewRes.data ?? [])
 
       // Merge reviews + ratings, deduplicating by media_id:
@@ -360,9 +360,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     if (activeTab === 'yavi') {
       supabase.from('watched').select('id,media_id,media_type,title,poster_path,watched_at')
         .eq('user_id', profile.id).order('watched_at', { ascending: false })
+        .range(0, 9999)
         .then(({ data }) => setAllWatched(data ?? []))
       supabase.from('ratings').select('media_id,media_type,rating')
         .eq('user_id', profile.id)
+        .range(0, 9999)
         .then(({ data }) => {
           setWatchedRatings(new Map(
             (data ?? []).map((r: { media_id: number; media_type: string; rating: number }) =>
@@ -374,16 +376,19 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     if (activeTab === 'resenas') {
       supabase.from('reviews').select('*, review_likes(user_id)')
         .eq('user_id', profile.id).order('created_at', { ascending: false })
+        .range(0, 9999)
         .then(({ data }) => setAllReviews((data ?? []) as ReviewItem[]))
     }
     if (activeTab === 'paraVer') {
       supabase.from('watchlist').select('id,media_id,media_type,title,poster_path,added_at')
         .eq('user_id', profile.id).order('added_at', { ascending: false })
+        .range(0, 9999)
         .then(({ data }) => setAllWatchlist(data ?? []))
     }
     if (activeTab === 'favoritos') {
       supabase.from('favorites').select('id,media_id,media_type,title,poster_path,created_at')
         .eq('user_id', profile.id).order('created_at', { ascending: false })
+        .range(0, 9999)
         .then(({ data }) => setAllFavorites(data ?? []))
     }
     if (activeTab === 'listas') {
@@ -675,6 +680,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       .select('runtime')
       .eq('user_id', profile.id)
       .gte('watched_at', weekAgo)
+      .range(0, 9999)
       .then(({ data }) => {
         const mins = (data ?? []).reduce((acc: number, r: { runtime: number | null }) => acc + (r.runtime ?? 0), 0)
         setWeeklyMinutes(mins)
@@ -689,6 +695,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       .select('watched_at')
       .eq('user_id', profile.id)
       .gte('watched_at', twelveMonthsAgo.toISOString())
+      .range(0, 9999)
     const monthly = Array.from({ length: 12 }, (_, i) => {
       const d = new Date(); d.setMonth(d.getMonth() - (11 - i))
       const m = d.getMonth(); const y = d.getFullYear()
@@ -709,6 +716,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       .select('media_id, media_type, title, poster_path, rating')
       .eq('user_id', profile.id)
       .order('rating', { ascending: false })
+      .range(0, 9999)
     if (ratingsData?.length) {
       const top = ratingsData[0] as { media_id: number; media_type: string; title: string; poster_path: string | null; rating: number }
       const low = ratingsData[ratingsData.length - 1] as typeof top
@@ -718,7 +726,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
     // ── Top interactors (owner only) ────────────────────────────────
     if (currentUserId === profile.id) {
-      const { data: myReviews } = await supabase.from('reviews').select('id').eq('user_id', profile.id)
+      const { data: myReviews } = await supabase.from('reviews').select('id').eq('user_id', profile.id).range(0, 9999)
       const myReviewIds = (myReviews ?? []).map((r: { id: string }) => r.id)
       if (myReviewIds.length > 0) {
         const likersRes = await supabase.from('review_likes').select('user_id').in('review_id', myReviewIds)
@@ -751,7 +759,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .order('watched_at', { ascending: false }).limit(20)
       if (recentMovies?.length) {
         const providerCounts = new Map<string, { name: string; logoPath: string; count: number }>()
-        await Promise.all((recentMovies as { media_id: number }[]).map(async item => {
+        await Promise.allSettled((recentMovies as { media_id: number }[]).map(async item => {
           try {
             const res = await fetch(`https://api.themoviedb.org/3/movie/${item.media_id}/watch/providers?api_key=${TMDB_KEY}`)
             if (!res.ok) return
