@@ -977,29 +977,31 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
               {/* Action button */}
               {currentUserId === undefined ? null : isOwner ? (
-                <button
-                  onClick={() => {
-                    setEditName(localProfile.display_name ?? '')
-                    setEditBio(localProfile.bio ?? '')
-                    setEditUsername(localProfile.username ?? '')
-                    setEditInstagram(localProfile.instagram_username ?? '')
-                    setEditTiktok(localProfile.tiktok_username ?? '')
-                    setEditX(localProfile.x_username ?? '')
-                    setUsernameError(null)
-                    setAvatarFile(null)
-                    setAvatarPreview(null)
-                    setIsEditing(true)
-                  }}
-                  className="inline-flex items-center gap-2 text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
-                >
-                  <Pencil size={13} /> Editar perfil
-                </button>
-                <Link
-                  href="/importar"
-                  className="inline-flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-white border border-[#2A2A3A] hover:border-zinc-500 px-3 py-2 rounded-lg transition-colors"
-                >
-                  📥 Importar desde Letterboxd →
-                </Link>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => {
+                      setEditName(localProfile.display_name ?? '')
+                      setEditBio(localProfile.bio ?? '')
+                      setEditUsername(localProfile.username ?? '')
+                      setEditInstagram(localProfile.instagram_username ?? '')
+                      setEditTiktok(localProfile.tiktok_username ?? '')
+                      setEditX(localProfile.x_username ?? '')
+                      setUsernameError(null)
+                      setAvatarFile(null)
+                      setAvatarPreview(null)
+                      setIsEditing(true)
+                    }}
+                    className="inline-flex items-center gap-2 text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
+                  >
+                    <Pencil size={13} /> Editar perfil
+                  </button>
+                  <Link
+                    href="/importar"
+                    className="inline-flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-white transition-colors"
+                  >
+                    📥 Importar desde Letterboxd →
+                  </Link>
+                </div>
               ) : currentUserId ? (
                 <button
                   onClick={toggleFollow}
