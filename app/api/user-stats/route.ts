@@ -41,12 +41,13 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerClient()
 
-  // ── Fetch watched list ────────────────────────────────────────────────────
+  // ── Fetch watched list (sin limite de 1000) ───────────────────────────────
   const { data: watched } = await supabase
     .from('watched')
     .select('media_id, media_type, watched_at')
     .eq('user_id', userId)
     .order('watched_at', { ascending: false })
+    .range(0, 9999)
 
   const rows: WatchedRow[] = (watched ?? []) as WatchedRow[]
 
@@ -60,7 +61,7 @@ export async function GET(req: NextRequest) {
   const yearStr   = `${thisYear}-01-01`
   const monthStr  = `${thisYear}-${String(thisMonth + 1).padStart(2, '0')}-01`
 
-  // ── Fetch TMDB details + credits for every item in parallel ──────────────
+  // ── Fetch TMDB en lotes paralelos (mucho mas rapido) ─────────────────────
   type ItemData = {
     row: WatchedRow
     // eslint-disable-next-line @typescript-eslint/no-explicit-any
@@ -70,17 +71,22 @@ export async function GET(req: NextRequest) {
   }
 
   const items: ItemData[] = []
-  for (const row of rows) {
-    try {
-      const [details, credits] = await Promise.all([
-        tmdb(`/${row.media_type}/${row.media_id}`),
-        tmdb(`/${row.media_type}/${row.media_id}/credits`),
-      ])
-      items.push({ row, details, credits })
-    } catch {
-      // skip item on error, continue with next
+  const BATCH_SIZE = 20
+
+  for (let i = 0; i < rows.length; i += BATCH_SIZE) {
+    const batch = rows.slice(i, i + BATCH_SIZE)
+    const results = await Promise.allSettled(
+      batch.map(async row => {
+        const [details, credits] = await Promise.all([
+          tmdb(`/${row.media_type}/${row.media_id}`),
+          tmdb(`/${row.media_type}/${row.media_id}/credits`),
+        ])
+        return { row, details, credits }
+      })
+    )
+    for (const r of results) {
+      if (r.status === 'fulfilled') items.push(r.value)
     }
-    await new Promise(r => setTimeout(r, 200))
   }
 
   // ── Compute metrics ───────────────────────────────────────────────────────
