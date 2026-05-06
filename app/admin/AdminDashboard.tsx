@@ -2,6 +2,7 @@
 
 import { useState, useEffect, useRef } from 'react'
 import { useRouter } from 'next/navigation'
+import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import {
@@ -461,7 +462,16 @@ export default function AdminDashboard() {
               <p className="text-xs text-[#A0A0B0]">Glynbox</p>
             </div>
           </div>
-          {loading && <Loader2 size={18} className="animate-spin text-[#A0A0B0]" />}
+          <div className="flex items-center gap-3">
+            {loading && <Loader2 size={18} className="animate-spin text-[#A0A0B0]" />}
+            <Link
+              href="/admin/reportes"
+              className="inline-flex items-center gap-2 text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
+            >
+              <Shield size={14} className="text-[#FFFD02]" />
+              Reportes
+            </Link>
+          </div>
         </div>
       </div>
 

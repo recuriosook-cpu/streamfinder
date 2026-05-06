@@ -6,9 +6,10 @@ import Link from 'next/link'
 import {
   UserPlus, UserCheck, Plus, X,
   Search as SearchIcon, CheckCircle,
-  Pencil, Check, Share2,
+  Pencil, Check, Share2, Ban,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { getPosterUrl } from '@/lib/tmdb'
 import { addPoints, getLevelInfo } from '@/lib/points'
 import ReviewCard from '@/components/ReviewCard'
@@ -811,8 +812,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     setTimeout(() => setSharedToast(null), 3000)
   }
 
+  // ── Block ──────────────────────────────────────────────────────
+  const [showBlockConfirm, setShowBlockConfirm] = useState(false)
+  const [blockBusy, setBlockBusy]               = useState(false)
+  const { blockedIds, blockUser, unblockUser }  = useBlockedUsers()
+
   // ── Derived ────────────────────────────────────────────────────
-  const isOwner     = currentUserId === profile.id
+  const isOwner   = currentUserId === profile.id
+  const isBlocked = !isOwner && currentUserId != null && blockedIds.has(profile.id)
   const displayName = localProfile.display_name ?? localProfile.username ?? 'Usuario'
   const hasPinned   = pinned.some(Boolean)
 
@@ -1011,18 +1018,27 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   </Link>
                 </div>
               ) : currentUserId ? (
-                <button
-                  onClick={toggleFollow}
-                  disabled={followBusy}
-                  className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
-                    isFollowing
-                      ? 'bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300'
-                      : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
-                  }`}
-                >
-                  {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
-                  {isFollowing ? 'Siguiendo' : 'Seguir'}
-                </button>
+                <div className="flex items-center gap-2 flex-wrap">
+                  <button
+                    onClick={toggleFollow}
+                    disabled={followBusy}
+                    className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
+                      isFollowing
+                        ? 'bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300'
+                        : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
+                    }`}
+                  >
+                    {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
+                    {isFollowing ? 'Siguiendo' : 'Seguir'}
+                  </button>
+                  <button
+                    onClick={() => isBlocked ? unblockUser(profile.id) : setShowBlockConfirm(true)}
+                    className="inline-flex items-center gap-1.5 text-sm font-medium px-3 py-2 rounded-lg transition-colors bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-400 hover:text-white"
+                  >
+                    <Ban size={14} />
+                    {isBlocked ? 'Desbloquear' : 'Bloquear'}
+                  </button>
+                </div>
               ) : (
                 <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-5 py-2 rounded-lg transition-colors">
                   <UserPlus size={14} /> Seguir
@@ -1034,6 +1050,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         </div>
 
       {/* ── TAB BAR ────────────────────────────────────────────── */}
+      {!isBlocked && (
       <div className="sticky top-[57px] z-30 bg-[#0A0A0F]/95 backdrop-blur border-b border-[#2A2A3A]">
         <div className="max-w-5xl mx-auto px-4 flex overflow-x-auto no-scrollbar">
           {TABS.map(tab => (
@@ -1058,8 +1075,26 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           ))}
         </div>
       </div>
+      )}
 
       {/* ── TAB CONTENT ────────────────────────────────────────── */}
+      {isBlocked ? (
+        <div className="flex flex-col items-center justify-center py-20 gap-4 text-center max-w-5xl mx-auto px-4">
+          <div className="w-14 h-14 rounded-full bg-zinc-800 flex items-center justify-center">
+            <Ban size={24} className="text-zinc-500" />
+          </div>
+          <div>
+            <p className="text-base font-semibold text-white">Has bloqueado a este usuario</p>
+            <p className="text-sm text-zinc-500 mt-1">No podés ver su contenido mientras esté bloqueado</p>
+          </div>
+          <button
+            onClick={() => unblockUser(profile.id)}
+            className="text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
+          >
+            Desbloquear
+          </button>
+        </div>
+      ) : (
       <div className="max-w-5xl mx-auto px-4 py-8">
 
         {/* ── PERFIL ── */}
@@ -1864,6 +1899,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           </div>
         )}
       </div>
+      )}{/* end isBlocked ternary */}
 
       {/* ── FOLLOW LIST MODAL ─────────────────────────────────── */}
       {followListMode && (
@@ -2174,6 +2210,45 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               ) : !searchQuery.trim() ? (
                 <p className="text-zinc-700 text-sm text-center pt-6">Escribí el título para buscar</p>
               ) : null}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* ── BLOCK CONFIRM MODAL ────────────────────────────────── */}
+      {showBlockConfirm && (
+        <div
+          className="fixed inset-0 bg-black/80 z-50 flex items-center justify-center p-4"
+          onClick={e => { if (e.target === e.currentTarget && !blockBusy) setShowBlockConfirm(false) }}
+        >
+          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-4">
+            <p className="text-sm font-semibold text-white">¿Bloquear a @{localProfile.username}?</p>
+            <p className="text-xs text-zinc-400 leading-relaxed">
+              No verás más su contenido y no podrá interactuar con vos.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowBlockConfirm(false)}
+                disabled={blockBusy}
+                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={async () => {
+                  setBlockBusy(true)
+                  await blockUser(profile.id)
+                  setShowBlockConfirm(false)
+                  setBlockBusy(false)
+                }}
+                disabled={blockBusy}
+                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+              >
+                {blockBusy
+                  ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
+                  : <><Ban size={13} /> Bloquear</>
+                }
+              </button>
             </div>
           </div>
         </div>
