@@ -19,6 +19,14 @@ function SectionHeader({ label }: { label: string }) {
   )
 }
 
+function ComingSoonBadge() {
+  return (
+    <span className="text-[10px] font-medium bg-[#2A2A3A] text-[#A0A0B0] px-2 py-0.5 rounded-full shrink-0">
+      Próximamente
+    </span>
+  )
+}
+
 function SettingsRow({
   icon,
   label,
@@ -26,6 +34,7 @@ function SettingsRow({
   onClick,
   href,
   danger,
+  comingSoon,
 }: {
   icon: React.ReactNode
   label: string
@@ -33,7 +42,18 @@ function SettingsRow({
   onClick?: () => void
   href?: string
   danger?: boolean
+  comingSoon?: boolean
 }) {
+  if (comingSoon) {
+    return (
+      <div className="flex items-center gap-3 px-4 py-3.5 rounded-xl opacity-60 cursor-not-allowed text-zinc-300">
+        <span className="shrink-0 text-[#A0A0B0]">{icon}</span>
+        <span className="flex-1 text-sm font-medium">{label}</span>
+        <ComingSoonBadge />
+      </div>
+    )
+  }
+
   const inner = (
     <div
       className={`flex items-center gap-3 px-4 py-3.5 rounded-xl transition-colors cursor-pointer ${
@@ -135,12 +155,12 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Lock size={16} />}
                 label="Cambiar contraseña"
-                href="/ajustes/contrasena"
+                comingSoon
               />
               <SettingsRow
                 icon={<Shield size={16} />}
                 label="Privacidad"
-                href="/ajustes/privacidad"
+                comingSoon
               />
             </div>
           </div>
@@ -158,7 +178,7 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Bell size={16} />}
                 label="Notificaciones"
-                href="/ajustes/notificaciones"
+                comingSoon
               />
             </div>
           </div>
@@ -175,8 +195,7 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Upload size={16} />}
                 label="Exportar mis datos"
-                value="Próximamente"
-                onClick={() => {}}
+                comingSoon
               />
             </div>
           </div>
