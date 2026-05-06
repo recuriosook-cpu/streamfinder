@@ -1149,8 +1149,8 @@ export default function ComunidadPage() {
       supabase.from('reviews').select('*', { count: 'exact', head: true }).eq('user_id', uid),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('follower_id', uid),
       supabase.from('follows').select('*', { count: 'exact', head: true }).eq('following_id', uid),
-      supabase.from('reviews').select('body').eq('user_id', uid),
-      supabase.from('watched').select('media_id, media_type, genre_ids').eq('user_id', uid).limit(200),
+      supabase.from('reviews').select('body').eq('user_id', uid).range(0, 9999),
+      supabase.from('watched').select('media_id, media_type, genre_ids').eq('user_id', uid).range(0, 9999),
     ])
     const totalWatched = totalRes.count ?? 0, totalMovies = moviesRes.count ?? 0, totalTV = tvRes.count ?? 0
     const totalReviews = reviewsRes.count ?? 0, totalFollowing = followingRes.count ?? 0, totalFollowers = followersRes.count ?? 0

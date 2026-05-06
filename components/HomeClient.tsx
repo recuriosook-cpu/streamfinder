@@ -1097,12 +1097,21 @@ export default function HomeClient() {
     const genreIds = favoriteGenres.map(g => GENRE_TO_ID[g]).filter(Boolean).slice(0, 3)
     Promise.all([
       fetch(`${TMDB}/discover/movie?api_key=${TMDB_KEY}&language=es-AR&sort_by=vote_average.desc&vote_count.gte=300&with_genres=${genreIds.join(',')}&page=1`).then(r => r.ok ? r.json() : { results: [] }),
-      supabase.from('watched').select('media_id').eq('user_id', user.id).range(0, 9999),
-    ]).then(([data, watchedRes]) => {
-      const watchedSet = new Set((watchedRes.data ?? []).map((w: { media_id: number }) => w.media_id))
+      supabase.from('watched').select('media_id, media_type').eq('user_id', user.id).range(0, 9999),
+      supabase.from('watchlist').select('media_id, media_type').eq('user_id', user.id).range(0, 9999),
+      supabase.from('favorites').select('media_id, media_type').eq('user_id', user.id).range(0, 9999),
+    ]).then(([data, watchedRes, watchlistRes, favoritesRes]) => {
+      // Composite key "media_type:media_id" avoids false exclusions from cross-type ID collisions
+      type Row = { media_id: number; media_type: string }
+      const toKey = (r: Row) => `${r.media_type}:${r.media_id}`
+      const excludedSet = new Set<string>([
+        ...(watchedRes.data   ?? []).map(toKey),
+        ...(watchlistRes.data ?? []).map(toKey),
+        ...(favoritesRes.data ?? []).map(toKey),
+      ])
       type M = { id: number; title: string; poster_path: string | null; release_date?: string; vote_average: number; genre_ids: number[] }
       const items: ForYouItem[] = ((data.results ?? []) as M[])
-        .filter(m => m.poster_path && !watchedSet.has(m.id))
+        .filter(m => m.poster_path && !excludedSet.has(`movie:${m.id}`))
         .slice(0, 10)
         .map(m => {
           const movieGenres = new Set(m.genre_ids)

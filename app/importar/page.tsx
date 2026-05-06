@@ -151,7 +151,7 @@ export default function ImportarPage() {
       const { error } = await supabase.from('watched').upsert({
         user_id: user.id, media_id: movie.id, media_type: 'movie',
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
-        watched_at: row.Date ? new Date(row.Date).toISOString() : new Date().toISOString(),
+        watched_at: new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.watchedImported++; addLog(`✓ Visto: ${movie.title ?? row.Name}`) }
     }
@@ -167,7 +167,7 @@ export default function ImportarPage() {
       const { error } = await supabase.from('ratings').upsert({
         user_id: user.id, media_id: movie.id, media_type: 'movie',
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
-        rating, rated_at: row.Date ? new Date(row.Date).toISOString() : new Date().toISOString(),
+        rating, rated_at: new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.ratingsImported++; addLog(`★ Calificada: ${movie.title ?? row.Name} — ${rating}/5`) }
     }
@@ -180,7 +180,7 @@ export default function ImportarPage() {
       const { error } = await supabase.from('watchlist').upsert({
         user_id: user.id, media_id: movie.id, media_type: 'movie',
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
-        added_at: row.Date ? new Date(row.Date).toISOString() : new Date().toISOString(),
+        added_at: new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.watchlistImported++; addLog(`🔖 Watchlist: ${movie.title ?? row.Name}`) }
     }
@@ -197,7 +197,7 @@ export default function ImportarPage() {
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
         body: row.Review.trim(), rating: isNaN(rating ?? NaN) ? null : rating,
         recommended: true, has_spoiler: false,
-        created_at: row.Date ? new Date(row.Date).toISOString() : new Date().toISOString(),
+        created_at: new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.reviewsImported++; addLog(`✍ Reseña importada: ${movie.title ?? row.Name}`) }
     }
