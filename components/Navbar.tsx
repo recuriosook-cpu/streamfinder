@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock } from 'lucide-react'
+import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -678,6 +678,10 @@ export default function Navbar() {
                 Mi perfil
               </Link>
 
+              <Link href="/ajustes" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors" title="Ajustes">
+                <Settings size={16} />
+              </Link>
+
               {/* Notification bell */}
               <div className="relative" ref={notifRef}>
                 <button
@@ -821,6 +825,9 @@ export default function Navbar() {
                 Notificaciones {unreadCount > 0 && <span className="text-[#FFFD02]">({unreadCount})</span>}
               </button>
               <div className="border-t border-[#2A2A3A]" />
+              <Link href="/ajustes" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+                <Settings size={16} /> Ajustes
+              </Link>
               <button onClick={handleLogout} className="flex items-center gap-2 text-sm text-zinc-300 text-left">
                 <LogOut size={16} /> Salir
               </button>
