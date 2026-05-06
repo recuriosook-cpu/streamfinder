@@ -8,6 +8,7 @@ import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, Tag, Search } fr
 import Breadcrumb from '@/components/Breadcrumb'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import { sendNotification } from '@/lib/notify'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -114,7 +115,18 @@ export default function ListPage() {
       await supabase.from('list_likes').delete().eq('list_id', id).eq('user_id', currentUserId)
       setLiked(false); setLikeCount(c => c - 1)
     } else {
-      await supabase.from('list_likes').insert({ list_id: id, user_id: currentUserId })
+      const { error } = await supabase.from('list_likes').insert({ list_id: id, user_id: currentUserId })
+      if (!error && list && list.user_id !== currentUserId) {
+        // Fire-and-forget — non-critical
+        sendNotification(supabase as Parameters<typeof sendNotification>[0], {
+          user_id:      list.user_id,
+          actor_id:     currentUserId,
+          type:         'list_like',
+          entity_id:    id,
+          entity_type:  'list',
+          entity_title: list.title,
+        })
+      }
       setLiked(true); setLikeCount(c => c + 1)
     }
     setLikeBusy(false)
@@ -131,6 +143,17 @@ export default function ListPage() {
         .select('id,username,display_name,avatar_url').eq('id', currentUserId).maybeSingle()
       setComments(prev => [...prev, { ...(data as Comment), author: profile as Author | null }])
       setNewComment('')
+      // Notify list owner (fire-and-forget)
+      if (list && list.user_id !== currentUserId) {
+        sendNotification(supabase as Parameters<typeof sendNotification>[0], {
+          user_id:      list.user_id,
+          actor_id:     currentUserId,
+          type:         'list_comment',
+          entity_id:    id,
+          entity_type:  'list',
+          entity_title: list.title,
+        })
+      }
     }
     setSubmitting(false)
   }

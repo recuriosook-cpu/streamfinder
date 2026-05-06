@@ -41,11 +41,15 @@ function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
 interface NotifItem {
   id: string
   type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply' | 'mention' | 'level_up'
+      | 'list_like' | 'list_comment' | 'actor_birthday' | 'new_release'
   read: boolean
   created_at: string
-  actor_id: string
+  actor_id: string | null
   review_id: string | null
   review_title: string | null
+  entity_id: string | null
+  entity_type: string | null
+  entity_title: string | null
   // Populated from the reviews table for review_like / review_comment / comment_reply
   media_id?: number
   media_type?: string
@@ -150,7 +154,7 @@ export default function Navbar() {
     setNotifs([])
     const { data: rows, error } = await supabase
       .from('notifications')
-      .select('id, type, read, created_at, actor_id, review_id, review_title')
+      .select('id, type, read, created_at, actor_id, review_id, review_title, entity_id, entity_type, entity_title')
       .eq('user_id', user.id)
       .order('created_at', { ascending: false })
       .limit(15)
@@ -161,7 +165,8 @@ export default function Navbar() {
       return
     }
     if (!rows?.length) { setNotifLoading(false); return }
-    const actorIds = [...new Set(rows.map(r => r.actor_id))]
+    // actor_id is null for system notifications (actor_birthday, new_release)
+    const actorIds = [...new Set(rows.map(r => r.actor_id).filter(Boolean))] as string[]
     const { data: actors } = await supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url')
@@ -185,7 +190,7 @@ export default function Navbar() {
 
     setNotifs(rows.map(r => ({
       ...r,
-      actor: actorMap[r.actor_id] ?? null,
+      actor: r.actor_id ? (actorMap[r.actor_id] ?? null) : null,
       ...(r.review_id ? reviewMediaMap[r.review_id] ?? {} : {}),
     })) as NotifItem[])
     setNotifLoading(false)
@@ -210,6 +215,12 @@ export default function Navbar() {
       router.push('/profile')
     } else if (['review_like', 'review_comment', 'comment_reply', 'mention'].includes(n.type) && n.media_id && n.media_type) {
       router.push(`/${n.media_type}/${n.media_id}`)
+    } else if (['list_like', 'list_comment'].includes(n.type) && n.entity_id) {
+      router.push(`/listas/${n.entity_id}`)
+    } else if (n.type === 'actor_birthday' && n.entity_id) {
+      router.push(`/actor/${n.entity_id}`)
+    } else if (n.type === 'new_release' && n.entity_id) {
+      router.push(`/movie/${n.entity_id}`)
     }
   }
 
@@ -730,7 +741,11 @@ export default function Navbar() {
                               className={`w-full flex items-start gap-3 px-4 py-3 border-b border-[#2A2A3A]/50 last:border-0 text-left transition-colors hover:bg-zinc-700/50 ${!n.read ? 'bg-zinc-700/30' : ''}`}
                             >
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
-                                {n.actor?.avatar_url ? (
+                                {n.type === 'actor_birthday' ? (
+                                  <div className="w-full h-full flex items-center justify-center text-base bg-[#2A2A3A]">🎂</div>
+                                ) : n.type === 'new_release' ? (
+                                  <div className="w-full h-full flex items-center justify-center text-base bg-[#2A2A3A]">🎬</div>
+                                ) : n.actor?.avatar_url ? (
                                   <img src={n.actor.avatar_url} alt={actor} className="w-full h-full object-cover" />
                                 ) : (
                                   <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">
@@ -757,6 +772,18 @@ export default function Navbar() {
                                   )}
                                   {n.type === 'level_up' && (
                                     <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                  )}
+                                  {n.type === 'list_like' && (
+                                    <><span className="font-semibold text-white">{actor}</span> ❤️ le dio like a tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
+                                  )}
+                                  {n.type === 'list_comment' && (
+                                    <><span className="font-semibold text-white">{actor}</span> 💬 comentó en tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
+                                  )}
+                                  {n.type === 'actor_birthday' && (
+                                    <>🎂 <span className="text-[#FFFD02]">{n.entity_title}</span> cumple años hoy</>
+                                  )}
+                                  {n.type === 'new_release' && (
+                                    <>🎬 <span className="text-[#FFFD02]">{n.entity_title}</span></>
                                   )}
                                 </p>
                                 <p className="text-[11px] text-zinc-600 mt-0.5">{time}</p>
