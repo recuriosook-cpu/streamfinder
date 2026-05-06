@@ -12,6 +12,7 @@ import { createClient } from '@/lib/supabase'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { getPosterUrl } from '@/lib/tmdb'
 import { addPoints, getLevelInfo } from '@/lib/points'
+import { sendNotification } from '@/lib/notify'
 import ReviewCard from '@/components/ReviewCard'
 import StarDisplay from '@/components/StarDisplay'
 
@@ -440,7 +441,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         addPoints(currentUserId, 1)      // follower gains 1 pt for following
         addPoints(profile.id, 3)         // followed user gains 3 pts
         // Notify the followed user — done client-side since DB triggers are unavailable
-        await supabase.from('notifications').insert({
+        await sendNotification(supabase as Parameters<typeof sendNotification>[0], {
           user_id:  profile.id,
           actor_id: currentUserId,
           type:     'follow',
@@ -581,7 +582,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .from('follows')
         .insert({ follower_id: currentUserId, following_id: targetId })
       if (!error) {
-        await supabase.from('notifications').insert({
+        await sendNotification(supabase as Parameters<typeof sendNotification>[0], {
           user_id:  targetId,
           actor_id: currentUserId,
           type:     'follow',

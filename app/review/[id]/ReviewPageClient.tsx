@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
+import { sendNotification } from '@/lib/notify'
 
 // ── Render @mentions as yellow links ──────────────────────────────────────
 function WithMentions({ text }: { text: string }) {
@@ -191,8 +192,9 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
       setComments(prev => [...prev, { ...data, author: myProfile ?? null }])
 
+      const sb = supabase as Parameters<typeof sendNotification>[0]
       if (replyTo && replyTo.authorId !== currentUserId) {
-        await supabase.from('notifications').insert({
+        await sendNotification(sb, {
           user_id:      replyTo.authorId,
           actor_id:     currentUserId,
           type:         'comment_reply',
@@ -202,7 +204,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
           comment_id:   replyTo.id,
         })
       } else if (!replyTo && review.authorId !== currentUserId) {
-        await supabase.from('notifications').insert({
+        await sendNotification(sb, {
           user_id:      review.authorId,
           actor_id:     currentUserId,
           type:         'review_comment',
@@ -219,7 +221,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
           .from('profiles').select('id').in('username', mentioned)
         for (const mp of mentionedProfiles ?? []) {
           if (mp.id !== currentUserId) {
-            supabase.from('notifications').insert({
+            sendNotification(sb, {
               user_id:      mp.id,
               actor_id:     currentUserId,
               type:         'mention',

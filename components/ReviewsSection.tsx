@@ -7,6 +7,7 @@ import ReviewCard from '@/components/ReviewCard'
 import MentionTextarea from '@/components/MentionTextarea'
 import { StarIcon } from '@/components/StarDisplay'
 import { addPoints } from '@/lib/points'
+import { sendNotification } from '@/lib/notify'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -186,7 +187,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           .in('username', mentionedUsernames)
         for (const p of mentionedProfiles ?? []) {
           if (p.id !== currentUserId) {
-            supabase.from('notifications').insert({
+            sendNotification(supabase as Parameters<typeof sendNotification>[0], {
               user_id:      p.id,
               actor_id:     currentUserId,
               type:         'mention',

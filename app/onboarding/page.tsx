@@ -7,6 +7,7 @@ import { Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { getLevelInfo } from '@/lib/points'
+import { sendNotification } from '@/lib/notify'
 import { StarIcon } from '@/components/StarDisplay'
 import type { User } from '@supabase/supabase-js'
 
@@ -491,7 +492,7 @@ export default function OnboardingPage() {
     setFollowed(prev => { const next = new Set(prev); nowFollowing ? next.delete(targetId) : next.add(targetId); return next })
     if (!nowFollowing) {
       await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId })
-      supabase.from('notifications').insert({ user_id: targetId, actor_id: user.id, type: 'follow' })
+      sendNotification(supabase as Parameters<typeof sendNotification>[0], { user_id: targetId, actor_id: user.id, type: 'follow' })
     } else {
       await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', targetId)
     }

@@ -11,6 +11,7 @@ import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
 import ReportModal from '@/components/ReportModal'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
+import { sendNotification } from '@/lib/notify'
 
 // Render text with @mentions as yellow links
 function BodyWithMentions({ text }: { text: string }) {
@@ -185,20 +186,19 @@ export default function ReviewCard({
       const actorUsername = myProfile?.username ?? ''
       const actorAvatar   = myProfile?.avatar_url ?? null
 
+      const sb = supabase as Parameters<typeof sendNotification>[0]
       if (replyTo && replyTo.authorId !== currentUserId) {
-        const { error: notifError } = await supabase.from('notifications').insert({
+        await sendNotification(sb, {
           user_id: replyTo.authorId, actor_id: currentUserId, type: 'comment_reply',
           review_id: id, review_title: mediaTitle, actor_username: actorUsername,
           actor_avatar: actorAvatar, read: false, comment_id: replyTo.id,
         })
-        if (notifError) console.error('[notification insert error] comment_reply:', notifError)
       } else if (!replyTo && authorId !== currentUserId) {
-        const { error: notifError } = await supabase.from('notifications').insert({
+        await sendNotification(sb, {
           user_id: authorId, actor_id: currentUserId, type: 'review_comment',
           review_id: id, review_title: mediaTitle, actor_username: actorUsername,
           actor_avatar: actorAvatar, read: false,
         })
-        if (notifError) console.error('[notification insert error] review_comment:', notifError)
       }
 
       try {
@@ -208,7 +208,7 @@ export default function ReviewCard({
             .from('profiles').select('id').in('username', mentioned)
           for (const mp of mentionedProfiles ?? []) {
             if (mp.id !== currentUserId) {
-              await supabase.from('notifications').insert({
+              await sendNotification(sb, {
                 user_id: mp.id, actor_id: currentUserId, type: 'mention',
                 review_id: id, review_title: mediaTitle, actor_username: actorUsername,
                 actor_avatar: actorAvatar, read: false,

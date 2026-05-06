@@ -155,7 +155,7 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Lock size={16} />}
                 label="Cambiar contraseña"
-                comingSoon
+                href="/ajustes/contrasena"
               />
               <SettingsRow
                 icon={<Shield size={16} />}
@@ -178,7 +178,7 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Bell size={16} />}
                 label="Notificaciones"
-                comingSoon
+                href="/ajustes/notificaciones"
               />
             </div>
           </div>
@@ -195,7 +195,7 @@ export default function AjustesPage() {
               <SettingsRow
                 icon={<Upload size={16} />}
                 label="Exportar mis datos"
-                comingSoon
+                href="/ajustes/exportar"
               />
             </div>
           </div>
