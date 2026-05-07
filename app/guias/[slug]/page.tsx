@@ -20,6 +20,9 @@ export async function generateMetadata(
   const { slug } = await params
   const guide = getGuideBySlug(slug)
   if (!guide) return {}
+  const ogImage = guide.heroImage
+    ? `https://glynbox.com${guide.heroImage}`
+    : undefined
   return {
     title:       `${guide.title} — Glynbox`,
     description: guide.description,
@@ -31,6 +34,13 @@ export async function generateMetadata(
       modifiedTime:  guide.updatedAt,
       authors:       [guide.author],
       tags:          guide.tags,
+      ...(ogImage && { images: [{ url: ogImage, width: 1200, height: 600 }] }),
+    },
+    twitter: {
+      card:        'summary_large_image',
+      title:       guide.title,
+      description: guide.description,
+      ...(ogImage && { images: [ogImage] }),
     },
   }
 }
@@ -88,11 +98,27 @@ export default async function GuideSlugPage(
       <div className="min-h-screen bg-[#0A0A0F]">
 
         {/* Hero */}
-        <div
-          className="relative py-16 px-4"
-          style={{ background: `linear-gradient(135deg, ${guide.heroColor ?? '#1a1a2e'} 0%, #0A0A0F 100%)` }}
-        >
-          <div className="max-w-3xl mx-auto">
+        <div className="relative h-[420px] overflow-hidden">
+          {/* Background: hero image or gradient fallback */}
+          {guide.heroImage ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img
+              src={guide.heroImage}
+              alt={guide.title}
+              className="absolute inset-0 w-full h-full object-cover"
+            />
+          ) : (
+            <div
+              className="absolute inset-0"
+              style={{ background: `linear-gradient(135deg, ${guide.heroColor ?? '#1a1a2e'} 0%, #0A0A0F 100%)` }}
+            />
+          )}
+          {/* Dark overlay for text legibility */}
+          <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0F] via-black/60 to-black/30" />
+
+          {/* Content */}
+          <div className="relative h-full flex flex-col justify-end px-4 pb-10">
+          <div className="max-w-3xl mx-auto w-full">
             <Link
               href="/guias"
               className="inline-flex items-center gap-1.5 text-xs text-zinc-500 hover:text-zinc-300 transition-colors mb-8"
@@ -110,13 +136,14 @@ export default async function GuideSlugPage(
             <p className="text-[#A0A0B0] text-lg leading-relaxed mb-6 max-w-2xl">
               {guide.description}
             </p>
-            <div className="flex items-center gap-3 text-xs text-zinc-600">
-              <span>por <strong className="text-zinc-400">{guide.author}</strong></span>
+            <div className="flex items-center gap-3 text-xs text-zinc-500">
+              <span>por <strong className="text-zinc-300">{guide.author}</strong></span>
               <span>·</span>
               <span>{date}</span>
               <span>·</span>
               <span>{guide.movies.length} películas</span>
             </div>
+          </div>
           </div>
         </div>
 

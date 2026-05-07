@@ -9,6 +9,7 @@ import MoodRecommender from '@/components/MoodRecommender'
 import PlatformCarousel from '@/components/PlatformCarousel'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import BirthdayCarousel from '@/components/BirthdayCarousel'
+import GuidesCarousel from '@/components/GuidesCarousel'
 import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
@@ -1420,7 +1421,10 @@ export default function HomeClient() {
         {/* SECCIÓN 6b — LISTAS DE GLYNBOX */}
         <OfficialListsSection lists={officialLists} loading={officialListsLoading} />
 
-        {/* SECCIÓN 7 — CUMPLEAÑOS */}
+        {/* SECCIÓN 7 — GUÍAS */}
+        <GuidesCarousel />
+
+        {/* SECCIÓN 8 — CUMPLEAÑOS */}
         <BirthdayCarousel />
 
         {/* SECCIÓN 8 — CARRUSELES POR PLATAFORMA */}
