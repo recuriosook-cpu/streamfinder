@@ -34,12 +34,8 @@ export default withPWA({
   disable: process.env.NODE_ENV === 'development',
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
   workboxOptions: {
-    importScripts: ['/custom-sw.js'],
-    // importScripts loads custom-sw.js (push + notificationclick handlers).
-    // The file is served statically from /public/custom-sw.js → /custom-sw.js.
-    // worker/index.js is also compiled by next-pwa as a secondary mechanism.
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
     importScripts: ['/custom-sw.js'] as any,
     runtimeCaching: [
       {
