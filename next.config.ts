@@ -35,6 +35,7 @@ export default withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   workboxOptions: {
+    importScripts: ['/custom-sw.js'],
     // importScripts loads custom-sw.js (push + notificationclick handlers).
     // The file is served statically from /public/custom-sw.js → /custom-sw.js.
     // worker/index.js is also compiled by next-pwa as a secondary mechanism.
