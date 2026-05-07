@@ -73,5 +73,20 @@ export async function sendNotification(
   }
 
   const { error } = await supabase.from('notifications').insert(payload)
-  if (error) console.error(`[notify] ${payload.type}:`, error.message)
+  if (error) { console.error(`[notify] ${payload.type}:`, error.message); return }
+
+  // Fire-and-forget push — only from browser context (web-push is server-only)
+  if (typeof window !== 'undefined') {
+    fetch('/api/send-push', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify({
+        userId:      payload.user_id,
+        type:        payload.type,
+        actorName:   payload.actor_username,
+        entityTitle: payload.entity_title ?? payload.review_title,
+        entityId:    payload.entity_id,
+      }),
+    }).catch(() => {})
+  }
 }

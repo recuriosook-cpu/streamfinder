@@ -8,6 +8,7 @@ import MentionTextarea from '@/components/MentionTextarea'
 import { StarIcon } from '@/components/StarDisplay'
 import { addPoints } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
+import { usePushPrompt } from '@/lib/use-push-prompt'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -38,6 +39,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const supabase = createClient()
 
   const [reviews, setReviews]                 = useState<Review[]>([])
+  // currentUserId starts null — hook reads it after auth resolves
   const [currentUserId, setCurrentUserId]     = useState<string | null>(null)
   const [loading, setLoading]                 = useState(true)
   const [showForm, setShowForm]               = useState(false)
@@ -50,6 +52,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [submitting, setSubmitting]           = useState(false)
   const [ratingLocked, setRatingLocked]       = useState(false)
   const [glynboxStats, setGlynboxStats]       = useState<{ avg: number; count: number; dist: Record<number, number> } | null>(null)
+
+  const { promptForPush } = usePushPrompt(currentUserId)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
@@ -171,6 +175,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         .single()
       if (error) { console.error('[submitReview]', error); setSubmitting(false); return }
       reviewId = data?.id ?? null
+      // Prompt for push after first successful review creation (fire-and-forget)
+      if (reviewId) promptForPush()
     }
 
     // Points for writing review (+10, +5 bonus if body >= 200 chars)

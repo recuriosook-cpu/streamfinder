@@ -13,6 +13,7 @@ import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { getPosterUrl } from '@/lib/tmdb'
 import { addPoints, getLevelInfo } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
+import { usePushPrompt } from '@/lib/use-push-prompt'
 import ReviewCard from '@/components/ReviewCard'
 import StarDisplay from '@/components/StarDisplay'
 
@@ -446,6 +447,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
           actor_id: currentUserId,
           type:     'follow',
         })
+        // Prompt for push after first follow action (fire-and-forget)
+        promptForPush()
       }
       setIsFollowing(true)
       setFollowersCount(c => c + 1)
@@ -817,6 +820,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [showBlockConfirm, setShowBlockConfirm] = useState(false)
   const [blockBusy, setBlockBusy]               = useState(false)
   const { blockedIds, blockUser, unblockUser }  = useBlockedUsers()
+  const { promptForPush } = usePushPrompt(currentUserId ?? null)
 
   // ── Derived ────────────────────────────────────────────────────
   const isOwner   = currentUserId === profile.id

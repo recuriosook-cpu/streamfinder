@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { sendPushToUser, buildPushPayload } from '@/lib/send-push-notification'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -136,8 +137,11 @@ export async function GET(req: Request) {
         entity_title: actor_name,
         read:         false,
       })
-      if (error) summary.errors.push(`birthday insert ${actor_id}: ${error.message}`)
-      else summary.birthday++
+      if (error) { summary.errors.push(`birthday insert ${actor_id}: ${error.message}`); continue }
+      summary.birthday++
+      // Push notification (fire-and-forget)
+      const bdPush = buildPushPayload('actor_birthday', undefined, actor_name, String(actor_id))
+      if (bdPush) sendPushToUser(user_id, bdPush).catch(() => {})
     }
   }
 
@@ -188,16 +192,20 @@ export async function GET(req: Request) {
           // Check preference
           if (!(await checkPref(admin, userId, 'new_release'))) continue
 
+          const entityTitle = `Nueva de ${actorName}: ${movie.title}`
           const { error } = await admin.from('notifications').insert({
             user_id:      userId,
             type:         'new_release',
             entity_id:    String(movie.id),
             entity_type:  'movie',
-            entity_title: `Nueva de ${actorName}: ${movie.title}`,
+            entity_title: entityTitle,
             read:         false,
           })
-          if (error) summary.errors.push(`new_release ${movie.id}: ${error.message}`)
-          else summary.new_release++
+          if (error) { summary.errors.push(`new_release ${movie.id}: ${error.message}`); continue }
+          summary.new_release++
+          // Push notification (fire-and-forget)
+          const nrPush = buildPushPayload('new_release', undefined, entityTitle, String(movie.id))
+          if (nrPush) sendPushToUser(userId, nrPush).catch(() => {})
         }
       }
     }
