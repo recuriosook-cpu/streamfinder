@@ -658,7 +658,10 @@ export default function Navbar() {
             <Compass size={16} />
             Qué ver
           </Link>
-          {/* Guías link temporarily disabled — movie IDs under review */}
+          <Link href="/guias" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+            <BookOpen size={16} />
+            Guías
+          </Link>
           {user ? (
             <>
               <Link href="/comunidad" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
@@ -829,7 +832,9 @@ export default function Navbar() {
           <Link href="/que-ver" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
             <Compass size={16} /> Qué ver
           </Link>
-          {/* Guías link temporarily disabled */}
+          <Link href="/guias" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+            <BookOpen size={16} /> Guías
+          </Link>
           {user ? (
             <>
               <div className="border-t border-[#2A2A3A]" />
