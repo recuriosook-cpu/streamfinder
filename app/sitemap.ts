@@ -1,4 +1,5 @@
 import { MetadataRoute } from 'next'
+import { getAllGuides } from '@/lib/guides'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const BASE = 'https://glynbox.com'
@@ -8,9 +9,21 @@ const staticPages: MetadataRoute.Sitemap = [
   { url: `${BASE}/que-ver`,        changeFrequency: 'daily',   priority: 0.8 },
   { url: `${BASE}/comunidad`,      changeFrequency: 'hourly',  priority: 0.8 },
   { url: `${BASE}/listas`,         changeFrequency: 'weekly',  priority: 0.7 },
+  { url: `${BASE}/guias`,          changeFrequency: 'weekly',  priority: 0.8 },
   { url: `${BASE}/privacidad`,     changeFrequency: 'monthly', priority: 0.3 },
   { url: `${BASE}/terminos`,       changeFrequency: 'monthly', priority: 0.3 },
 ]
+
+function getGuidePages(): MetadataRoute.Sitemap {
+  try {
+    return getAllGuides().map(g => ({
+      url:             `${BASE}/guias/${g.slug}`,
+      changeFrequency: 'monthly' as const,
+      priority:        0.8,
+      lastModified:    new Date(g.updatedAt),
+    }))
+  } catch { return [] }
+}
 
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
   if (!TMDB_KEY) return staticPages
@@ -49,8 +62,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority:        0.6,
       }))
 
-    return [...staticPages, ...movieEntries, ...tvEntries]
+    return [...staticPages, ...getGuidePages(), ...movieEntries, ...tvEntries]
   } catch {
-    return staticPages
+    return [...staticPages, ...getGuidePages()]
   }
 }

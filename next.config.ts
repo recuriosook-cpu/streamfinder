@@ -1,7 +1,9 @@
 import type { NextConfig } from "next";
 import withPWA from "@ducanh2912/next-pwa";
+import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
+  pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
   async redirects() {
     return [
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
@@ -29,7 +31,9 @@ const nextConfig: NextConfig = {
   },
 };
 
-export default withPWA({
+const withMDX = createMDX({ extension: /\.mdx?$/ })
+
+export default withMDX(withPWA({
   dest: 'public',
   disable: process.env.NODE_ENV === 'development',
   cacheOnFrontEndNav: true,
@@ -63,4 +67,4 @@ export default withPWA({
       },
     ],
   },
-})(nextConfig);
+})(nextConfig))
