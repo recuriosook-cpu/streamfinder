@@ -35,7 +35,6 @@ export default withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   workboxOptions: {
-    importScripts: ['/custom-sw.js'],
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/image\.tmdb\.org\/t\/p\/.*/i,
