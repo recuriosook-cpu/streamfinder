@@ -35,6 +35,11 @@ export default withPWA({
   cacheOnFrontEndNav: true,
   aggressiveFrontEndNavCaching: true,
   workboxOptions: {
+    // importScripts loads custom-sw.js (push + notificationclick handlers).
+    // The file is served statically from /public/custom-sw.js → /custom-sw.js.
+    // worker/index.js is also compiled by next-pwa as a secondary mechanism.
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    importScripts: ['/custom-sw.js'] as any,
     runtimeCaching: [
       {
         urlPattern: /^https:\/\/image\.tmdb\.org\/t\/p\/.*/i,
