@@ -38,7 +38,10 @@ export async function POST(req: Request) {
   }
 
   const pushPayload = buildPushPayload(type, actorName, entityTitle, entityId)
-  if (!pushPayload) return NextResponse.json({ ok: true }) // unknown type — skip silently
+  if (!pushPayload) {
+    console.warn('[send-push] no payload for type:', type)
+    return NextResponse.json({ ok: true, skipped: 'unknown type' })
+  }
 
   await sendPushToUser(userId, pushPayload)
 

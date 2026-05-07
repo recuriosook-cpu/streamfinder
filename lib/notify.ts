@@ -87,6 +87,14 @@ export async function sendNotification(
         entityTitle: payload.entity_title ?? payload.review_title,
         entityId:    payload.entity_id,
       }),
-    }).catch(() => {})
+    })
+      .then(res => {
+        if (!res.ok) {
+          res.json().catch(() => null).then(b =>
+            console.warn('[push] send-push failed', res.status, b)
+          )
+        }
+      })
+      .catch(err => console.warn('[push] fetch error:', err))
   }
 }

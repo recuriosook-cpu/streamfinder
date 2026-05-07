@@ -87,16 +87,27 @@ export async function sendPushToUser(
   pushPayload: PushPayload
 ): Promise<void> {
   initVapid()
-  if (!vapidInitialised) return
+  if (!vapidInitialised) {
+    console.warn('[push] skipping sendPushToUser — VAPID not initialised (check VAPID_PRIVATE_KEY, NEXT_PUBLIC_VAPID_PUBLIC_KEY, VAPID_SUBJECT in env)')
+    return
+  }
 
   const admin = adminSupabase()
 
-  const { data: subs } = await admin
+  const { data: subs, error: subsError } = await admin
     .from('push_subscriptions')
     .select('id, endpoint, p256dh_key, auth_key')
     .eq('user_id', userId)
 
-  if (!subs?.length) return
+  if (subsError) {
+    console.error('[push] error fetching subscriptions:', subsError.message)
+    return
+  }
+  if (!subs?.length) {
+    console.log('[push] no subscriptions found for user:', userId)
+    return
+  }
+  console.log(`[push] sending to ${subs.length} subscription(s) for user ${userId}`)
 
   const expiredIds: string[] = []
 
