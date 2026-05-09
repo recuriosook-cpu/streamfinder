@@ -85,10 +85,15 @@ export default function ListasPage() {
       {/* Header */}
       <div className="flex items-center justify-between mb-6 gap-4 flex-wrap">
         <h1 className="text-2xl font-bold text-white">Listas</h1>
-        {isLoggedIn && (
+        {isLoggedIn ? (
           <Link href="/listas/nueva"
             className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] transition-colors">
             <Plus size={16} /> Crear lista
+          </Link>
+        ) : (
+          <Link href="/auth"
+            className="flex items-center gap-2 px-5 py-2.5 rounded-full text-sm font-semibold text-[#FFFD02] border border-[#FFFD02]/40 hover:bg-[#FFFD02]/10 transition-colors">
+            <Plus size={16} /> Iniciá sesión para crear
           </Link>
         )}
       </div>

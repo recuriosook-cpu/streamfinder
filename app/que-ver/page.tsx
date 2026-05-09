@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 export const metadata: Metadata = {
   title: 'Qué ver hoy — Glynbox',
   description: 'Descubrí películas y series según tu estado de ánimo. Filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
+  robots: { index: false, follow: true },
   openGraph: {
     title:       'Qué ver hoy — Glynbox',
     description: 'Descubrí películas y series según tu estado de ánimo. Filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',

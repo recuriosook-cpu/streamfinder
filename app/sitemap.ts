@@ -2,16 +2,20 @@ import { MetadataRoute } from 'next'
 import { getAllGuides } from '@/lib/guides'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
+const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 const BASE = 'https://glynbox.com'
 
 const staticPages: MetadataRoute.Sitemap = [
-  { url: BASE,                     changeFrequency: 'daily',   priority: 1   },
-  { url: `${BASE}/que-ver`,        changeFrequency: 'daily',   priority: 0.8 },
-  { url: `${BASE}/comunidad`,      changeFrequency: 'hourly',  priority: 0.8 },
-  { url: `${BASE}/listas`,         changeFrequency: 'weekly',  priority: 0.7 },
-  { url: `${BASE}/guias`,          changeFrequency: 'weekly',  priority: 0.8 },
-  { url: `${BASE}/privacidad`,     changeFrequency: 'monthly', priority: 0.3 },
-  { url: `${BASE}/terminos`,       changeFrequency: 'monthly', priority: 0.3 },
+  { url: BASE,                        changeFrequency: 'daily',   priority: 1   },
+  { url: `${BASE}/comunidad`,         changeFrequency: 'hourly',  priority: 0.8 },
+  { url: `${BASE}/listas`,            changeFrequency: 'weekly',  priority: 0.7 },
+  { url: `${BASE}/guias`,             changeFrequency: 'weekly',  priority: 0.8 },
+  { url: `${BASE}/privacidad`,        changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/terminos`,          changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/soporte`,           changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/anunciantes`,       changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/eliminar-cuenta`,   changeFrequency: 'monthly', priority: 0.2 },
 ]
 
 function getGuidePages(): MetadataRoute.Sitemap {
@@ -25,11 +29,62 @@ function getGuidePages(): MetadataRoute.Sitemap {
   } catch { return [] }
 }
 
+async function supabaseFetch(path: string): Promise<{ id: string; [key: string]: string | null }[]> {
+  if (!SUPABASE_URL || !SUPABASE_KEY) return []
+  try {
+    const res = await fetch(`${SUPABASE_URL}/rest/v1/${path}`, {
+      headers: {
+        apikey: SUPABASE_KEY,
+        Authorization: `Bearer ${SUPABASE_KEY}`,
+      },
+      next: { revalidate: 3600 },
+    })
+    if (!res.ok) return []
+    return res.json()
+  } catch { return [] }
+}
+
+async function getPublicListPages(): Promise<MetadataRoute.Sitemap> {
+  const rows = await supabaseFetch('lists?is_public=eq.true&select=id&limit=500')
+  return rows.map(r => ({
+    url:             `${BASE}/listas/${r.id}`,
+    changeFrequency: 'weekly' as const,
+    priority:        0.6,
+  }))
+}
+
+async function getPublicProfilePages(): Promise<MetadataRoute.Sitemap> {
+  const rows = await supabaseFetch('profiles?select=username&username=not.is.null&limit=500')
+  return rows
+    .filter(r => r.username)
+    .map(r => ({
+      url:             `${BASE}/usuario/${r.username}`,
+      changeFrequency: 'weekly' as const,
+      priority:        0.5,
+    }))
+}
+
+async function getPublicReviewPages(): Promise<MetadataRoute.Sitemap> {
+  const rows = await supabaseFetch('reviews?select=id&limit=500&order=created_at.desc')
+  return rows.map(r => ({
+    url:             `${BASE}/review/${r.id}`,
+    changeFrequency: 'monthly' as const,
+    priority:        0.5,
+  }))
+}
+
 export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
-  if (!TMDB_KEY) return staticPages
+  const guidePages = getGuidePages()
+
+  const [publicLists, publicProfiles, publicReviews] = await Promise.all([
+    getPublicListPages(),
+    getPublicProfilePages(),
+    getPublicReviewPages(),
+  ])
+
+  if (!TMDB_KEY) return [...staticPages, ...guidePages, ...publicLists, ...publicProfiles, ...publicReviews]
 
   try {
-    // Fetch 5 pages of popular movies (20 per page = 100) + 3 pages of TV (60)
     const moviePages = [1, 2, 3, 4, 5]
     const tvPages    = [1, 2, 3]
 
@@ -62,8 +117,8 @@ export default async function sitemap(): Promise<MetadataRoute.Sitemap> {
         priority:        0.6,
       }))
 
-    return [...staticPages, ...getGuidePages(), ...movieEntries, ...tvEntries]
+    return [...staticPages, ...guidePages, ...publicLists, ...publicProfiles, ...publicReviews, ...movieEntries, ...tvEntries]
   } catch {
-    return [...staticPages, ...getGuidePages()]
+    return [...staticPages, ...guidePages, ...publicLists, ...publicProfiles, ...publicReviews]
   }
 }

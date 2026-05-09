@@ -5,7 +5,17 @@ export default function robots(): MetadataRoute.Robots {
     rules: {
       userAgent: '*',
       allow: '/',
-      disallow: ['/api/', '/profile', '/favoritos', '/siguiendo'],
+      disallow: [
+        '/api/',
+        '/admin/',
+        '/ajustes/',
+        '/favorites',
+        '/importar',
+        '/listas/nueva',
+        '/onboarding',
+        '/profile',
+        '/siguiendo',
+      ],
     },
     sitemap: 'https://glynbox.com/sitemap.xml',
   }

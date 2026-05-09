@@ -3,6 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
+import { useRouter } from 'next/navigation'
 import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
@@ -524,16 +525,17 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
   )
 }
 
-function RecommendationCard({ item, currentUserId, supabase }: {
+function RecommendationCard({ item, currentUserId, supabase, onAuthRequired }: {
   item: RecommendationFeed; currentUserId: string
   supabase: ReturnType<typeof createClient>
+  onAuthRequired?: () => void
 }) {
   const [watched,   setWatched]   = useState(false)
   const [liked,     setLiked]     = useState(false)
   const [watchlist, setWatchlist] = useState(false)
   const [busy,      setBusy]      = useState(false)
   const act = async (type: 'watched' | 'liked' | 'watchlist') => {
-    if (busy || !currentUserId) return
+    if (busy || !currentUserId) { onAuthRequired?.(); return }
     setBusy(true)
     const base = { user_id: currentUserId, media_id: item.movieId, media_type: 'movie', title: item.title, poster_path: item.posterPath }
     if (type === 'watched') {
@@ -856,6 +858,7 @@ function ActorReleaseCard({ item }: { item: ActorReleaseFeed }) {
 
 export default function ComunidadPage() {
   const supabase = useRef(createClient()).current
+  const router = useRouter()
 
   const [user,          setUser]          = useState<User | null | undefined>(undefined)
   const [currentUserId, setCurrentUserId] = useState('')
@@ -892,7 +895,7 @@ export default function ComunidadPage() {
   useEffect(() => {
     async function bootstrap() {
       const { data: { user: u } } = await supabase.auth.getUser()
-      if (!u) { setUser(null); setLoading(false); return }
+      if (!u) { setUser(null); setLoading(false); loadPublicFeed(); loadRecommendations([]); return }
       setUser(u)
       setCurrentUserId(u.id)
 
@@ -962,6 +965,81 @@ export default function ComunidadPage() {
       })))
     } catch { /* ignore */ }
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // ── Public feed (guest) ────────────────────────────────────────────────────
+  const loadPublicFeed = useCallback(async () => {
+    setFeedLoading(true)
+    const [reviewsRes, ratingsRes, listsRes] = await Promise.all([
+      supabase.from('reviews')
+        .select('id, user_id, media_id, media_type, title, poster_path, rating, body, created_at, review_likes(user_id)')
+        .order('created_at', { ascending: false })
+        .limit(20),
+      supabase.from('ratings')
+        .select('id, user_id, media_id, media_type, title, poster_path, rating, rated_at')
+        .gte('rating', 4)
+        .order('rated_at', { ascending: false })
+        .limit(15),
+      supabase.from('lists')
+        .select('id, user_id, title, description, created_at')
+        .eq('is_public', true)
+        .order('created_at', { ascending: false })
+        .limit(8),
+    ])
+
+    const allUserIds = [...new Set([
+      ...(reviewsRes.data ?? []).map((r: { user_id: string }) => r.user_id),
+      ...(ratingsRes.data ?? []).map((r: { user_id: string }) => r.user_id),
+      ...(listsRes.data ?? []).map((l: { user_id: string }) => l.user_id),
+    ])]
+    if (allUserIds.length > 0) {
+      const { data: profilesData } = await supabase
+        .from('profiles').select('id, username, display_name, avatar_url').in('id', allUserIds)
+      const map = new Map<string, UserProfile>()
+      for (const p of (profilesData ?? []) as UserProfile[]) map.set(p.id, p)
+      setProfiles(map)
+    }
+
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const reviews: ReviewFeed[] = ((reviewsRes.data ?? []) as any[]).map(r => ({
+      key: `review-${r.id}`, type: 'review' as const,
+      userId: r.user_id, sortTime: r.created_at, reviewId: r.id,
+      mediaId: r.media_id, mediaType: r.media_type, mediaTitle: r.title, mediaPosterPath: r.poster_path,
+      rating: r.rating, body: r.body,
+      likeCount: Array.isArray(r.review_likes) ? r.review_likes.length : 0,
+      likedByMe: false,
+    }))
+    const reviewedSet = new Set(reviews.map(r => `${r.userId}:${r.mediaId}:${r.mediaType}`))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const ratings: RatingFeed[] = ((ratingsRes.data ?? []) as any[])
+      .filter((r: { user_id: string; media_id: number; media_type: string }) => !reviewedSet.has(`${r.user_id}:${r.media_id}:${r.media_type}`))
+      .map((r: { id: string; user_id: string; media_id: number; media_type: string; title: string; poster_path: string | null; rating: number; rated_at: string }) => ({
+        key: `rating-${r.id}`, type: 'rating' as const,
+        userId: r.user_id, sortTime: r.rated_at,
+        mediaId: r.media_id, mediaType: r.media_type, mediaTitle: r.title, mediaPosterPath: r.poster_path,
+        rating: r.rating,
+      }))
+    const listRows = (listsRes.data ?? []) as { id: string; user_id: string; title: string; description: string | null; created_at: string }[]
+    let listFeeds: ListFeed[] = []
+    if (listRows.length > 0) {
+      const { data: listItems } = await supabase.from('list_items').select('list_id,poster_path').in('list_id', listRows.map(l => l.id)).order('position').limit(200)
+      const previewMap: Record<string, (string | null)[]> = {}
+      const countMap: Record<string, number> = {}
+      for (const i of (listItems ?? [])) {
+        previewMap[i.list_id] = previewMap[i.list_id] ?? []
+        previewMap[i.list_id].push(i.poster_path)
+        countMap[i.list_id] = (countMap[i.list_id] ?? 0) + 1
+      }
+      listFeeds = listRows.map(l => ({
+        key: `list-${l.id}`, type: 'list_created' as const,
+        userId: l.user_id, sortTime: l.created_at,
+        listId: l.id, listTitle: l.title, listDescription: l.description,
+        previews: (previewMap[l.id] ?? []).slice(0, 4),
+        itemCount: countMap[l.id] ?? 0,
+      }))
+    }
+    setRawFeed([...reviews, ...ratings, ...listFeeds].sort((a, b) => b.sortTime.localeCompare(a.sortTime)))
+    setFeedLoading(false)
+  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Feed loader ────────────────────────────────────────────────────────────
   const loadFeed = useCallback(async (followIds: string[], uid: string) => {
@@ -1256,7 +1334,7 @@ export default function ComunidadPage() {
 
   // ── Like toggles ───────────────────────────────────────────────────────────
   const toggleReviewLike = (reviewId: string) => {
-    if (!currentUserId) return
+    if (!currentUserId) { router.push('/auth'); return }
     setRawFeed(prev => prev.map(item => {
       if (item.type !== 'review' || item.reviewId !== reviewId) return item
       const liked = !item.likedByMe
@@ -1267,7 +1345,7 @@ export default function ComunidadPage() {
   }
 
   const toggleStatLike = (statId: string) => {
-    if (!currentUserId) return
+    if (!currentUserId) { router.push('/auth'); return }
     setRawFeed(prev => prev.map(item => {
       if (item.type !== 'shared_stat' || item.statId !== statId) return item
       const liked = !item.likedByMe
@@ -1278,7 +1356,7 @@ export default function ComunidadPage() {
   }
 
   const addToWatchlist = async (mediaId: number, mediaType: string, title: string, posterPath: string | null): Promise<boolean> => {
-    if (!currentUserId) return false
+    if (!currentUserId) { router.push('/auth'); return false }
     const { error } = await supabase.from('watchlist').upsert(
       { user_id: currentUserId, media_id: mediaId, media_type: mediaType, title, poster_path: posterPath },
       { onConflict: 'user_id,media_id,media_type' }
@@ -1296,18 +1374,6 @@ export default function ComunidadPage() {
     )
   }
 
-  if (!user) {
-    return (
-      <div className="flex flex-col items-center justify-center min-h-[60vh] gap-4 px-4">
-        <LogIn size={40} className="text-zinc-600" />
-        <p className="text-[#A0A0B0]">Iniciá sesión para ver la actividad de tu comunidad</p>
-        <Link href="/auth" className="bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-5 py-2 rounded-lg font-medium transition-colors">
-          Iniciar sesión
-        </Link>
-      </div>
-    )
-  }
-
   return (
     <div className="max-w-2xl mx-auto px-4 py-8">
 
@@ -1317,26 +1383,45 @@ export default function ComunidadPage() {
           <Users size={26} style={{ color: '#FFFD02' }} />
           Comunidad
         </h1>
-        <p className="text-[#A0A0B0] text-sm">Descubrí qué están viendo tus amigos</p>
+        <p className="text-[#A0A0B0] text-sm">
+          {user ? 'Descubrí qué están viendo tus amigos' : 'Últimas reseñas y listas de la comunidad Glynbox'}
+        </p>
       </div>
+
+      {/* Guest CTA banner */}
+      {!user && (
+        <div className="mb-6 bg-[#13131A] border border-[#FFFD02]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
+          <div className="text-3xl select-none">🎬</div>
+          <div className="flex-1">
+            <p className="text-white font-semibold text-sm mb-1">Uníte para ver la actividad de tu comunidad</p>
+            <p className="text-[#A0A0B0] text-xs">Seguí usuarios, llevá tu historial de películas y compartí reseñas con otros cinéfilos.</p>
+          </div>
+          <Link
+            href="/auth"
+            className="shrink-0 text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-4 py-2 rounded-full transition-colors"
+          >
+            Crear cuenta gratis →
+          </Link>
+        </div>
+      )}
 
       {/* Tabs */}
       <div className="flex gap-1 mb-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-1 overflow-x-auto no-scrollbar">
         <TabButton active={tab === 'feed'}         onClick={() => setTab('feed')}         icon={<Zap size={15} />}    label="Feed" />
-        <TabButton active={tab === 'compat'}       onClick={() => setTab('compat')}       icon={<Heart size={15} />}  label="Compatibilidad" />
-        <TabButton active={tab === 'achievements'} onClick={() => setTab('achievements')} icon={<Trophy size={15} />} label="Logros" />
+        {user && <TabButton active={tab === 'compat'}       onClick={() => setTab('compat')}       icon={<Heart size={15} />}  label="Compatibilidad" />}
+        {user && <TabButton active={tab === 'achievements'} onClick={() => setTab('achievements')} icon={<Trophy size={15} />} label="Logros" />}
         <TabButton active={tab === 'listas'}       onClick={() => setTab('listas')}       icon={<List size={15} />}   label="Listas" />
       </div>
 
       {/* ── FEED ── */}
       {tab === 'feed' && (
         <>
-          {/* Carrusel de últimas reseñas de amigos */}
-          {friendReviews.length > 0 && (
+          {/* Carrusel de últimas reseñas de amigos — solo para usuarios logueados */}
+          {user && friendReviews.length > 0 && (
             <FriendReviewsCarousel reviews={friendReviews} profiles={profiles} />
           )}
 
-          {followingIds.length === 0 && (
+          {user && followingIds.length === 0 && (
             <div className="mb-6 bg-[#13131A] border border-[#FFFD02]/20 rounded-xl p-5 flex flex-col sm:flex-row items-start sm:items-center gap-4">
               <div className="text-3xl select-none">👥</div>
               <div className="flex-1">
@@ -1367,7 +1452,7 @@ export default function ComunidadPage() {
                   if (item.type === 'shared_stat') return <SharedStatCard key={item.key} item={item} profiles={profiles} currentUserId={currentUserId} onLike={toggleStatLike} />
                   if (item.type === 'level_up') return <LevelUpCard key={item.key} item={item} profiles={profiles} />
                   if (item.type === 'list_created') return <ListCard key={item.key} item={item} profiles={profiles} />
-                  if (item.type === 'recommendation') return <RecommendationCard key={item.key} item={item} currentUserId={currentUserId} supabase={supabase} />
+                  if (item.type === 'recommendation') return <RecommendationCard key={item.key} item={item} currentUserId={currentUserId} supabase={supabase} onAuthRequired={() => router.push('/auth')} />
                   if (item.type === 'actor_birthday') return <ActorBirthdayCard key={item.key} item={item} />
                   if (item.type === 'actor_release') return <ActorReleaseCard key={item.key} item={item} />
                   return null
@@ -1382,10 +1467,10 @@ export default function ComunidadPage() {
             </>
           )}
 
-          {followingIds.length === 0 && recommendations.length > 0 && (
+          {(!user || followingIds.length === 0) && recommendations.length > 0 && (
             <div className="mt-6 space-y-4">
               <p className="text-xs text-[#A0A0B0] uppercase tracking-widest font-semibold">Recomendado para vos</p>
-              {recommendations.slice(0, 4).map(rec => <RecommendationCard key={rec.key} item={rec} currentUserId={currentUserId} supabase={supabase} />)}
+              {recommendations.slice(0, 4).map(rec => <RecommendationCard key={rec.key} item={rec} currentUserId={currentUserId} supabase={supabase} onAuthRequired={() => router.push('/auth')} />)}
             </div>
           )}
         </>
@@ -1462,7 +1547,7 @@ export default function ComunidadPage() {
             <p className="text-xs text-[#A0A0B0]">Listas públicas, ordenadas por popularidad</p>
             <div className="flex items-center gap-3">
               <Link href="/listas" className="text-xs text-[#A0A0B0] hover:text-white transition-colors shrink-0">Ver todas →</Link>
-              <Link href="/listas/nueva" className="flex items-center gap-1.5 text-xs font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-3 py-1.5 rounded-full transition-colors shrink-0">
+              <Link href={user ? '/listas/nueva' : '/auth'} className="flex items-center gap-1.5 text-xs font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-3 py-1.5 rounded-full transition-colors shrink-0">
                 <Plus size={12} /> Crear lista
               </Link>
             </div>
@@ -1476,7 +1561,7 @@ export default function ComunidadPage() {
           ) : communityLists.length === 0 ? (
             <div className="text-center py-16 text-[#A0A0B0]">
               <p>No hay listas públicas todavía.</p>
-              <Link href="/listas/nueva" className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] transition-colors">
+              <Link href={user ? '/listas/nueva' : '/auth'} className="mt-3 inline-flex items-center gap-2 px-4 py-2 rounded-full text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] transition-colors">
                 <Plus size={14} /> Crear la primera
               </Link>
             </div>
