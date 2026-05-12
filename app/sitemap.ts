@@ -10,9 +10,9 @@ const BASE = 'https://glynbox.com'
 
 const staticPages: MetadataRoute.Sitemap = [
   { url: BASE,                        changeFrequency: 'daily',   priority: 1   },
-  { url: `${BASE}/comunidad`,         changeFrequency: 'hourly',  priority: 0.8 },
-  { url: `${BASE}/listas`,            changeFrequency: 'weekly',  priority: 0.7 },
-  { url: `${BASE}/guias`,             changeFrequency: 'weekly',  priority: 0.8 },
+  { url: `${BASE}/comunidad`,         changeFrequency: 'hourly',  priority: 0.9 },
+  { url: `${BASE}/listas`,            changeFrequency: 'weekly',  priority: 0.9 },
+  { url: `${BASE}/guias`,             changeFrequency: 'weekly',  priority: 0.9 },
   { url: `${BASE}/privacidad`,        changeFrequency: 'monthly', priority: 0.3 },
   { url: `${BASE}/terminos`,          changeFrequency: 'monthly', priority: 0.3 },
   { url: `${BASE}/soporte`,           changeFrequency: 'monthly', priority: 0.3 },

@@ -4,7 +4,7 @@ import Link from 'next/link'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
+import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock, Settings, BookOpen } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
 import { COUNTRIES } from '@/lib/countries'
@@ -658,6 +658,10 @@ export default function Navbar() {
             <Compass size={16} />
             Qué ver
           </Link>
+          <Link href="/guias" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
+            <BookOpen size={16} />
+            Guías
+          </Link>
           {user ? (
             <>
               <Link href="/comunidad" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">
@@ -827,6 +831,9 @@ export default function Navbar() {
         <div className="md:hidden bg-[#13131A] border-t border-[#2A2A3A] px-4 py-3 flex flex-col gap-3">
           <Link href="/que-ver" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
             <Compass size={16} /> Qué ver
+          </Link>
+          <Link href="/guias" onClick={() => setMenuOpen(false)} className="flex items-center gap-2 text-sm text-zinc-300">
+            <BookOpen size={16} /> Guías
           </Link>
           {user ? (
             <>

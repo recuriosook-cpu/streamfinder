@@ -71,6 +71,35 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7004694054304140"
           crossOrigin="anonymous"
         />
+        {/* Schema.org: WebSite + SearchAction */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'WebSite',
+            name: 'Glynbox',
+            url: 'https://www.glynbox.com',
+            potentialAction: {
+              '@type': 'SearchAction',
+              target: 'https://www.glynbox.com/search?q={search_term_string}',
+              'query-input': 'required name=search_term_string',
+            },
+          }) }}
+        />
+        {/* Schema.org: SiteNavigationElement */}
+        <script
+          type="application/ld+json"
+          dangerouslySetInnerHTML={{ __html: JSON.stringify({
+            '@context': 'https://schema.org',
+            '@type': 'ItemList',
+            itemListElement: [
+              { '@type': 'SiteNavigationElement', position: 1, name: 'Guías',     description: 'Guías editoriales de cine y series curadas por expertos',         url: 'https://www.glynbox.com/guias'     },
+              { '@type': 'SiteNavigationElement', position: 2, name: 'Listas',    description: 'Listas de películas y series creadas por la comunidad',            url: 'https://www.glynbox.com/listas'    },
+              { '@type': 'SiteNavigationElement', position: 3, name: 'Comunidad', description: 'Reseñas, debates y actividad de cinéfilos',                        url: 'https://www.glynbox.com/comunidad' },
+              { '@type': 'SiteNavigationElement', position: 4, name: 'Qué ver',   description: 'Descubrí qué ver hoy según tu estado de ánimo',                   url: 'https://www.glynbox.com/que-ver'   },
+            ],
+          }) }}
+        />
       </head>
       <body className="min-h-screen bg-[#0A0A0F] text-white">
         <CountryProvider>

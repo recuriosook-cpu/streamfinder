@@ -47,19 +47,27 @@ export default function GuidesCarousel() {
           </h2>
           <p className="text-xs text-zinc-600 mt-0.5">Recomendaciones curadas por @Ferlageok</p>
         </div>
-        <div className="hidden sm:flex items-center gap-1">
-          <button
-            onClick={() => scroll('left')}
-            className="w-7 h-7 rounded-full bg-[#1C1C27] hover:bg-zinc-700 flex items-center justify-center transition-colors"
+        <div className="flex items-center gap-2">
+          <Link
+            href="/guias"
+            className="hidden sm:block text-xs font-semibold text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
           >
-            <ChevronLeft size={14} className="text-zinc-400" />
-          </button>
-          <button
-            onClick={() => scroll('right')}
-            className="w-7 h-7 rounded-full bg-[#1C1C27] hover:bg-zinc-700 flex items-center justify-center transition-colors"
-          >
-            <ChevronRight size={14} className="text-zinc-400" />
-          </button>
+            Ver todas →
+          </Link>
+          <div className="hidden sm:flex items-center gap-1">
+            <button
+              onClick={() => scroll('left')}
+              className="w-7 h-7 rounded-full bg-[#1C1C27] hover:bg-zinc-700 flex items-center justify-center transition-colors"
+            >
+              <ChevronLeft size={14} className="text-zinc-400" />
+            </button>
+            <button
+              onClick={() => scroll('right')}
+              className="w-7 h-7 rounded-full bg-[#1C1C27] hover:bg-zinc-700 flex items-center justify-center transition-colors"
+            >
+              <ChevronRight size={14} className="text-zinc-400" />
+            </button>
+          </div>
         </div>
       </div>
 
