@@ -109,7 +109,7 @@ function CarouselCard({
   return (
     <div className="flex-shrink-0 w-36 sm:w-36 carousel-snap group">
       <Link href={href} className="block">
-        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
+        <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105 will-change-transform">
           {posterPath ? (
             <Image
               src={`https://image.tmdb.org/t/p/w185${posterPath}`}
@@ -720,7 +720,7 @@ function ContinueWatchingSection({
         {items.map(item => (
           <div key={item.id} className="flex-shrink-0 w-36 carousel-snap group">
             <Link href={`/${item.media_type}/${item.media_id}`} className="block mb-1.5">
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] transition-transform duration-200 group-hover:scale-105">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] transition-transform duration-200 group-hover:scale-105 will-change-transform">
                 {item.poster_path ? (
                   <Image src={`https://image.tmdb.org/t/p/w185${item.poster_path}`} alt={item.title} fill className="object-cover" sizes="144px" />
                 ) : (
@@ -792,7 +792,7 @@ function ForYouSection({ items, loading }: { items: ForYouItem[]; loading: boole
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
           {items.map(item => (
             <Link key={item.id} href={`/movie/${item.id}`} className="flex-shrink-0 w-36 carousel-snap group block">
-              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105">
+              <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105 will-change-transform">
                 {item.posterPath ? (
                   <Image src={`https://image.tmdb.org/t/p/w185${item.posterPath}`} alt={item.title} fill className="object-cover" sizes="144px" />
                 ) : (

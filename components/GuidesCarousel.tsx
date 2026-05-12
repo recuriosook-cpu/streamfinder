@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
 import type { GuideFrontmatter } from '@/lib/guides'
 
@@ -81,11 +82,13 @@ export default function GuidesCarousel() {
                 >
                   {/* Hero image or gradient fallback */}
                   {guide.heroImage ? (
-                    // eslint-disable-next-line @next/next/no-img-element
-                    <img
+                    <Image
                       src={guide.heroImage}
                       alt={guide.title}
-                      className="w-full h-full object-cover group-hover:scale-105 transition-transform duration-500"
+                      fill
+                      loading="lazy"
+                      sizes="288px"
+                      className="object-cover group-hover:scale-105 transition-transform duration-200 will-change-transform"
                     />
                   ) : (
                     <div

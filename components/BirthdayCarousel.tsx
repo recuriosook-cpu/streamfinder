@@ -2,6 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
+import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import ErrorState from '@/components/ErrorState'
 
@@ -115,12 +116,14 @@ export default function BirthdayCarousel() {
               {/* Photo */}
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                 {person.profilePath ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
+                  <Image
                     src={`https://image.tmdb.org/t/p/w185${person.profilePath}`}
                     alt={person.name}
+                    fill
+                    loading="lazy"
+                    sizes="112px"
+                    className="object-cover object-top group-hover:scale-105 transition-transform duration-300 will-change-transform"
                     onError={e => {
-                      // Hide broken image and show initial placeholder
                       e.currentTarget.style.display = 'none'
                       const parent = e.currentTarget.parentElement
                       if (parent) {
@@ -128,7 +131,6 @@ export default function BirthdayCarousel() {
                         if (el) el.style.display = 'flex'
                       }
                     }}
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-300"
                   />
                 ) : null}
                 {/* Initial placeholder — shown when no photo or photo fails to load */}
