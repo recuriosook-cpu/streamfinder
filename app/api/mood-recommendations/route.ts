@@ -2,7 +2,6 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
-const ANTHROPIC_KEY = process.env.ANTHROPIC_API_KEY
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -19,56 +18,86 @@ interface Recommendation {
   poster_path: string | null
 }
 
-interface TmdbProviderEntry { provider_id: number; provider_name: string }
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
 type RawResult = Record<string, any>
 
-// ── Mood / duration mappings ──────────────────────────────────────────────────
-
-const MOOD_LABELS: Record<string, string> = {
-  laugh:  'reírme (comedia, humor)',
-  cry:    'emocionarme (drama, historia)',
-  scare:  'asustarme (terror, suspenso)',
-  think:  'pensar (sci-fi, thriller)',
-  action: 'adrenalina (acción, aventura)',
-  calm:   'algo tranquilo (romance, documental)',
-}
+// ── Mood config ───────────────────────────────────────────────────────────────
 
 const MOOD_GENRES: Record<string, number[]> = {
   laugh:  [35],
-  cry:    [18],
+  cry:    [18, 10749],
   scare:  [27, 53],
   think:  [878, 53],
   action: [28, 12],
-  calm:   [10749, 99],
+  calm:   [10749, 36, 99],
 }
 
-const MOOD_REASONS: Record<string, string> = {
-  laugh:  'Una comedia perfecta para reírse sin parar y olvidarse de todo.',
-  cry:    'Una historia emocionante que te va a tocar el corazón.',
-  scare:  'Ideal para una noche de suspenso y escalofríos garantizados.',
-  think:  'Una propuesta que te hace reflexionar y te deja pensando.',
-  action: 'Llena de adrenalina y acción de principio a fin.',
-  calm:   'Una opción relajante y disfrutable, perfecta para desconectarse.',
+const MOOD_MIN_RATING: Record<string, number> = {
+  laugh:  6.5,
+  cry:    7.0,
+  scare:  6.0,
+  think:  7.0,
+  action: 6.5,
+  calm:   7.0,
 }
 
-const DURATION_LABELS: Record<string, string> = {
-  short:      'menos de 1 hora y 30 minutos',
-  medium:     '1h30 a 2h30',
-  long:       'más de 2 horas 30 minutos',
-  series:     'una serie completa',
-  miniseries: 'una miniserie',
-  any:        'cualquier duración',
-}
-
-const COMPANY_LABELS: Record<string, string> = {
-  solo:    'solo/a',
-  couple:  'en pareja',
-  family:  'en familia',
-  friends: 'con amigos',
+// {rating} is replaced at runtime with the movie's vote_average
+const REASON_TEMPLATES: Record<string, string[]> = {
+  laugh: [
+    'Una comedia bien valorada, ideal para distender.',
+    'Risa garantizada — {rating} estrellas en TMDB.',
+    'Comedia que no falla, para olvidarse de todo.',
+    'Humor de calidad con {rating} de rating.',
+  ],
+  cry: [
+    'Drama emotivo que vale cada minuto.',
+    'Una historia que te va a llegar — {rating} estrellas.',
+    'Emoción garantizada, prepará los pañuelos.',
+    'Una de las más valoradas del género: {rating}.',
+  ],
+  scare: [
+    'Terror con {rating} de rating — prepará la luz prendida.',
+    'Una de las más temidas del catálogo.',
+    'Suspenso y escalofríos de principio a fin.',
+    'Calificada {rating} por los fanáticos del género.',
+  ],
+  think: [
+    'Una historia que te va a dejar pensando.',
+    'Ciencia ficción de primer nivel — {rating} estrellas.',
+    'Para los que quieren más que entretenimiento.',
+    'Reflexión garantizada, una de las mejor valuadas: {rating}.',
+  ],
+  action: [
+    'Pura adrenalina — {rating} estrellas.',
+    'Acción sin pausa, para no parpadear.',
+    'Una de las más valoradas del género de acción.',
+    'Velocidad y emoción, calificada {rating} en TMDB.',
+  ],
+  calm: [
+    'Tranquila y bien valorada — perfecta para relajar.',
+    'Sin sobresaltos, solo buen cine: {rating} estrellas.',
+    'Para desconectarse con {rating} de calificación.',
+    'Suave y disfrutable, ideal para descansar.',
+  ],
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────────
+
+function pickReason(moodKey: string, rating: number, index: number): string {
+  const templates = REASON_TEMPLATES[moodKey] ?? ['Una excelente opción para ver hoy.']
+  return templates[index % templates.length].replace('{rating}', rating.toFixed(1))
+}
+
+function resolveGenres(moodKey: string, companyKey: string): number[] {
+  if (companyKey === 'family') {
+    if (moodKey === 'laugh') return [35, 10751]  // Comedy + Family
+    if (moodKey === 'calm')  return [16, 10751]  // Animation + Family
+  }
+  if (companyKey === 'couple' && moodKey === 'calm')   return [10749, 18]  // Romance + Drama
+  if (companyKey === 'friends' && moodKey === 'action') return [28, 35]    // Action + Comedy
+
+  return MOOD_GENRES[moodKey] ?? [18]
+}
 
 function tmdbMediaType(durationKey: string): 'movie' | 'tv' {
   return durationKey === 'series' || durationKey === 'miniseries' ? 'tv' : 'movie'
@@ -79,18 +108,6 @@ function formatRuntime(minutes: number): string {
   const h = Math.floor(minutes / 60)
   const m = minutes % 60
   return m > 0 ? `${h}h ${m}m` : `${h}h`
-}
-
-async function getCountryProviders(country: string): Promise<TmdbProviderEntry[]> {
-  try {
-    const res = await fetch(
-      `https://api.themoviedb.org/3/watch/providers/movie?api_key=${TMDB_KEY}&watch_region=${country}`,
-      { next: { revalidate: 86400 } }
-    )
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.results ?? []) as TmdbProviderEntry[]
-  } catch { return [] }
 }
 
 async function getItemProvider(tmdbId: number, mediaType: 'movie' | 'tv', country: string): Promise<string> {
@@ -106,55 +123,92 @@ async function getItemProvider(tmdbId: number, mediaType: 'movie' | 'tv', countr
   } catch { return 'Streaming' }
 }
 
-// ── TMDB fallback ─────────────────────────────────────────────────────────────
-
-async function tmdbFallback(
+function buildParams(
   moodKey: string,
   durationKey: string,
+  companyKey: string,
   country: string,
-  watchedSet: Set<string>,
-): Promise<Recommendation[]> {
-  const mediaType = tmdbMediaType(durationKey)
-  const genres = MOOD_GENRES[moodKey] ?? [18]
-  const endpoint = `/discover/${mediaType}`
+  relax: boolean,
+): URLSearchParams {
+  const mediaType  = tmdbMediaType(durationKey)
+  const minRating  = MOOD_MIN_RATING[moodKey] ?? 6.5
+  const genres     = resolveGenres(moodKey, companyKey)
 
   const params = new URLSearchParams({
-    api_key: TMDB_KEY!,
-    language: 'es-AR',
-    with_genres: genres[0].toString(),
-    sort_by: 'vote_average.desc',
-    'vote_count.gte': '1000',
-    watch_region: country,
-    page: '1',
+    api_key:            TMDB_KEY!,
+    language:           'es-AR',
+    with_genres:        genres[0].toString(),
+    sort_by:            'popularity.desc',
+    'vote_count.gte':   relax ? '200' : '500',
+    'vote_average.gte': String(relax ? Math.max(5.0, minRating - 1) : minRating),
+    watch_region:       country,
+    include_adult:      'false',
+    page:               '1',
   })
 
-  if (mediaType === 'movie' && durationKey === 'short') {
-    params.set('with_runtime.lte', '90')
-  }
-  if (mediaType === 'movie' && durationKey === 'long') {
-    params.set('with_runtime.gte', '150')
+  // Runtime filters (movies only)
+  if (mediaType === 'movie') {
+    if (!relax) {
+      if (durationKey === 'short')  params.set('with_runtime.lte', '90')
+      if (durationKey === 'medium') { params.set('with_runtime.gte', '90'); params.set('with_runtime.lte', '150') }
+      if (durationKey === 'long')   params.set('with_runtime.gte', '150')
+    } else if (durationKey === 'short') {
+      params.set('with_runtime.lte', '100')
+    }
   }
 
-  const res = await fetch(`https://api.themoviedb.org/3${endpoint}?${params}`)
+  // Miniseries type (TMDB type 2 = Miniseries)
+  if (durationKey === 'miniseries') params.set('with_type', '2')
+
+  // Family-safe certification (movies only — TV cert varies too much by country)
+  if (companyKey === 'family' && mediaType === 'movie') {
+    params.set('certification_country', 'US')
+    params.set('certification.lte', 'PG-13')
+  }
+
+  return params
+}
+
+async function discoverFiltered(
+  moodKey: string,
+  durationKey: string,
+  companyKey: string,
+  country: string,
+  excludeSet: Set<string>,
+  relax: boolean,
+): Promise<RawResult[]> {
+  const mediaType = tmdbMediaType(durationKey)
+  const params    = buildParams(moodKey, durationKey, companyKey, country, relax)
+
+  const res = await fetch(`https://api.themoviedb.org/3/discover/${mediaType}?${params}`)
   if (!res.ok) return []
   const data = await res.json()
 
-  const filtered: RawResult[] = ((data.results ?? []) as RawResult[])
-    .filter(r => !watchedSet.has(`${mediaType}:${r.id}`))
-    .slice(0, 4)
+  return ((data.results ?? []) as RawResult[])
+    .filter(r => !r.adult)
+    .filter(r => !excludeSet.has(`${mediaType}:${r.id}`))
+}
 
-  // Enrich in parallel: details + provider
-  const enriched = await Promise.all(
-    filtered.map(async (r) => {
+async function enrich(
+  items: RawResult[],
+  moodKey: string,
+  durationKey: string,
+  country: string,
+): Promise<Recommendation[]> {
+  const mediaType = tmdbMediaType(durationKey)
+
+  return Promise.all(
+    items.map(async (r, index) => {
       const [detailRes, platform] = await Promise.all([
         fetch(`https://api.themoviedb.org/3/${mediaType}/${r.id}?api_key=${TMDB_KEY}&language=es-AR`),
         getItemProvider(r.id, mediaType, country),
       ])
       const detail: RawResult = detailRes.ok ? await detailRes.json() : {}
 
-      const title: string = detail.title ?? detail.name ?? r.title ?? r.name ?? ''
+      const title:  string = detail.title ?? detail.name ?? r.title ?? r.name ?? ''
       const yearStr: string = detail.release_date ?? detail.first_air_date ?? ''
-      const year = yearStr ? parseInt(yearStr.slice(0, 4)) : 2020
+      const year   = yearStr ? parseInt(yearStr.slice(0, 4)) : 2020
+      const rating = (detail.vote_average ?? r.vote_average ?? 7.0) as number
 
       let duration = ''
       if (mediaType === 'movie') {
@@ -167,118 +221,53 @@ async function tmdbFallback(
       return {
         title,
         year,
-        reason: MOOD_REASONS[moodKey] ?? 'Una excelente opción para ver hoy.',
+        reason:      pickReason(moodKey, rating, index),
         platform,
         duration,
-        tmdb_id: r.id as number,
-        media_type: mediaType,
+        tmdb_id:     r.id as number,
+        media_type:  mediaType,
         poster_path: (detail.poster_path ?? r.poster_path ?? null) as string | null,
       }
     })
   )
-
-  return enriched
 }
 
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
   const { moodKey, durationKey, companyKey, userId, country } = await req.json()
-
   const supabase = createServerClient()
 
-  // 1. Get last 50 watched titles
-  const { data: watched } = await supabase
-    .from('watched')
-    .select('media_id, media_type')
-    .eq('user_id', userId)
-    .order('watched_at', { ascending: false })
-    .limit(50)
+  // 1. Fetch exclusion sets (watched + watchlist) — skip if unauthenticated
+  const [watchedResult, watchlistResult] = await Promise.all([
+    userId
+      ? supabase.from('watched').select('media_id, media_type').eq('user_id', userId).limit(50)
+      : { data: [] },
+    userId
+      ? supabase.from('watchlist').select('media_id, media_type').eq('user_id', userId).limit(200)
+      : { data: [] },
+  ])
 
-  const rows: WatchedRow[] = (watched ?? []) as WatchedRow[]
-  const watchedSet = new Set(rows.map(w => `${w.media_type}:${w.media_id}`))
-  const watchedList = rows.length > 0
-    ? rows.map(w => `${w.media_type}:${w.media_id}`).join(', ')
-    : 'ninguno'
+  const toKey = (w: WatchedRow) => `${w.media_type}:${w.media_id}`
+  const excludeSet = new Set([
+    ...((watchedResult.data ?? []) as WatchedRow[]).map(toKey),
+    ...((watchlistResult.data ?? []) as WatchedRow[]).map(toKey),
+  ])
 
-  // 2. Get country providers for Anthropic prompt
-  const providers = await getCountryProviders(country)
-  const platformNames = providers.slice(0, 15).map(p => p.provider_name).join(', ')
-    || 'Netflix, Disney+, Amazon Prime, Max, Apple TV+'
+  // 2. Strict discovery
+  const strict = await discoverFiltered(moodKey, durationKey, companyKey, country, excludeSet, false)
+  let picked = strict.slice(0, 4)
 
-  // 3. Try Anthropic
-  const hasKey = ANTHROPIC_KEY && !ANTHROPIC_KEY.startsWith('sk-ant-placeholder')
-  let recommendations: Recommendation[] = []
-  let anthropicOk = false
-
-  if (hasKey) {
-    try {
-      const moodLabel    = MOOD_LABELS[moodKey]    ?? moodKey
-      const durationLabel = DURATION_LABELS[durationKey] ?? durationKey
-      const companyLabel = COMPANY_LABELS[companyKey]  ?? companyKey
-
-      const userPrompt = `El usuario quiere ver algo para ${moodLabel}. Tiene ${durationLabel} disponible. Va a ver ${companyLabel}.
-País: ${country}.
-Plataformas disponibles: ${platformNames}.
-Ya vio estos títulos (no los recomiendes, identificados por tipo:tmdb_id): ${watchedList}.
-Recomendá exactamente 4 títulos. Respondé con este JSON:
-{
-  "recommendations": [
-    {
-      "title": "string",
-      "year": 2024,
-      "reason": "string (max 2 oraciones explicando por qué es perfecta para este momento)",
-      "platform": "string (nombre de la plataforma donde está disponible)",
-      "duration": "string (ej: '1h 45m' para pelis o 'Serie · X temporadas')",
-      "tmdb_id": 12345,
-      "media_type": "movie"
-    }
-  ]
-}`
-
-      const anthropicRes = await fetch('https://api.anthropic.com/v1/messages', {
-        method: 'POST',
-        headers: {
-          'Content-Type': 'application/json',
-          'x-api-key': ANTHROPIC_KEY,
-          'anthropic-version': '2023-06-01',
-        },
-        body: JSON.stringify({
-          model: 'claude-opus-4-5',
-          max_tokens: 1024,
-          system: 'Sos un experto recomendador de películas y series. Respondé SOLO con un JSON válido, sin texto adicional, sin markdown, sin backticks.',
-          messages: [{ role: 'user', content: userPrompt }],
-        }),
-      })
-
-      if (anthropicRes.ok) {
-        const anthropicData = await anthropicRes.json()
-        const rawText: string = anthropicData.content?.[0]?.text ?? '{}'
-        const parsed = JSON.parse(rawText)
-        const aiRecs: Recommendation[] = parsed.recommendations ?? []
-
-        // Enrich with poster_path
-        const enriched = await Promise.all(
-          aiRecs.map(async (rec) => {
-            try {
-              const r = await fetch(
-                `https://api.themoviedb.org/3/${rec.media_type}/${rec.tmdb_id}?api_key=${TMDB_KEY}&language=es-AR`
-              )
-              const d = await r.json()
-              return { ...rec, poster_path: d.poster_path ?? null }
-            } catch { return { ...rec, poster_path: null } }
-          })
-        )
-        recommendations = enriched
-        anthropicOk = true
-      }
-    } catch { /* fall through to TMDB fallback */ }
+  // 3. Relax filters if fewer than 4 results
+  if (picked.length < 4) {
+    const relaxed  = await discoverFiltered(moodKey, durationKey, companyKey, country, excludeSet, true)
+    const pickedIds = new Set(picked.map(r => r.id as number))
+    const extras   = relaxed.filter(r => !pickedIds.has(r.id as number))
+    picked = [...picked, ...extras].slice(0, 4)
   }
 
-  // 4. TMDB fallback when Anthropic unavailable or failed
-  if (!anthropicOk) {
-    recommendations = await tmdbFallback(moodKey, durationKey, country, watchedSet)
-  }
+  // 4. Enrich with details + streaming provider
+  const recommendations = await enrich(picked, moodKey, durationKey, country)
 
-  return NextResponse.json({ recommendations, source: anthropicOk ? 'ai' : 'tmdb' })
+  return NextResponse.json({ recommendations, source: 'tmdb' })
 }
