@@ -6,6 +6,7 @@ const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 // ── Types ─────────────────────────────────────────────────────────────────────
 
 interface WatchedRow { media_id: number; media_type: string }
+interface LogRow     { tmdb_id: number;  media_type: string }
 
 interface Recommendation {
   title: string
@@ -19,7 +20,8 @@ interface Recommendation {
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-type RawResult = Record<string, any>
+type RawResult  = Record<string, any>
+type SortOption = 'popularity.desc' | 'vote_average.desc' | 'primary_release_date.desc'
 
 // ── Mood config ───────────────────────────────────────────────────────────────
 
@@ -41,7 +43,7 @@ const MOOD_MIN_RATING: Record<string, number> = {
   calm:   7.0,
 }
 
-// {rating} is replaced at runtime with the movie's vote_average
+// {rating} is replaced at runtime with the item's vote_average
 const REASON_TEMPLATES: Record<string, string[]> = {
   laugh: [
     'Una comedia bien valorada, ideal para distender.',
@@ -81,7 +83,30 @@ const REASON_TEMPLATES: Record<string, string[]> = {
   ],
 }
 
-// ── Helpers ───────────────────────────────────────────────────────────────────
+const SORT_OPTIONS: SortOption[] = [
+  'popularity.desc',
+  'vote_average.desc',
+  'primary_release_date.desc',
+]
+
+// ── Pure utilities ────────────────────────────────────────────────────────────
+
+function pickRandom<T>(arr: T[]): T {
+  return arr[Math.floor(Math.random() * arr.length)]
+}
+
+function shuffle<T>(arr: T[]): T[] {
+  const a = [...arr]
+  for (let i = a.length - 1; i > 0; i--) {
+    const j = Math.floor(Math.random() * (i + 1))
+    ;[a[i], a[j]] = [a[j], a[i]]
+  }
+  return a
+}
+
+function randInt(min: number, max: number): number {
+  return Math.floor(Math.random() * (max - min + 1)) + min
+}
 
 function pickReason(moodKey: string, rating: number, index: number): string {
   const templates = REASON_TEMPLATES[moodKey] ?? ['Una excelente opción para ver hoy.']
@@ -90,12 +115,11 @@ function pickReason(moodKey: string, rating: number, index: number): string {
 
 function resolveGenres(moodKey: string, companyKey: string): number[] {
   if (companyKey === 'family') {
-    if (moodKey === 'laugh') return [35, 10751]  // Comedy + Family
-    if (moodKey === 'calm')  return [16, 10751]  // Animation + Family
+    if (moodKey === 'laugh') return [35, 10751]   // Comedy + Family
+    if (moodKey === 'calm')  return [16, 10751]   // Animation + Family
   }
-  if (companyKey === 'couple' && moodKey === 'calm')   return [10749, 18]  // Romance + Drama
-  if (companyKey === 'friends' && moodKey === 'action') return [28, 35]    // Action + Comedy
-
+  if (companyKey === 'couple'  && moodKey === 'calm')   return [10749, 18]  // Romance + Drama
+  if (companyKey === 'friends' && moodKey === 'action') return [28, 35]     // Action + Comedy
   return MOOD_GENRES[moodKey] ?? [18]
 }
 
@@ -109,6 +133,8 @@ function formatRuntime(minutes: number): string {
   const m = minutes % 60
   return m > 0 ? `${h}h ${m}m` : `${h}h`
 }
+
+// ── TMDB helpers ──────────────────────────────────────────────────────────────
 
 async function getItemProvider(tmdbId: number, mediaType: 'movie' | 'tv', country: string): Promise<string> {
   try {
@@ -129,24 +155,29 @@ function buildParams(
   companyKey: string,
   country: string,
   relax: boolean,
+  sortBy: SortOption,
+  page: number,
 ): URLSearchParams {
-  const mediaType  = tmdbMediaType(durationKey)
-  const minRating  = MOOD_MIN_RATING[moodKey] ?? 6.5
-  const genres     = resolveGenres(moodKey, companyKey)
+  const mediaType = tmdbMediaType(durationKey)
+  const minRating = MOOD_MIN_RATING[moodKey] ?? 6.5
+  const genres    = resolveGenres(moodKey, companyKey)
+
+  // Require more votes when sorting by rating to avoid obscure flukes
+  const minVotes = sortBy === 'vote_average.desc' ? '200' : (relax ? '200' : '500')
 
   const params = new URLSearchParams({
     api_key:            TMDB_KEY!,
     language:           'es-AR',
     with_genres:        genres[0].toString(),
-    sort_by:            'popularity.desc',
-    'vote_count.gte':   relax ? '200' : '500',
+    sort_by:            sortBy,
+    'vote_count.gte':   minVotes,
     'vote_average.gte': String(relax ? Math.max(5.0, minRating - 1) : minRating),
     watch_region:       country,
     include_adult:      'false',
-    page:               '1',
+    page:               String(page),
   })
 
-  // Runtime filters (movies only)
+  // Runtime filters for movies
   if (mediaType === 'movie') {
     if (!relax) {
       if (durationKey === 'short')  params.set('with_runtime.lte', '90')
@@ -157,10 +188,10 @@ function buildParams(
     }
   }
 
-  // Miniseries type (TMDB type 2 = Miniseries)
+  // TMDB type 2 = Miniseries
   if (durationKey === 'miniseries') params.set('with_type', '2')
 
-  // Family-safe certification (movies only — TV cert varies too much by country)
+  // Family-safe certification (US scale, movies only)
   if (companyKey === 'family' && mediaType === 'movie') {
     params.set('certification_country', 'US')
     params.set('certification.lte', 'PG-13')
@@ -169,25 +200,61 @@ function buildParams(
   return params
 }
 
-async function discoverFiltered(
+async function fetchPage(
+  moodKey: string,
+  durationKey: string,
+  companyKey: string,
+  country: string,
+  relax: boolean,
+  sortBy: SortOption,
+  page: number,
+): Promise<{ results: RawResult[]; totalPages: number }> {
+  const mediaType = tmdbMediaType(durationKey)
+  const params    = buildParams(moodKey, durationKey, companyKey, country, relax, sortBy, page)
+
+  const res = await fetch(`https://api.themoviedb.org/3/discover/${mediaType}?${params}`)
+  if (!res.ok) return { results: [], totalPages: 1 }
+  const data = await res.json()
+
+  return {
+    results:    (data.results    ?? []) as RawResult[],
+    totalPages: (data.total_pages ?? 1) as number,
+  }
+}
+
+// Fetch ~40 results across 2 pages (page 1 + 1 random page), then shuffle
+async function discoverPool(
   moodKey: string,
   durationKey: string,
   companyKey: string,
   country: string,
   excludeSet: Set<string>,
   relax: boolean,
+  sortBy: SortOption,
 ): Promise<RawResult[]> {
   const mediaType = tmdbMediaType(durationKey)
-  const params    = buildParams(moodKey, durationKey, companyKey, country, relax)
 
-  const res = await fetch(`https://api.themoviedb.org/3/discover/${mediaType}?${params}`)
-  if (!res.ok) return []
-  const data = await res.json()
+  // Always fetch page 1 to learn total_pages
+  const { results: page1Results, totalPages } = await fetchPage(
+    moodKey, durationKey, companyKey, country, relax, sortBy, 1
+  )
 
-  return ((data.results ?? []) as RawResult[])
-    .filter(r => !r.adult)
-    .filter(r => !excludeSet.has(`${mediaType}:${r.id}`))
+  // Pick a random second page (may equal 1 if only 1 page exists)
+  const randomPage = randInt(1, Math.min(totalPages, 5))
+  const page2Results = randomPage !== 1
+    ? (await fetchPage(moodKey, durationKey, companyKey, country, relax, sortBy, randomPage)).results
+    : []
+
+  const combined = [...page1Results, ...page2Results]
+
+  return shuffle(
+    combined
+      .filter(r => !r.adult)
+      .filter(r => !excludeSet.has(`${mediaType}:${r.id}`))
+  )
 }
+
+// ── Enrich ────────────────────────────────────────────────────────────────────
 
 async function enrich(
   items: RawResult[],
@@ -205,10 +272,10 @@ async function enrich(
       ])
       const detail: RawResult = detailRes.ok ? await detailRes.json() : {}
 
-      const title:  string = detail.title ?? detail.name ?? r.title ?? r.name ?? ''
+      const title:   string = detail.title ?? detail.name ?? r.title ?? r.name ?? ''
       const yearStr: string = detail.release_date ?? detail.first_air_date ?? ''
-      const year   = yearStr ? parseInt(yearStr.slice(0, 4)) : 2020
-      const rating = (detail.vote_average ?? r.vote_average ?? 7.0) as number
+      const year    = yearStr ? parseInt(yearStr.slice(0, 4)) : 2020
+      const rating  = (detail.vote_average ?? r.vote_average ?? 7.0) as number
 
       let duration = ''
       if (mediaType === 'movie') {
@@ -238,36 +305,63 @@ export async function POST(req: NextRequest) {
   const { moodKey, durationKey, companyKey, userId, country } = await req.json()
   const supabase = createServerClient()
 
-  // 1. Fetch exclusion sets (watched + watchlist) — skip if unauthenticated
-  const [watchedResult, watchlistResult] = await Promise.all([
+  // 1. Build exclusion set: watched + watchlist + shown in last 24h
+  const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+
+  const [watchedResult, watchlistResult, logResult] = await Promise.all([
     userId
       ? supabase.from('watched').select('media_id, media_type').eq('user_id', userId).limit(50)
       : { data: [] },
     userId
       ? supabase.from('watchlist').select('media_id, media_type').eq('user_id', userId).limit(200)
       : { data: [] },
+    userId
+      ? supabase
+          .from('mood_recommendations_log')
+          .select('tmdb_id, media_type')
+          .eq('user_id', userId)
+          .gte('shown_at', since24h)
+      : { data: [] },
   ])
 
-  const toKey = (w: WatchedRow) => `${w.media_type}:${w.media_id}`
+  const toWatchedKey = (w: WatchedRow) => `${w.media_type}:${w.media_id}`
+  const toLogKey     = (r: LogRow)     => `${r.media_type}:${r.tmdb_id}`
+
   const excludeSet = new Set([
-    ...((watchedResult.data ?? []) as WatchedRow[]).map(toKey),
-    ...((watchlistResult.data ?? []) as WatchedRow[]).map(toKey),
+    ...((watchedResult.data  ?? []) as WatchedRow[]).map(toWatchedKey),
+    ...((watchlistResult.data ?? []) as WatchedRow[]).map(toWatchedKey),
+    ...((logResult.data      ?? []) as LogRow[]).map(toLogKey),
   ])
 
-  // 2. Strict discovery
-  const strict = await discoverFiltered(moodKey, durationKey, companyKey, country, excludeSet, false)
-  let picked = strict.slice(0, 4)
+  // 2. Random sort strategy for this request
+  const sortBy = pickRandom(SORT_OPTIONS)
 
-  // 3. Relax filters if fewer than 4 results
+  // 3. Fetch ~40 results (2 pages), filter, shuffle — strict filters first
+  const pool = await discoverPool(moodKey, durationKey, companyKey, country, excludeSet, false, sortBy)
+  let picked = pool.slice(0, 4)
+
+  // 4. Relax filters if still fewer than 4
   if (picked.length < 4) {
-    const relaxed  = await discoverFiltered(moodKey, durationKey, companyKey, country, excludeSet, true)
-    const pickedIds = new Set(picked.map(r => r.id as number))
-    const extras   = relaxed.filter(r => !pickedIds.has(r.id as number))
+    const relaxedPool = await discoverPool(moodKey, durationKey, companyKey, country, excludeSet, true, sortBy)
+    const pickedIds   = new Set(picked.map(r => r.id as number))
+    const extras      = relaxedPool.filter(r => !pickedIds.has(r.id as number))
     picked = [...picked, ...extras].slice(0, 4)
   }
 
-  // 4. Enrich with details + streaming provider
+  // 5. Enrich with TMDB details + streaming provider
   const recommendations = await enrich(picked, moodKey, durationKey, country)
+
+  // 6. Log what was shown — fire and forget, never blocks the response
+  if (userId && recommendations.length > 0) {
+    void supabase.from('mood_recommendations_log').insert(
+      recommendations.map(rec => ({
+        user_id:    userId as string,
+        tmdb_id:    rec.tmdb_id,
+        media_type: rec.media_type,
+        mood_key:   moodKey as string,
+      }))
+    )
+  }
 
   return NextResponse.json({ recommendations, source: 'tmdb' })
 }
