@@ -5,18 +5,13 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users, Compass } from 'lucide-react'
 import CarouselCard from '@/components/CarouselCard'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
-
-const MoodRecommender = dynamic(() => import('@/components/MoodRecommender'), {
-  ssr: false,
-  loading: () => <div className="h-96 bg-[#13131A] rounded-2xl animate-pulse" />,
-})
 
 const BirthdayCarousel = dynamic(() => import('@/components/BirthdayCarousel'), {
   ssr: false,
@@ -1327,8 +1322,34 @@ export default function HomeClient() {
         )}
       </div>
 
-      {/* SECCIÓN 5 — RECOMENDADOR (full-width) */}
-      <MoodRecommender />
+      {/* SECCIÓN 5 — CTA recomendador */}
+      <div
+        className="w-full relative overflow-hidden"
+        style={{ background: 'linear-gradient(160deg, #111113 0%, #0d0d0f 50%, #111113 100%)' }}
+      >
+        <div
+          className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-48 opacity-10 pointer-events-none"
+          style={{ background: 'radial-gradient(ellipse at 50% 0%, #FFFD02 0%, transparent 65%)' }}
+        />
+        <div className="relative max-w-2xl mx-auto px-4 py-12 flex flex-col items-center text-center gap-5">
+          <div className="flex items-center justify-center w-16 h-16 rounded-2xl bg-[#FFFD02]">
+            <Compass size={30} className="text-black" />
+          </div>
+          <div>
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-2">¿No sabés qué ver?</h2>
+            <p className="text-[#A0A0B0] text-sm sm:text-base">
+              Respondé 3 preguntas y te decimos exactamente qué ver hoy
+            </p>
+          </div>
+          <Link
+            href="/que-ver"
+            className="inline-flex items-center gap-2 bg-[#FFFD02] hover:bg-[#E5EB00] text-black font-semibold px-6 py-3 rounded-full transition-colors active:scale-95 text-sm"
+          >
+            <Compass size={16} />
+            Probar recomendador →
+          </Link>
+        </div>
+      </div>
 
       <div className="max-w-7xl mx-auto px-4 py-10">
 
