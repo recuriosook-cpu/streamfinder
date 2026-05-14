@@ -103,7 +103,7 @@ export default async function DirectorPage({ params }: Props) {
 
   // Top 4 by rating
   const topRated = [...directed]
-    .filter(c => c.vote_count >= 50)
+    .filter(c => c.vote_count >= 100)
     .sort((a, b) => b.vote_average - a.vote_average)
     .slice(0, 4)
 

@@ -26,6 +26,7 @@ interface Credit {
   vote_average: number
   vote_count: number
   genre_ids?: number[]
+  episode_count?: number
 }
 
 const AWARD_KEYWORDS = ['Oscar', 'Emmy', 'Grammy', 'SAG', 'BAFTA', 'Golden Globe', 'Globo de Oro', 'Cannes', 'Venecia', 'Sundance', 'Tony']
@@ -99,14 +100,28 @@ export default async function ActorPage({ params }: Props) {
     // Credits unavailable — show page without filmography
   }
 
+  // Self-appearances: talk shows, documentaries, archive footage
+  const SELF_RE = /^(Self|Himself|Herself)\b/i
+
   const allCredits: Credit[] = (creditsData.cast ?? [])
-    .filter((c: Credit) => c.poster_path && (c.title || c.name))
+    .filter((c: Credit) => {
+      if (!c.poster_path || (!c.title && !c.name)) return false
+      const char = c.character ?? ''
+      // Exclude when character is "Self", "Himself", "Herself" (talk shows, docs as themselves)
+      if (SELF_RE.test(char)) return false
+      // Exclude TV guest appearances: 1 episode with no named character
+      if (c.media_type === 'tv' && !char && (c.episode_count ?? 0) <= 1) return false
+      return true
+    })
 
   // "Más valorado": top 4 by vote_average (min 20 votes to filter noise), unique by id+media_type
   const seen = new Set<string>()
   const topRated: Credit[] = []
   const byRating = [...allCredits]
-    .filter(c => c.vote_count >= 20)
+    .filter(c =>
+      c.vote_count >= 100 &&
+      !(c.media_type === 'tv' && (c.episode_count ?? 0) < 3)
+    )
     .sort((a, b) => b.vote_average - a.vote_average)
   for (const c of byRating) {
     const key = `${c.media_type}-${c.id}`
