@@ -79,6 +79,9 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
               <p className="text-[9px] sm:text-[11px] text-[#A0A0B0] leading-tight mt-0.5 line-clamp-2">
                 {person.character}
               </p>
+              <p className="text-[8px] text-[#A0A0B0] group-hover/actor:text-zinc-300 transition-colors mt-1 leading-tight">
+                Ver filmografía →
+              </p>
             </Link>
           ))}
         </div>
@@ -130,6 +133,9 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
               </p>
               <p className="text-[9px] text-[#A0A0B0] leading-tight mt-0.5 line-clamp-1">
                 {person.character}
+              </p>
+              <p className="text-[8px] text-[#A0A0B0] group-hover/actor:text-zinc-300 transition-colors mt-0.5 leading-tight">
+                Ver filmografía →
               </p>
             </Link>
           ))}

@@ -39,9 +39,9 @@ export default function StreamingSection({ results }: Props) {
         </p>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler" />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra" />
+          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} />
+          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                tmdbLink={region.link} />
+          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} />
         </div>
       )}
     </div>

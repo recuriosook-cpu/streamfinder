@@ -55,12 +55,21 @@ async function getCollection(collectionId: number): Promise<CollectionData | nul
 }
 
 // eslint-disable-next-line @typescript-eslint/no-explicit-any
-async function getSimilar(id: number, type: 'movie' | 'tv'): Promise<any[]> {
+async function getRecommendations(id: number, type: 'movie' | 'tv'): Promise<any[]> {
   try {
-    const res = await fetch(`https://api.themoviedb.org/3/${type}/${id}/similar?api_key=${TMDB_KEY}&language=es-AR`, { next: { revalidate: 3600 } })
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.results ?? []).slice(0, 10)
+    const [recRes, simRes] = await Promise.all([
+      fetch(`https://api.themoviedb.org/3/${type}/${id}/recommendations?api_key=${TMDB_KEY}&language=es-AR`, { next: { revalidate: 3600 } }),
+      fetch(`https://api.themoviedb.org/3/${type}/${id}/similar?api_key=${TMDB_KEY}&language=es-AR`,         { next: { revalidate: 3600 } }),
+    ])
+    const recData = recRes.ok ? await recRes.json() : { results: [] }
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const recs: any[] = (recData.results ?? []).filter((r: any) => r.poster_path).slice(0, 12)
+    if (recs.length >= 6) return recs
+    const simData = simRes.ok ? await simRes.json() : { results: [] }
+    const existing = new Set(recs.map((r: any) => r.id))
+    // eslint-disable-next-line @typescript-eslint/no-explicit-any
+    const extras: any[] = (simData.results ?? []).filter((r: any) => r.poster_path && !existing.has(r.id))
+    return [...recs, ...extras].slice(0, 12)
   } catch { return [] }
 }
 
@@ -108,7 +117,7 @@ export default async function MoviePage({ params }: Props) {
     getMovieProviders(numId),
     getMovieCredits(numId),
     getTrailerKey(numId, 'movie'),
-    getSimilar(numId, 'movie'),
+    getRecommendations(numId, 'movie'),
   ])
   if (!movie || movie.success === false || !movie.title) {
     return (
@@ -135,12 +144,23 @@ export default async function MoviePage({ params }: Props) {
   }
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, { count: watchedCount }] = await Promise.all([
+  const [omdbResult, collectionData, { count: watchedCount }, { data: authData }] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
+    supabase.auth.getUser(),
   ])
   const omdb = omdbResult
+
+  const userId = authData.user?.id ?? null
+  let filteredSimilar = similar
+  if (userId) {
+    const { data: userWatched } = await supabase
+      .from('watched').select('media_id')
+      .eq('user_id', userId).eq('media_type', 'movie')
+    const watchedIds = new Set((userWatched ?? []).map((w: { media_id: number }) => w.media_id))
+    filteredSimilar = similar.filter((item: { id: number }) => !watchedIds.has(item.id))
+  }
 
   // Cast: top 10 billed actors
   const cast = (credits.cast ?? [])
@@ -400,6 +420,8 @@ export default async function MoviePage({ params }: Props) {
           tmdbScore={movie.vote_average}
           tmdbVotes={movie.vote_count}
           omdb={omdb}
+          mediaId={movie.id}
+          mediaType="movie"
         />
         <StreamingSection results={allProviders} />
         <ReviewsSection
@@ -408,7 +430,7 @@ export default async function MoviePage({ params }: Props) {
           title={movie.title}
           posterPath={movie.poster_path}
         />
-        <SimilarTitles items={similar} mediaType="movie" />
+        <SimilarTitles items={filteredSimilar} mediaType="movie" />
       </div>
     </div>
   )

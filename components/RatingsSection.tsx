@@ -1,172 +1,169 @@
-﻿import type { OMDBRatings } from '@/lib/omdb'
+'use client'
+
+import { useState, useEffect } from 'react'
+import { createClient } from '@/lib/supabase'
+import type { OMDBRatings } from '@/lib/omdb'
+
+// ── Types ─────────────────────────────────────────────────────────────────────
 
 interface Props {
   tmdbScore: number
   tmdbVotes: number
   omdb: OMDBRatings
+  mediaId: number
+  mediaType: 'movie' | 'tv'
 }
 
-// ── Inline SVG logos ──────────────────────────────────────────────
+// ── Helpers ───────────────────────────────────────────────────────────────────
 
-function TMDBLogo() {
-  return (
-    <div className="flex items-center gap-1.5">
-      {/* TMDB brand mark: two overlapping circles */}
-      <svg width="32" height="20" viewBox="0 0 32 20" fill="none">
-        <rect width="32" height="20" rx="4" fill="#032541" />
-        <circle cx="10" cy="10" r="6" fill="none" stroke="#01B4E4" strokeWidth="2.5" />
-        <circle cx="22" cy="10" r="6" fill="none" stroke="#90CEA1" strokeWidth="2.5" />
-        {/* overlap tint */}
-        <path d="M16 5.1 a6 6 0 0 1 0 9.8 a6 6 0 0 1 0-9.8z" fill="#032541" />
-      </svg>
-      <span className="text-xs font-bold text-[#01B4E4] tracking-wider">TMDB</span>
-    </div>
-  )
+function scoreColor(pct: number): string {
+  if (pct < 0.5) return '#EF4444'
+  if (pct < 0.7) return '#FFFD02'
+  return '#22C55E'
 }
 
-function IMDbLogo() {
-  return (
-    <div className="flex items-center">
-      <div className="bg-[#F5C518] rounded px-2 py-0.5">
-        <span className="text-black font-black text-sm tracking-tight leading-none">IMDb</span>
-      </div>
-    </div>
-  )
-}
+// ── Score circle (SVG arc + centered number) ──────────────────────────────────
 
-function RTLogo({ isFresh }: { isFresh: boolean }) {
+function ScoreCircle({
+  score, pct, color, label, sub, size = 72,
+}: {
+  score: string; pct: number; color: string
+  label: string; sub?: string; size?: number
+}) {
+  const stroke = 5
+  const r      = (size - stroke) / 2
+  const circ   = 2 * Math.PI * r
+  const dash   = Math.max(0, Math.min(1, pct)) * circ
+  const c      = size / 2
+
   return (
-    <div className="flex items-center gap-1.5">
-      {isFresh ? (
-        /* Fresh tomato */
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-          {/* stem */}
-          <path d="M11 1 C11 1 9.5 4 11 5 C12.5 4 11 1 11 1Z" fill="#3a7c3a" />
-          <path d="M11 3 C10 2 8 2.5 8.5 4" stroke="#3a7c3a" strokeWidth="1" strokeLinecap="round" />
-          <path d="M11 3 C12 2 14 2.5 13.5 4" stroke="#3a7c3a" strokeWidth="1" strokeLinecap="round" />
-          {/* body */}
-          <circle cx="11" cy="13" r="8" fill="#FA320A" />
-          {/* highlight */}
-          <ellipse cx="8.5" cy="10.5" rx="2" ry="1.5" fill="rgba(255,255,255,0.25)" transform="rotate(-20 8.5 10.5)" />
+    <div className="flex flex-col items-center gap-1.5">
+      <div className="relative" style={{ width: size, height: size }}>
+        {/* SVG circles */}
+        <svg width={size} height={size} viewBox={`0 0 ${size} ${size}`} className="absolute inset-0">
+          {/* Track */}
+          <circle cx={c} cy={c} r={r} fill="none" stroke="#1C1C27" strokeWidth={stroke} />
+          {/* Progress arc — starts at 12 o'clock */}
+          <circle
+            cx={c} cy={c} r={r} fill="none"
+            stroke={color} strokeWidth={stroke} strokeLinecap="round"
+            strokeDasharray={`${dash} ${circ}`}
+            transform={`rotate(-90 ${c} ${c})`}
+          />
         </svg>
-      ) : (
-        /* Rotten splat */
-        <svg width="22" height="22" viewBox="0 0 22 22" fill="none">
-          <circle cx="11" cy="11" r="8" fill="#7c6a22" />
-          <ellipse cx="11" cy="11" rx="5" ry="4" fill="#a38a2e" />
-          <circle cx="8.5" cy="9.5" rx="1.2" ry="1" fill="rgba(0,0,0,0.3)" />
-        </svg>
-      )}
-      <span className={`text-[10px] font-bold uppercase tracking-wider ${isFresh ? 'text-[#FA320A]' : 'text-[#A0A0B0]'}`}>
-        {isFresh ? 'Fresh' : 'Rotten'}
-      </span>
-    </div>
-  )
-}
-
-function MetacriticLogo({ score }: { score: number }) {
-  const bg = score >= 61 ? '#6ac259' : score >= 40 ? '#ffbd3f' : '#ff2a2a'
-  const textColor = score >= 40 ? '#000' : '#fff'
-  return (
-    <div className="flex items-center gap-1.5">
-      <div
-        className="w-8 h-8 rounded flex items-center justify-center font-black text-sm leading-none"
-        style={{ background: bg, color: textColor }}
-      >
-        {score}
+        {/* Score label centered over the SVG */}
+        <div className="absolute inset-0 flex items-center justify-center">
+          <span className="font-bold text-white tabular-nums" style={{ fontSize: size > 60 ? 15 : 12 }}>
+            {score}
+          </span>
+        </div>
       </div>
-      <span className="text-xs font-semibold text-[#A0A0B0]">Metacritic</span>
+      <p className="text-[11px] font-semibold text-[#A0A0B0] text-center leading-tight max-w-[80px]">{label}</p>
+      {sub && <p className="text-[10px] text-zinc-600 text-center">{sub}</p>}
     </div>
   )
 }
 
-// ── Rating card ───────────────────────────────────────────────────
+// ── Main component ────────────────────────────────────────────────────────────
 
-interface CardProps {
-  logo: React.ReactNode
-  score: string
-  scoreLabel?: string
-  sub?: string
-}
-
-function RatingCard({ logo, score, scoreLabel, sub }: CardProps) {
-  return (
-    <div className="bg-[#1C1C27]/60 border border-[#2A2A3A]/50 rounded-xl px-5 py-4 flex flex-col gap-2 min-w-[120px]">
-      <div>{logo}</div>
-      <div className="flex items-baseline gap-1">
-        <span className="text-2xl font-bold text-white leading-none">{score}</span>
-        {scoreLabel && <span className="text-sm text-[#A0A0B0]">{scoreLabel}</span>}
-      </div>
-      {sub && <p className="text-[11px] text-[#A0A0B0] leading-tight">{sub}</p>}
-    </div>
-  )
-}
-
-// ── Main section ─────────────────────────────────────────────────
-
-export default function RatingsSection({ tmdbScore, tmdbVotes, omdb }: Props) {
+export default function RatingsSection({ tmdbScore, tmdbVotes, omdb, mediaId, mediaType }: Props) {
   const { imdbScore, imdbVotes, rtCritics, metacritic } = omdb
+  const [userRating, setUserRating] = useState<number | null>(null)
 
-  // Parse RT score for fresh/rotten determination
-  const rtNum = rtCritics ? parseInt(rtCritics) : null
-  const isFresh = rtNum !== null && rtNum >= 60
+  // Load user's own rating client-side
+  useEffect(() => {
+    const supabase = createClient()
+    supabase.auth.getUser().then(({ data }) => {
+      if (!data.user) return
+      supabase
+        .from('ratings')
+        .select('rating')
+        .eq('user_id', data.user.id)
+        .eq('media_id', mediaId)
+        .eq('media_type', mediaType)
+        .maybeSingle()
+        .then(({ data: r }) => { if (r?.rating) setUserRating(r.rating) })
+    })
+  }, [mediaId, mediaType])
 
-  // Format TMDB votes (e.g. 1234567 → "1.2M")
-  const formattedTMDBVotes =
-    tmdbVotes >= 1_000_000
-      ? `${(tmdbVotes / 1_000_000).toFixed(1)}M votos`
-      : tmdbVotes >= 1_000
-      ? `${Math.round(tmdbVotes / 1_000)}K votos`
-      : `${tmdbVotes} votos`
+  const imdbNum      = imdbScore ? parseFloat(imdbScore) : null
+  const rtNum        = rtCritics ? parseInt(rtCritics)   : null
+  const metacriticNum = metacritic
 
-  // Format IMDb votes
-  const formattedIMDbVotes = imdbVotes
-    ? imdbVotes.replace(/,/g, '.') + ' votos'
-    : undefined
+  const fmtVotes = (n: number) =>
+    n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M votos`
+    : n >= 1_000   ? `${Math.round(n / 1_000)}K votos`
+    :                `${n} votos`
 
-  const hasAnyRating = tmdbScore > 0 || imdbScore || rtCritics || metacritic !== null
+  const hasAnyRating =
+    tmdbScore > 0 ||
+    (imdbNum !== null && !isNaN(imdbNum) && imdbNum > 0) ||
+    (rtNum !== null && !isNaN(rtNum)) ||
+    metacriticNum !== null
   if (!hasAnyRating) return null
 
   return (
     <div className="mt-8">
-      <h2 className="text-lg font-bold mb-3 text-zinc-200">Puntajes</h2>
-      <div className="flex flex-wrap gap-3">
+      <h2 className="text-lg font-bold mb-5 text-zinc-200">Puntajes</h2>
+      <div className="flex flex-wrap gap-6 items-start">
+
         {/* TMDB */}
         {tmdbScore > 0 && (
-          <RatingCard
-            logo={<TMDBLogo />}
+          <ScoreCircle
             score={tmdbScore.toFixed(1)}
-            scoreLabel="/10"
-            sub={tmdbVotes > 0 ? formattedTMDBVotes : undefined}
+            pct={tmdbScore / 10}
+            color={scoreColor(tmdbScore / 10)}
+            label="TMDB"
+            sub={tmdbVotes > 0 ? fmtVotes(tmdbVotes) : undefined}
           />
         )}
 
         {/* IMDb */}
-        {imdbScore && (
-          <RatingCard
-            logo={<IMDbLogo />}
-            score={imdbScore}
-            scoreLabel="/10"
-            sub={formattedIMDbVotes}
+        {imdbNum !== null && !isNaN(imdbNum) && imdbNum > 0 && (
+          <ScoreCircle
+            score={imdbScore!}
+            pct={imdbNum / 10}
+            color={scoreColor(imdbNum / 10)}
+            label="IMDb"
+            sub={imdbVotes ? imdbVotes.replace(/,/g, '.') + ' votos' : undefined}
           />
         )}
 
-        {/* Rotten Tomatoes — critics only (OMDB free tier) */}
-        {rtCritics && rtNum !== null && (
-          <RatingCard
-            logo={<RTLogo isFresh={isFresh} />}
-            score={rtCritics}
+        {/* Rotten Tomatoes */}
+        {rtNum !== null && !isNaN(rtNum) && (
+          <ScoreCircle
+            score={rtCritics!}
+            pct={rtNum / 100}
+            color={rtNum >= 60 ? '#22C55E' : '#EF4444'}
+            label="Rotten Tomatoes"
             sub="Críticos"
           />
         )}
 
         {/* Metacritic */}
-        {metacritic !== null && (
-          <RatingCard
-            logo={<MetacriticLogo score={metacritic} />}
-            score={String(metacritic)}
-            scoreLabel="/100"
+        {metacriticNum !== null && (
+          <ScoreCircle
+            score={String(metacriticNum)}
+            pct={metacriticNum / 100}
+            color={metacriticNum >= 61 ? '#22C55E' : metacriticNum >= 40 ? '#FFFD02' : '#EF4444'}
+            label="Metacritic"
+            sub="/100"
           />
+        )}
+
+        {/* User's personal rating — shown once loaded */}
+        {userRating !== null && userRating > 0 && (
+          <>
+            <div className="w-px h-16 bg-[#2A2A3A] self-center hidden sm:block" />
+            <ScoreCircle
+              score={userRating.toFixed(1)}
+              pct={userRating / 5}
+              color={scoreColor(userRating / 5)}
+              label="Tu rating"
+              sub="/5"
+              size={60}
+            />
+          </>
         )}
       </div>
     </div>
