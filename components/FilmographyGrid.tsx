@@ -283,7 +283,7 @@ export default function FilmographyGrid({ credits, title = 'Filmografía' }: Pro
                     alt={itemTitle}
                     fill
                     loading="lazy"
-                    className="object-cover transition-transform duration-300 group-hover:scale-105"
+                    className="object-cover transition-transform duration-200 group-hover:scale-105"
                     sizes="(max-width: 640px) 33vw, (max-width: 768px) 25vw, 17vw"
                   />
 
@@ -299,18 +299,28 @@ export default function FilmographyGrid({ credits, title = 'Filmografía' }: Pro
 
                   {/* TV badge */}
                   {credit.media_type === 'tv' && (
-                    <span className="absolute top-1 left-1 text-[9px] bg-purple-700 text-white px-1 py-0.5 rounded font-medium">
+                    <span className="absolute top-1 left-1 text-[10px] bg-purple-700 text-white px-1 py-0.5 rounded font-medium">
                       Serie
                     </span>
                   )}
+
+                  {/* Desktop-only action overlay */}
+                  <div className="absolute inset-0 bg-black/60 opacity-0 md:group-hover:opacity-100 transition-opacity duration-200 flex flex-col items-center justify-end pb-2 gap-1">
+                    <span className="w-4/5 flex items-center justify-center bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+                      + Para ver
+                    </span>
+                    <span className="w-4/5 flex items-center justify-center bg-white/20 hover:bg-white/30 text-white text-[10px] font-medium py-1 rounded-full transition-colors">
+                      ♥ Me gusta
+                    </span>
+                  </div>
                 </div>
 
-                <p className="text-[11px] font-medium text-zinc-300 line-clamp-2 group-hover:text-white transition-colors leading-tight">
+                <p className="text-xs font-medium text-zinc-300 line-clamp-2 group-hover:text-white transition-colors leading-tight">
                   {itemTitle}
                 </p>
                 {year > 0 && <p className="text-[10px] text-[#A0A0B0] mt-0.5">{year}</p>}
                 {credit.character && (
-                  <p className="text-[9px] text-zinc-600 mt-0.5 italic line-clamp-1">
+                  <p className="text-[10px] text-zinc-600 mt-0.5 italic line-clamp-1">
                     {credit.character}
                   </p>
                 )}

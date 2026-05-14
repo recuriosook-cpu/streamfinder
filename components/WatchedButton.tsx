@@ -137,7 +137,7 @@ export default function WatchedButton({
       <button
         onClick={handleButtonClick}
         disabled={loading}
-        className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 w-full sm:w-auto ${
+        className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto ${
           isWatched
             ? 'bg-[#E5EB00] hover:bg-[#FFFD02] text-black'
             : 'bg-zinc-700 hover:bg-zinc-600 text-white'
@@ -167,7 +167,7 @@ export default function WatchedButton({
               <button
                 onClick={handleToday}
                 disabled={loading}
-                className="w-full bg-[#E5EB00] hover:bg-[#FFFD02] disabled:opacity-50 text-black text-sm font-medium py-2 rounded-lg transition-colors"
+                className="w-full bg-[#E5EB00] hover:bg-[#FFFD02] disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium py-2 rounded-lg transition-colors"
               >
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
@@ -179,7 +179,7 @@ export default function WatchedButton({
               <button
                 onClick={() => setShowDatePicker(true)}
                 disabled={loading}
-                className="w-full flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-50 text-white text-sm font-medium py-2 rounded-lg transition-colors"
+                className="w-full flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 rounded-lg transition-colors"
               >
                 <Calendar size={14} />
                 Otra fecha
@@ -204,7 +204,7 @@ export default function WatchedButton({
                 <button
                   onClick={handleConfirmDate}
                   disabled={!customDate || loading}
-                  className="flex-1 bg-[#E5EB00] hover:bg-[#FFFD02] disabled:opacity-40 text-black text-sm font-medium py-2 rounded-lg transition-colors"
+                  className="flex-1 bg-[#E5EB00] hover:bg-[#FFFD02] disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium py-2 rounded-lg transition-colors"
                 >
                   Confirmar
                 </button>

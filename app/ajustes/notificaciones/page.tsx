@@ -173,7 +173,7 @@ export default function NotificacionesPage() {
               <button
                 onClick={handleDeactivatePush}
                 disabled={pushBusy}
-                className="text-xs text-zinc-500 hover:text-white transition-colors shrink-0 disabled:opacity-50"
+                className="text-xs text-zinc-500 hover:text-white transition-colors shrink-0 disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 {pushBusy ? <Loader2 size={13} className="animate-spin" /> : 'Desactivar'}
               </button>
@@ -182,7 +182,7 @@ export default function NotificacionesPage() {
             <button
               onClick={handleActivatePush}
               disabled={pushBusy}
-              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
             >
               {pushBusy
                 ? <><Loader2 size={14} className="animate-spin" /> Activando...</>

@@ -80,11 +80,11 @@ function AwardModal({ group, onClose }: { group: AwardGroup; onClose: () => void
 
   return (
     <div
-      className="fixed inset-0 z-50 flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 flex items-center justify-center p-4 modal-overlay"
       style={{ backgroundColor: 'rgba(0,0,0,0.75)' }}
       onClick={e => { if (e.target === e.currentTarget) onClose() }}
     >
-      <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl">
+      <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl w-full max-w-lg max-h-[80vh] flex flex-col shadow-2xl modal-content">
         {/* Header */}
         <div className="flex items-center justify-between px-5 py-4 border-b border-[#2A2A3A]">
           <div className="flex items-center gap-3">

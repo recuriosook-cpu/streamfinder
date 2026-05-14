@@ -2171,7 +2171,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <button
                 onClick={saveProfile}
                 disabled={editSaving || !!usernameError || usernameChecking}
-                className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 text-black px-5 py-2 rounded-lg transition-colors"
+                className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black px-5 py-2 rounded-lg transition-colors"
               >
                 {editSaving
                   ? <div className="w-3.5 h-3.5 border border-white/40 border-t-white rounded-full animate-spin" />
@@ -2265,7 +2265,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <button
                 onClick={() => setShowBlockConfirm(false)}
                 disabled={blockBusy}
-                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
@@ -2277,7 +2277,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   setBlockBusy(false)
                 }}
                 disabled={blockBusy}
-                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {blockBusy
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

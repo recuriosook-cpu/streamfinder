@@ -71,7 +71,7 @@ export default function AddToListButton({ mediaId, mediaType, title, posterPath 
     <div className="relative w-full sm:w-auto" ref={ref}>
       <button
         onClick={openModal}
-        className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto bg-zinc-700 hover:bg-zinc-600 text-white disabled:opacity-50"
+        className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto bg-zinc-700 hover:bg-zinc-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ListPlus size={18} />
         Agregar a lista

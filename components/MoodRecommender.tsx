@@ -112,7 +112,7 @@ function SkeletonCards() {
     <div className="grid grid-cols-1 sm:grid-cols-2 gap-4 mt-4">
       {Array.from({ length: 4 }).map((_, i) => (
         <div key={i} className="flex gap-3 bg-[#1C1C27]/60 rounded-2xl p-3 animate-pulse">
-          <div className="w-20 shrink-0 aspect-[2/3] bg-zinc-700 rounded-xl" />
+          <div className="w-20 shrink-0 aspect-[2/3] bg-zinc-700 rounded-lg" />
           <div className="flex-1 space-y-2 py-1">
             <div className="h-4 bg-zinc-700 rounded w-3/4" />
             <div className="h-3 bg-zinc-700 rounded w-1/3" />

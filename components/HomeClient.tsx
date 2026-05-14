@@ -669,7 +669,7 @@ function ContinueWatchingSection({
             <button
               onClick={() => onMarkWatched(item)}
               disabled={loading.has(item.media_id)}
-              className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold py-1.5 rounded-full transition-colors disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-1 text-[11px] font-semibold py-1.5 rounded-full transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               style={{ backgroundColor: 'rgba(34,197,94,0.12)', color: '#22c55e', border: '1px solid rgba(34,197,94,0.25)' }}
             >
               {loading.has(item.media_id) ? '...' : '✓ Ya la vi'}

@@ -79,7 +79,7 @@ function CarouselCard({
         <p className="text-xs font-semibold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
           {title}
         </p>
-        {year && <p className="text-[11px] text-[#A0A0B0] mt-0.5">{year}</p>}
+        {year && <p className="text-xs text-[#A0A0B0] mt-0.5">{year}</p>}
       </Link>
     </div>
   )

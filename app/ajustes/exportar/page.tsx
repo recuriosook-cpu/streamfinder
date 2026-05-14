@@ -71,7 +71,7 @@ export default function ExportarPage() {
           <button
             onClick={() => downloadFile('json')}
             disabled={jsonLoading || csvLoading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-blue-600 hover:bg-blue-500 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:cursor-not-allowed"
           >
             {jsonLoading ? (
               <><div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" /> Preparando...</>
@@ -101,7 +101,7 @@ export default function ExportarPage() {
           <button
             onClick={() => downloadFile('csv')}
             disabled={jsonLoading || csvLoading}
-            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold transition-colors disabled:opacity-50 disabled:cursor-not-allowed"
+            className="w-full flex items-center justify-center gap-2 py-2.5 rounded-lg bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed disabled:cursor-not-allowed"
           >
             {csvLoading ? (
               <><div className="w-4 h-4 border-2 border-black border-t-transparent rounded-full animate-spin" /> Preparando...</>

@@ -1,12 +1,16 @@
-﻿@import "tailwindcss";
+@import "tailwindcss";
 
 @theme {
-  --color-brand-primary: #FFFD02;
+  --color-brand-primary:   #FFFD02;
   --color-brand-secondary: #F5A623;
   --color-surface-DEFAULT: #0A0A0F;
-  --color-surface-card: #13131A;
-  --color-surface-hover: #1C1C27;
-  --color-border-DEFAULT: #2A2A3A;
+  --color-surface-card:    #13131A;
+  --color-surface-hover:   #1C1C27;
+  --color-border-DEFAULT:  #2A2A3A;
+  /* Status colors */
+  --color-success:  #22C55E;
+  --color-error:    #EF4444;
+  --color-warning:  #F59E0B;
 }
 
 :root {
@@ -95,7 +99,6 @@ a, button {
 }
 
 /* ── Horizontal chip strip (nowrap + touch scroll) ──────────────── */
-/* Horizontal chip strip (nowrap + touch scroll) */
 .chip-scroll {
   display: flex;
   flex-wrap: nowrap;
@@ -106,4 +109,31 @@ a, button {
 }
 .chip-scroll::-webkit-scrollbar {
   display: none;
+}
+
+/* ── Modal animations ───────────────────────────────────────────── */
+@keyframes modal-fade-in {
+  from { opacity: 0; }
+  to   { opacity: 1; }
+}
+@keyframes modal-slide-in {
+  from { opacity: 0; transform: scale(0.96) translateY(6px); }
+  to   { opacity: 1; transform: scale(1) translateY(0); }
+}
+
+.modal-overlay {
+  animation: modal-fade-in 150ms ease forwards;
+}
+.modal-content {
+  animation: modal-slide-in 150ms ease forwards;
+}
+
+/* ── Accessibility: reduce motion ───────────────────────────────── */
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
 }

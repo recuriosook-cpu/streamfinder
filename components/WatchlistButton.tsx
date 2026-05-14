@@ -63,7 +63,7 @@ export default function WatchlistButton({ mediaId, mediaType, title, posterPath 
     <button
       onClick={toggle}
       disabled={loading}
-      className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-50 w-full sm:w-auto ${
+      className={`flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors disabled:opacity-40 disabled:cursor-not-allowed w-full sm:w-auto ${
         inList
           ? 'bg-blue-600 hover:bg-blue-700 text-white'
           : 'bg-zinc-700 hover:bg-zinc-600 text-white'

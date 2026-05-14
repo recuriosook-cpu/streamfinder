@@ -594,7 +594,7 @@ function RecommendationCard({ item, currentUserId, supabase, onAuthRequired }: {
                 { type: 'watchlist' as const, label: watchlist ? '✓ En lista' : '🔖 Ver después',  active: watchlist, color: '#60a5fa' },
               ].map(btn => (
                 <button key={btn.type} onClick={() => act(btn.type)} disabled={busy}
-                  className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-all disabled:opacity-50"
+                  className="text-[11px] font-medium px-2.5 py-1 rounded-full transition-all disabled:opacity-40 disabled:cursor-not-allowed"
                   style={{
                     backgroundColor: btn.active ? `${btn.color}22` : '#1C1C27',
                     color: btn.active ? btn.color : '#A0A0B0',

@@ -68,7 +68,7 @@ export default function FollowActorButton({ actorId, actorName, actorPhoto }: Pr
     <button
       onClick={toggle}
       disabled={busy}
-      className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all disabled:opacity-60 ${
+      className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all disabled:opacity-40 disabled:cursor-not-allowed ${
         following
           ? 'bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20'
           : 'bg-[#2563EB] border-[#2563EB] text-white hover:bg-[#1D4ED8] hover:border-[#1D4ED8]'

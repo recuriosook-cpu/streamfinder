@@ -194,7 +194,7 @@ export default function AuthPage() {
           <button
             type="submit"
             disabled={loading}
-            className="w-full bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-50 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-full transition-colors text-sm mt-1"
+            className="w-full bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black font-bold py-3.5 rounded-full transition-colors text-sm mt-1"
           >
             {loading ? 'Cargando...' : mode === 'login' ? 'Iniciar sesión' : 'Crear cuenta'}
           </button>
@@ -213,7 +213,7 @@ export default function AuthPage() {
             type="button"
             onClick={handleGoogle}
             disabled={!!socialLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-60 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
           >
             {socialLoading === 'google'
               ? <span className="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
@@ -225,7 +225,7 @@ export default function AuthPage() {
             type="button"
             onClick={handleFacebook}
             disabled={!!socialLoading}
-            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166fe5] disabled:opacity-60 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
+            className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
           >
             {socialLoading === 'facebook'
               ? <span className="w-4 h-4 border-2 border-blue-300 border-t-white rounded-full animate-spin" />

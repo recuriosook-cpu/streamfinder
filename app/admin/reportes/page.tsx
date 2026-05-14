@@ -311,7 +311,7 @@ export default function AdminReportesPage() {
                     username: report.author!.username!,
                   })}
                   disabled={processingId === report.id}
-                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/40 text-zinc-600 hover:text-red-400 transition-colors border border-zinc-800 hover:border-red-900/40 disabled:opacity-50 ml-auto"
+                  className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-zinc-900 hover:bg-red-950/40 text-zinc-600 hover:text-red-400 transition-colors border border-zinc-800 hover:border-red-900/40 disabled:opacity-40 disabled:cursor-not-allowed ml-auto"
                 >
                   <Ban size={11} /> Banear de Glynbox
                 </button>

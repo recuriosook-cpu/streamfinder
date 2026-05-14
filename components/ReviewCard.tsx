@@ -735,14 +735,14 @@ function ReviewCard({
               <button
                 onClick={() => setBlockConfirm(false)}
                 disabled={blockBusy}
-                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleBlockAuthor}
                 disabled={blockBusy}
-                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {blockBusy
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
@@ -771,14 +771,14 @@ function ReviewCard({
               <button
                 onClick={() => setCommentBlockUser(null)}
                 disabled={commentBlockBusy}
-                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-50"
+                className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
                 Cancelar
               </button>
               <button
                 onClick={handleBlockCommentUser}
                 disabled={commentBlockBusy}
-                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-50 flex items-center justify-center gap-2"
+                className="flex-1 py-2 rounded-lg bg-zinc-700 hover:bg-zinc-600 text-sm text-white font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
               >
                 {commentBlockBusy
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />

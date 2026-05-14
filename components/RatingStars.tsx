@@ -115,7 +115,7 @@ export default function RatingStars({
               const rect = e.currentTarget.getBoundingClientRect()
               handleRate(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
             }}
-            className="transition-transform hover:scale-125 disabled:opacity-50"
+            className="transition-transform hover:scale-125 disabled:opacity-40 disabled:cursor-not-allowed"
             aria-label={`Calificar ${s - 0.5} o ${s} estrellas`}
           >
             <StarIcon fill={fill} size={20} />
