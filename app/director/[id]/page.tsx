@@ -1,4 +1,5 @@
 import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
+import FilmographyGrid from '@/components/FilmographyGrid'
 import { createServerClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -308,33 +309,7 @@ export default async function DirectorPage({ params }: Props) {
 
         {/* ── Filmografía completa ──────────────────────────────────── */}
         {directed.length > 0 && (
-          <section className="mb-10">
-            <h2 className="text-xl font-bold mb-4">Filmografía como director</h2>
-            <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 gap-3">
-              {directed.map(credit => {
-                const title = credit.title ?? credit.name ?? ''
-                const year  = (credit.release_date ?? credit.first_air_date ?? '').slice(0, 4)
-                return (
-                  <Link key={`${credit.media_type}-${credit.id}`} href={`/${credit.media_type}/${credit.id}`} className="group block">
-                    <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
-                      <Image src={getPosterUrl(credit.poster_path, 'w185')} alt={title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" sizes="160px" />
-                      {credit.vote_average > 0 && (
-                        <div className="absolute bottom-1 right-1 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1 py-0.5">
-                          <Star size={9} className="text-yellow-400 shrink-0" fill="currentColor" />
-                          <span className="text-[10px] font-semibold text-white">{credit.vote_average.toFixed(1)}</span>
-                        </div>
-                      )}
-                      {credit.media_type === 'tv' && (
-                        <span className="absolute top-1 left-1 text-[9px] bg-purple-700 text-white px-1 py-0.5 rounded font-medium">Serie</span>
-                      )}
-                    </div>
-                    <p className="text-[11px] font-medium text-zinc-300 line-clamp-1 group-hover:text-white transition-colors">{title}</p>
-                    {year && <p className="text-[10px] text-[#A0A0B0] mt-0.5">{year}</p>}
-                  </Link>
-                )
-              })}
-            </div>
-          </section>
+          <FilmographyGrid credits={directed} title="Filmografía como director" />
         )}
       </div>
     </div>

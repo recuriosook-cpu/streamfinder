@@ -5,7 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
 import Breadcrumb from '@/components/Breadcrumb'
-import ActorFilmography from '@/components/ActorFilmography'
+import FilmographyGrid from '@/components/FilmographyGrid'
 import ActorAwards from '@/components/ActorAwards'
 import FollowActorButton from '@/components/FollowActorButton'
 
@@ -25,6 +25,7 @@ interface Credit {
   popularity: number
   vote_average: number
   vote_count: number
+  genre_ids?: number[]
 }
 
 const AWARD_KEYWORDS = ['Oscar', 'Emmy', 'Grammy', 'SAG', 'BAFTA', 'Golden Globe', 'Globo de Oro', 'Cannes', 'Venecia', 'Sundance', 'Tony']
@@ -351,7 +352,7 @@ export default async function ActorPage({ params }: Props) {
 
         {/* Filmografía completa */}
         {filmography.length > 0 && (
-          <ActorFilmography credits={filmography} />
+          <FilmographyGrid credits={filmography} title="Filmografía" />
         )}
       </div>
     </div>
