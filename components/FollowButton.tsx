@@ -39,7 +39,7 @@ export default function FollowButton({ targetUserId }: Props) {
     return (
       <Link
         href="/auth"
-        className="flex items-center gap-2 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 text-sm px-4 py-2 rounded-lg transition-colors"
+        className="flex items-center gap-2 bg-[#2563EB] hover:bg-[#1D4ED8] text-white text-sm px-4 py-2 rounded-lg transition-colors"
       >
         <UserPlus size={15} /> Seguir
       </Link>
@@ -66,8 +66,8 @@ export default function FollowButton({ targetUserId }: Props) {
       disabled={busy}
       className={`flex items-center gap-2 text-sm font-medium px-4 py-2 rounded-lg transition-colors ${
         following
-          ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-          : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
+          ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/40 text-red-400'
+          : 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white'
       }`}
     >
       {following ? <UserCheck size={15} /> : <UserPlus size={15} />}

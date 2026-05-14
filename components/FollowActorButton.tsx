@@ -71,7 +71,7 @@ export default function FollowActorButton({ actorId, actorName, actorPhoto }: Pr
       className={`flex items-center gap-1.5 text-sm px-3 py-1.5 rounded-full border transition-all disabled:opacity-60 ${
         following
           ? 'bg-red-500/10 border-red-500/40 text-red-400 hover:bg-red-500/20'
-          : 'border-[#2A2A3A] text-[#A0A0B0] hover:border-[#FFFD02] hover:text-white'
+          : 'bg-[#2563EB] border-[#2563EB] text-white hover:bg-[#1D4ED8] hover:border-[#1D4ED8]'
       }`}
     >
       <Heart size={14} fill={following ? 'currentColor' : 'none'} />

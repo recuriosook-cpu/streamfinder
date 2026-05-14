@@ -1029,8 +1029,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     disabled={followBusy}
                     className={`inline-flex items-center gap-2 text-sm font-medium px-5 py-2 rounded-lg transition-colors ${
                       isFollowing
-                        ? 'bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300'
-                        : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
+                        ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/40 text-red-400'
+                        : 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white'
                     }`}
                   >
                     {isFollowing ? <UserCheck size={14} /> : <UserPlus size={14} />}
@@ -1045,7 +1045,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   </button>
                 </div>
               ) : (
-                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#FFFD02] hover:bg-[#E5EB00] text-black px-5 py-2 rounded-lg transition-colors">
+                <Link href="/auth" className="inline-flex items-center gap-2 text-sm font-medium bg-[#2563EB] hover:bg-[#1D4ED8] text-white px-5 py-2 rounded-lg transition-colors">
                   <UserPlus size={14} /> Seguir
                 </Link>
               )}
@@ -1958,8 +1958,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             onClick={() => toggleFollowInList(u.id)}
                             className={`shrink-0 text-xs font-medium px-3 py-1.5 rounded-lg transition-colors ${
                               isFwg
-                                ? 'bg-zinc-700 hover:bg-zinc-600 text-zinc-300'
-                                : 'bg-[#FFFD02] hover:bg-[#E5EB00] text-black'
+                                ? 'bg-red-500/10 hover:bg-red-500/20 border border-red-500/40 text-red-400'
+                                : 'bg-[#2563EB] hover:bg-[#1D4ED8] text-white'
                             }`}
                           >
                             {isFwg ? 'Siguiendo' : 'Seguir'}

@@ -222,9 +222,9 @@ function SuggestedUsersStep({
                 onClick={() => onFollow(u.id)}
                 className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1"
                 style={{
-                  backgroundColor: isFollowing ? 'transparent' : '#FFFD02',
-                  color: isFollowing ? '#A0A0B0' : '#000',
-                  border: isFollowing ? '1px solid #2A2A3A' : 'none',
+                  backgroundColor: isFollowing ? 'rgba(239,68,68,0.1)' : '#2563EB',
+                  color: isFollowing ? 'rgb(248,113,113)' : '#fff',
+                  border: isFollowing ? '1px solid rgba(239,68,68,0.4)' : 'none',
                 }}
               >
                 {isFollowing ? <><Check size={11} /> Siguiendo</> : 'Seguir'}
