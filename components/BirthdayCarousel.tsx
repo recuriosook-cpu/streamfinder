@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -17,7 +17,7 @@ interface BirthdayPerson {
 
 const SCROLL_AMOUNT = 400
 
-export default function BirthdayCarousel() {
+function BirthdayCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [people,  setPeople]  = useState<BirthdayPerson[] | null>(null)
   const [error,   setError]   = useState<string | null>(null)
@@ -142,7 +142,7 @@ export default function BirthdayCarousel() {
                   {person.name.charAt(0).toUpperCase()}
                 </div>
                 {/* Age badge */}
-                <div className="absolute bottom-1.5 right-1.5 bg-black/75 backdrop-blur-sm text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-tight">
+                <div className="absolute bottom-1.5 right-1.5 bg-black/80 text-white text-[11px] font-bold px-1.5 py-0.5 rounded-md leading-tight">
                   {person.deceased ? `† ${person.age} años` : `Cumple ${person.age}`}
                 </div>
               </div>
@@ -158,3 +158,5 @@ export default function BirthdayCarousel() {
     </section>
   )
 }
+
+export default memo(BirthdayCarousel)

@@ -1,6 +1,6 @@
 'use client'
 
-import { useEffect, useRef, useState } from 'react'
+import { memo, useEffect, useRef, useState } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { ChevronLeft, ChevronRight, BookOpen } from 'lucide-react'
@@ -15,7 +15,7 @@ const CATEGORY_ACCENT: Record<string, string> = {
   'Streaming':         '#27ae60',
 }
 
-export default function GuidesCarousel() {
+function GuidesCarousel() {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [guides, setGuides] = useState<GuideFrontmatter[]>([])
   const [loading, setLoading] = useState(true)
@@ -131,3 +131,5 @@ export default function GuidesCarousel() {
     </section>
   )
 }
+
+export default memo(GuidesCarousel)

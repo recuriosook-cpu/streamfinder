@@ -1,6 +1,6 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { memo, useState, useRef, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Heart, MessageSquare, Pencil, Trash2, Send, X, MoreVertical, Flag, Ban } from 'lucide-react'
@@ -77,7 +77,7 @@ export interface ReviewCardProps {
   onDelete?: () => void
 }
 
-export default function ReviewCard({
+function ReviewCard({
   id, authorId, authorUsername, authorDisplayName, authorAvatarUrl,
   mediaId, mediaType, mediaTitle, mediaPosterPath, showPoster = true,
   rating, recommended, hasSpoiler, body, date,
@@ -792,3 +792,5 @@ export default function ReviewCard({
     </div>
   )
 }
+
+export default memo(ReviewCard)

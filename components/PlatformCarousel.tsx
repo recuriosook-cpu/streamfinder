@@ -1,6 +1,6 @@
 'use client'
 
-import { useRef } from 'react'
+import { memo, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
@@ -23,7 +23,7 @@ interface PlatformCarouselProps {
 
 const SCROLL_AMOUNT = 400
 
-export default function PlatformCarousel({ name, color, items }: PlatformCarouselProps) {
+function PlatformCarousel({ name, color, items }: PlatformCarouselProps) {
   const scrollRef = useRef<HTMLDivElement>(null)
 
   const scroll = (dir: 'left' | 'right') => {
@@ -129,3 +129,5 @@ export default function PlatformCarousel({ name, color, items }: PlatformCarouse
     </section>
   )
 }
+
+export default memo(PlatformCarousel)

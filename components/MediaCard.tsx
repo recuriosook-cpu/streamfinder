@@ -1,5 +1,6 @@
 ﻿'use client'
 
+import { memo } from 'react'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Star } from 'lucide-react'
@@ -14,7 +15,7 @@ interface MediaCardProps {
   mediaType: 'movie' | 'tv'
 }
 
-export default function MediaCard({ id, title, posterPath, rating, year, mediaType }: MediaCardProps) {
+function MediaCard({ id, title, posterPath, rating, year, mediaType }: MediaCardProps) {
   const href = mediaType === 'movie' ? `/movie/${id}` : `/tv/${id}`
 
   return (
@@ -49,3 +50,5 @@ export default function MediaCard({ id, title, posterPath, rating, year, mediaTy
     </Link>
   )
 }
+
+export default memo(MediaCard)

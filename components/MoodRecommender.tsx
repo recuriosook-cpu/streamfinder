@@ -1,6 +1,6 @@
 ﻿'use client'
 
-import { useState, useEffect } from 'react'
+import { memo, useState, useEffect } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
@@ -173,7 +173,7 @@ function ResultCard({ rec }: { rec: Recommendation }) {
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function MoodRecommender() {
+function MoodRecommender() {
   const { country } = useCountry()
   const [user, setUser] = useState<User | null>(null)
 
@@ -232,8 +232,8 @@ export default function MoodRecommender() {
 
       {/* Subtle decorative glow */}
       <div
-        className="absolute top-0 left-1/2 -translate-x-1/2 w-96 h-32 opacity-20 pointer-events-none blur-3xl"
-        style={{ background: 'radial-gradient(ellipse, #FFFD02 0%, transparent 70%)' }}
+        className="absolute top-0 left-1/2 -translate-x-1/2 w-full h-48 opacity-10 pointer-events-none"
+        style={{ background: 'radial-gradient(ellipse at 50% 0%, #FFFD02 0%, transparent 65%)' }}
       />
 
       <div className="relative max-w-2xl mx-auto px-4 py-10">
@@ -361,3 +361,5 @@ export default function MoodRecommender() {
     </div>
   )
 }
+
+export default memo(MoodRecommender)
