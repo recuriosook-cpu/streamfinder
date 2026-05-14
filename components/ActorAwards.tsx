@@ -120,10 +120,14 @@ function AwardModal({ group, onClose }: { group: AwardGroup; onClose: () => void
                 {e.year ?? '—'}
               </span>
 
-              {/* Info */}
+              {/* Info — work_title first (more recognisable), award category second */}
               <div className="flex-1 min-w-0">
-                {/* Award detail (strip the main award name prefix for clarity) */}
-                <p className="text-sm text-white leading-snug">
+                {e.work_title && (
+                  <p className="text-sm font-semibold text-[#FFFD02] leading-tight truncate mb-0.5">
+                    {e.work_title}
+                  </p>
+                )}
+                <p className={`leading-snug ${e.work_title ? 'text-xs text-[#A0A0B0]' : 'text-sm text-white'}`}>
                   {e.award_name
                     .replace(/Academy Award/gi, '')
                     .replace(/Golden Globe Award/gi, '')
@@ -131,9 +135,6 @@ function AwardModal({ group, onClose }: { group: AwardGroup; onClose: () => void
                     .replace(/^[\s\-–—for]+/i, '')
                     .trim() || e.award_name}
                 </p>
-                {e.work_title && (
-                  <p className="text-xs text-[#FFFD02] mt-0.5 truncate">{e.work_title}</p>
-                )}
               </div>
 
               {/* Badge */}

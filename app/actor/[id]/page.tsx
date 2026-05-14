@@ -8,6 +8,7 @@ import Breadcrumb from '@/components/Breadcrumb'
 import FilmographyGrid from '@/components/FilmographyGrid'
 import ActorAwards from '@/components/ActorAwards'
 import FollowActorButton from '@/components/FollowActorButton'
+import ExpandableBio from '@/components/ExpandableBio'
 
 interface Props {
   params: Promise<{ id: string }>
@@ -159,6 +160,48 @@ export default async function ActorPage({ params }: Props) {
   // Popularity bar (TMDB popularity is open-ended; 100 = very popular)
   const popularityPct = Math.min(Math.round((person.popularity ?? 0) / 150 * 100), 100)
 
+  // ── Trivia / stats calculations ────────────────────────────────────────────
+
+  const GENRE_MAP: Record<number, string> = {
+    28: 'Acción', 12: 'Aventura', 16: 'Animación', 35: 'Comedia', 80: 'Crimen',
+    99: 'Documental', 18: 'Drama', 10751: 'Familia', 14: 'Fantasía', 36: 'Historia',
+    27: 'Terror', 10402: 'Música', 9648: 'Misterio', 10749: 'Romance',
+    878: 'Ciencia ficción', 53: 'Thriller', 10752: 'Guerra', 37: 'Western',
+  }
+
+  // Debut year + career start age
+  const creditYears = allCredits
+    .map(c => parseInt((c.release_date ?? c.first_air_date ?? '').slice(0, 4)))
+    .filter(y => y > 1900 && y < 2100)
+  const firstYear = creditYears.length > 0 ? Math.min(...creditYears) : null
+  const careerStartAge = firstYear && person.birthday
+    ? firstYear - new Date(person.birthday).getFullYear()
+    : null
+
+  // Most prolific decade
+  const decadeCounts: Record<string, number> = {}
+  for (const c of allCredits) {
+    const y = parseInt((c.release_date ?? c.first_air_date ?? '').slice(0, 4))
+    if (y > 1900) {
+      const d = `${Math.floor(y / 10) * 10}s`
+      decadeCounts[d] = (decadeCounts[d] ?? 0) + 1
+    }
+  }
+  const topDecadeEntry = Object.entries(decadeCounts).sort((a, b) => b[1] - a[1])[0] ?? null
+  const decadeMax = topDecadeEntry ? topDecadeEntry[1] : 1
+
+  // Top genres (up to 5)
+  const genreCountsActor: Record<number, number> = {}
+  for (const c of allCredits)
+    for (const gid of c.genre_ids ?? [])
+      genreCountsActor[gid] = (genreCountsActor[gid] ?? 0) + 1
+  const topGenres = Object.entries(genreCountsActor)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => ({ id: Number(id), name: GENRE_MAP[Number(id)] ?? '', count }))
+    .filter(g => g.name)
+  const genreMax = topGenres[0]?.count ?? 1
+
   const personAge = age(person.birthday, person.deathday)
   const profileUrl = person.profile_path
     ? `https://image.tmdb.org/t/p/h632${person.profile_path}`
@@ -238,9 +281,7 @@ export default async function ActorPage({ params }: Props) {
             {person.biography && (
               <div>
                 <h2 className="text-base font-semibold mb-2 text-white">Biografía</h2>
-                <p className="text-zinc-300 leading-relaxed text-sm line-clamp-[12]">
-                  {person.biography}
-                </p>
+                <ExpandableBio bio={person.biography} />
               </div>
             )}
           </div>
@@ -288,82 +329,104 @@ export default async function ActorPage({ params }: Props) {
           </section>
         )}
 
-        {/* Premios desde Wikidata — carga bajo demanda */}
+        {/* ── Datos destacados ─────────────────────────────────────────────── */}
+        {(careerStartAge !== null || topDecadeEntry || topGenres.length > 0) && (
+          <section className="mb-10">
+            <h2 className="text-xl font-bold mb-4">Datos destacados</h2>
+            <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+              {careerStartAge !== null && careerStartAge >= 0 && careerStartAge < 90 && (
+                <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+                  <p className="text-xs text-[#A0A0B0] uppercase tracking-wider mb-2">Debut</p>
+                  <p className="text-2xl font-bold text-white">{careerStartAge} años</p>
+                  {firstYear && <p className="text-xs text-zinc-600 mt-0.5">en {firstYear}</p>}
+                </div>
+              )}
+              {topDecadeEntry && (
+                <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+                  <p className="text-xs text-[#A0A0B0] uppercase tracking-wider mb-2">Década más activa</p>
+                  <p className="text-2xl font-bold text-white">{topDecadeEntry[0]}</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">{topDecadeEntry[1]} títulos</p>
+                </div>
+              )}
+              {topGenres[0] && (
+                <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+                  <p className="text-xs text-[#A0A0B0] uppercase tracking-wider mb-2">Género frecuente</p>
+                  <p className="text-xl font-bold text-white leading-tight">{topGenres[0].name}</p>
+                  <p className="text-xs text-zinc-600 mt-0.5">{topGenres[0].count} títulos</p>
+                </div>
+              )}
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
+                <p className="text-xs text-[#A0A0B0] uppercase tracking-wider mb-2">Carrera</p>
+                <p className="text-2xl font-bold text-white">{allCredits.length}</p>
+                <p className="text-xs text-zinc-600 mt-0.5">{movieCount} pelis · {tvCount} series</p>
+              </div>
+            </div>
+          </section>
+        )}
+
+        {/* ── Stats visuales ───────────────────────────────────────────────── */}
+        {(topGenres.length > 0 || Object.keys(decadeCounts).length > 0) && (
+          <section className="mb-10">
+            <h2 className="text-xl font-bold mb-4">Estadísticas</h2>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+
+              {/* Genres */}
+              {topGenres.length > 0 && (
+                <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+                  <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-4">
+                    Géneros más frecuentes
+                  </p>
+                  <div className="space-y-3">
+                    {topGenres.map(g => (
+                      <div key={g.id}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs text-zinc-300">{g.name}</span>
+                          <span className="text-xs text-[#A0A0B0] tabular-nums">{g.count}</span>
+                        </div>
+                        <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#FFFD02]"
+                            style={{ width: `${Math.round((g.count / genreMax) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {/* Decades */}
+              {Object.keys(decadeCounts).length > 0 && (
+                <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+                  <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-4">
+                    Títulos por década
+                  </p>
+                  <div className="space-y-3">
+                    {Object.entries(decadeCounts)
+                      .sort((a, b) => a[0].localeCompare(b[0]))
+                      .map(([decade, count]) => (
+                        <div key={decade}>
+                          <div className="flex items-center justify-between mb-1.5">
+                            <span className="text-xs text-zinc-300">{decade}</span>
+                            <span className="text-xs text-[#A0A0B0] tabular-nums">{count}</span>
+                          </div>
+                          <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                            <div
+                              className="h-full rounded-full bg-[#FFFD02]"
+                              style={{ width: `${Math.round((count / decadeMax) * 100)}%` }}
+                            />
+                          </div>
+                        </div>
+                      ))}
+                  </div>
+                </div>
+              )}
+            </div>
+          </section>
+        )}
+
+        {/* ── Premios desde Wikidata — carga bajo demanda ──────────────────── */}
         <ActorAwards tmdbId={Number(id)} />
-
-        {/* Reconocimientos */}
-        <section className="mb-10">
-          <h2 className="text-xl font-bold mb-4">Reconocimientos</h2>
-          <div className="grid grid-cols-1 sm:grid-cols-3 gap-4">
-
-            {/* Stats card */}
-            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Carrera</p>
-              <div className="flex items-center justify-around text-center">
-                <div>
-                  <p className="text-2xl font-bold text-white">{movieCount}</p>
-                  <p className="text-xs text-[#A0A0B0] mt-0.5">Películas</p>
-                </div>
-                <div className="w-px h-10 bg-[#2A2A3A]" />
-                <div>
-                  <p className="text-2xl font-bold text-white">{tvCount}</p>
-                  <p className="text-xs text-[#A0A0B0] mt-0.5">Series</p>
-                </div>
-                <div className="w-px h-10 bg-[#2A2A3A]" />
-                <div>
-                  <p className="text-2xl font-bold text-white">{allCredits.length}</p>
-                  <p className="text-xs text-[#A0A0B0] mt-0.5">Total</p>
-                </div>
-              </div>
-            </div>
-
-            {/* Popularity card */}
-            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Popularidad TMDB</p>
-              <div className="flex items-center gap-3">
-                <div className="flex-1 h-2.5 bg-[#1C1C27] rounded-full overflow-hidden">
-                  <div
-                    className="h-full rounded-full bg-[#FFFD02] transition-all"
-                    style={{ width: `${popularityPct}%` }}
-                  />
-                </div>
-                <span className="text-sm font-bold text-white shrink-0 tabular-nums">
-                  {(person.popularity ?? 0).toFixed(1)}
-                </span>
-              </div>
-              {topRated[0] && (
-                <p className="text-xs text-[#A0A0B0]">
-                  Mejor valorado: <span className="text-white">{topRated[0].title ?? topRated[0].name}</span>
-                  {' '}
-                  <span className="text-[#FFFD02]">★ {topRated[0].vote_average.toFixed(1)}</span>
-                </p>
-              )}
-            </div>
-
-            {/* Award keywords or placeholder */}
-            <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex flex-col gap-3">
-              <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Premios mencionados</p>
-              {awardMentions.length > 0 ? (
-                <div className="flex flex-wrap gap-1.5">
-                  {awardMentions.map(award => (
-                    <span
-                      key={award}
-                      className="text-xs font-bold px-2 py-1 rounded-full"
-                      style={{ backgroundColor: '#FFFD02', color: '#000' }}
-                    >
-                      🏆 {award}
-                    </span>
-                  ))}
-                </div>
-              ) : (
-                <p className="text-xs text-[#A0A0B0]">
-                  No se encontraron menciones a premios en la biografía.
-                </p>
-              )}
-            </div>
-
-          </div>
-        </section>
 
         {/* Filmografía completa */}
         {filmography.length > 0 && (

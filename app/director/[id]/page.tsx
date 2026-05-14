@@ -1,5 +1,7 @@
 import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
 import FilmographyGrid from '@/components/FilmographyGrid'
+import ExpandableBio from '@/components/ExpandableBio'
+import DirectorCollaborators from '@/components/DirectorCollaborators'
 import { createServerClient } from '@/lib/supabase-server'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -119,6 +121,37 @@ export default async function DirectorPage({ params }: Props) {
     return year > 0 ? `${Math.floor(year / 10) * 10}s` : null
   }).filter(Boolean))].sort()
 
+  // Career debut
+  const dirYears = directed
+    .map(c => parseInt((c.release_date ?? c.first_air_date ?? '').slice(0, 4)))
+    .filter(y => y > 1900 && y < 2100)
+  const dirFirstYear = dirYears.length > 0 ? Math.min(...dirYears) : null
+  const dirCareerStartAge = dirFirstYear && person.birthday
+    ? dirFirstYear - new Date(person.birthday).getFullYear()
+    : null
+
+  // Decade counts (for bar chart)
+  const decadeCountsDir: Record<string, number> = {}
+  for (const c of directed) {
+    const y = Number((c.release_date ?? c.first_air_date ?? '').slice(0, 4))
+    if (y > 1900) {
+      const d = `${Math.floor(y / 10) * 10}s`
+      decadeCountsDir[d] = (decadeCountsDir[d] ?? 0) + 1
+    }
+  }
+  const decadeMaxDir = Math.max(...Object.values(decadeCountsDir), 1)
+
+  // Top genres (for bar chart, from existing genreCounts)
+  const topGenresDir = Object.entries(genreCounts)
+    .sort((a, b) => b[1] - a[1])
+    .slice(0, 5)
+    .map(([id, count]) => ({ id: Number(id), name: GENRE_MAP[Number(id)] ?? '', count }))
+    .filter(g => g.name)
+  const genreMaxDir = topGenresDir[0]?.count ?? 1
+
+  // Films for collaborators component (movies + TV, max 20)
+  const collaboratorFilms = directed.slice(0, 20).map(c => ({ id: c.id, mediaType: c.media_type }))
+
   // Glynbox stats (Supabase)
   const supabase = createServerClient()
   const movieIds = directedMovies.slice(0, 50).map(c => c.id)
@@ -192,7 +225,7 @@ export default async function DirectorPage({ params }: Props) {
             {person.biography && (
               <div>
                 <h2 className="text-base font-semibold mb-2 text-white">Biografía</h2>
-                <p className="text-zinc-300 leading-relaxed text-sm line-clamp-[10]">{person.biography}</p>
+                <ExpandableBio bio={person.biography} />
               </div>
             )}
           </div>
@@ -227,7 +260,9 @@ export default async function DirectorPage({ params }: Props) {
         {/* ── Estadísticas ─────────────────────────────────────────── */}
         <section className="mb-10">
           <h2 className="text-xl font-bold mb-4">Estadísticas del director</h2>
-          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3">
+
+          {/* Stat cards */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 mb-6">
             <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 text-center">
               <Film size={18} className="mx-auto mb-2 text-[#FFFD02]" />
               <p className="text-2xl font-bold text-white">{directedMovies.length}</p>
@@ -245,19 +280,78 @@ export default async function DirectorPage({ params }: Props) {
             </div>
             <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 text-center">
               <BarChart2 size={18} className="mx-auto mb-2 text-[#FFFD02]" />
-              <p className="text-lg font-bold text-white">{topGenreName ?? '—'}</p>
-              <p className="text-xs text-[#A0A0B0] mt-0.5">Género más frecuente</p>
+              {dirCareerStartAge !== null && dirCareerStartAge >= 0 ? (
+                <>
+                  <p className="text-2xl font-bold text-white">{dirCareerStartAge} años</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Al debutar{dirFirstYear ? ` (${dirFirstYear})` : ''}</p>
+                </>
+              ) : (
+                <>
+                  <p className="text-lg font-bold text-white">{topGenreName ?? '—'}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-0.5">Género más frecuente</p>
+                </>
+              )}
             </div>
           </div>
-          {decades.length > 0 && (
-            <div className="mt-3 bg-[#13131A] border border-[#2A2A3A] rounded-xl px-4 py-3 flex items-center gap-3 flex-wrap">
-              <span className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">Décadas activo</span>
-              {decades.map(d => (
-                <span key={d} className="text-xs font-bold px-2.5 py-1 rounded-full bg-[#1C1C27] text-white">{d}</span>
-              ))}
-            </div>
-          )}
+
+          {/* Visual bar charts */}
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-6">
+            {topGenresDir.length > 0 && (
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+                <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-4">
+                  Géneros más frecuentes
+                </p>
+                <div className="space-y-3">
+                  {topGenresDir.map(g => (
+                    <div key={g.id}>
+                      <div className="flex items-center justify-between mb-1.5">
+                        <span className="text-xs text-zinc-300">{g.name}</span>
+                        <span className="text-xs text-[#A0A0B0] tabular-nums">{g.count}</span>
+                      </div>
+                      <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                        <div
+                          className="h-full rounded-full bg-[#FFFD02]"
+                          style={{ width: `${Math.round((g.count / genreMaxDir) * 100)}%` }}
+                        />
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+            )}
+
+            {Object.keys(decadeCountsDir).length > 0 && (
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5">
+                <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-4">
+                  Películas por década
+                </p>
+                <div className="space-y-3">
+                  {Object.entries(decadeCountsDir)
+                    .sort((a, b) => a[0].localeCompare(b[0]))
+                    .map(([decade, count]) => (
+                      <div key={decade}>
+                        <div className="flex items-center justify-between mb-1.5">
+                          <span className="text-xs text-zinc-300">{decade}</span>
+                          <span className="text-xs text-[#A0A0B0] tabular-nums">{count}</span>
+                        </div>
+                        <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
+                          <div
+                            className="h-full rounded-full bg-[#FFFD02]"
+                            style={{ width: `${Math.round((count / decadeMaxDir) * 100)}%` }}
+                          />
+                        </div>
+                      </div>
+                    ))}
+                </div>
+              </div>
+            )}
+          </div>
         </section>
+
+        {/* ── Actores frecuentes (lazy client) ─────────────────────────────── */}
+        {collaboratorFilms.length > 0 && (
+          <DirectorCollaborators films={collaboratorFilms} />
+        )}
 
         {/* ── En Glynbox ───────────────────────────────────────────── */}
         {(glynboxViewers > 0 || glynboxAvgRaw != null) && (
