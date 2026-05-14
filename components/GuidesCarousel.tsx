@@ -45,7 +45,7 @@ function GuidesCarousel() {
             <BookOpen size={18} className="text-[#FFFD02]" />
             Guías de Glynbox
           </h2>
-          <p className="text-xs text-zinc-600 mt-0.5">Recomendaciones curadas por @Ferlageok</p>
+          <p className="text-xs text-zinc-500 mt-0.5">Recomendaciones curadas por @Ferlageok para descubrir el mejor cine</p>
         </div>
         <div className="flex items-center gap-2">
           <Link

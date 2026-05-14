@@ -12,6 +12,7 @@ import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
+import HeroCarousel, { type HeroSlide } from '@/components/HeroCarousel'
 
 const BirthdayCarousel = dynamic(() => import('@/components/BirthdayCarousel'), {
   ssr: false,
@@ -871,9 +872,11 @@ export default function HomeClient() {
   const prevCountry = useRef<string | null>(null)
 
   // Auth + hero
-  const [user,      setUser]      = useState<User | null | undefined>(undefined)
-  const [userName,  setUserName]  = useState('')
-  const [heroMovie, setHeroMovie] = useState<HeroMovie | null>(null)
+  const [user,         setUser]         = useState<User | null | undefined>(undefined)
+  const [userName,     setUserName]     = useState('')
+  const [heroMovie,    setHeroMovie]    = useState<HeroMovie | null>(null)
+  const [heroSlides,   setHeroSlides]   = useState<HeroSlide[]>([])
+  const [userActivity, setUserActivity] = useState<'loading' | 'new' | 'active'>('loading')
   const [showWelcome, setShowWelcome] = useState(false)
 
   // Check welcome flag (set after onboarding completion)
@@ -919,7 +922,7 @@ export default function HomeClient() {
       const [authRes, heroRes] = await Promise.all([
         supabase.auth.getUser(),
         TMDB_KEY
-          ? fetch(`${TMDB}/trending/movie/week?api_key=${TMDB_KEY}&language=es-AR`)
+          ? fetch(`${TMDB}/trending/all/week?api_key=${TMDB_KEY}&language=es-AR`)
               .then(r => r.ok ? r.json() : null)
               .catch(() => null)
           : Promise.resolve(null),
@@ -950,35 +953,41 @@ export default function HomeClient() {
 
       setUser(u)
 
-      // Hero: trending semanal — prioriza El diablo viste de Prada 2 esta semana,
-      // luego estrenos recientes con mayor popularity, sin animaciones ni documentales
-      type TrendingMovie = { id: number; backdrop_path: string | null; title?: string; vote_count: number; popularity: number; genre_ids: number[]; release_date?: string }
-      const results: TrendingMovie[] = heroRes?.results ?? []
-      const thirtyDaysAgo = new Date(Date.now() - 30 * 24 * 60 * 60 * 1000).toISOString().slice(0, 10)
-      const devilPrada = results.find(m => m.id === 1314481 && m.backdrop_path)
-      const pick = devilPrada ?? results
-        .filter(m => m.backdrop_path && m.vote_count > 100 && !m.genre_ids.includes(16) && !m.genre_ids.includes(99))
-        .sort((a, b) => {
-          const aRecent = (a.release_date ?? '') >= thirtyDaysAgo ? 1 : 0
-          const bRecent = (b.release_date ?? '') >= thirtyDaysAgo ? 1 : 0
-          if (bRecent !== aRecent) return bRecent - aRecent
-          return b.popularity - a.popularity
-        })[0]
-        ?? null
-      if (pick?.backdrop_path) {
-        setHeroMovie({ backdropPath: pick.backdrop_path, title: pick.title ?? '' })
-      }
+      // Build hero carousel slides from trending/all/week
+      type TrendingAll = { id: number; media_type: 'movie' | 'tv'; backdrop_path: string | null; title?: string; name?: string; overview?: string; vote_average: number; vote_count: number; genre_ids: number[]; release_date?: string; first_air_date?: string; poster_path: string | null }
+      const allTrending: TrendingAll[] = heroRes?.results ?? []
+      const slides: HeroSlide[] = allTrending
+        .filter(m =>
+          m.backdrop_path && m.overview && m.vote_average >= 7.0 && m.vote_count >= 100 &&
+          !m.genre_ids.includes(16) && !m.genre_ids.includes(99)
+        )
+        .slice(0, 5)
+        .map(m => ({
+          id: m.id, mediaType: m.media_type,
+          title:       m.title ?? m.name ?? '',
+          overview:    m.overview ?? '',
+          backdropPath: m.backdrop_path!,
+          posterPath:  m.poster_path ?? null,
+          voteAverage: m.vote_average,
+          releaseDate: m.release_date ?? m.first_air_date ?? '',
+          genreIds:    m.genre_ids,
+        }))
+      setHeroSlides(slides)
 
       if (u) {
-        const [profileRes, watchlistRes, followsRes] = await Promise.all([
+        const [profileRes, watchlistRes, followsRes, { count: watchedCt }] = await Promise.all([
           supabase.from('profiles').select('username, display_name, favorite_genres').eq('id', u.id).maybeSingle(),
           supabase.from('watchlist').select('id, media_id, media_type, title, poster_path, added_at').eq('user_id', u.id).order('added_at', { ascending: false }).limit(5),
           supabase.from('follows').select('following_id').eq('follower_id', u.id),
+          supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
         ])
         const profile = profileRes.data
         setUserName(profile?.display_name ?? profile?.username ?? u.email?.split('@')[0] ?? '')
         setFavoriteGenres(profile?.favorite_genres ?? [])
-        setContinueWatching((watchlistRes.data ?? []) as WatchlistPreviewItem[])
+        const watchlistItems = (watchlistRes.data ?? []) as WatchlistPreviewItem[]
+        setContinueWatching(watchlistItems)
+        const isActive = (watchedCt ?? 0) > 0 || watchlistItems.length > 0
+        setUserActivity(isActive ? 'active' : 'new')
 
         const fIds = (followsRes.data ?? []).map((f: { following_id: string }) => f.following_id)
         setFollowingIds(fIds)
@@ -1273,12 +1282,8 @@ export default function HomeClient() {
         </div>
       )}
 
-      {/* SECCIÓN 1 — HERO (guests) / WELCOME BANNER (logged-in) */}
-      {user ? (
-        <WelcomeBanner userName={userName} />
-      ) : (
-        <HeroSection user={user} userName={userName} heroMovie={heroMovie} />
-      )}
+      {/* SECCIÓN 1 — HERO CAROUSEL (todos los usuarios) */}
+      <HeroCarousel slides={heroSlides} user={user} userName={userName} />
 
       {/* SECCIÓN 2 — PLATAFORMAS */}
       {platformData
@@ -1286,19 +1291,85 @@ export default function HomeClient() {
         : <div className="h-[88px] bg-[#13131A] border-y border-[#2A2A3A]" />
       }
 
+      {/* "Empezá tu Glynbox" — solo para usuarios logueados sin actividad */}
+      {user !== null && userActivity === 'new' && (
+        <section className="max-w-7xl mx-auto px-4 pt-10 pb-4">
+          <h2 className="text-xl sm:text-2xl font-bold text-white mb-1">Empezá tu Glynbox</h2>
+          <p className="text-sm text-[#A0A0B0] mb-6">Configurá tu experiencia en unos pasos</p>
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-4">
+            {([
+              { icon: '📥', label: 'Importá desde Letterboxd', sub: 'Traé tu historial completo', href: '/importar' },
+              { icon: '⭐', label: 'Marcá tus primeras 10 películas', sub: 'Empezá tu historial', href: '/que-ver' },
+              { icon: '🔍', label: 'Probá el recomendador', sub: 'Descubrí qué ver hoy', href: '/que-ver' },
+              { icon: '👥', label: 'Seguí a cinéfilos', sub: 'Encontrá tu comunidad', href: '/comunidad' },
+            ] as { icon: string; label: string; sub: string; href: string }[]).map(card => (
+              <Link key={card.label} href={card.href}
+                className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5 flex flex-col gap-3 hover:border-[#FFFD02]/50 hover:bg-[#1C1C27] transition-all group"
+              >
+                <span className="text-3xl select-none">{card.icon}</span>
+                <div>
+                  <p className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors leading-snug">{card.label}</p>
+                  <p className="text-xs text-[#A0A0B0] mt-1">{card.sub}</p>
+                </div>
+                <span className="text-xs mt-auto" style={{ color: '#FFFD02' }}>Ir →</span>
+              </Link>
+            ))}
+          </div>
+        </section>
+      )}
+
+      {/* Guías ARRIBA — para guests y usuarios nuevos sin actividad */}
+      {(user === null || userActivity === 'new') && (
+        <div className="max-w-7xl mx-auto px-4 pt-6">
+          <GuidesCarousel />
+        </div>
+      )}
+
       <div className="max-w-7xl mx-auto px-4 py-10">
 
-        {/* Para usuarios logueados: secciones personalizadas primero */}
-        {user && (forYouLoading || forYouItems.length > 0) && (
-          <ForYouSection items={forYouItems} loading={forYouLoading} />
+        {/* Para vos — solo usuarios activos, con empty state */}
+        {user && userActivity === 'active' && (
+          (forYouLoading || forYouItems.length > 0) ? (
+            <ForYouSection items={forYouItems} loading={forYouLoading} />
+          ) : (
+            <section className="mb-12">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-4 flex items-center gap-2">
+                ✨ Para vos
+              </h2>
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl px-5 py-6 text-center">
+                <p className="text-[#A0A0B0] text-sm mb-4">
+                  Marcá pelis que viste para empezar a recibir recomendaciones personalizadas
+                </p>
+                <Link href="/que-ver"
+                  className="inline-flex items-center gap-2 text-black font-semibold px-4 py-2 rounded-full text-sm"
+                  style={{ backgroundColor: '#FFFD02' }}
+                >
+                  Probar recomendador →
+                </Link>
+              </div>
+            </section>
+          )
         )}
 
-        {user && continueWatching.length > 0 && (
-          <ContinueWatchingSection
-            items={continueWatching}
-            onMarkWatched={markAsWatched}
-            loading={markingWatched}
-          />
+        {/* Continuá viendo — usuarios activos, con empty state */}
+        {user && userActivity === 'active' && (
+          continueWatching.length > 0 ? (
+            <ContinueWatchingSection
+              items={continueWatching}
+              onMarkWatched={markAsWatched}
+              loading={markingWatched}
+            />
+          ) : (
+            <section className="mb-12">
+              <h2 className="text-lg sm:text-xl font-bold text-white mb-4">Continuá donde dejaste</h2>
+              <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl px-5 py-4 flex items-center justify-between gap-3">
+                <p className="text-sm text-[#A0A0B0]">Tu watchlist está vacía. Agregá películas que quieras ver.</p>
+                <Link href="/que-ver" className="text-sm font-semibold shrink-0 transition-colors hover:opacity-80" style={{ color: '#FFFD02' }}>
+                  Explorar →
+                </Link>
+              </div>
+            </section>
+          )
         )}
 
         {/* SECCIÓN 3 — ÚLTIMOS ESTRENOS */}
@@ -1362,8 +1433,8 @@ export default function HomeClient() {
         {/* SECCIÓN 6b — LISTAS DE GLYNBOX */}
         <OfficialListsSection lists={officialLists} loading={officialListsLoading} />
 
-        {/* SECCIÓN 7 — GUÍAS */}
-        <GuidesCarousel />
+        {/* SECCIÓN 7 — GUÍAS (solo usuarios activos; guests y nuevos la ven arriba) */}
+        {user !== null && userActivity === 'active' && <GuidesCarousel />}
 
         {/* SECCIÓN 8 — CUMPLEAÑOS */}
         <BirthdayCarousel />
@@ -1379,6 +1450,27 @@ export default function HomeClient() {
           ))
         )}
       </div>
+
+      {/* Banner final — solo para no logueados */}
+      {user === null && (
+        <div className="border-t border-[#2A2A3A] bg-[#13131A]">
+          <div className="max-w-3xl mx-auto px-4 py-14 text-center">
+            <h2 className="text-2xl sm:text-3xl font-bold text-white mb-3">
+              Creá tu cuenta gratis y llevá registro de todo lo que ves
+            </h2>
+            <p className="text-[#A0A0B0] text-sm sm:text-base mb-7 max-w-lg mx-auto">
+              Marcá películas, creá listas, seguí a amigos y recibí recomendaciones personalizadas.
+            </p>
+            <Link
+              href="/auth?mode=register"
+              className="inline-flex items-center gap-2 text-black font-semibold px-8 py-3.5 rounded-full transition-all active:scale-95 hover:opacity-90"
+              style={{ backgroundColor: '#FFFD02' }}
+            >
+              Crear cuenta gratis →
+            </Link>
+          </div>
+        </div>
+      )}
     </>
   )
 }
