@@ -9,6 +9,7 @@ import { StarIcon } from '@/components/StarDisplay'
 import { addPoints } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
+import { toast } from 'sonner'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -163,59 +164,69 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       created_at:  new Date().toISOString(),
     }
 
-    let reviewId: string | null = editingId
-    if (editingId) {
-      const { error } = await supabase.from('reviews').update(payload).eq('id', editingId)
-      if (error) { console.error('[submitReview]', error); setSubmitting(false); return }
-    } else {
-      const { data, error } = await supabase
-        .from('reviews')
-        .upsert(payload, { onConflict: 'user_id,media_id,media_type' })
-        .select('id')
-        .single()
-      if (error) { console.error('[submitReview]', error); setSubmitting(false); return }
-      reviewId = data?.id ?? null
-      // Prompt for push after first successful review creation (fire-and-forget)
-      if (reviewId) promptForPush()
-    }
+    try {
+      let reviewId: string | null = editingId
+      if (editingId) {
+        const { error } = await supabase.from('reviews').update(payload).eq('id', editingId)
+        if (error) {
+          console.error('[submitReview]', error)
+          toast.error('No se pudo publicar la reseña. Intentá de nuevo.')
+          return
+        }
+      } else {
+        const { data, error } = await supabase
+          .from('reviews')
+          .upsert(payload, { onConflict: 'user_id,media_id,media_type' })
+          .select('id')
+          .single()
+        if (error) {
+          console.error('[submitReview]', error)
+          toast.error('No se pudo publicar la reseña. Intentá de nuevo.')
+          return
+        }
+        reviewId = data?.id ?? null
+        if (reviewId) promptForPush()
+      }
 
-    // Points for writing review (+10, +5 bonus if body >= 200 chars)
-    addPoints(currentUserId, 10)
-    if (formBody.trim().length >= 200) addPoints(currentUserId, 5)
+      addPoints(currentUserId, 10)
+      if (formBody.trim().length >= 200) addPoints(currentUserId, 5)
 
-    // @mention notifications (fire-and-forget)
-    if (reviewId && formBody.trim()) {
-      const mentionedUsernames = [...new Set([...formBody.matchAll(/@(\w+)/g)].map(m => m[1]))]
-      if (mentionedUsernames.length > 0) {
-        const { data: mentionedProfiles } = await supabase
-          .from('profiles')
-          .select('id, username')
-          .in('username', mentionedUsernames)
-        for (const p of mentionedProfiles ?? []) {
-          if (p.id !== currentUserId) {
-            sendNotification(supabase as Parameters<typeof sendNotification>[0], {
-              user_id:      p.id,
-              actor_id:     currentUserId,
-              type:         'mention',
-              review_id:    reviewId,
-              review_title: title,
-            })
-            addPoints(p.id, 2) // mentioned user gets +2 pts
+      if (reviewId && formBody.trim()) {
+        const mentionedUsernames = [...new Set([...formBody.matchAll(/@(\w+)/g)].map(m => m[1]))]
+        if (mentionedUsernames.length > 0) {
+          const { data: mentionedProfiles } = await supabase
+            .from('profiles')
+            .select('id, username')
+            .in('username', mentionedUsernames)
+          for (const p of mentionedProfiles ?? []) {
+            if (p.id !== currentUserId) {
+              sendNotification(supabase as Parameters<typeof sendNotification>[0], {
+                user_id:      p.id,
+                actor_id:     currentUserId,
+                type:         'mention',
+                review_id:    reviewId,
+                review_title: title,
+              })
+              addPoints(p.id, 2)
+            }
           }
         }
       }
-    }
 
-    setShowForm(false)
-    setEditingId(null)
-    await loadReviews()
-    setSubmitting(false)
+      toast.success(editingId ? 'Reseña actualizada' : 'Reseña publicada')
+      setShowForm(false)
+      setEditingId(null)
+      await loadReviews()
+    } finally {
+      setSubmitting(false)
+    }
   }
 
   async function deleteReview(id: string) {
     if (!confirm('¿Eliminar reseña?')) return
     await supabase.from('reviews').delete().eq('id', id)
     setReviews(prev => prev.filter(r => r.id !== id))
+    toast.success('Reseña eliminada')
   }
 
   async function toggleLike(reviewId: string) {

@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft, Lock, Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 function PasswordInput({
   label, value, onChange, placeholder,
@@ -54,14 +55,12 @@ export default function CambiarContrasenaPage() {
   const [newPass, setNewPass]     = useState('')
   const [confirm, setConfirm]     = useState('')
   const [error, setError]         = useState<string | null>(null)
-  const [success, setSuccess]     = useState(false)
   const [submitting, setSubmitting] = useState(false)
 
   // For OAuth users who want to set a password for the first time
   const [oauthNewPass,  setOauthNewPass]  = useState('')
   const [oauthConfirm, setOauthConfirm] = useState('')
   const [oauthError,   setOauthError]   = useState<string | null>(null)
-  const [oauthSuccess, setOauthSuccess] = useState(false)
   const [oauthBusy,    setOauthBusy]    = useState(false)
 
   useEffect(() => {
@@ -97,8 +96,8 @@ export default function CambiarContrasenaPage() {
       return
     }
 
-    setSuccess(true)
-    setTimeout(() => router.push('/ajustes'), 2000)
+    toast.success('¡Contraseña actualizada!')
+    router.push('/ajustes')
   }
 
   async function handleOAuthSetPassword(e: React.FormEvent) {
@@ -113,8 +112,8 @@ export default function CambiarContrasenaPage() {
       setOauthBusy(false)
       return
     }
-    setOauthSuccess(true)
-    setTimeout(() => router.push('/ajustes'), 2000)
+    toast.success('¡Contraseña configurada!')
+    router.push('/ajustes')
   }
 
   if (loading) {
@@ -151,12 +150,7 @@ export default function CambiarContrasenaPage() {
                 </div>
               </div>
 
-              {oauthSuccess ? (
-                <p className="text-sm text-green-400 font-medium text-center py-2">
-                  ¡Contraseña configurada! Redirigiendo...
-                </p>
-              ) : (
-                <form onSubmit={handleOAuthSetPassword} className="space-y-4">
+              <form onSubmit={handleOAuthSetPassword} className="space-y-4">
                   <PasswordInput label="Nueva contraseña" value={oauthNewPass} onChange={setOauthNewPass} />
                   <PasswordInput label="Confirmar contraseña" value={oauthConfirm} onChange={setOauthConfirm} />
 
@@ -174,17 +168,10 @@ export default function CambiarContrasenaPage() {
                     {oauthBusy ? 'Configurando...' : 'Configurar contraseña'}
                   </button>
                 </form>
-              )}
             </div>
           </div>
         ) : (
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-            {success ? (
-              <div className="text-center py-6">
-                <p className="text-green-400 font-semibold text-sm">¡Contraseña actualizada!</p>
-                <p className="text-zinc-500 text-xs mt-1">Redirigiendo a Ajustes...</p>
-              </div>
-            ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
                 <PasswordInput label="Contraseña actual" value={current} onChange={setCurrent} />
                 <PasswordInput label="Nueva contraseña" value={newPass} onChange={setNewPass} />
@@ -211,7 +198,6 @@ export default function CambiarContrasenaPage() {
                   {submitting ? 'Cambiando...' : 'Cambiar contraseña'}
                 </button>
               </form>
-            )}
           </div>
         )}
       </div>

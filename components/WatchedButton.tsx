@@ -5,6 +5,7 @@ import { CheckCircle, Calendar, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { addPoints } from '@/lib/points'
+import { toast } from 'sonner'
 
 interface Props {
   mediaId: number
@@ -93,12 +94,14 @@ export default function WatchedButton({
     if (error) {
       console.error('[WatchedButton] upsert error:', error)
       setSaveError('No se pudo guardar. Intentá de nuevo.')
+      toast.error('No se pudo guardar. Intentá de nuevo.')
       setLoading(false)
       return
     }
 
     addPoints(userId, mediaType === 'movie' ? 3 : 5)
     setIsWatched(true)
+    toast.success('¡Marcado como visto!')
     closePopup()
     setLoading(false)
   }
@@ -113,8 +116,12 @@ export default function WatchedButton({
         .eq('media_id', mediaId)
         .eq('media_type', mediaType)
         .then(({ error }) => {
-          if (error) console.error('[WatchedButton] delete error:', error)
-          else setIsWatched(false)
+          if (error) {
+            console.error('[WatchedButton] delete error:', error)
+            toast.error('No se pudo actualizar. Intentá de nuevo.')
+          } else {
+            setIsWatched(false)
+          }
           setLoading(false)
         })
       return

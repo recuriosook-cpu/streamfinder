@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter, useSearchParams } from 'next/navigation'
 import { X, Plus, Search, ArrowLeft, Tag, ArrowUp, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { toast } from 'sonner'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -133,6 +134,7 @@ function NuevaListaContent() {
       if (items.length > 0) {
         await supabase.from('list_items').insert(items.map(it => ({ list_id: editId, ...it })))
       }
+      toast.success('Lista actualizada')
       router.push(`/listas/${editId}`)
     } else {
       const { data } = await supabase.from('lists')
@@ -141,6 +143,7 @@ function NuevaListaContent() {
       if (data && items.length > 0) {
         await supabase.from('list_items').insert(items.map(it => ({ list_id: data.id, ...it })))
       }
+      toast.success('Lista creada')
       router.push(data ? `/listas/${data.id}` : '/listas')
     }
     setSaving(false)

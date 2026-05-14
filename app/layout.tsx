@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { CountryProvider } from '@/context/CountryContext'
+import { Toaster } from 'sonner'
 
 export const viewport: Viewport = {
   themeColor: '#FFFD02',
@@ -106,6 +107,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <Navbar />
           <main>{children}</main>
           <Footer />
+          <Toaster theme="dark" position="top-right" richColors />
         </CountryProvider>
       </body>
     </html>

@@ -134,9 +134,14 @@ export async function GET(
     wikidata_id:   `Q${tmdbId}_${i}`,
     won:           a.won,
   }))
-  supabase.from('person_awards').insert(rows).then(({ error }) => {
-    if (error) console.error('[actor-awards] cache error:', error.message)
-  })
+  ;(async () => {
+    try {
+      const { error } = await supabase.from('person_awards').insert(rows)
+      if (error) console.error('[actor-awards] cache error:', error.message)
+    } catch (err) {
+      console.error('[actor-awards] cache error:', err)
+    }
+  })()
 
   return NextResponse.json({ awards }, {
     headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=7200' },

@@ -7,6 +7,7 @@ import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase'
 import { addPoints } from '@/lib/points'
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Star, Bookmark, FileText, ChevronRight } from 'lucide-react'
+import { toast } from 'sonner'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -212,6 +213,8 @@ export default function ImportarPage() {
     setResult(res)
     setPhase('done')
     addLog('🎉 Importación completada.')
+    const importedTotal = res.watchedImported + res.ratingsImported + res.watchlistImported + res.reviewsImported
+    toast.success(`Importación completada: ${importedTotal} título${importedTotal !== 1 ? 's' : ''} importado${importedTotal !== 1 ? 's' : ''}`)
   }
 
   return (
