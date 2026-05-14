@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import dynamic from 'next/dynamic'
-import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users, Compass } from 'lucide-react'
+import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users, Compass, X as CloseIcon } from 'lucide-react'
 import CarouselCard from '@/components/CarouselCard'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import StarDisplay from '@/components/StarDisplay'
@@ -875,8 +875,9 @@ export default function HomeClient() {
   const [user,         setUser]         = useState<User | null | undefined>(undefined)
   const [userName,     setUserName]     = useState('')
   const [heroMovie,    setHeroMovie]    = useState<HeroMovie | null>(null)
-  const [heroSlides,   setHeroSlides]   = useState<HeroSlide[]>([])
-  const [userActivity, setUserActivity] = useState<'loading' | 'new' | 'active'>('loading')
+  const [heroSlides,          setHeroSlides]          = useState<HeroSlide[]>([])
+  const [userActivity,        setUserActivity]        = useState<'loading' | 'new' | 'active'>('loading')
+  const [showOnboardingBanner, setShowOnboardingBanner] = useState(false)
   const [showWelcome, setShowWelcome] = useState(false)
 
   // Check welcome flag (set after onboarding completion)
@@ -976,7 +977,7 @@ export default function HomeClient() {
 
       if (u) {
         const [profileRes, watchlistRes, followsRes, { count: watchedCt }] = await Promise.all([
-          supabase.from('profiles').select('username, display_name, favorite_genres').eq('id', u.id).maybeSingle(),
+          supabase.from('profiles').select('username, display_name, favorite_genres, onboarding_skipped').eq('id', u.id).maybeSingle(),
           supabase.from('watchlist').select('id, media_id, media_type, title, poster_path, added_at').eq('user_id', u.id).order('added_at', { ascending: false }).limit(5),
           supabase.from('follows').select('following_id').eq('follower_id', u.id),
           supabase.from('watched').select('*', { count: 'exact', head: true }).eq('user_id', u.id),
@@ -988,6 +989,12 @@ export default function HomeClient() {
         setContinueWatching(watchlistItems)
         const isActive = (watchedCt ?? 0) > 0 || watchlistItems.length > 0
         setUserActivity(isActive ? 'active' : 'new')
+
+        // Recovery banner: show if onboarding was skipped and not dismissed
+        if (profile?.onboarding_skipped === true) {
+          const dismissed = typeof window !== 'undefined' && localStorage.getItem('onboarding_banner_dismissed') === '1'
+          if (!dismissed) setShowOnboardingBanner(true)
+        }
 
         const fIds = (followsRes.data ?? []).map((f: { following_id: string }) => f.following_id)
         setFollowingIds(fIds)
@@ -1284,6 +1291,31 @@ export default function HomeClient() {
 
       {/* SECCIÓN 1 — HERO CAROUSEL (todos los usuarios) */}
       <HeroCarousel slides={heroSlides} user={user} userName={userName} />
+
+      {/* Banner de recuperación de onboarding */}
+      {showOnboardingBanner && (
+        <div className="bg-[#FFFD02]/10 border-b border-[#FFFD02]/20">
+          <div className="max-w-7xl mx-auto px-4 py-2.5 flex items-center justify-between gap-3">
+            <Link
+              href="/onboarding?force=true"
+              className="text-sm text-white hover:text-[#FFFD02] transition-colors flex items-center gap-2"
+            >
+              <span style={{ color: '#FFFD02' }}>→</span>
+              Completá tu Glynbox para recibir mejores recomendaciones
+            </Link>
+            <button
+              onClick={() => {
+                localStorage.setItem('onboarding_banner_dismissed', '1')
+                setShowOnboardingBanner(false)
+              }}
+              className="text-zinc-500 hover:text-white transition-colors shrink-0"
+              aria-label="Cerrar"
+            >
+              <CloseIcon size={15} />
+            </button>
+          </div>
+        </div>
+      )}
 
       {/* SECCIÓN 2 — PLATAFORMAS */}
       {platformData

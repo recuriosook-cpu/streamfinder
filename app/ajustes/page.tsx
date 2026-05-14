@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   User, Lock, Shield, Globe, Bell, Download, Upload,
-  FileText, HelpCircle, LogOut, Trash2, ChevronRight, X,
+  FileText, HelpCircle, LogOut, Trash2, ChevronRight, X, RotateCcw,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
@@ -151,6 +151,11 @@ export default function AjustesPage() {
                 icon={<User size={16} />}
                 label="Editar perfil"
                 href={username ? `/usuario/${username}` : '/profile'}
+              />
+              <SettingsRow
+                icon={<RotateCcw size={16} />}
+                label="Repetir onboarding"
+                href="/onboarding?force=true"
               />
               <SettingsRow
                 icon={<Lock size={16} />}

@@ -3,7 +3,7 @@
 import { useState, useEffect, useRef, useCallback } from 'react'
 import Image from 'next/image'
 import { useRouter } from 'next/navigation'
-import { Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
+import { Camera, Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { getLevelInfo } from '@/lib/points'
@@ -38,16 +38,17 @@ interface MovieAction {
 // ── Progress bar ───────────────────────────────────────────────────────────────
 
 function ProgressBar({ step }: { step: number }) {
+  const TOTAL = 5
   return (
     <div className="w-full max-w-xs mx-auto">
       <div className="flex justify-between text-xs text-[#A0A0B0] mb-2">
-        <span>Paso {step} de 4</span>
-        <span className="tabular-nums">{Math.round((step / 4) * 100)}%</span>
+        <span>Paso {step} de {TOTAL}</span>
+        <span className="tabular-nums">{Math.round((step / TOTAL) * 100)}%</span>
       </div>
       <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
         <div
           className="h-full rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${(step / 4) * 100}%`, backgroundColor: '#FFFD02' }}
+          style={{ width: `${(step / TOTAL) * 100}%`, backgroundColor: '#FFFD02' }}
         />
       </div>
     </div>
@@ -86,7 +87,84 @@ function InlineStarRater({ current, onRate }: { current: number | null; onRate: 
   )
 }
 
-// ── Step 1 — Genres ───────────────────────────────────────────────────────────
+// ── Step 1 — Profile (Avatar / Name / Bio) ────────────────────────────────────
+
+function ProfileStep({
+  displayName, setDisplayName, bio, setBio, avatarUrl,
+  onAvatarChange, uploading,
+}: {
+  displayName: string; setDisplayName: (v: string) => void
+  bio: string; setBio: (v: string) => void
+  avatarUrl: string | null
+  onAvatarChange: (file: File) => void
+  uploading: boolean
+}) {
+  return (
+    <div className="flex flex-col items-center gap-6 w-full max-w-sm mx-auto">
+
+      {/* Avatar */}
+      <div className="relative">
+        <div className="w-24 h-24 rounded-full overflow-hidden bg-[#1C1C27] ring-4 ring-[#2A2A3A] flex items-center justify-center">
+          {avatarUrl ? (
+            // eslint-disable-next-line @next/next/no-img-element
+            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
+          ) : (
+            <span className="text-4xl select-none">🙂</span>
+          )}
+          {uploading && (
+            <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
+              <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+            </div>
+          )}
+        </div>
+        <label className="absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full bg-[#FFFD02] flex items-center justify-center cursor-pointer shadow-lg hover:bg-[#E5EB00] transition-colors">
+          <Camera size={14} className="text-black" />
+          <input
+            type="file"
+            accept="image/jpeg,image/png,image/webp"
+            className="hidden"
+            onChange={e => { const f = e.target.files?.[0]; if (f) onAvatarChange(f) }}
+          />
+        </label>
+      </div>
+      <p className="text-xs text-[#A0A0B0] -mt-4">Foto de perfil (opcional)</p>
+
+      {/* Display name */}
+      <div className="w-full">
+        <label className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-1.5 block">
+          Nombre
+        </label>
+        <input
+          value={displayName}
+          onChange={e => setDisplayName(e.target.value)}
+          placeholder="¿Cómo te llamás?"
+          maxLength={50}
+          className="w-full bg-[#13131A] border border-[#2A2A3A] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors placeholder-[#A0A0B0]"
+        />
+      </div>
+
+      {/* Bio */}
+      <div className="w-full">
+        <div className="flex items-center justify-between mb-1.5">
+          <label className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">
+            Bio <span className="font-normal normal-case text-zinc-600">(opcional)</span>
+          </label>
+          <span className="text-[10px] text-zinc-600 tabular-nums">{bio.length}/160</span>
+        </div>
+        <textarea
+          value={bio}
+          onChange={e => setBio(e.target.value)}
+          placeholder="Contanos algo sobre vos..."
+          maxLength={160}
+          rows={3}
+          className="w-full bg-[#13131A] border border-[#2A2A3A] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors placeholder-[#A0A0B0] resize-none"
+        />
+      </div>
+    </div>
+  )
+}
+
+// ── Step 2 — Genres ───────────────────────────────────────────────────────────
 
 function GenresStep({ selected, onToggle }: { selected: string[]; onToggle: (g: string) => void }) {
   return (
@@ -112,17 +190,20 @@ function GenresStep({ selected, onToggle }: { selected: string[]; onToggle: (g: 
           )
         })}
       </div>
-      {selected.length > 0 && (
-        <p className="text-xs text-[#A0A0B0] mt-4 text-center">
-          Elegiste <span className="text-white font-semibold">{selected.length}</span>{' '}
-          {selected.length === 1 ? 'género' : 'géneros'}
-        </p>
-      )}
+      <p className="text-xs text-[#A0A0B0] mt-4 text-center">
+        {selected.length < 3 ? (
+          <>Elegí al menos <span className="text-white font-semibold">3 géneros</span>{' '}
+            · <span className="text-white tabular-nums">{selected.length}/3</span></>
+        ) : (
+          <><span style={{ color: '#22C55E' }}>✓</span>{' '}
+            Elegiste <span className="text-white font-semibold">{selected.length}</span> géneros</>
+        )}
+      </p>
     </div>
   )
 }
 
-// ── Step 2 — Platforms ────────────────────────────────────────────────────────
+// ── Step 3 — Platforms ────────────────────────────────────────────────────────
 
 function PlatformsStep({ selected, onToggle }: { selected: string[]; onToggle: (id: string) => void }) {
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set())
@@ -143,7 +224,6 @@ function PlatformsStep({ selected, onToggle }: { selected: string[]; onToggle: (
                 backgroundColor: active ? 'rgba(255,253,2,0.1)' : '#13131A',
               }}
             >
-              {/* Corner checkmark */}
               {active && (
                 <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFD02' }}>
                   <Check size={11} className="text-black" />
@@ -183,7 +263,7 @@ function PlatformsStep({ selected, onToggle }: { selected: string[]; onToggle: (
   )
 }
 
-// ── Step 3 — Suggested users ──────────────────────────────────────────────────
+// ── Step 4 — Suggested users ──────────────────────────────────────────────────
 
 function SuggestedUsersStep({
   users, followed, onFollow,
@@ -243,7 +323,7 @@ function SuggestedUsersStep({
   )
 }
 
-// ── Step 4 — Rate movies ──────────────────────────────────────────────────────
+// ── Step 5 — Rate movies (full-screen) ────────────────────────────────────────
 
 function RateMoviesStep({
   movies, actions, onAction, onLoadMore, onFinish,
@@ -271,10 +351,7 @@ function RateMoviesStep({
     setIdx(i => Math.min(i + 1, movies.length - 1))
   }, [movies.length])
 
-  const handleTouchStart = (e: React.TouchEvent) => {
-    touchStartX.current = e.touches[0].clientX
-  }
-
+  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
   const handleTouchEnd = (e: React.TouchEvent) => {
     if (touchStartX.current === null) return
     const dx = touchStartX.current - e.changedTouches[0].clientX
@@ -374,7 +451,6 @@ function RateMoviesStep({
           ))}
         </div>
 
-        {/* Next movie — prominent with animated arrow */}
         <button
           onClick={next}
           disabled={idx >= movies.length - 1}
@@ -403,14 +479,27 @@ export default function OnboardingPage() {
   const [saving,  setSaving]  = useState(false)
   const [visible, setVisible] = useState(true)
 
+  // Step 1: Profile
+  const [displayName,     setDisplayName]     = useState('')
+  const [bio,             setBio]             = useState('')
+  const [avatarUrl,       setAvatarUrl]       = useState<string | null>(null)
+  const [avatarUploading, setAvatarUploading] = useState(false)
+
+  // Skip
+  const [showSkipConfirm, setShowSkipConfirm] = useState(false)
+  const [skipping,        setSkipping]        = useState(false)
+
+  // Steps 2-4
   const [selectedGenres,    setSelectedGenres]    = useState<string[]>([])
   const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
   const [suggestedUsers,    setSuggestedUsers]    = useState<SuggestedUser[]>([])
   const [followed,          setFollowed]          = useState<Set<string>>(new Set())
-  const [movies,            setMovies]            = useState<OnboardingMovie[]>([])
-  const [moviePage,         setMoviePage]         = useState(1)
-  const [loadingMore,       setLoadingMore]       = useState(false)
-  const [movieActions,      setMovieActions]      = useState<Map<number, MovieAction>>(new Map())
+
+  // Step 5
+  const [movies,       setMovies]       = useState<OnboardingMovie[]>([])
+  const [moviePage,    setMoviePage]    = useState(1)
+  const [loadingMore,  setLoadingMore]  = useState(false)
+  const [movieActions, setMovieActions] = useState<Map<number, MovieAction>>(new Map())
 
   // Fade transition between steps
   useEffect(() => {
@@ -419,24 +508,59 @@ export default function OnboardingPage() {
     return () => clearTimeout(t)
   }, [step])
 
-  // Auth guard
+  // Auth guard + pre-fill
   useEffect(() => {
     async function init() {
+      const force = typeof window !== 'undefined'
+        && new URLSearchParams(window.location.search).get('force') === 'true'
+
       const { data: { session } } = await supabase.auth.getSession()
       const u = session?.user ?? null
       if (!u) { router.replace('/auth'); return }
+
       const { data: profile } = await supabase
-        .from('profiles').select('onboarding_completed').eq('id', u.id).maybeSingle()
-      if (profile?.onboarding_completed === true) { router.replace('/'); return }
+        .from('profiles')
+        .select('onboarding_completed_at, onboarding_skipped, username, display_name, avatar_url')
+        .eq('id', u.id)
+        .maybeSingle()
+
+      if (!force) {
+        if (profile?.onboarding_completed_at != null || profile?.onboarding_skipped === true) {
+          router.replace('/')
+          return
+        }
+      }
+
+      // Pre-fill step 1
+      setDisplayName(profile?.display_name ?? profile?.username ?? '')
+      setAvatarUrl(profile?.avatar_url ?? null)
+
       setUser(u)
       setLoading(false)
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load suggested users (step 3)
+  // Avatar upload
+  const handleAvatarChange = async (file: File) => {
+    if (!user) return
+    setAvatarUploading(true)
+    try {
+      const ext  = file.name.split('.').pop() ?? 'jpg'
+      const path = `${user.id}/${Date.now()}.${ext}`
+      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
+      if (!error) {
+        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
+        setAvatarUrl(data.publicUrl)
+        await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id)
+      }
+    } catch { /* ignore */ }
+    setAvatarUploading(false)
+  }
+
+  // Load suggested users (step 4)
   useEffect(() => {
-    if (step !== 3 || suggestedUsers.length > 0) return
+    if (step !== 4 || suggestedUsers.length > 0) return
     async function loadUsers() {
       const [topRes, ferlageokRes] = await Promise.all([
         supabase.from('profiles').select('id, username, display_name, avatar_url, points, level').order('points', { ascending: false, nullsFirst: false }).limit(10),
@@ -450,7 +574,7 @@ export default function OnboardingPage() {
     loadUsers()
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Load movies for step 4
+  // Load movies (step 5)
   const loadMovies = useCallback(async (page: number) => {
     if (!TMDB_KEY || loadingMore) return
     setLoadingMore(true)
@@ -476,15 +600,12 @@ export default function OnboardingPage() {
   }, [loadingMore]) // eslint-disable-line react-hooks/exhaustive-deps
 
   useEffect(() => {
-    if (step === 4 && movies.length === 0) loadMovies(1)
+    if (step === 5 && movies.length === 0) loadMovies(1)
   }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // Handlers
-  const toggleGenre = (g: string) =>
-    setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
-
-  const togglePlatform = (id: string) =>
-    setSelectedPlatforms(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  const toggleGenre    = (g: string)  => setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
+  const togglePlatform = (id: string) => setSelectedPlatforms(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
 
   const handleFollow = async (targetId: string) => {
     if (!user) return
@@ -508,13 +629,13 @@ export default function OnboardingPage() {
       const v = !prev.watched
       setMovieActions(m => new Map(m).set(movieId, { ...prev, watched: v }))
       if (v) await supabase.from('watched').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath, watched_at: new Date().toISOString() }, { onConflict: 'user_id,media_id,media_type' })
-      else await supabase.from('watched').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
+      else   await supabase.from('watched').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
     }
     if (type === 'liked') {
       const v = !prev.liked
       setMovieActions(m => new Map(m).set(movieId, { ...prev, liked: v }))
       if (v) await supabase.from('favorites').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath, genre_ids: movie.genreIds }, { onConflict: 'user_id,media_id,media_type' })
-      else await supabase.from('favorites').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
+      else   await supabase.from('favorites').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
     }
     if (type === 'rating' && ratingValue !== undefined) {
       setMovieActions(m => new Map(m).set(movieId, { ...prev, rating: ratingValue }))
@@ -524,23 +645,51 @@ export default function OnboardingPage() {
       const v = !prev.inWatchlist
       setMovieActions(m => new Map(m).set(movieId, { ...prev, inWatchlist: v }))
       if (v) await supabase.from('watchlist').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath }, { onConflict: 'user_id,media_id,media_type' })
-      else await supabase.from('watchlist').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
+      else   await supabase.from('watchlist').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
     }
   }
 
   const handleNext = async () => {
     if (!user) return
     setSaving(true)
-    if (step === 1) { await supabase.from('profiles').update({ favorite_genres: selectedGenres }).eq('id', user.id); setStep(2) }
-    else if (step === 2) { await supabase.from('profiles').update({ favorite_platforms: selectedPlatforms }).eq('id', user.id); setStep(3) }
-    else if (step === 3) { setStep(4) }
+    if (step === 1) {
+      const updates: Record<string, unknown> = {}
+      if (displayName.trim()) updates.display_name = displayName.trim()
+      if (Object.keys(updates).length > 0) {
+        await supabase.from('profiles').update(updates).eq('id', user.id)
+      }
+      // Try to save bio (column may need migration if not present)
+      if (bio.trim()) {
+        await supabase.from('profiles').update({ bio: bio.trim() } as Record<string, unknown>).eq('id', user.id)
+      }
+      setStep(2)
+    } else if (step === 2) {
+      await supabase.from('profiles').update({ favorite_genres: selectedGenres }).eq('id', user.id)
+      setStep(3)
+    } else if (step === 3) {
+      await supabase.from('profiles').update({ favorite_platforms: selectedPlatforms }).eq('id', user.id)
+      setStep(4)
+    } else if (step === 4) {
+      setStep(5)
+    }
     setSaving(false)
+  }
+
+  const handleSkip = async () => {
+    if (!user || skipping) return
+    setSkipping(true)
+    await supabase.from('profiles').update({ onboarding_skipped: true }).eq('id', user.id)
+    localStorage.setItem('glynbox_welcome', '1')
+    router.replace('/')
   }
 
   const handleFinish = async () => {
     if (!user) return
     document.cookie = 'new_user=; max-age=0; path=/'
-    await supabase.from('profiles').update({ onboarding_completed: true }).eq('id', user.id)
+    await supabase.from('profiles').update({
+      onboarding_completed: true,
+      onboarding_completed_at: new Date().toISOString(),
+    }).eq('id', user.id)
     localStorage.setItem('glynbox_welcome', '1')
     router.replace('/')
   }
@@ -555,7 +704,8 @@ export default function OnboardingPage() {
     )
   }
 
-  if (step === 4) {
+  // Step 5: full-screen movie rating
+  if (step === 5) {
     return (
       <RateMoviesStep
         movies={movies} actions={movieActions}
@@ -566,28 +716,63 @@ export default function OnboardingPage() {
     )
   }
 
-  const STEP_ICONS = ['', '🎬', '📺', '👥', '⭐']
+  const STEP_ICONS = ['', '👤', '🎬', '📺', '👥']
   const stepConfig = [
     null,
-    { title: '¿Qué te gusta ver?',      sub: 'Elegí tus géneros favoritos',              canNext: selectedGenres.length > 0    },
-    { title: '¿Qué plataformas tenés?', sub: 'Te mostramos el contenido disponible',      canNext: selectedPlatforms.length > 0 },
-    { title: 'Seguí a otros usuarios',  sub: 'Conectate con la comunidad de Glynbox',     canNext: true                         },
+    { title: '¿Cómo te llamás?',        sub: 'Tu perfil es lo primero que ven los demás',  canNext: true                        },
+    { title: '¿Qué te gusta ver?',       sub: 'Elegí al menos 3 géneros favoritos',          canNext: selectedGenres.length >= 3  },
+    { title: '¿Qué plataformas tenés?',  sub: 'Te mostramos el contenido disponible',         canNext: selectedPlatforms.length > 0 },
+    { title: 'Seguí a otros usuarios',   sub: 'Conectate con la comunidad de Glynbox',        canNext: true                        },
   ]
   const cfg = stepConfig[step]!
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-10 px-4" style={{ backgroundColor: '#0A0A0F' }}>
+    <div className="min-h-screen flex flex-col items-center py-8 px-4" style={{ backgroundColor: '#0A0A0F' }}>
 
-      {/* Logo */}
-      <div className="mb-8">
+      {/* Skip confirmation modal */}
+      {showSkipConfirm && (
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
+          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-white font-bold text-lg mb-2">¿Saltar el onboarding?</h3>
+            <p className="text-[#A0A0B0] text-sm mb-6">
+              Podés completarlo después desde tu perfil. Mientras tanto, algunas recomendaciones serán menos personalizadas.
+            </p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSkipConfirm(false)}
+                className="flex-1 py-2.5 rounded-xl border border-[#2A2A3A] text-zinc-400 hover:text-white transition-colors text-sm"
+              >
+                Cancelar
+              </button>
+              <button
+                onClick={handleSkip}
+                disabled={skipping}
+                className="flex-1 py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold transition-colors disabled:opacity-60 flex items-center justify-center gap-2"
+              >
+                {skipping && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
+                Saltar →
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Header: logo + skip */}
+      <div className="w-full max-w-xl flex items-center justify-between mb-6">
         {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Glynbox" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} />
+        <img src="/logo.png" alt="Glynbox" style={{ height: '28px', width: 'auto', objectFit: 'contain' }} />
+        <button
+          onClick={() => setShowSkipConfirm(true)}
+          className="text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors"
+        >
+          Saltar onboarding
+        </button>
       </div>
 
-      {/* Animated progress bar */}
+      {/* Progress bar */}
       <ProgressBar step={step} />
 
-      {/* Step content with fade transition */}
+      {/* Step content */}
       <div
         className="w-full flex flex-col items-center"
         style={{
@@ -596,18 +781,25 @@ export default function OnboardingPage() {
           transition: 'opacity 0.2s ease, transform 0.2s ease',
         }}
       >
-        {/* Step icon + heading */}
         <div className="text-center mt-8 mb-8">
           <div className="text-5xl mb-4" role="img" aria-label={cfg.title}>{STEP_ICONS[step]}</div>
           <h1 className="font-bold text-white mb-2" style={{ fontSize: '28px' }}>{cfg.title}</h1>
           <p className="text-sm text-[#A0A0B0] max-w-sm mx-auto">{cfg.sub}</p>
         </div>
 
-        {/* Step content */}
         <div className="w-full max-w-xl">
-          {step === 1 && <GenresStep selected={selectedGenres} onToggle={toggleGenre} />}
-          {step === 2 && <PlatformsStep selected={selectedPlatforms} onToggle={togglePlatform} />}
-          {step === 3 && (
+          {step === 1 && (
+            <ProfileStep
+              displayName={displayName} setDisplayName={setDisplayName}
+              bio={bio} setBio={setBio}
+              avatarUrl={avatarUrl}
+              onAvatarChange={handleAvatarChange}
+              uploading={avatarUploading}
+            />
+          )}
+          {step === 2 && <GenresStep selected={selectedGenres} onToggle={toggleGenre} />}
+          {step === 3 && <PlatformsStep selected={selectedPlatforms} onToggle={togglePlatform} />}
+          {step === 4 && (
             suggestedUsers.length === 0
               ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" /></div>
               : <SuggestedUsersStep users={suggestedUsers} followed={followed} onFollow={handleFollow} />
@@ -625,9 +817,19 @@ export default function OnboardingPage() {
         >
           {saving
             ? <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin inline-block" />
-            : 'Siguiente →'
+            : step === 4 ? 'Calificar películas →' : 'Siguiente →'
           }
         </button>
+
+        {/* Step 4: option to go directly to finish */}
+        {step === 4 && (
+          <button
+            onClick={handleFinish}
+            className="mt-4 text-xs text-zinc-600 hover:text-[#A0A0B0] transition-colors"
+          >
+            Saltar calificación de películas →
+          </button>
+        )}
       </div>
     </div>
   )

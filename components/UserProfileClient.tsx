@@ -1287,8 +1287,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             return 0
           })
           return allWatched.length === 0 ? (
-            <EmptyCard icon="🎬" actionLabel="Empezá a explorar títulos" actionHref="/que-ver">
-              Todavía no marcaste nada como visto.
+            <EmptyCard
+              icon="🎬"
+              actionLabel={isOwner ? 'Empezar →' : undefined}
+              actionHref={isOwner ? '/que-ver' : undefined}
+            >
+              {isOwner
+                ? 'Todavía no marcaste películas como vistas. Empezá a llevar registro de lo que ves.'
+                : `${localProfile.username ?? 'Este usuario'} todavía no tiene películas marcadas como vistas.`}
             </EmptyCard>
           ) : (
             <>
@@ -1361,8 +1367,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         {/* ── RESEÑAS ── */}
         {activeTab === 'resenas' && (
           allReviews.length === 0 ? (
-            <EmptyCard icon="✍️" actionLabel="Escribir primera reseña" actionHref="/que-ver">
-              {isOwner ? 'Todavía no escribiste ninguna reseña.' : 'Este usuario no tiene reseñas todavía.'}
+            <EmptyCard
+              icon="✍️"
+              actionLabel={isOwner ? 'Calificar mi primera peli →' : undefined}
+              actionHref={isOwner ? '/que-ver' : undefined}
+            >
+              {isOwner
+                ? 'Todavía no escribiste reseñas. Cuando califiques una peli con texto, va a aparecer acá.'
+                : `${localProfile.username ?? 'Este usuario'} todavía no tiene reseñas públicas.`}
             </EmptyCard>
           ) : (
             <div className="space-y-4">
@@ -1406,8 +1418,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               </div>
             )}
             {userLists.length === 0 ? (
-              <EmptyCard icon="📋" actionLabel={isOwner ? 'Crear primera lista' : undefined} actionHref={isOwner ? '/listas/nueva' : undefined}>
-                {isOwner ? 'No tenés listas creadas todavía.' : 'Sin listas públicas todavía.'}
+              <EmptyCard
+                icon="📋"
+                actionLabel={isOwner ? 'Crear lista →' : undefined}
+                actionHref={isOwner ? '/listas/nueva' : undefined}
+              >
+                {isOwner
+                  ? 'Creá tu primera lista. Por ejemplo: tu top 10 personal, o las pendientes del verano.'
+                  : `${localProfile.username ?? 'Este usuario'} todavía no tiene listas públicas.`}
               </EmptyCard>
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
@@ -1439,8 +1457,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         {/* ── PARA VER ── */}
         {activeTab === 'paraVer' && (
           allWatchlist.length === 0 ? (
-            <EmptyCard icon="🔖" actionLabel="Explorar títulos" actionHref="/que-ver">
-              {isOwner ? 'Tu lista de pendientes está vacía.' : 'Sin títulos pendientes todavía.'}
+            <EmptyCard
+              icon="🔖"
+              actionLabel={isOwner ? 'Explorar películas →' : undefined}
+              actionHref={isOwner ? '/que-ver' : undefined}
+            >
+              {isOwner
+                ? 'Tu watchlist está vacía. Agregá películas que querés ver para no perderte nada.'
+                : `${localProfile.username ?? 'Este usuario'} no tiene títulos en su watchlist.`}
             </EmptyCard>
           ) : (
             <>
@@ -1457,8 +1481,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         {/* ── ME GUSTA ── */}
         {activeTab === 'favoritos' && (
           allFavorites.length === 0 ? (
-            <EmptyCard icon="❤️" actionLabel="Descubrir qué ver" actionHref="/que-ver">
-              {isOwner ? 'Todavía no marcaste nada como favorito.' : 'Sin favoritos todavía.'}
+            <EmptyCard
+              icon="❤️"
+              actionLabel={isOwner ? 'Explorar →' : undefined}
+              actionHref={isOwner ? '/que-ver' : undefined}
+            >
+              {isOwner
+                ? 'Marcá tus películas favoritas. Las que más te gustaron, para tenerlas a mano.'
+                : `${localProfile.username ?? 'Este usuario'} todavía no marcó favoritos.`}
             </EmptyCard>
           ) : (
             <>
