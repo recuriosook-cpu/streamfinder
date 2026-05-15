@@ -12,7 +12,7 @@ import { createClient } from '@/lib/supabase'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type ContentType = 'movies' | 'docs' | 'series' | 'miniseries'
+type ContentType = 'movies' | 'docs' | 'series' | 'miniseries' | 'anime'
 
 interface Params {
   contentType: ContentType
@@ -42,6 +42,7 @@ const CONTENT_TYPES: { id: ContentType; label: string }[] = [
   { id: 'docs',       label: 'Documentales' },
   { id: 'series',     label: 'Series'       },
   { id: 'miniseries', label: 'Miniseries'   },
+  { id: 'anime',      label: 'Anime'        },
 ]
 
 const MOVIE_GENRES = [
@@ -89,7 +90,7 @@ const SORT_OPTIONS = [
 // ── URL builder ────────────────────────────────────────────────────────────
 
 function buildDiscoverUrl(p: Params): string {
-  const isTV = p.contentType === 'series' || p.contentType === 'miniseries'
+  const isTV = p.contentType === 'series' || p.contentType === 'miniseries' || p.contentType === 'anime'
   const endpoint = isTV ? 'tv' : 'movie'
   const url = new URL(`https://api.themoviedb.org/3/discover/${endpoint}`)
   const key = process.env.NEXT_PUBLIC_TMDB_API_KEY!
@@ -118,11 +119,16 @@ function buildDiscoverUrl(p: Params): string {
   if (p.yearFrom) url.searchParams.set(`${dateKey}.gte`, `${p.yearFrom}-01-01`)
   if (p.yearTo)   url.searchParams.set(`${dateKey}.lte`, `${p.yearTo}-12-31`)
 
-  // Genres — documentaries always include genre 99
-  const genres = p.contentType === 'docs'
-    ? [...new Set([99, ...p.genres])]
-    : p.genres
-  if (genres.length > 0) url.searchParams.set('with_genres', genres.join(','))
+  // Genres + origin country — anime always forces genre 16 (Animation) + JP origin
+  if (p.contentType === 'anime') {
+    url.searchParams.set('with_origin_country', 'JP')
+    url.searchParams.set('with_genres', [...new Set([16, ...p.genres])].join(','))
+  } else {
+    const genres = p.contentType === 'docs'
+      ? [...new Set([99, ...p.genres])]
+      : p.genres
+    if (genres.length > 0) url.searchParams.set('with_genres', genres.join(','))
+  }
 
   // TV series type
   if (p.contentType === 'series')     url.searchParams.set('with_type', '6')
@@ -271,7 +277,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
   const toggleProvider = (id: number) =>
     updateFilter({ provider: params.provider === id ? null : id })
 
-  const genreList = (params.contentType === 'series' || params.contentType === 'miniseries')
+  const genreList = (params.contentType === 'series' || params.contentType === 'miniseries' || params.contentType === 'anime')
     ? TV_GENRES
     : MOVIE_GENRES
 

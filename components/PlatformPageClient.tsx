@@ -11,7 +11,7 @@ import { useCountry } from '@/context/CountryContext'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
-type ContentType = 'movies' | 'series' | 'miniseries' | 'docs'
+type ContentType = 'movies' | 'series' | 'miniseries' | 'docs' | 'anime'
 
 export interface PlatformInfo {
   id: number
@@ -47,6 +47,7 @@ const CONTENT_TYPES: { id: ContentType; label: string }[] = [
   { id: 'series',     label: 'Series'       },
   { id: 'miniseries', label: 'Miniseries'   },
   { id: 'docs',       label: 'Documentales' },
+  { id: 'anime',      label: 'Anime'        },
 ]
 
 const GENRES = [
@@ -77,7 +78,7 @@ function buildUrl(
   country: string,
   page: number,
 ): string {
-  const isTV = contentType === 'series' || contentType === 'miniseries'
+  const isTV = contentType === 'series' || contentType === 'miniseries' || contentType === 'anime'
   const endpoint = isTV ? 'tv' : 'movie'
   const url = new URL(`https://api.themoviedb.org/3/discover/${endpoint}`)
   const key = process.env.NEXT_PUBLIC_TMDB_API_KEY!
@@ -93,8 +94,13 @@ function buildUrl(
   if (contentType === 'series')     url.searchParams.set('with_type', '6')
   if (contentType === 'miniseries') url.searchParams.set('with_type', '2')
 
-  const allGenres = contentType === 'docs' ? [...new Set([99, ...genres])] : genres
-  if (allGenres.length > 0) url.searchParams.set('with_genres', allGenres.join(','))
+  if (contentType === 'anime') {
+    url.searchParams.set('with_origin_country', 'JP')
+    url.searchParams.set('with_genres', [...new Set([16, ...genres])].join(','))
+  } else {
+    const allGenres = contentType === 'docs' ? [...new Set([99, ...genres])] : genres
+    if (allGenres.length > 0) url.searchParams.set('with_genres', allGenres.join(','))
+  }
 
   return url.toString()
 }
@@ -146,7 +152,7 @@ export default function PlatformPageClient({
     setFiltLoading(true)
     if (filtPage === 1) setFilteredItems([])
 
-    const isTV: boolean = type === 'series' || type === 'miniseries'
+    const isTV: boolean = type === 'series' || type === 'miniseries' || type === 'anime'
     const mediaType: 'movie' | 'tv' = isTV ? 'tv' : 'movie'
 
     fetch(buildUrl(platform.id, type, genres, country, filtPage), { signal: ac.signal })
