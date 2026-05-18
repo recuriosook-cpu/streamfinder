@@ -302,11 +302,12 @@ async function enrich(
 // ── Route handler ─────────────────────────────────────────────────────────────
 
 export async function POST(req: NextRequest) {
-  const { moodKey, durationKey, companyKey, userId, country } = await req.json()
+  const { moodKey, durationKey, companyKey, userId, country, excludeIds } = await req.json()
   const supabase = createServerClient()
 
-  // 1. Build exclusion set: watched + watchlist + shown in last 24h
+  // 1. Build exclusion set: watched + watchlist + shown in last 24h + client-side session ids
   const since24h = new Date(Date.now() - 24 * 60 * 60 * 1000).toISOString()
+  const mediaType = tmdbMediaType(durationKey)
 
   const [watchedResult, watchlistResult, logResult] = await Promise.all([
     userId
@@ -331,6 +332,7 @@ export async function POST(req: NextRequest) {
     ...((watchedResult.data  ?? []) as WatchedRow[]).map(toWatchedKey),
     ...((watchlistResult.data ?? []) as WatchedRow[]).map(toWatchedKey),
     ...((logResult.data      ?? []) as LogRow[]).map(toLogKey),
+    ...((excludeIds ?? []) as number[]).map((id: number) => `${mediaType}:${id}`),
   ])
 
   // 2. Random sort strategy for this request

@@ -183,7 +183,10 @@ function MoodRecommender() {
   const [companyKey, setCompanyKey] = useState('')
 
   const [loading, setLoading] = useState(false)
+  const [loadingMore, setLoadingMore] = useState(false)
   const [recommendations, setRecommendations] = useState<Recommendation[] | null>(null)
+  const [shownIds, setShownIds] = useState<number[]>([])
+  const [noMore, setNoMore] = useState(false)
 
   useEffect(() => {
     const supabase = createClient()
@@ -199,6 +202,8 @@ function MoodRecommender() {
   async function fetchRecommendations(selectedCompany: string) {
     setLoading(true)
     setRecommendations(null)
+    setShownIds([])
+    setNoMore(false)
     try {
       const res = await fetch('/api/mood-recommendations', {
         method: 'POST',
@@ -206,11 +211,39 @@ function MoodRecommender() {
         body: JSON.stringify({ moodKey, durationKey, companyKey: selectedCompany, userId: user?.id ?? null, country }),
       })
       const data = await res.json()
-      setRecommendations(data.recommendations ?? [])
+      const recs: Recommendation[] = data.recommendations ?? []
+      setRecommendations(recs)
+      setShownIds(recs.map(r => r.tmdb_id))
     } catch {
       setRecommendations([])
     } finally {
       setLoading(false)
+    }
+  }
+
+  async function fetchMore() {
+    if (loadingMore || noMore) return
+    setLoadingMore(true)
+    try {
+      const res = await fetch('/api/mood-recommendations', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          moodKey, durationKey, companyKey, userId: user?.id ?? null, country,
+          excludeIds: shownIds,
+        }),
+      })
+      const data = await res.json()
+      const newRecs: Recommendation[] = data.recommendations ?? []
+      if (newRecs.length < 2) setNoMore(true)
+      if (newRecs.length > 0) {
+        setRecommendations(prev => [...(prev ?? []), ...newRecs])
+        setShownIds(prev => [...prev, ...newRecs.map(r => r.tmdb_id)])
+      }
+    } catch {
+      // keep existing results
+    } finally {
+      setLoadingMore(false)
     }
   }
 
@@ -222,6 +255,7 @@ function MoodRecommender() {
   function reset() {
     setStep(1); setMoodKey(''); setDurationKey(''); setCompanyKey('')
     setRecommendations(null); setLoading(false)
+    setShownIds([]); setLoadingMore(false); setNoMore(false)
   }
 
   const stepTitle = ['¿Cómo te sentís hoy?', '¿Cuánto tiempo tenés?', '¿Con quién vas a ver?']
@@ -343,16 +377,39 @@ function MoodRecommender() {
             ) : (
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
                 {recommendations.map((rec, i) => (
-                  <ResultCard key={i} rec={rec} />
+                  <ResultCard key={`${rec.tmdb_id}-${i}`} rec={rec} />
                 ))}
               </div>
             )}
-            <div className="text-center mt-6">
+
+            {loadingMore && <SkeletonCards />}
+
+            <div className="flex flex-wrap justify-center gap-3 mt-6">
               <button
                 onClick={reset}
                 className="px-6 py-2.5 rounded-xl font-semibold text-sm text-white border border-zinc-600 hover:border-zinc-400 hover:bg-[#1C1C27] transition-all"
               >
                 Buscar de nuevo
+              </button>
+              <button
+                onClick={fetchMore}
+                disabled={noMore || loadingMore}
+                className={`px-6 py-2.5 rounded-xl font-semibold text-sm transition-all flex items-center gap-2 ${
+                  noMore || loadingMore
+                    ? 'bg-[#FFFD02] text-black opacity-40 cursor-not-allowed'
+                    : 'bg-[#FFFD02] text-black hover:bg-[#E5EB00]'
+                }`}
+              >
+                {loadingMore ? (
+                  <>
+                    <div className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
+                    Cargando...
+                  </>
+                ) : noMore ? (
+                  'No hay más resultados'
+                ) : (
+                  'Dame más resultados'
+                )}
               </button>
             </div>
           </div>
