@@ -8,8 +8,19 @@ interface MovieGridProps {
   label?:     string
 }
 
-export function MovieGrid({ tmdbIds, mediaType = 'movie', label }: MovieGridProps) {
+export function MovieGrid({ tmdbIds, mediaType, label }: MovieGridProps) {
   if (!tmdbIds?.length) return null
+
+  // Warn in dev when mediaType is omitted — omitting it silently defaults to
+  // 'movie' and will show wrong content for TV series grids.
+  if (process.env.NODE_ENV === 'development' && mediaType === undefined) {
+    console.warn(
+      `[MovieGrid] mediaType no fue especificado para IDs [${tmdbIds.join(', ')}]. ` +
+      `Se usa "movie" por defecto. Si estás mostrando series, pasá mediaType="tv".`
+    )
+  }
+
+  const resolvedType = mediaType ?? 'movie'
   return (
     <div className="my-6">
       {label && (
@@ -17,7 +28,7 @@ export function MovieGrid({ tmdbIds, mediaType = 'movie', label }: MovieGridProp
       )}
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-3">
         {tmdbIds.map(id => (
-          <MovieCard key={id} tmdbId={id} mediaType={mediaType} />
+          <MovieCard key={id} tmdbId={id} mediaType={resolvedType} />
         ))}
       </div>
     </div>
