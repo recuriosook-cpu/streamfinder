@@ -9,6 +9,7 @@ import { getPosterUrl } from '@/lib/tmdb'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
+import CountrySelector from '@/components/CountrySelector'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -333,8 +334,9 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
             ))}
           </div>
 
-          {/* Platform strip */}
-          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-0.5">
+          {/* Platform strip + country selector */}
+          <div className="flex items-center gap-2">
+          <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-0.5 flex-1">
             {ALL_PLATFORMS.map(p => {
               const selected  = params.provider === p.id
               const showLogo  = !!p.fallbackLogoPath && !logoErrors.has(p.id)
@@ -368,6 +370,8 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                 </button>
               )
             })}
+          </div>
+          <CountrySelector variant="compact" align="right" />
           </div>
 
           {/* Genre chips — horizontal scroll on mobile */}

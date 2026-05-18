@@ -1,13 +1,10 @@
-﻿'use client'
+'use client'
 
 import Link from 'next/link'
-import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
-import { Search, LogOut, LogIn, Menu, X, UserCircle, ChevronDown, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
+import { Search, LogOut, LogIn, Menu, X, UserCircle, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { useCountry } from '@/context/CountryContext'
-import { COUNTRIES } from '@/lib/countries'
 import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
 
@@ -18,24 +15,6 @@ interface SearchResult {
   tv:     Array<{ id: number; name:  string; poster_path: string | null; first_air_date?: string }>
   people: Array<{ id: number; name:  string; profile_path: string | null; known_for_department: string | null }>
   users:  Array<{ id: string; username: string | null; display_name: string | null; avatar_url: string | null }>
-}
-
-function FlagCircle({ code, size = 28 }: { code: string; size?: number }) {
-  return (
-    <span
-      className="rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center"
-      style={{ width: size, height: size }}
-    >
-      <Image
-        src={`https://flagcdn.com/w40/${code.toLowerCase()}.png`}
-        alt={code}
-        width={40}
-        height={30}
-        className="w-full h-full object-cover"
-        unoptimized
-      />
-    </span>
-  )
 }
 
 interface NotifItem {
@@ -69,19 +48,14 @@ export default function Navbar() {
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
   const [userLevel, setUserLevel] = useState<{ emoji: string; name: string; pct: number; pts: number; nextMin: number } | null>(null)
-  const [countryOpen, setCountryOpen] = useState(false)
-  const [countrySearch, setCountrySearch] = useState('')
   const [notifOpen,    setNotifOpen]    = useState(false)
   const [notifLoading, setNotifLoading] = useState(false)
   const [notifError,   setNotifError]   = useState<string | null>(null)
   const [notifs,       setNotifs]       = useState<NotifItem[]>([])
   const [unreadCount,  setUnreadCount]  = useState(0)
-  const countryRef = useRef<HTMLDivElement>(null)
-  const countrySearchRef = useRef<HTMLInputElement>(null)
   const notifRef = useRef<HTMLDivElement>(null)
   const router = useRouter()
   const supabase = useRef(createClient()).current
-  const { country, countryData, setCountry } = useCountry()
 
   useEffect(() => {
     try {
@@ -236,26 +210,6 @@ export default function Navbar() {
     return () => document.removeEventListener('mousedown', handler)
   }, [notifOpen])
 
-  // Close country dropdown when clicking outside
-  useEffect(() => {
-    if (!countryOpen) return
-    const handler = (e: MouseEvent) => {
-      if (countryRef.current && !countryRef.current.contains(e.target as Node)) {
-        setCountryOpen(false)
-        setCountrySearch('')
-      }
-    }
-    document.addEventListener('mousedown', handler)
-    return () => document.removeEventListener('mousedown', handler)
-  }, [countryOpen])
-
-  // Focus search input when dropdown opens
-  useEffect(() => {
-    if (countryOpen) {
-      setTimeout(() => countrySearchRef.current?.focus(), 50)
-    }
-  }, [countryOpen])
-
   // Close search dropdown when clicking outside
   useEffect(() => {
     if (!searchOpen && !showRecent) return
@@ -344,17 +298,6 @@ export default function Navbar() {
     router.push('/')
     router.refresh()
   }
-
-  const handleSelectCountry = (code: string) => {
-    setCountry(code)
-    setCountryOpen(false)
-    setCountrySearch('')
-  }
-
-  const filteredCountries = COUNTRIES.filter(c =>
-    c.name.toLowerCase().includes(countrySearch.toLowerCase()) ||
-    c.code.toLowerCase().includes(countrySearch.toLowerCase())
-  )
 
   return (
     <nav className="bg-[#13131A] border-b border-[#2A2A3A] sticky top-0 z-50">
@@ -601,57 +544,6 @@ export default function Navbar() {
             Cancelar
           </button>
         )}
-
-        {/* Country selector */}
-        <div className={`relative shrink-0 ${searchFocused ? 'hidden sm:block' : ''}`} ref={countryRef}>
-          <button
-            onClick={() => setCountryOpen(v => !v)}
-            className="flex items-center gap-1.5 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-2 rounded-lg transition-colors"
-            title={`País: ${countryData.name}`}
-          >
-            <FlagCircle code={country} />
-            <ChevronDown size={12} className={`transition-transform ${countryOpen ? 'rotate-180' : ''}`} />
-          </button>
-
-          {countryOpen && (
-            <div className="absolute right-0 top-full mt-2 w-56 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden z-50">
-              {/* Search */}
-              <div className="p-2 border-b border-[#2A2A3A]">
-                <input
-                  ref={countrySearchRef}
-                  value={countrySearch}
-                  onChange={e => setCountrySearch(e.target.value)}
-                  placeholder="Buscar país..."
-                  className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-[#FFFD02]"
-                />
-              </div>
-              {/* List */}
-              <div className="overflow-y-auto max-h-64">
-                {filteredCountries.length === 0 ? (
-                  <p className="text-[#A0A0B0] text-sm text-center py-4">Sin resultados</p>
-                ) : (
-                  filteredCountries.map(c => (
-                    <button
-                      key={c.code}
-                      onClick={() => handleSelectCountry(c.code)}
-                      className={`w-full flex items-center gap-2.5 px-3 py-2 text-sm text-left transition-colors ${
-                        c.code === country
-                          ? 'bg-[#FFFD02]/20 text-[#FFF84D]'
-                          : 'text-zinc-300 hover:bg-zinc-700 hover:text-white'
-                      }`}
-                    >
-                      <FlagCircle code={c.code} size={26} />
-                      <span className="flex-1">{c.name}</span>
-                      {c.code === country && (
-                        <span className="w-1.5 h-1.5 rounded-full bg-[#FFFD02] shrink-0" />
-                      )}
-                    </button>
-                  ))
-                )}
-              </div>
-            </div>
-          )}
-        </div>
 
         <div className="hidden md:flex items-center gap-3">
           <Link href="/que-ver" className="flex items-center gap-1.5 text-sm text-zinc-300 hover:text-white transition-colors">

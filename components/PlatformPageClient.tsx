@@ -8,6 +8,7 @@ import { getPosterUrl } from '@/lib/tmdb'
 import TopRankedCard from '@/components/TopRankedCard'
 import MediaCard from '@/components/MediaCard'
 import { useCountry } from '@/context/CountryContext'
+import CountrySelector from '@/components/CountrySelector'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -244,7 +245,10 @@ export default function PlatformPageClient({
             )}
             <div>
               <h1 className="text-3xl font-bold text-white">{platform.name}</h1>
-              <p className="text-[#A0A0B0] text-sm mt-0.5">Disponible en Argentina</p>
+              <div className="flex items-center gap-1.5 mt-1">
+                <span className="text-[#A0A0B0] text-sm">Disponible en</span>
+                <CountrySelector variant="compact" align="left" />
+              </div>
             </div>
           </div>
         </div>
