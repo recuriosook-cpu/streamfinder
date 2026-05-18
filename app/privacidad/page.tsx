@@ -10,7 +10,7 @@ export default function PrivacidadPage() {
     <div className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-4xl font-bold mb-2 text-white">Política de Privacidad</h1>
-        <p className="text-[#A0A0B0] mb-12">Última actualización: abril de 2026</p>
+        <p className="text-[#A0A0B0] mb-12">Última actualización: mayo de 2026</p>
 
         <div className="space-y-12">
           <section>
@@ -54,7 +54,8 @@ export default function PrivacidadPage() {
               <li>Mejorar el funcionamiento y la experiencia general de la plataforma.</li>
             </ul>
             <p className="text-[#A0A0B0] mt-4 text-sm">
-              No vendemos ni compartimos tus datos personales con terceros con fines publicitarios.
+              No vendemos tus datos personales (nombre, correo, historial) a terceros. La publicidad que
+              mostramos opera a través de cookies de Google AdSense, descritas en la sección 5.
             </p>
           </section>
 
@@ -107,7 +108,59 @@ export default function PrivacidadPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
-              5. Derechos del usuario
+              5. Publicidad y cookies de terceros
+            </h2>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Glynbox utiliza <span className="text-white font-medium">Google AdSense</span> para mostrar publicidad.
+              Google y sus socios pueden usar cookies para servir anuncios basados en tus visitas previas a este
+              sitio y a otros sitios web en Internet.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              El uso de cookies de publicidad permite que Google y sus socios muestren anuncios relevantes a
+              nuestros usuarios. Podés desactivar la publicidad personalizada en cualquier momento desde la{" "}
+              <a
+                href="https://www.google.com/settings/ads"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
+              >
+                Configuración de anuncios de Google
+              </a>.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Para más información sobre cómo Google usa los datos en su red publicitaria:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-zinc-300 mb-3">
+              <li>
+                <a
+                  href="https://policies.google.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
+                >
+                  Política de privacidad de Google
+                </a>
+              </li>
+              <li>
+                <a
+                  href="https://policies.google.com/technologies/cookies"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
+                >
+                  Cómo usa Google las cookies
+                </a>
+              </li>
+            </ul>
+            <p className="text-[#A0A0B0] text-sm">
+              Glynbox no vende tus datos personales (nombre, correo electrónico, historial de visualización) a
+              terceros. Las cookies de AdSense son gestionadas directamente por Google bajo sus propias políticas.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
+              6. Derechos del usuario
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
               Como usuario de Glynbox tienes los siguientes derechos sobre tus datos:
@@ -133,7 +186,7 @@ export default function PrivacidadPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
-              6. Contacto
+              7. Contacto
             </h2>
             <p className="text-zinc-300 leading-relaxed">
               Si tienes preguntas sobre esta política de privacidad, deseas ejercer alguno de tus derechos o necesitas soporte, puedes contactarnos en:

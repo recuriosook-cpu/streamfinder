@@ -69,11 +69,12 @@ export default function Footer() {
             <p className={COL_TITLE} style={{ color: '#FFFD02' }}>Glynbox</p>
             <ul className="space-y-2.5">
               {[
-                { label: 'Guías',       href: '/guias'      },
-                { label: 'Listas',      href: '/listas'     },
-                { label: 'Comunidad',   href: '/comunidad'  },
-                { label: 'Qué ver',     href: '/que-ver'    },
-                { label: 'Anunciantes', href: '/anunciantes'},
+                { label: 'Guías',           href: '/guias'       },
+                { label: 'Listas',          href: '/listas'      },
+                { label: 'Comunidad',       href: '/comunidad'   },
+                { label: 'Qué ver',         href: '/que-ver'     },
+                { label: 'Sobre Glynbox',   href: '/sobre'       },
+                { label: 'Anunciantes',     href: '/anunciantes' },
               ].map(l => (
                 <li key={l.href}>
                   <Link href={l.href} className={NAV_LINK}>{l.label}</Link>
