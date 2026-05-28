@@ -213,7 +213,7 @@ function PlatformsStep({ selected, onToggle }: { selected: string[]; onToggle: (
       <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-w-lg mx-auto w-full">
         {platforms.map(p => {
           const active = selected.includes(String(p.id))
-          const logoUrl = `https://image.tmdb.org/t/p/original${p.fallbackLogoPath}`
+          const logoUrl = `https://image.tmdb.org/t/p/w154${p.fallbackLogoPath}`
           return (
             <button
               key={p.id}

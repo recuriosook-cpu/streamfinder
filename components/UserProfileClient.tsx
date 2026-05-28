@@ -1889,7 +1889,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                   <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5 flex items-center gap-4">
                     <div className="w-14 h-14 rounded-xl overflow-hidden bg-[#1C1C27] shrink-0">
                       {favPlatform.logoPath ? (
-                        <Image src={`https://image.tmdb.org/t/p/original${favPlatform.logoPath}`} alt={favPlatform.name} width={56} height={56} className="w-full h-full object-cover" />
+                        <Image src={`https://image.tmdb.org/t/p/w154${favPlatform.logoPath}`} alt={favPlatform.name} width={56} height={56} className="w-full h-full object-cover" />
                       ) : (
                         <div className="w-full h-full flex items-center justify-center text-xs font-bold text-white bg-[#2A2A3A]">{favPlatform.name[0]}</div>
                       )}

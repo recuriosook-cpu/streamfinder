@@ -229,7 +229,7 @@ export default function PlatformPageClient({
           <div className="flex items-center gap-4">
             {logoPath ? (
               <Image
-                src={`https://image.tmdb.org/t/p/original${logoPath}`}
+                src={`https://image.tmdb.org/t/p/w154${logoPath}`}
                 alt={platform.name}
                 width={64}
                 height={64}

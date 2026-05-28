@@ -1,13 +1,13 @@
 // Streaming providers — TMDB IDs verified against watch_region=AR
 export const STREAMING_PROVIDERS: Record<number, { name: string; logo: string }> = {
-  8:   { name: 'Netflix',       logo: 'https://image.tmdb.org/t/p/original/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg' },
-  337: { name: 'Disney+',       logo: 'https://image.tmdb.org/t/p/original/7rwgEs15tFwyR9NPQ5vpzxTj19d.jpg'  },
-  119: { name: 'Amazon Prime',  logo: 'https://image.tmdb.org/t/p/original/68MNrwlkpF7WnmNPXLah69CR5xh.jpg'  },
-  1899: { name: 'Max',          logo: 'https://image.tmdb.org/t/p/original/jbe4gVSfRlbPTdESXhEKpornsfu.jpg'  },
-  283: { name: 'Crunchyroll',   logo: 'https://image.tmdb.org/t/p/original/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg'  },
-  167: { name: 'Claro Video',   logo: 'https://image.tmdb.org/t/p/original/21M5CpiOYGOhHj2sVPXqwt6yeTO.jpg'  },
-  531: { name: 'Paramount+',    logo: 'https://image.tmdb.org/t/p/original/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'  },
-  619: { name: 'Star+',         logo: 'https://image.tmdb.org/t/p/original/6enFbwsOWBaHAe1aHOblEBLBOqg.jpg'  },
+  8:   { name: 'Netflix',       logo: 'https://image.tmdb.org/t/p/w154/t2yyOv40HZeVlLjYsCsPHnWLk4W.jpg' },
+  337: { name: 'Disney+',       logo: 'https://image.tmdb.org/t/p/w154/7rwgEs15tFwyR9NPQ5vpzxTj19d.jpg'  },
+  119: { name: 'Amazon Prime',  logo: 'https://image.tmdb.org/t/p/w154/68MNrwlkpF7WnmNPXLah69CR5xh.jpg'  },
+  1899: { name: 'Max',          logo: 'https://image.tmdb.org/t/p/w154/jbe4gVSfRlbPTdESXhEKpornsfu.jpg'  },
+  283: { name: 'Crunchyroll',   logo: 'https://image.tmdb.org/t/p/w154/8Gt1iClBlzTeQs8WQm8UrCoIxnQ.jpg'  },
+  167: { name: 'Claro Video',   logo: 'https://image.tmdb.org/t/p/w154/21M5CpiOYGOhHj2sVPXqwt6yeTO.jpg'  },
+  531: { name: 'Paramount+',    logo: 'https://image.tmdb.org/t/p/w154/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'  },
+  619: { name: 'Star+',         logo: 'https://image.tmdb.org/t/p/w154/6enFbwsOWBaHAe1aHOblEBLBOqg.jpg'  },
 }
 
 export const PROVIDER_FILTER_OPTIONS = [

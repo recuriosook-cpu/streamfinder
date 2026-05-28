@@ -93,7 +93,7 @@ export default function PlatformLogoStrip({ platforms }: Props) {
                 <div className="w-16 h-16 rounded-xl overflow-hidden transition-transform duration-200 group-hover:scale-110 group-hover:ring-2 group-hover:ring-white/30 shadow-lg">
                   {showLogo ? (
                     <Image
-                      src={`https://image.tmdb.org/t/p/original${platform.logoPath}`}
+                      src={`https://image.tmdb.org/t/p/w154${platform.logoPath}`}
                       alt={platform.name}
                       width={64}
                       height={64}

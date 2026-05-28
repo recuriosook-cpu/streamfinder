@@ -51,7 +51,7 @@ function CarouselCard({
           {providerLogoPath ? (
             <div className="absolute bottom-1.5 right-1.5 w-6 h-6 rounded-[4px] overflow-hidden shadow-lg ring-1 ring-white/20">
               <Image
-                src={`https://image.tmdb.org/t/p/original${providerLogoPath}`}
+                src={`https://image.tmdb.org/t/p/w154${providerLogoPath}`}
                 alt={providerName ?? ''} width={24} height={24}
                 className="w-full h-full object-cover"
               />

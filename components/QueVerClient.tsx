@@ -354,7 +354,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   {showLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={`https://image.tmdb.org/t/p/original${p.fallbackLogoPath}`}
+                      src={`https://image.tmdb.org/t/p/w154${p.fallbackLogoPath}`}
                       alt={p.name}
                       className="w-full h-full object-cover"
                       onError={() => setLogoErrors(prev => new Set(prev).add(p.id))}
