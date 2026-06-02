@@ -106,6 +106,63 @@ export default function SoportePage() {
             Enviar email a soporte
           </a>
         </section>
+
+        {/* Redes sociales */}
+        <section className="mt-10">
+          <p className="text-center text-sm text-[#A0A0B0] mb-5">
+            También podés contactarnos por redes sociales:
+          </p>
+          <div className="flex flex-col sm:flex-row gap-3 justify-center">
+            {[
+              {
+                label: 'TikTok',
+                handle: '@glynboxapp',
+                href: 'https://www.tiktok.com/@glynboxapp',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M19.59 6.69a4.83 4.83 0 01-3.77-4.25V2h-3.45v13.67a2.89 2.89 0 01-2.88 2.5 2.89 2.89 0 01-2.89-2.89 2.89 2.89 0 012.89-2.89c.28 0 .54.04.79.1V9.01a6.33 6.33 0 00-.79-.05 6.34 6.34 0 00-6.34 6.34 6.34 6.34 0 006.34 6.34 6.34 6.34 0 006.33-6.34V8.69a8.18 8.18 0 004.77 1.52V6.76a4.85 4.85 0 01-1-.07z" />
+                  </svg>
+                ),
+              },
+              {
+                label: 'Instagram',
+                handle: '@glynbox.app',
+                href: 'https://www.instagram.com/glynbox.app',
+                icon: (
+                  <svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2" aria-hidden="true">
+                    <rect x="2" y="2" width="20" height="20" rx="5" ry="5" />
+                    <circle cx="12" cy="12" r="4" />
+                    <circle cx="17.5" cy="6.5" r="1" fill="currentColor" stroke="none" />
+                  </svg>
+                ),
+              },
+              {
+                label: 'X (Twitter)',
+                handle: '@glynboxapp',
+                href: 'https://x.com/glynboxapp',
+                icon: (
+                  <svg width="16" height="16" viewBox="0 0 24 24" fill="currentColor" aria-hidden="true">
+                    <path d="M18.244 2.25h3.308l-7.227 8.26 8.502 11.24H16.17l-4.714-6.231-5.401 6.231H2.748l7.73-8.835L1.254 2.25H8.08l4.261 5.635L18.244 2.25zm-1.161 17.52h1.833L7.084 4.126H5.117L17.083 19.77z" />
+                  </svg>
+                ),
+              },
+            ].map(s => (
+              <a
+                key={s.href}
+                href={s.href}
+                target="_blank"
+                rel="noopener noreferrer"
+                aria-label={`Glynbox en ${s.label}`}
+                className="group flex items-center justify-center gap-2.5 bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/40 rounded-xl px-5 py-3 text-sm text-[#A0A0B0] hover:text-[#FFFD02] transition-all"
+              >
+                <span className="shrink-0">{s.icon}</span>
+                <span className="font-medium">{s.label}</span>
+                <span className="text-xs opacity-60">{s.handle}</span>
+              </a>
+            ))}
+          </div>
+        </section>
+
       </div>
     </div>
   )

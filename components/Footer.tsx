@@ -46,9 +46,9 @@ export default function Footer() {
             </p>
             <div className="flex items-center gap-3">
               {[
-                { label: 'X (Twitter)', href: 'https://x.com/Glynboxapp',        icon: <XIcon /> },
-                { label: 'Instagram',  href: 'https://instagram.com/glynboxapp', icon: <InstagramIcon /> },
-                { label: 'TikTok',     href: 'https://tiktok.com/@glynboxapp',   icon: <TikTokIcon /> },
+                { label: 'X (Twitter)', href: 'https://x.com/glynboxapp',                   icon: <XIcon /> },
+                { label: 'Instagram',  href: 'https://www.instagram.com/glynbox.app', icon: <InstagramIcon /> },
+                { label: 'TikTok',     href: 'https://www.tiktok.com/@glynboxapp',    icon: <TikTokIcon /> },
               ].map(s => (
                 <a
                   key={s.href}
