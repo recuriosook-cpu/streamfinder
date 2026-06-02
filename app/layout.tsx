@@ -3,6 +3,8 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { CountryProvider } from '@/context/CountryContext'
+import { ConditionalShell } from '@/components/ConditionalShell'
+import { PingActive } from '@/components/PingActive'
 import { Toaster } from 'sonner'
 
 export const viewport: Viewport = {
@@ -104,9 +106,10 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
       </head>
       <body className="min-h-screen bg-[#0A0A0F] text-white">
         <CountryProvider>
-          <Navbar />
+          <ConditionalShell><Navbar /></ConditionalShell>
           <main>{children}</main>
-          <Footer />
+          <ConditionalShell><Footer /></ConditionalShell>
+          <PingActive />
           <Toaster theme="dark" position="top-right" richColors />
         </CountryProvider>
       </body>

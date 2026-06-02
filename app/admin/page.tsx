@@ -1,5 +1,5 @@
-import AdminDashboard from './AdminDashboard'
+import ResumenPage from './_components/ResumenPage'
 
 export default function AdminPage() {
-  return <AdminDashboard />
+  return <ResumenPage />
 }
