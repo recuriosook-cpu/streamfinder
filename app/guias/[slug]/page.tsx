@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { getGuideBySlug, getAllGuideSlugs } from '@/lib/guides'
 import { MovieGrid } from '@/components/guides/MovieGrid'
+import { MovieCard } from '@/components/guides/MovieCard'
 import { CalloutBox } from '@/components/guides/CalloutBox'
 import { evaluate } from '@mdx-js/mdx'
 import * as runtime from 'react/jsx-runtime'
@@ -49,6 +50,7 @@ export async function generateMetadata(
 
 const MDX_COMPONENTS = {
   MovieGrid,
+  MovieCard,
   CalloutBox,
 }
 
