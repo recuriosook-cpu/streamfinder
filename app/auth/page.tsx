@@ -72,10 +72,10 @@ export default function AuthPage() {
       } else {
         const { data: profile } = await supabase
           .from('profiles')
-          .select('username, onboarding_completed')
+          .select('username, onboarding_completed, onboarding_skipped')
           .eq('id', data.user.id)
           .maybeSingle()
-        if (profile?.onboarding_completed !== true) {
+        if (profile?.onboarding_completed !== true && profile?.onboarding_skipped !== true) {
           router.replace('/onboarding')
         } else {
           router.replace(profile?.username ? `/usuario/${profile.username}` : '/')

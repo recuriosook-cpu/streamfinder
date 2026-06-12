@@ -29,7 +29,7 @@ export async function GET(request: Request) {
     if (user) {
       const { data: profile } = await supabase
         .from('profiles')
-        .select('onboarding_completed, username')
+        .select('onboarding_completed, onboarding_skipped, username')
         .eq('id', user.id)
         .maybeSingle()
 
@@ -50,7 +50,7 @@ export async function GET(request: Request) {
         return res
       }
 
-      if (profile.onboarding_completed !== true) {
+      if (profile.onboarding_completed !== true && profile.onboarding_skipped !== true) {
         return NextResponse.redirect('https://glynbox.com/onboarding')
       }
 

@@ -678,7 +678,7 @@ export default function OnboardingPage() {
   const handleSkip = async () => {
     if (!user || skipping) return
     setSkipping(true)
-    await supabase.from('profiles').update({ onboarding_skipped: true }).eq('id', user.id)
+    await supabase.from('profiles').update({ onboarding_skipped: true, onboarding_completed: true }).eq('id', user.id)
     localStorage.setItem('glynbox_welcome', '1')
     router.replace('/')
   }

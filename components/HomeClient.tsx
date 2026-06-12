@@ -975,10 +975,10 @@ export default function HomeClient() {
         // Regular check — catches existing users who haven't finished onboarding
         const { data: profile } = await supabase
           .from('profiles')
-          .select('onboarding_completed')
+          .select('onboarding_completed, onboarding_skipped')
           .eq('id', u.id)
           .maybeSingle()
-        if (profile && profile.onboarding_completed === false) {
+        if (profile && profile.onboarding_completed === false && profile.onboarding_skipped !== true) {
           router.replace('/onboarding')
           return
         }
