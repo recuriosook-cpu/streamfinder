@@ -396,7 +396,7 @@ function ReviewCard({
             </span>
           )}
           {hasSpoiler && !spoilerRevealed ? (
-            <div className="relative rounded-lg overflow-hidden">
+            <div className="relative rounded-lg overflow-hidden min-h-[80px]">
               <p className="text-sm text-zinc-300 leading-relaxed whitespace-pre-wrap blur-sm select-none pointer-events-none line-clamp-3">
                 {body}
               </p>

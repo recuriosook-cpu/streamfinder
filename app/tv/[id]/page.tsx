@@ -259,7 +259,7 @@ export default async function TVPage({ params }: Props) {
                 {show.genres.map((g: { id: number; name: string }) => (
                   <Link
                     key={g.id}
-                    href={`/que-ver?genre=${g.id}&type=series`}
+                    href={`/generos/${g.id}`}
                     className="text-xs bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2 py-1 rounded-full transition-colors"
                   >
                     {g.name}

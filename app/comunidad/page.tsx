@@ -1428,12 +1428,12 @@ export default function ComunidadPage() {
                 <p className="text-white font-semibold text-sm mb-1">Seguí a otros usuarios para ver su actividad acá</p>
                 <p className="text-[#A0A0B0] text-xs">Cuando sigas gente, verás sus reseñas, calificaciones y listas en este feed.</p>
               </div>
-              <Link
-                href="/comunidad?tab=compat"
+              <button
+                onClick={() => setTab('compat')}
                 className="shrink-0 text-sm font-semibold text-black bg-[#FFFD02] hover:bg-[#E5EB00] px-4 py-2 rounded-full transition-colors"
               >
                 Descubrir usuarios →
-              </Link>
+              </button>
             </div>
           )}
 
