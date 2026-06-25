@@ -4,17 +4,10 @@ import { useState, useEffect, useCallback } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Film, Tv, LayoutGrid, Star } from 'lucide-react'
-import { GENRE_NAMES } from './page'
+import { GENRE_NAMES, GENRE_EMOJIS } from './genre-constants'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
-
-const GENRE_EMOJIS: Record<number, string> = {
-  28: '💥', 12: '🌍', 16: '🎨', 35: '😂', 80: '🔫', 99: '🎥',
-  18: '🎭', 10751: '👨‍👩‍👧', 14: '🧙', 36: '📜', 27: '👻', 10402: '🎵',
-  9648: '🔍', 10749: '💕', 878: '🚀', 53: '🕵️', 10752: '⚔️', 37: '🤠',
-  10759: '🏃', 10762: '🧒', 10765: '🌌', 10766: '💔', 10767: '🎤', 10768: '🪖',
-}
 
 interface MediaItem {
   id: number
