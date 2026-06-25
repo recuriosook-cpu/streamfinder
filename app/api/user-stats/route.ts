@@ -41,6 +41,9 @@ export async function GET(req: NextRequest) {
 
   const supabase = createServerClient()
 
+  const { data: { user } } = await supabase.auth.getUser()
+  if (!user) return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
+
   // ── Fetch watched list (sin limite de 1000) ───────────────────────────────
   const { data: watched } = await supabase
     .from('watched')
@@ -232,5 +235,5 @@ export async function GET(req: NextRequest) {
     topActor,
     topActress,
     topDirector,
-  }, { headers: { 'Cache-Control': 'private, max-age=300' } })
+  }, { headers: { 'Cache-Control': 'private, max-age=3600' } })
 }

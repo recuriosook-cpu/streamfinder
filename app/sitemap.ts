@@ -1,7 +1,7 @@
 import { MetadataRoute } from 'next'
 import { getAllGuides } from '@/lib/guides'
 
-export const dynamic = 'force-dynamic'
+export const revalidate = 86400 // regenerar una vez por día
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL

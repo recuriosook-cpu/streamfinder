@@ -919,17 +919,16 @@ export default function HomeClient() {
       /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
     if (!isMobile) return
 
-    // Show at most once per browser session
-    if (sessionStorage.getItem('review_prompt_shown') === '1') return
+    // Skip if already checked this session (regardless of shouldShow result)
+    if (sessionStorage.getItem('review_prompt_checked') === '1') return
 
     const timer = setTimeout(async () => {
       try {
+        // Mark as checked immediately — don't re-fetch even if shouldShow was false
+        sessionStorage.setItem('review_prompt_checked', '1')
         const res = await fetch('/api/check-review-prompt')
         const { shouldShow } = await res.json()
-        if (shouldShow) {
-          sessionStorage.setItem('review_prompt_shown', '1')
-          setShowReviewPrompt(true)
-        }
+        if (shouldShow) setShowReviewPrompt(true)
       } catch { /* non-blocking */ }
     }, 5000)
 
