@@ -89,6 +89,14 @@ export interface UserStatsResponse {
   favoriteDirector: UserStatsPerson | null
   /** Sobre cuántos títulos se calculó, para poder decirlo en la UI. */
   titlesAnalyzed: number
+  /**
+   * Cuántos géneros distintos vio.
+   *
+   * Lo usa el logro "Todoterreno" de la app. Se devuelve desde acá porque
+   * `watched.genre_ids` está vacío en toda la tabla, así que el único modo de
+   * saberlo es la ficha de TMDB de cada título — que esta ruta ya consulta.
+   */
+  distinctGenres: number
 }
 
 const EMPTY: UserStatsResponse = {
@@ -99,6 +107,7 @@ const EMPTY: UserStatsResponse = {
   favoriteActor: null,
   favoriteDirector: null,
   titlesAnalyzed: 0,
+  distinctGenres: 0,
 }
 
 type WatchedRow = {
@@ -290,6 +299,7 @@ export async function GET(
     favoriteActor: topPerson(actorTally),
     favoriteDirector: topPerson(directorTally),
     titlesAnalyzed: analyzed,
+    distinctGenres: Object.keys(genreCount).length,
   }
 
   return NextResponse.json(body, {

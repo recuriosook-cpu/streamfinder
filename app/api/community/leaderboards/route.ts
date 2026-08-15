@@ -3,13 +3,15 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   CORS_HEADERS,
   corsPreflight,
-  getProfilesById,
   getSupabase,
   jsonError,
   periodStart,
   privateCache,
+  PROFILE_COLUMNS,
   requireUserId,
+  toCommunityProfile,
   type CommunityProfile,
+  type ProfileRow,
 } from '@/lib/community-api'
 
 /**
@@ -73,13 +75,52 @@ const SOURCE = {
   listmakers: { table: 'lists', dateColumn: 'created_at' },
 } as const satisfies Record<Category, { table: string; dateColumn: string }>
 
+/** Perfil del ranking: el común más el nivel, que la fila muestra como badge. */
+export interface LeaderboardProfile extends CommunityProfile {
+  level: number
+  points: number
+}
+
 export interface LeaderboardEntry {
   /** 1 = primero. */
   rank: number
-  profile: CommunityProfile
+  profile: LeaderboardProfile
   count: number
   /** `true` en la fila del usuario que pregunta, para resaltarla. */
   isCurrentUser: boolean
+}
+
+/**
+ * Perfiles del ranking, con nivel.
+ *
+ * No usa `getProfilesById` porque aquél devuelve el perfil mínimo compartido
+ * con el feed; acá hacen falta dos columnas más y no tiene sentido cargárselas
+ * a las otras rutas.
+ */
+async function getLeaderboardProfiles(
+  supabase: SupabaseClient,
+  ids: string[]
+): Promise<Map<string, LeaderboardProfile>> {
+  const map = new Map<string, LeaderboardProfile>()
+  if (ids.length === 0) return map
+
+  const { data, error } = await supabase
+    .from('profiles')
+    .select(`${PROFILE_COLUMNS}, level, points`)
+    .in('id', [...new Set(ids)])
+
+  if (error) return map
+
+  type Row = ProfileRow & { level: number | null; points: number | null }
+
+  for (const row of (data ?? []) as Row[]) {
+    map.set(row.id, {
+      ...toCommunityProfile(row),
+      level: row.level ?? 1,
+      points: row.points ?? 0,
+    })
+  }
+  return map
 }
 
 export interface CommunityLeaderboardResponse {
@@ -165,7 +206,7 @@ export async function GET(req: NextRequest) {
   const idsToFetch = top.map(([id]) => id)
   if (currentUserIndex >= TOP_N) idsToFetch.push(userId)
 
-  const profiles = await getProfilesById(supabase, idsToFetch)
+  const profiles = await getLeaderboardProfiles(supabase, idsToFetch)
 
   const entries: LeaderboardEntry[] = top
     .map(([id, count], index) => {
