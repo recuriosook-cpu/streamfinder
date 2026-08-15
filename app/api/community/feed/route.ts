@@ -34,9 +34,44 @@ import {
 
 export const OPTIONS = corsPreflight
 
+const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
+
 /** Cuántos ítems devuelve una página por defecto. */
 const DEFAULT_LIMIT = 20
 const MAX_LIMIT = 50
+
+/**
+ * Votos mínimos en TMDB para que una película entre como recomendación.
+ *
+ * 500, exactamente el mismo valor que usa `loadRecommendations` en
+ * `app/comunidad/page.tsx`. Con `sort_by=vote_average.desc` el filtro no es un
+ * detalle: sin él, el top serían títulos con 3 votos y un 10 de promedio.
+ *
+ * Es el único `vote_count` que toca el feed. Las tablas de Supabase que arman
+ * el resto del stream (reviews, watchlist, lists) no tienen esa columna.
+ */
+const RECOMMENDATION_MIN_VOTES = 500
+
+/** Cuántas recomendaciones se traen por carga. Igual que la web. */
+const RECOMMENDATION_COUNT = 8
+
+/**
+ * Cada cuántos ítems del feed se intercala una recomendación.
+ *
+ * La web las inyecta cada 4 después de mezclar. Se replica acá para que el
+ * ritmo del feed sea el mismo en los dos lados.
+ */
+const RECOMMENDATION_EVERY = 4
+
+/** Nombre de género (como lo guarda `profiles.favorite_genres`) → id de TMDB. */
+const GENRE_TO_ID: Record<string, number> = {
+  'Acción': 28, 'Comedia': 35, 'Drama': 18, 'Terror': 27,
+  'Ciencia ficción': 878, 'Thriller': 53, 'Animación': 16,
+  'Romance': 10749, 'Documental': 99, 'Aventura': 12,
+  'Fantasía': 14, 'Misterio': 9648, 'Historia': 36,
+  'Crimen': 80, 'Musical': 10402, 'Western': 37, 'Guerra': 10752,
+  'Familia': 10751,
+}
 
 /**
  * Techo por fuente antes de mezclar.
@@ -55,17 +90,20 @@ type FeedMode = 'all' | 'reviews' | 'lists' | 'activity'
 
 const MODES: FeedMode[] = ['all', 'reviews', 'lists', 'activity']
 
-export type FeedItemType =
+/** Los tipos que tienen autor y fecha, o sea los que ordenan el stream. */
+export type AuthoredItemType =
   | 'review'
   | 'rating'
   | 'watchlist'
   | 'list_created'
   | 'level_up'
 
+export type FeedItemType = AuthoredItemType | 'recommendation'
+
 interface BaseItem {
   /** Clave estable para el `keyExtractor` de la lista. */
   key: string
-  type: FeedItemType
+  type: AuthoredItemType
   userId: string
   /** ISO por el que se ordena todo el stream. */
   sortTime: string
@@ -116,12 +154,30 @@ export interface LevelUpItem extends BaseItem {
   levelName: string
 }
 
-export type FeedItem =
+/**
+ * Sugerencia de TMDB intercalada en el feed.
+ *
+ * No tiene autor ni fecha, así que no hereda `BaseItem`: no participa del orden
+ * cronológico, se inserta después de ordenar.
+ */
+export interface RecommendationItem {
+  key: string
+  type: 'recommendation'
+  movieId: number
+  title: string
+  year: string
+  posterPath: string | null
+  backdropPath: string | null
+}
+
+export type AuthoredItem =
   | ReviewItem
   | RatingItem
   | WatchlistItem
   | ListItem
   | LevelUpItem
+
+export type FeedItem = AuthoredItem | RecommendationItem
 
 export interface CommunityFeedResponse {
   items: FeedItem[]
@@ -366,6 +422,101 @@ async function loadLevelUps(
   }))
 }
 
+/**
+ * Recomendaciones de TMDB según los géneros favoritos del usuario.
+ *
+ * Calcado de `loadRecommendations` de la web: mismos parámetros, mismo tope de
+ * 3 géneros y mismo `vote_count.gte`. Devuelve vacío ante cualquier fallo — es
+ * relleno del feed, no puede voltear la respuesta.
+ */
+async function loadRecommendations(
+  supabase: SupabaseClient,
+  userId: string
+): Promise<RecommendationItem[]> {
+  if (!TMDB_KEY) return []
+
+  const { data } = await supabase
+    .from('profiles')
+    .select('favorite_genres')
+    .eq('id', userId)
+    .maybeSingle()
+
+  const favorites =
+    (data as { favorite_genres: string[] | null } | null)?.favorite_genres ?? []
+
+  const genreIds = favorites
+    .map((name) => GENRE_TO_ID[name])
+    .filter(Boolean)
+    .slice(0, 3)
+
+  const genreParam =
+    genreIds.length > 0 ? `&with_genres=${genreIds.join(',')}` : ''
+
+  try {
+    const res = await fetch(
+      `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_KEY}` +
+        `&language=es-AR&sort_by=vote_average.desc` +
+        `&vote_count.gte=${RECOMMENDATION_MIN_VOTES}&page=1${genreParam}`,
+      { next: { revalidate: 3600 } }
+    )
+    if (!res.ok) return []
+
+    const body = (await res.json()) as {
+      results?: {
+        id: number
+        title: string
+        release_date?: string
+        poster_path: string | null
+        backdrop_path: string | null
+      }[]
+    }
+
+    return (body.results ?? []).slice(0, RECOMMENDATION_COUNT).map((movie) => ({
+      key: `rec-${movie.id}`,
+      type: 'recommendation' as const,
+      movieId: movie.id,
+      title: movie.title,
+      year: (movie.release_date ?? '').slice(0, 4),
+      posterPath: movie.poster_path,
+      backdropPath: movie.backdrop_path,
+    }))
+  } catch {
+    return []
+  }
+}
+
+/**
+ * Intercala una recomendación cada `RECOMMENDATION_EVERY` ítems.
+ *
+ * Va después de cortar la página y no antes de ordenar: las recomendaciones no
+ * tienen fecha, así que no pueden participar del orden cronológico sin
+ * inventarles una.
+ */
+function interleave(
+  items: AuthoredItem[],
+  recommendations: RecommendationItem[]
+): FeedItem[] {
+  if (recommendations.length === 0) return items
+
+  const result: FeedItem[] = []
+  let next = 0
+
+  items.forEach((item, index) => {
+    result.push(item)
+    if ((index + 1) % RECOMMENDATION_EVERY === 0 && next < recommendations.length) {
+      result.push(recommendations[next++])
+    }
+  })
+
+  // Página muy corta como para que caiga una por la regla de cada 4: se agrega
+  // una igual, si no la sección quedaría sin ninguna.
+  if (items.length > 0 && items.length < RECOMMENDATION_EVERY && next === 0) {
+    result.push(recommendations[0])
+  }
+
+  return result
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase()
   if (!supabase) return jsonError('Server misconfigured', 500)
@@ -406,7 +557,7 @@ export async function GET(req: NextRequest) {
     want.levelUps ? loadLevelUps(supabase, followIds) : [],
   ])
 
-  const merged: FeedItem[] = [
+  const merged: AuthoredItem[] = [
     ...reviews,
     ...ratings,
     ...watchlist,
@@ -415,15 +566,22 @@ export async function GET(req: NextRequest) {
   ].sort((a, b) => b.sortTime.localeCompare(a.sortTime))
 
   const from = page * limit
-  const items = merged.slice(from, from + limit)
+  const pageItems = merged.slice(from, from + limit)
 
-  const profiles = await getProfilesById(
-    supabase,
-    items.map((item) => item.userId)
-  )
+  // Los perfiles se piden sólo para los ítems de esta página; las
+  // recomendaciones no tienen autor, así que no entran en la consulta.
+  const [profiles, recommendations] = await Promise.all([
+    getProfilesById(
+      supabase,
+      pageItems.map((item) => item.userId)
+    ),
+    // Sólo en el modo completo: filtrando por "reseñas" o por "listas", meter
+    // sugerencias de TMDB rompería el filtro que el usuario acaba de elegir.
+    mode === 'all' ? loadRecommendations(supabase, userId) : [],
+  ])
 
   const body: CommunityFeedResponse = {
-    items,
+    items: interleave(pageItems, recommendations),
     profiles: [...profiles.values()],
     page,
     limit,
