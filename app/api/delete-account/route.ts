@@ -1,10 +1,40 @@
-import { NextResponse } from 'next/server'
+import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 
-export async function POST() {
-  // Verify auth via session cookie
+/**
+ * CORS para la app nativa, que llama desde otro origen.
+ *
+ * `Authorization` tiene que estar permitido: la app no manda cookies, se
+ * identifica con el token de sesión de Supabase en ese header.
+ */
+const CORS_HEADERS = {
+  'Access-Control-Allow-Origin': '*',
+  'Access-Control-Allow-Methods': 'POST, OPTIONS',
+  'Access-Control-Allow-Headers': 'Content-Type, Authorization',
+} as const
+
+export async function OPTIONS() {
+  return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
+}
+
+/**
+ * Resuelve quién está llamando.
+ *
+ * Dos caminos, en este orden:
+ *
+ *  1. La cookie de sesión, que es como llama la web. Sin cambios respecto de
+ *     antes.
+ *  2. Un `Authorization: Bearer <access_token>`, que es la única forma que
+ *     tiene la app nativa: guarda el JWT de Supabase en el keystore del
+ *     teléfono y no maneja cookies.
+ *
+ * En los dos casos el token lo valida Supabase contra su propia firma, así que
+ * el segundo camino no afloja la autorización: sigue haciendo falta una sesión
+ * real del dueño de la cuenta para borrarla.
+ */
+async function resolveUserId(req: NextRequest): Promise<string | null> {
   const cookieStore = await cookies()
   const supabase = createServerClient(
     process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -22,11 +52,26 @@ export async function POST() {
   )
 
   const { data: { user } } = await supabase.auth.getUser()
-  if (!user) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+  if (user) return user.id
 
-  const userId = user.id
+  const authHeader = req.headers.get('authorization')
+  if (!authHeader?.startsWith('Bearer ')) return null
+
+  const token = authHeader.slice('Bearer '.length)
+  const { data, error } = await supabase.auth.getUser(token)
+  if (error || !data.user) return null
+
+  return data.user.id
+}
+
+export async function POST(req: NextRequest) {
+  const userId = await resolveUserId(req)
+  if (!userId) {
+    return NextResponse.json(
+      { error: 'No autorizado' },
+      { status: 401, headers: CORS_HEADERS }
+    )
+  }
 
   // Admin client with service role — never exposed to the browser
   const admin = createClient(
@@ -102,5 +147,5 @@ export async function POST() {
     console.error('[delete-account] partial errors:', errors)
   }
 
-  return NextResponse.json({ success: true })
+  return NextResponse.json({ success: true }, { headers: CORS_HEADERS })
 }
