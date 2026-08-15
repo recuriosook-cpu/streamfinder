@@ -42,6 +42,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [reviews, setReviews]                 = useState<Review[]>([])
   // currentUserId starts null — hook reads it after auth resolves
   const [currentUserId, setCurrentUserId]     = useState<string | null>(null)
+  // Reseña resaltada al llegar desde un link `#review-{id}`
+  const [highlightedId, setHighlightedId]     = useState<string | null>(null)
   const [loading, setLoading]                 = useState(true)
   const [showForm, setShowForm]               = useState(false)
   const [editingId, setEditingId]             = useState<string | null>(null)
@@ -74,6 +76,35 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       })
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType])
+
+  // ── Anchor scroll (#review-{id}) ────────────────────────────────────────
+  // La app nativa comparte links con el fragmento `#review-{id}`. El navegador
+  // no puede saltar solo porque las reseñas se cargan en el cliente: cuando
+  // resuelve el hash, el elemento todavía no existe.
+  useEffect(() => {
+    if (loading || reviews.length === 0) return
+
+    const match = /^#review-(.+)$/.exec(window.location.hash)
+    if (!match) return
+
+    const reviewId = match[1]
+    const target = document.getElementById(`review-${reviewId}`)
+
+    if (!target) {
+      // Sólo se cargan las 10 más recientes: si la compartida es más vieja, no
+      // está en el DOM y no hay nada a dónde scrollear. La página propia de la
+      // reseña sí la muestra siempre, así que se manda para allá en vez de
+      // dejar al visitante mirando una lista donde no está lo que vino a ver.
+      window.location.replace(`/review/${reviewId}`)
+      return
+    }
+
+    target.scrollIntoView({ behavior: 'smooth', block: 'center' })
+    setHighlightedId(reviewId)
+
+    const timer = setTimeout(() => setHighlightedId(null), 3000)
+    return () => clearTimeout(timer)
+  }, [loading, reviews])
 
   async function loadReviews() {
     setLoading(true)
@@ -432,8 +463,17 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       ) : (
         <div className="space-y-4">
           {reviews.map(review => (
-            <ReviewCard
+            <div
               key={review.id}
+              // Destino de los links `#review-{id}` que comparte la app nativa.
+              id={`review-${review.id}`}
+              className={
+                highlightedId === review.id
+                  ? 'rounded-xl ring-2 ring-[#FFFD02]/70 transition-shadow duration-500'
+                  : 'rounded-xl transition-shadow duration-500'
+              }
+            >
+            <ReviewCard
               id={review.id}
               authorId={review.user_id}
               authorUsername={review.profile.username ?? 'Usuario'}
@@ -457,6 +497,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
               onEdit={review.user_id === currentUserId ? () => openForm(review) : undefined}
               onDelete={review.user_id === currentUserId ? () => deleteReview(review.id) : undefined}
             />
+            </div>
           ))}
         </div>
       )}
