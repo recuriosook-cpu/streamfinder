@@ -5,9 +5,11 @@ import {
   corsPreflight,
   getFollowingIds,
   getSupabase,
+  getSupabaseAsUser,
   jsonError,
   privateCache,
   PROFILE_COLUMNS,
+  readBearer,
   readPaging,
   requireUserId,
   type ProfileRow,
@@ -47,9 +49,9 @@ const CACHE_SECONDS = 300
 const SCAN_CHUNK = 1000
 const SCAN_MAX = 20_000
 
-type DiscoverTab = 'recent' | 'top' | 'cinefilos'
+type DiscoverTab = 'recent' | 'top' | 'cinefilos' | 'suggestions'
 
-const TABS: DiscoverTab[] = ['recent', 'top', 'cinefilos']
+const TABS: DiscoverTab[] = ['recent', 'top', 'cinefilos', 'suggestions']
 
 export interface DiscoverUser {
   id: string
@@ -146,6 +148,74 @@ async function rankByRecency(supabase: SupabaseClient): Promise<string[]> {
   return ordered
 }
 
+/**
+ * Ids que el usuario no debería ver sugeridos por un bloqueo.
+ *
+ * Se lee con el cliente del usuario y no con el anónimo: `blocked_users` tiene
+ * policy de dueño, así que con la anon key devuelve cero filas y el filtro
+ * quedaría de adorno.
+ *
+ * Se preguntan las dos direcciones. La de "yo lo bloqueé" seguro es legible; la
+ * de "me bloqueó" depende de que exista una policy para el bloqueado, y si no
+ * la hay vuelve vacía y se filtra sólo en un sentido. Degrada bien: en el peor
+ * caso se sugiere a alguien que te bloqueó, no al revés.
+ */
+async function getBlockedIds(
+  userClient: SupabaseClient,
+  userId: string
+): Promise<Set<string>> {
+  const blocked = new Set<string>()
+
+  const [iBlocked, blockedMe] = await Promise.all([
+    userClient.from('blocked_users').select('blocked_id').eq('blocker_id', userId),
+    userClient.from('blocked_users').select('blocker_id').eq('blocked_id', userId),
+  ])
+
+  for (const row of (iBlocked.data ?? []) as { blocked_id: string }[]) {
+    blocked.add(row.blocked_id)
+  }
+  for (const row of (blockedMe.data ?? []) as { blocker_id: string }[]) {
+    blocked.add(row.blocker_id)
+  }
+
+  return blocked
+}
+
+/**
+ * Sugerencias de segundo grado: a quién sigue la gente que seguís.
+ *
+ * El puntaje es cuántos de tus seguidos siguen a cada candidato. No hace falta
+ * nada más elaborado: con `follows` en 73 filas, "lo siguen 3 de los tuyos"
+ * ordena mejor que cualquier heurística inventada.
+ *
+ * Devuelve `[]` cuando no seguís a nadie —no hay segundo grado que calcular— y
+ * el cliente cae a otra pestaña.
+ */
+async function rankBySecondDegree(
+  supabase: SupabaseClient,
+  followIds: string[],
+  excluded: Set<string>
+): Promise<string[]> {
+  if (followIds.length === 0) return []
+
+  const { data, error } = await supabase
+    .from('follows')
+    .select('following_id')
+    .in('follower_id', followIds)
+
+  if (error) return []
+
+  const tally = new Map<string, number>()
+  for (const row of (data ?? []) as { following_id: string }[]) {
+    if (excluded.has(row.following_id)) continue
+    tally.set(row.following_id, (tally.get(row.following_id) ?? 0) + 1)
+  }
+
+  return [...tally.entries()]
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
+    .map(([id]) => id)
+}
+
 export async function GET(req: NextRequest) {
   const supabase = getSupabase()
   if (!supabase) return jsonError('Server misconfigured', 500)
@@ -160,23 +230,37 @@ export async function GET(req: NextRequest) {
 
   const { page, limit } = readPaging(req, DEFAULT_LIMIT, MAX_LIMIT)
 
-  const followIds = await getFollowingIds(supabase, userId)
-  const excluded = new Set<string>([userId, ...followIds])
+  const token = readBearer(req)
+  const userClient = token ? getSupabaseAsUser(token) : null
+
+  const [followIds, blockedIds] = await Promise.all([
+    getFollowingIds(supabase, userId),
+    userClient ? getBlockedIds(userClient, userId) : Promise.resolve(new Set<string>()),
+  ])
+
+  // El bloqueo excluye en las cuatro pestañas, no sólo en las sugerencias:
+  // alguien a quien bloqueaste no debería reaparecer como "cinéfilo destacado".
+  const excluded = new Set<string>([userId, ...followIds, ...blockedIds])
 
   // Los cuatro mapas se usan para rankear Y para las stats de cada card, así
   // que se piden una sola vez sin importar la pestaña.
-  const [watchedCounts, reviewCounts, listCounts, followerCounts, recency] =
+  const [watchedCounts, reviewCounts, listCounts, followerCounts, recency, secondDegree] =
     await Promise.all([
       countByUser(supabase, 'watched', 'user_id'),
       countByUser(supabase, 'reviews', 'user_id'),
       countByUser(supabase, 'lists', 'user_id', true),
       countByUser(supabase, 'follows', 'following_id'),
       tab === 'recent' ? rankByRecency(supabase) : Promise.resolve([]),
+      tab === 'suggestions'
+        ? rankBySecondDegree(supabase, followIds, new Set([userId, ...followIds, ...blockedIds]))
+        : Promise.resolve([]),
     ])
 
   let rankedIds: string[]
 
-  if (tab === 'recent') {
+  if (tab === 'suggestions') {
+    rankedIds = secondDegree
+  } else if (tab === 'recent') {
     rankedIds = recency.filter((id) => !excluded.has(id))
   } else if (tab === 'cinefilos') {
     // "Cinéfilo" = el que más vio. El brief pedía verificados o de nivel alto,

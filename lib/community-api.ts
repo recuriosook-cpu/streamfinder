@@ -49,6 +49,32 @@ export function privateCache(seconds: number): Record<string, string> {
 // del ranking sos vos), y el CDN cachea por URL. Un `s-maxage` acá le serviría
 // a un usuario la respuesta de otro.
 
+/** El token del header, o `null` si no vino un Bearer. */
+export function readBearer(req: NextRequest): string | null {
+  const header = req.headers.get('authorization')
+  if (!header?.startsWith('Bearer ')) return null
+  return header.slice('Bearer '.length)
+}
+
+/**
+ * Cliente que actúa CON los permisos del usuario, no con los del anónimo.
+ *
+ * Hace falta para las tablas cuya policy es "sólo el dueño lee": con la anon
+ * key, `blocked_users` devuelve cero filas siempre y el filtro de bloqueados
+ * quedaría haciendo nada en silencio. Mandando el token en el header, PostgREST
+ * evalúa la RLS como ese usuario y devuelve lo que él sí puede ver.
+ *
+ * Sólo se usa para eso: el resto de las lecturas son de tablas públicas y les
+ * alcanza el cliente anónimo.
+ */
+export function getSupabaseAsUser(token: string): SupabaseClient | null {
+  if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
+  return createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+    global: { headers: { Authorization: `Bearer ${token}` } },
+    auth: { persistSession: false, autoRefreshToken: false },
+  })
+}
+
 export function getSupabase(): SupabaseClient | null {
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY) return null
   return createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
