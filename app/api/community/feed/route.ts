@@ -95,6 +95,8 @@ export type AuthoredItemType =
   | 'review'
   | 'rating'
   | 'watchlist'
+  | 'watched'
+  | 'follow'
   | 'list_created'
   | 'level_up'
 
@@ -140,6 +142,20 @@ export interface WatchlistItem extends BaseItem {
   mediaPosterPath: string | null
 }
 
+export interface WatchedItem extends BaseItem {
+  type: 'watched'
+  mediaId: number
+  mediaType: 'movie' | 'tv'
+  mediaTitle: string
+  mediaPosterPath: string | null
+}
+
+export interface FollowItem extends BaseItem {
+  type: 'follow'
+  /** A quién empezó a seguir. Su perfil también viaja en `profiles`. */
+  targetUserId: string
+}
+
 export interface ListItem extends BaseItem {
   type: 'list_created'
   listId: string
@@ -174,6 +190,8 @@ export type AuthoredItem =
   | ReviewItem
   | RatingItem
   | WatchlistItem
+  | WatchedItem
+  | FollowItem
   | ListItem
   | LevelUpItem
 
@@ -193,12 +211,15 @@ export interface CommunityFeedResponse {
 
 /** Qué fuentes entra a pedir cada modo. */
 function sourcesFor(mode: FeedMode) {
+  const activity = mode === 'all' || mode === 'activity'
   return {
     reviews: mode === 'all' || mode === 'reviews',
-    ratings: mode === 'all' || mode === 'activity',
-    watchlist: mode === 'all' || mode === 'activity',
+    ratings: activity,
+    watchlist: activity,
+    watched: activity,
+    follows: activity,
     lists: mode === 'all' || mode === 'lists',
-    levelUps: mode === 'all' || mode === 'activity',
+    levelUps: activity,
   }
 }
 
@@ -323,6 +344,85 @@ async function loadWatchlist(
     mediaTitle: row.title,
     mediaPosterPath: row.poster_path,
   }))
+}
+
+async function loadWatched(
+  supabase: SupabaseClient,
+  followIds: string[]
+): Promise<WatchedItem[]> {
+  const { data, error } = await supabase
+    .from('watched')
+    .select('id, user_id, media_id, media_type, title, poster_path, watched_at')
+    .in('user_id', followIds)
+    .order('watched_at', { ascending: false })
+    .limit(SOURCE_LIMIT)
+
+  if (error) return []
+
+  type Row = {
+    id: string
+    user_id: string
+    media_id: number
+    media_type: 'movie' | 'tv'
+    title: string
+    poster_path: string | null
+    watched_at: string | null
+  }
+
+  return ((data ?? []) as Row[])
+    // `watched_at` tiene DEFAULT NOW() pero es nullable: una fila sin fecha no
+    // puede ordenarse y rompería el merge.
+    .filter((row) => row.watched_at !== null)
+    .map((row) => ({
+      key: `watched-${row.id}`,
+      type: 'watched' as const,
+      userId: row.user_id,
+      sortTime: row.watched_at as string,
+      mediaId: row.media_id,
+      mediaType: row.media_type,
+      mediaTitle: row.title,
+      mediaPosterPath: row.poster_path,
+    }))
+}
+
+/**
+ * "Fulano empezó a seguir a Mengano".
+ *
+ * Sale de `follows`, que es de lectura pública. El perfil del seguido se
+ * resuelve después junto con el resto: por eso el item guarda `targetUserId` y
+ * no el perfil entero.
+ */
+async function loadFollows(
+  supabase: SupabaseClient,
+  followIds: string[],
+  userId: string
+): Promise<FollowItem[]> {
+  const { data, error } = await supabase
+    .from('follows')
+    .select('follower_id, following_id, created_at')
+    .in('follower_id', followIds)
+    .order('created_at', { ascending: false })
+    .limit(SOURCE_LIMIT)
+
+  if (error) return []
+
+  type Row = {
+    follower_id: string
+    following_id: string
+    created_at: string
+  }
+
+  return ((data ?? []) as Row[])
+    // "Te siguió a vos" no va como novedad ajena: eso ya llega por
+    // notificaciones y en el feed se leería raro en tercera persona.
+    .filter((row) => row.following_id !== userId)
+    .map((row) => ({
+      key: `follow-${row.follower_id}-${row.following_id}`,
+      type: 'follow' as const,
+      userId: row.follower_id,
+      sortTime: row.created_at,
+      targetUserId: row.following_id,
+    }))
 }
 
 async function loadLists(
@@ -549,18 +649,23 @@ export async function GET(req: NextRequest) {
 
   const want = sourcesFor(mode)
 
-  const [reviews, ratings, watchlist, lists, levelUps] = await Promise.all([
-    want.reviews ? loadReviews(supabase, followIds, userId) : [],
-    want.ratings ? loadRatings(supabase, followIds) : [],
-    want.watchlist ? loadWatchlist(supabase, followIds) : [],
-    want.lists ? loadLists(supabase, followIds) : [],
-    want.levelUps ? loadLevelUps(supabase, followIds) : [],
-  ])
+  const [reviews, ratings, watchlist, watched, follows, lists, levelUps] =
+    await Promise.all([
+      want.reviews ? loadReviews(supabase, followIds, userId) : [],
+      want.ratings ? loadRatings(supabase, followIds) : [],
+      want.watchlist ? loadWatchlist(supabase, followIds) : [],
+      want.watched ? loadWatched(supabase, followIds) : [],
+      want.follows ? loadFollows(supabase, followIds, userId) : [],
+      want.lists ? loadLists(supabase, followIds) : [],
+      want.levelUps ? loadLevelUps(supabase, followIds) : [],
+    ])
 
   const merged: AuthoredItem[] = [
     ...reviews,
     ...ratings,
     ...watchlist,
+    ...watched,
+    ...follows,
     ...lists,
     ...levelUps,
   ].sort((a, b) => b.sortTime.localeCompare(a.sortTime))
@@ -569,12 +674,14 @@ export async function GET(req: NextRequest) {
   const pageItems = merged.slice(from, from + limit)
 
   // Los perfiles se piden sólo para los ítems de esta página; las
-  // recomendaciones no tienen autor, así que no entran en la consulta.
+  // recomendaciones no tienen autor, así que no entran en la consulta. Los
+  // items de follow aportan dos ids: quien sigue y a quién.
+  const profileIds = pageItems.flatMap((item) =>
+    item.type === 'follow' ? [item.userId, item.targetUserId] : [item.userId]
+  )
+
   const [profiles, recommendations] = await Promise.all([
-    getProfilesById(
-      supabase,
-      pageItems.map((item) => item.userId)
-    ),
+    getProfilesById(supabase, profileIds),
     // Sólo en el modo completo: filtrando por "reseñas" o por "listas", meter
     // sugerencias de TMDB rompería el filtro que el usuario acaba de elegir.
     mode === 'all' ? loadRecommendations(supabase, userId) : [],
