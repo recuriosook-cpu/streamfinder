@@ -61,6 +61,15 @@ export interface PublicProfile {
   level?: number | null
 }
 
+/**
+ * Slots de favoritas fijadas del perfil.
+ *
+ * Cuatro y no cinco: es lo que entra en un renglón en la app mobile, y tener
+ * cinco acá dejaba dos favoritas que sólo se veían desde la web. El CHECK de
+ * `pinned_favorites.slot` está acotado al mismo número.
+ */
+const PINNED_SLOTS = 4
+
 interface PinnedSlot {
   slot: number; media_id: number; media_type: 'movie' | 'tv'
   title: string; poster_path: string | null
@@ -225,7 +234,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   const [seriesWatched,  setSeriesWatched]  = useState(0)
 
   // ── Pinned favorites ───────────────────────────────────────────
-  const [pinned,        setPinned]        = useState<(PinnedSlot | null)[]>([null, null, null, null, null])
+  const [pinned,        setPinned]        = useState<(PinnedSlot | null)[]>(Array<PinnedSlot | null>(PINNED_SLOTS).fill(null))
   const [searchingSlot, setSearchingSlot] = useState<number | null>(null)
   const [searchQuery,   setSearchQuery]   = useState('')
   const [searchResults, setSearchResults] = useState<TmdbResult[]>([])
@@ -336,9 +345,9 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       ].sort((a, b) => new Date(b.date).getTime() - new Date(a.date).getTime()).slice(0, 8)
       setRecentActivity(acts)
 
-      const slots: (PinnedSlot | null)[] = [null, null, null, null, null]
+      const slots: (PinnedSlot | null)[] = Array<PinnedSlot | null>(PINNED_SLOTS).fill(null)
       for (const p of pinnedRes.data ?? []) {
-        if (p.slot >= 1 && p.slot <= 5) slots[p.slot - 1] = p as PinnedSlot
+        if (p.slot >= 1 && p.slot <= PINNED_SLOTS) slots[p.slot - 1] = p as PinnedSlot
       }
       setPinned(slots)
 
@@ -1113,7 +1122,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {(hasPinned || isOwner) && (
                 <section>
                   <SectionLabel>Películas favoritas</SectionLabel>
-                  <div className="grid grid-cols-5 gap-2 sm:gap-3">
+                  <div className="grid grid-cols-4 gap-2 sm:gap-3">
                     {pinned.map((item, idx) => {
                       const slot = idx + 1
                       return item ? (
