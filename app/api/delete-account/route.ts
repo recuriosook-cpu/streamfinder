@@ -1,6 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminClient, MissingServiceRoleError } from '@/lib/service-role'
 import { cookies } from 'next/headers'
 
 /**
@@ -73,12 +73,27 @@ export async function POST(req: NextRequest) {
     )
   }
 
-  // Admin client with service role — never exposed to the browser
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  // Admin client with service role — never exposed to the browser.
+  // Si falta la key se corta acá. Antes se construía un cliente con la key en
+  // `undefined`, que fallaba con 401 en cada borrado mientras la respuesta
+  // seguía diciendo que había salido bien.
+  let admin
+  try {
+    admin = getAdminClient()
+  } catch (err: unknown) {
+    if (err instanceof MissingServiceRoleError) {
+      console.error('[delete-account]', err.message)
+      return NextResponse.json(
+        {
+          error: 'delete_failed',
+          message:
+            'La cuenta no se pudo borrar por un problema de configuración del servidor. Escribinos y lo resolvemos.',
+        },
+        { status: 500, headers: CORS_HEADERS }
+      )
+    }
+    throw err
+  }
 
   const errors: string[] = []
 
@@ -143,8 +158,27 @@ export async function POST(req: NextRequest) {
   const { error: authError } = await admin.auth.admin.deleteUser(userId)
   if (authError) errors.push(`auth.deleteUser: ${authError.message}`)
 
-  if (errors.length > 0) {
-    console.error('[delete-account] partial errors:', errors)
+  // La prueba de que se borró: si el usuario todavía existe en auth, no se
+  // borró, por más que las tablas hayan salido bien.
+  const { data: stillThere } = await admin.auth.admin.getUserById(userId)
+
+  if (errors.length > 0 || stillThere?.user) {
+    console.error('[delete-account] failed:', {
+      userId,
+      errors,
+      authUserStillExists: Boolean(stillThere?.user),
+    })
+
+    return NextResponse.json(
+      {
+        error: 'delete_failed',
+        message:
+          'No pudimos borrar la cuenta por completo. No se borró nada a medias sin avisar: escribinos y lo resolvemos a mano.',
+        // Los detalles sólo fuera de producción: nombran tablas internas.
+        ...(process.env.NODE_ENV === 'production' ? {} : { details: errors }),
+      },
+      { status: 500, headers: CORS_HEADERS }
+    )
   }
 
   return NextResponse.json({ success: true }, { headers: CORS_HEADERS })
