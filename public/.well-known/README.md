@@ -6,12 +6,21 @@ Le dice a Android que `com.glynbox.app` puede abrir los links de glynbox.com.
 Sin este archivo, tocar `https://www.glynbox.com/movie/278` en WhatsApp abre el
 navegador aunque la app esté instalada.
 
-### Fingerprint
+### Fingerprints
 
-El `sha256_cert_fingerprints` que está acá es el del certificado con el que
-se firma la app en Play (venía de la configuración de la TWA). Si alguna vez
-cambia la firma —o si se agrega un build de debug— hay que actualizarlo o los
-App Links dejan de verificar y Android manda todo al navegador.
+Hay **dos** y las dos tienen que quedar:
+
+| Huella | Qué es |
+|---|---|
+| `13:5D:81:…` | Certificado de firma de app de Google Play. Con éste llega el APK al teléfono de quien instala desde la tienda. |
+| `EE:80:01:…` | La que venía de la configuración de la TWA. Se conserva porque no está confirmado si es la clave de subida —que sigue firmando los APK de test interno y los que se instalan por `adb`— o una firma vieja. |
+
+Sobrar no rompe nada: Android verifica contra cualquiera de la lista. Faltar sí
+—los App Links dejan de verificar y Android manda todo al navegador— así que
+ante la duda se agrega, no se saca.
+
+Si alguna vez se confirma que `EE:80:…` no corresponde a ninguna firma en uso,
+se puede sacar. Antes de eso, no.
 
 ### Cómo obtener el SHA256
 

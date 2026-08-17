@@ -2,7 +2,8 @@
 // Uses web-push (Node.js crypto) and VAPID_PRIVATE_KEY.
 
 import webpush from 'web-push'
-import { createClient } from '@supabase/supabase-js'
+import { getAdminClient } from './service-role'
+import { sendExpoPushToUser, type ExpoPushData } from './expo-push'
 import type { NotifType } from './notify'
 
 let vapidInitialised = false
@@ -19,12 +20,17 @@ function initVapid() {
   vapidInitialised = true
 }
 
+/**
+ * Cliente admin.
+ *
+ * Va por `getAdminClient` y no por `createClient` a mano: acá se leía
+ * `SUPABASE_SERVICE_ROLE_KEY` y el entorno define `SUPABASE_SERVICE_ROLE`, así
+ * que el cliente salía con la key en `undefined` y todas las consultas volvían
+ * 401 — es decir, el push web no mandaba nada y el único síntoma era un log de
+ * error. Es el mismo bug que tenía `/api/delete-account`.
+ */
 function adminSupabase() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  return getAdminClient()
 }
 
 // Map notification type → PREF key (mirrors lib/notify.ts)
@@ -82,7 +88,38 @@ export function buildPushPayload(
   }
 }
 
+/**
+ * Notifica al usuario por todos los canales que tenga.
+ *
+ * Son dos transportes independientes: el navegador (VAPID, `push_subscriptions`)
+ * y la app nativa (Expo, `user_devices`). Se mandan los dos en paralelo y el
+ * fallo de uno no cancela el otro — alguien puede tener la PWA en la compu y la
+ * app en el teléfono, y no recibir nada en el teléfono porque falten las claves
+ * VAPID sería absurdo.
+ *
+ * `meta` es lo que la app necesita para saber a dónde llevar al tocar la
+ * notificación. La ruta sale de `payload.url`, que ya arma `buildPushPayload`
+ * para el push web: un solo mapeo de tipo → destino para los dos.
+ */
 export async function sendPushToUser(
+  userId: string,
+  pushPayload: PushPayload,
+  meta?: { type?: NotifType; entityId?: string }
+): Promise<void> {
+  const expoData: ExpoPushData = {
+    url: pushPayload.url ?? '/',
+    type: meta?.type ?? pushPayload.tag ?? 'generic',
+    entityId: meta?.entityId,
+  }
+
+  await Promise.allSettled([
+    sendWebPushToUser(userId, pushPayload),
+    sendExpoPushToUser(userId, pushPayload, expoData),
+  ])
+}
+
+/** Push al navegador. Necesita VAPID configurado. */
+async function sendWebPushToUser(
   userId: string,
   pushPayload: PushPayload
 ): Promise<void> {
@@ -92,7 +129,13 @@ export async function sendPushToUser(
     return
   }
 
-  const admin = adminSupabase()
+  let admin
+  try {
+    admin = adminSupabase()
+  } catch (err: unknown) {
+    console.warn('[push] sin service role:', (err as Error).message)
+    return
+  }
 
   const { data: subs, error: subsError } = await admin
     .from('push_subscriptions')

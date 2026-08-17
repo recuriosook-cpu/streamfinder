@@ -43,7 +43,9 @@ export async function POST(req: Request) {
     return NextResponse.json({ ok: true, skipped: 'unknown type' })
   }
 
-  await sendPushToUser(userId, pushPayload)
+  // El tipo y el id viajan en el data payload: la app los usa para llevar a la
+  // pantalla correcta al tocar la notificación.
+  await sendPushToUser(userId, pushPayload, { type, entityId })
 
   return NextResponse.json({ ok: true })
 }

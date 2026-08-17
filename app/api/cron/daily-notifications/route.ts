@@ -141,7 +141,7 @@ export async function GET(req: Request) {
       summary.birthday++
       // Push notification (fire-and-forget)
       const bdPush = buildPushPayload('actor_birthday', undefined, actor_name, String(actor_id))
-      if (bdPush) sendPushToUser(user_id, bdPush).catch(() => {})
+      if (bdPush) sendPushToUser(user_id, bdPush, { type: 'actor_birthday', entityId: String(actor_id) }).catch(() => {})
     }
   }
 
@@ -205,7 +205,7 @@ export async function GET(req: Request) {
           summary.new_release++
           // Push notification (fire-and-forget)
           const nrPush = buildPushPayload('new_release', undefined, entityTitle, String(movie.id))
-          if (nrPush) sendPushToUser(userId, nrPush).catch(() => {})
+          if (nrPush) sendPushToUser(userId, nrPush, { type: 'new_release', entityId: String(movie.id) }).catch(() => {})
         }
       }
     }
