@@ -9,6 +9,18 @@ const nextConfig: NextConfig = {
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
     ]
   },
+  async headers() {
+    return [
+      {
+        // Android exige `application/json` para verificar los App Links. Next
+        // sirve el archivo desde public/ pero, al no tener extensión conocida
+        // en algunos entornos, puede mandarlo como texto plano y la
+        // verificación falla sin decir por qué.
+        source: '/.well-known/assetlinks.json',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      },
+    ]
+  },
   images: {
     unoptimized: true,
     remotePatterns: [
