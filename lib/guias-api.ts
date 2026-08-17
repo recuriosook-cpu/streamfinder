@@ -70,6 +70,14 @@ export type GuiaIndexEntry = {
   category: string
   itemCount: number
   publishedAt: string
+  /**
+   * Última edición del .mdx.
+   *
+   * Viaja en el índice para que la app pueda decidir si su copia cacheada de
+   * una guía quedó vieja sin tener que pedir las 13 enteras: compara este valor
+   * con el updatedAt de lo que tiene guardado.
+   */
+  updatedAt: string
 }
 
 export type GuiaDetail = {
@@ -354,6 +362,7 @@ export function buildIndex(): GuiaIndexEntry[] {
       category: guide.category,
       itemCount: countItems(sections),
       publishedAt: guide.publishedAt,
+      updatedAt: guide.updatedAt,
     }
   })
 }
