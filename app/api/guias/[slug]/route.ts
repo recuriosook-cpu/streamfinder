@@ -1,4 +1,4 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import {
   buildDetail,
   CORS_HEADERS,
@@ -6,6 +6,7 @@ import {
   isKnownSlug,
   sharedCache,
 } from '@/lib/guias-api'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Una guía entera, ya parseada y con los títulos resueltos contra TMDB.
@@ -21,9 +22,12 @@ export function OPTIONS() {
 }
 
 export async function GET(
-  _req: Request,
+  req: NextRequest,
   { params }: { params: Promise<{ slug: string }> }
 ) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   const { slug } = await params
 
   if (!isKnownSlug(slug)) {

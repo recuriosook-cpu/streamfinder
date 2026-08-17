@@ -1,10 +1,11 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import {
   buildIndex,
   CORS_HEADERS,
   GUIAS_TTL_SECONDS,
   sharedCache,
 } from '@/lib/guias-api'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Índice de guías editoriales para la app mobile.
@@ -20,7 +21,10 @@ export function OPTIONS() {
   return new NextResponse(null, { status: 204, headers: CORS_HEADERS })
 }
 
-export function GET() {
+export function GET(req: NextRequest) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   try {
     return NextResponse.json(
       { guias: buildIndex() },

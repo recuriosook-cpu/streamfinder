@@ -1,4 +1,5 @@
 import { NextRequest, NextResponse } from 'next/server'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Proxy de OMDB para clientes sin backend propio (la app nativa).
@@ -87,9 +88,12 @@ export async function OPTIONS() {
 }
 
 export async function GET(
-  _req: NextRequest,
+  req: NextRequest,
   { params }: { params: Promise<{ imdbId: string }> },
 ) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   const { imdbId } = await params
 
   // Validación estricta: el id va a una URL saliente y sin esto la ruta sería

@@ -12,6 +12,7 @@ import {
   requireUserId,
   type CommunityProfile,
 } from '@/lib/community-api'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Feed de comunidad para la app nativa.
@@ -618,6 +619,9 @@ function interleave(
 }
 
 export async function GET(req: NextRequest) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   const supabase = getSupabase()
   if (!supabase) return jsonError('Server misconfigured', 500)
 

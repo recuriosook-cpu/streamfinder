@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createClient } from '@supabase/supabase-js'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Estadísticas de perfil para clientes sin backend propio (la app nativa).
@@ -165,6 +166,9 @@ export async function GET(
   req: NextRequest,
   { params }: { params: Promise<{ userId: string }> }
 ) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   const { userId } = await params
 
   if (!SUPABASE_URL || !SUPABASE_ANON_KEY || !TMDB_KEY) {

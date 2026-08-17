@@ -13,6 +13,7 @@ import {
   type CommunityProfile,
   type ProfileRow,
 } from '@/lib/community-api'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 /**
  * Rankings de la comunidad: top 20 por categoría y período.
@@ -175,6 +176,9 @@ async function countByUser(
 }
 
 export async function GET(req: NextRequest) {
+  const limited = enforceRateLimit(req, CORS_HEADERS)
+  if (limited) return limited
+
   const supabase = getSupabase()
   if (!supabase) return jsonError('Server misconfigured', 500)
 

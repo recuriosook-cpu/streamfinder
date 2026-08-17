@@ -1,5 +1,6 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
+import { enforceRateLimit } from '@/lib/rate-limit'
 
 const KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -36,6 +37,9 @@ interface WatchedRow {
 }
 
 export async function GET(req: NextRequest) {
+  const limited = enforceRateLimit(req)
+  if (limited) return limited
+
   const userId = req.nextUrl.searchParams.get('userId')
   if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 })
 
