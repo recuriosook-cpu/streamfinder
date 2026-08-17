@@ -6,13 +6,12 @@ Le dice a Android que `com.glynbox.app` puede abrir los links de glynbox.com.
 Sin este archivo, tocar `https://www.glynbox.com/movie/278` en WhatsApp abre el
 navegador aunque la app esté instalada.
 
-### ⚠️ Falta el fingerprint
+### Fingerprint
 
-El campo `sha256_cert_fingerprints` tiene un placeholder. **Hasta que se
-reemplace por el fingerprint real, los App Links no verifican** y Android
-sigue mandando todo al navegador. El resto de la configuración (intent filters
-en `app.json`, parser de rutas en la app) ya está y funciona con el scheme
-propio `glynbox://`.
+El `sha256_cert_fingerprints` que está acá es el del certificado con el que
+se firma la app en Play (venía de la configuración de la TWA). Si alguna vez
+cambia la firma —o si se agrega un build de debug— hay que actualizarlo o los
+App Links dejan de verificar y Android manda todo al navegador.
 
 ### Cómo obtener el SHA256
 

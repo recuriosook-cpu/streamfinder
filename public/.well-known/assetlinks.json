@@ -5,7 +5,7 @@
       "namespace": "android_app",
       "package_name": "com.glynbox.app",
       "sha256_cert_fingerprints": [
-        "REEMPLAZAR_CON_EL_SHA256_DEL_KEYSTORE_DE_FIRMA"
+        "EE:80:01:E1:DA:C8:14:1C:0A:52:81:21:33:4E:E9:8F:B7:34:A1:5E:BC:D4:5D:10:60:F3:F0:51:05:14:F2:B1"
       ]
     }
   }
