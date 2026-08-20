@@ -5,6 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Camera, Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { track } from '@/lib/analytics'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { getLevelInfo } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
@@ -508,6 +509,30 @@ export default function OnboardingPage() {
     return () => clearTimeout(t)
   }, [step])
 
+  // signup_completed. El registro se concreta en /auth/callback, que es una
+  // ruta de servidor y no puede llamar a track(); nos manda acá con ?nuevo=1 y
+  // el método. Se limpia la URL después para que un refresh no lo cuente dos
+  // veces.
+  useEffect(() => {
+    if (typeof window === 'undefined') return
+    const params = new URLSearchParams(window.location.search)
+    if (params.get('nuevo') !== '1') return
+
+    track('signup_completed', { metodo: params.get('metodo') ?? 'desconocido' })
+
+    params.delete('nuevo')
+    params.delete('metodo')
+    const qs = params.toString()
+    window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
+  }, [])
+
+  // onboarding_step_viewed: uno por paso mostrado. El paso 5 vive en otro
+  // componente pero sigue siendo el mismo `step`, así que entra igual.
+  useEffect(() => {
+    if (loading) return   // todavía no se sabe si el usuario puede estar acá
+    track('onboarding_step_viewed', { paso: step })
+  }, [step, loading])
+
   // Auth guard + pre-fill
   useEffect(() => {
     async function init() {
@@ -652,6 +677,8 @@ export default function OnboardingPage() {
   const handleNext = async () => {
     if (!user) return
     setSaving(true)
+    // Se registra el paso que se está dejando, no el que viene.
+    track('onboarding_step_completed', { paso: step })
     if (step === 1) {
       const updates: Record<string, unknown> = {}
       if (displayName.trim()) updates.display_name = displayName.trim()
@@ -678,13 +705,28 @@ export default function OnboardingPage() {
   const handleSkip = async () => {
     if (!user || skipping) return
     setSkipping(true)
+    track('onboarding_skipped', { paso: step, tipo: 'boton_saltar' })
     await supabase.from('profiles').update({ onboarding_skipped: true, onboarding_completed: true }).eq('id', user.id)
     localStorage.setItem('glynbox_welcome', '1')
     router.replace('/')
   }
 
+  /**
+   * Cierre del onboarding.
+   *
+   * Llega por dos caminos distintos y hay que poder separarlos: terminar el
+   * paso 5 después de calificar, o tocar "Saltar calificación" en el paso 4.
+   * Los dos marcan onboarding_completed_at, así que sin el evento quedarían
+   * indistinguibles en la base — que es exactamente el problema que ya tenemos
+   * con onboarding_completed.
+   */
   const handleFinish = async () => {
     if (!user) return
+    if (step === 5) {
+      track('onboarding_step_completed', { paso: 5 })
+    } else {
+      track('onboarding_skipped', { paso: step, tipo: 'saltar_calificacion' })
+    }
     document.cookie = 'new_user=; max-age=0; path=/'
     await supabase.from('profiles').update({
       onboarding_completed: true,

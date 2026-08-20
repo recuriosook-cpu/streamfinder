@@ -19,9 +19,11 @@ interface RegionData {
 
 interface Props {
   results: Record<string, RegionData>
+  mediaType: 'movie' | 'tv'
+  mediaId: number
 }
 
-export default function StreamingSection({ results }: Props) {
+export default function StreamingSection({ results, mediaType, mediaId }: Props) {
   const { country, countryData } = useCountry()
   const region = results[country] ?? {}
   const hasData = region.flatrate || region.rent || region.buy
@@ -38,9 +40,9 @@ export default function StreamingSection({ results }: Props) {
         </p>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                tmdbLink={region.link} />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} />
+          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
         </div>
       )}
     </div>

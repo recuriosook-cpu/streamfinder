@@ -2,6 +2,12 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
+import {
+  sanitizeProps,
+  sanitizePath,
+  cleanId,
+  cleanUuid,
+} from '@/lib/analytics-sanitize'
 
 /**
  * POST /api/track — ingesta de eventos.
@@ -25,116 +31,8 @@ export const runtime = 'nodejs'
 /** Tope de eventos por request. Un lote normal trae 10. */
 const MAX_EVENTS_PER_BATCH = 50
 
-/** ~2KB de props por evento. Lo que pase, se descarta. */
-const MAX_PROPS_BYTES = 2048
-
-/** Un nombre de evento nunca llega ni cerca; corta strings absurdos. */
-const MAX_STRING_LENGTH = 500
-
 /** Igual que el resto de los endpoints proxy. */
 const RATE_LIMIT = 60
-
-// ── Sanitización ───────────────────────────────────────────────────────────
-
-/**
- * Claves que nunca se guardan, pase lo que pase.
- *
- * Se compara por substring y en minúsculas, así que `userEmail`, `EMAIL` y
- * `email_address` caen los tres. Es deliberadamente exagerado: el costo de
- * descartar una prop de más es cero, el de guardar un token es un incidente.
- */
-const BLOCKED_KEY_PATTERNS = [
-  'email', 'mail',
-  'password', 'passwd', 'pass',
-  'token', 'jwt', 'bearer',
-  'secret', 'apikey', 'api_key',
-  'auth', 'session', 'cookie',
-  'credential', 'phone', 'telefono',
-  'dni', 'address', 'direccion',
-]
-
-/** Cualquier cosa con forma de mail. */
-const EMAIL_PATTERN = /[a-z0-9._%+-]+@[a-z0-9.-]+\.[a-z]{2,}/gi
-
-/**
- * Cadenas largas con pinta de credencial: JWT, `sb_secret_...`, claves de API.
- * El umbral de 20 caracteres deja pasar texto normal (una búsqueda, un título)
- * y atrapa lo que es claramente una clave.
- */
-const TOKEN_PATTERN = /\b(?:eyJ[\w-]{10,}|sb_[a-z]+_[\w-]{10,}|[A-Za-z0-9_-]{40,})\b/g
-
-function scrubString(value: string): string {
-  return value
-    .replace(EMAIL_PATTERN, '[email]')
-    .replace(TOKEN_PATTERN, '[token]')
-    .slice(0, MAX_STRING_LENGTH)
-}
-
-function isBlockedKey(key: string): boolean {
-  const lower = key.toLowerCase()
-  return BLOCKED_KEY_PATTERNS.some(pattern => lower.includes(pattern))
-}
-
-/**
- * Deja `props` en algo seguro de guardar.
- *
- * - Descarta las claves de la lista negra.
- * - Limpia emails y tokens de todos los valores string.
- * - Aplana: sólo string, number, boolean y null. Un objeto o un array anidado se
- *   descarta, porque no se puede revisar en profundidad de forma barata y no
- *   hay ningún evento que lo necesite.
- *
- * Devuelve `null` si, ya limpio, sigue pasándose de tamaño.
- */
-function sanitizeProps(raw: unknown): EventProps | null {
-  if (raw == null) return {}
-  if (typeof raw !== 'object' || Array.isArray(raw)) return {}
-
-  const out: EventProps = {}
-
-  for (const [key, value] of Object.entries(raw as Record<string, unknown>)) {
-    if (isBlockedKey(key)) continue
-    if (key.length > 64) continue
-
-    if (typeof value === 'string') {
-      out[key] = scrubString(value)
-    } else if (typeof value === 'number') {
-      // NaN e Infinity no son JSON válido y rompen el insert.
-      if (Number.isFinite(value)) out[key] = value
-    } else if (typeof value === 'boolean' || value === null) {
-      out[key] = value
-    }
-    // Todo lo demás (objetos, arrays, undefined, funciones) se ignora.
-  }
-
-  // El límite se mide sobre lo ya sanitizado: es lo que realmente se guarda.
-  const size = Buffer.byteLength(JSON.stringify(out), 'utf8')
-  if (size > MAX_PROPS_BYTES) return null
-
-  return out
-}
-
-/** Sólo el pathname. Un `?q=` o un `?token=` no tienen por qué quedar guardados. */
-function sanitizePath(raw: unknown): string | null {
-  if (typeof raw !== 'string' || !raw) return null
-  const withoutQuery = raw.split('?')[0].split('#')[0]
-  return withoutQuery.slice(0, MAX_STRING_LENGTH)
-}
-
-function cleanId(raw: unknown, max = 100): string | null {
-  if (typeof raw !== 'string') return null
-  const trimmed = raw.trim()
-  if (!trimmed) return null
-  return trimmed.slice(0, max)
-}
-
-/** Un uuid v4 como los que manda el cliente. Cualquier otra cosa va como null. */
-const UUID_PATTERN = /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/i
-
-function cleanUuid(raw: unknown): string | null {
-  if (typeof raw !== 'string') return null
-  return UUID_PATTERN.test(raw) ? raw : null
-}
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 

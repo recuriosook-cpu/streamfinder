@@ -1,5 +1,7 @@
 'use client'
 
+import { track } from '@/lib/analytics'
+
 export function isPushSupported(): boolean {
   return (
     typeof window !== 'undefined' &&
@@ -30,7 +32,18 @@ export async function getCurrentPushEndpoint(): Promise<string | null> {
 export async function requestPushPermission(userId: string): Promise<boolean> {
   if (!isPushSupported()) return false
 
+  // Los tres estados de notif_permission salen de acá, que es el único lugar
+  // del código donde se abre el diálogo del navegador. 'pedido' se manda antes
+  // del await porque el diálogo bloquea: si la persona lo ignora y cierra la
+  // pestaña, queremos igual saber que se le preguntó.
+  track('notif_permission', { estado: 'pedido' })
+
   const permission = await Notification.requestPermission()
+
+  track('notif_permission', {
+    estado: permission === 'granted' ? 'aceptado' : 'rechazado',
+  })
+
   if (permission !== 'granted') return false
 
   try {

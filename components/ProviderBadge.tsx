@@ -1,4 +1,7 @@
+'use client'
+
 import Image from 'next/image'
+import { track } from '@/lib/analytics'
 
 interface Provider {
   provider_id: number
@@ -10,10 +13,24 @@ interface Props {
   providers: Provider[]
   label: string
   tmdbLink?: string
+  mediaType?: 'movie' | 'tv'
+  mediaId?: number
 }
 
-export default function ProviderBadge({ providers, label, tmdbLink }: Props) {
+export default function ProviderBadge({ providers, label, tmdbLink, mediaType, mediaId }: Props) {
   if (!providers?.length) return null
+
+  // El click abre TMDB en otra pestaña, así que la página actual no se
+  // descarga y el evento sale por el camino normal. Aun así el cliente engancha
+  // el flush a visibilitychange, que cubre el caso de que el navegador decida
+  // suspender esta pestaña.
+  const onProviderClick = (providerName: string) => {
+    track('provider_click', {
+      provider:   providerName,
+      media_type: mediaType ?? null,
+      media_id:   mediaId ?? null,
+    })
+  }
 
   return (
     <div className="mb-6 last:mb-0">
@@ -47,6 +64,7 @@ export default function ProviderBadge({ providers, label, tmdbLink }: Props) {
                 rel="noopener noreferrer"
                 className="flex flex-col items-center group"
                 title={`Ver en ${p.provider_name}`}
+                onClick={() => onProviderClick(p.provider_name)}
               >
                 {logo}
                 {name}

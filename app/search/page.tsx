@@ -4,6 +4,7 @@ import MediaCard from '@/components/MediaCard'
 import Link from 'next/link'
 import Image from 'next/image'
 import { Search, UserCircle } from 'lucide-react'
+import SearchNoResultsTracker from '@/components/SearchNoResultsTracker'
 
 interface Props {
   searchParams: Promise<{ q?: string; page?: string }>
@@ -108,6 +109,10 @@ export default async function SearchPage({ searchParams }: Props) {
       {/* ── Media section ──────────────────────────────────────── */}
       {mediaResults.length === 0 && userResults.length === 0 ? (
         <div className="text-center py-20">
+          {/* `tipo: 'multi'` porque esta pantalla busca películas, series y
+              usuarios a la vez, y el evento sólo salta cuando los tres dan cero.
+              Queda el campo por si mañana se instrumenta otro buscador. */}
+          <SearchNoResultsTracker query={q} tipo="multi" />
           <p className="text-[#A0A0B0]">No se encontraron resultados para "{q}"</p>
         </div>
       ) : mediaResults.length > 0 ? (

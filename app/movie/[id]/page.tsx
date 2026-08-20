@@ -423,7 +423,7 @@ export default async function MoviePage({ params }: Props) {
           mediaId={movie.id}
           mediaType="movie"
         />
-        <StreamingSection results={allProviders} />
+        <StreamingSection results={allProviders} mediaType="movie" mediaId={movie.id} />
         <ReviewsSection
           mediaId={movie.id}
           mediaType="movie"

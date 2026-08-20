@@ -2,6 +2,17 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
 
+/**
+ * Con qué se registró: 'email' | 'google' | 'facebook'.
+ *
+ * Supabase lo deja en app_metadata.provider. Si viniera algo raro, se manda
+ * como 'desconocido' antes que perder el evento entero.
+ */
+function providerOf(user: { app_metadata?: { provider?: string } }): string {
+  const p = user.app_metadata?.provider
+  return p === 'email' || p === 'google' || p === 'facebook' ? p : 'desconocido'
+}
+
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
@@ -45,7 +56,17 @@ export async function GET(request: Request) {
           level: 1,
           onboarding_completed: false,
         })
-        const res = NextResponse.redirect('https://glynbox.com/onboarding')
+
+        // Acá es donde el registro se concreta: es la primera vez que este
+        // usuario tiene fila en profiles. El evento `signup_completed` no se
+        // puede mandar desde este handler —track() es del navegador, y meter un
+        // segundo camino de ingesta del lado del servidor saltearía la lista
+        // blanca y el sanitizado—, así que el método viaja en la URL y lo
+        // dispara /onboarding al montar.
+        const metodo = providerOf(user)
+        const res = NextResponse.redirect(
+          `https://glynbox.com/onboarding?nuevo=1&metodo=${encodeURIComponent(metodo)}`
+        )
         res.cookies.set('new_user', 'true', { maxAge: 300, path: '/', sameSite: 'lax', httpOnly: false })
         return res
       }

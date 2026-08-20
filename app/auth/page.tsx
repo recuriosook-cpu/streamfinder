@@ -1,10 +1,11 @@
 'use client'
 
-import { useState, useRef } from 'react'
+import { useState, useRef, useEffect } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { track } from '@/lib/analytics'
 
 function GoogleIcon() {
   return (
@@ -39,9 +40,18 @@ export default function AuthPage() {
   const router = useRouter()
   const supabase = useRef(createClient()).current
 
+  // signup_started: se dispara cuando queda visible el formulario de registro,
+  // sea porque se llegó con ?mode=register o porque se tocó el tab. El `metodo`
+  // es 'email' porque eso es lo que muestra el formulario; si después elige
+  // Google o Facebook, esos botones mandan su propio signup_started.
+  useEffect(() => {
+    if (mode === 'register') track('signup_started', { metodo: 'email' })
+  }, [mode])
+
   const handleGoogle = async () => {
     setSocialLoading('google')
     setError('')
+    track('signup_started', { metodo: 'google' })
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'google',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
@@ -52,6 +62,7 @@ export default function AuthPage() {
   const handleFacebook = async () => {
     setSocialLoading('facebook')
     setError('')
+    track('signup_started', { metodo: 'facebook' })
     const { error } = await supabase.auth.signInWithOAuth({
       provider: 'facebook',
       options: { redirectTo: `${window.location.origin}/auth/callback` },
