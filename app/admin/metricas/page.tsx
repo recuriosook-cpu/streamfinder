@@ -4,12 +4,13 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
-import { Film, Tv, Loader2 } from 'lucide-react'
+import { Film, Tv, Loader2, AlertTriangle, CheckCircle2, SkipForward, LogOut } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   Tooltip, CartesianGrid, LineChart, Line,
 } from 'recharts'
 import { COUNTRIES } from '@/lib/countries'
+import type { AdminOverview } from '@/app/api/admin/overview/route'
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -19,14 +20,46 @@ interface TopUser {
   id: string; username: string | null; avatar_url: string | null; review_count: number; list_count: number; total: number
 }
 
+// ── Tarjeta del desglose de onboarding ─────────────────────────────────────
+
+function OnboardingCard({
+  icon, label, hint, value, total, tone,
+}: {
+  icon: React.ReactNode
+  label: string
+  hint: string
+  value: number
+  total: number
+  tone: 'green' | 'amber' | 'red'
+}) {
+  const tones = {
+    green: 'text-emerald-400 bg-emerald-500/10 border-emerald-900/50',
+    amber: 'text-amber-400  bg-amber-500/10  border-amber-900/50',
+    red:   'text-red-400    bg-red-500/10    border-red-900/50',
+  }
+  const pct = total > 0 ? Math.round((value / total) * 100) : 0
+  return (
+    <div className={`rounded-xl border p-4 ${tones[tone]}`}>
+      <div className="flex items-center gap-2 mb-2">
+        {icon}
+        <span className="text-xs font-semibold">{label}</span>
+      </div>
+      <p className="text-2xl font-black text-white tabular-nums">
+        {value.toLocaleString('es-AR')}
+        <span className="text-sm font-bold text-[#A0A0B0] ml-1.5">{pct}%</span>
+      </p>
+      <p className="text-[10px] text-[#A0A0B0] mt-1">{hint}</p>
+    </div>
+  )
+}
+
 export default function MetricasPage() {
   const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
 
-  const [regsByMonth,   setRegsByMonth]   = useState<{ label: string; count: number }[]>([])
+  const [overview,      setOverview]      = useState<AdminOverview | null>(null)
   const [byCountry,     setByCountry]     = useState<{ country: string; count: number }[]>([])
   const [byHour,        setByHour]        = useState<{ hour: string; count: number }[]>([])
-  const [byProvider,    setByProvider]    = useState<{ provider: string; count: number }[]>([])
   const [topWatchlist,  setTopWatchlist]  = useState<TopMedia[]>([])
   const [topRated,      setTopRated]      = useState<TopMedia[]>([])
   const [topUsers,      setTopUsers]      = useState<TopUser[]>([])
@@ -36,57 +69,40 @@ export default function MetricasPage() {
   async function fetchAll() {
     setLoading(true)
 
+    // registros por mes, plataformas y países salen del endpoint: se calculan
+    // con service role. Desde el cliente, `favorites` tiene RLS owner-only, así
+    // que el gráfico de plataformas mostraba sólo las del propio admin.
+    const overviewPromise = fetch('/api/admin/overview')
+      .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
+      .catch(() => null)
+
     const [
+      ov,
       profilesRes,
       reviewsRes,
       listsCountRes,
       watchlistRes,
       ratingsRes,
-      favoritesRes,
     ] = await Promise.all([
-      supabase.from('profiles').select('id, username, avatar_url, updated_at, country').limit(5000),
+      overviewPromise,
+      supabase.from('profiles').select('id, username, avatar_url').limit(5000),
       supabase.from('reviews').select('user_id, created_at').limit(10000),
       supabase.from('lists').select('user_id').limit(10000),
       supabase.from('watchlist').select('media_id, media_type, title, poster_path').limit(10000),
       supabase.from('ratings').select('media_id, media_type, title, poster_path, rated_at').limit(10000),
-      supabase.from('favorites').select('provider_name').not('provider_name', 'is', null).limit(10000),
     ])
 
-    const profiles = (profilesRes.data ?? []) as { id: string; username: string | null; avatar_url: string | null; updated_at: string; country: string | null }[]
+    setOverview(ov)
 
-    // Registros por mes — últimos 12 meses
-    const monthMap: Record<string, number> = {}
-    const now = new Date()
-    for (let i = 11; i >= 0; i--) {
-      const d   = new Date(now.getFullYear(), now.getMonth() - i, 1)
-      const key = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      monthMap[key] = 0
-    }
-    for (const p of profiles) {
-      const d = new Date(p.updated_at)
-      const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-      if (k in monthMap) monthMap[k]++
-    }
-    setRegsByMonth(
-      Object.entries(monthMap).map(([k, count]) => ({
-        label: new Date(k + '-01').toLocaleDateString('es-AR', { month: 'short', year: '2-digit' }),
+    const profiles = (profilesRes.data ?? []) as { id: string; username: string | null; avatar_url: string | null }[]
+
+    // Usuarios por país — los conteos vienen del endpoint; acá sólo se traduce
+    // el código ISO a nombre.
+    setByCountry(
+      (ov?.paises ?? []).map(({ country, count }) => ({
+        country: COUNTRIES.find(c => c.code === country)?.name ?? country,
         count,
       }))
-    )
-
-    // Usuarios por país
-    const countryMap: Record<string, number> = {}
-    for (const p of profiles) {
-      if (p.country) countryMap[p.country] = (countryMap[p.country] ?? 0) + 1
-    }
-    setByCountry(
-      Object.entries(countryMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 15)
-        .map(([code, count]) => ({
-          country: COUNTRIES.find(c => c.code === code)?.name ?? code,
-          count,
-        }))
     )
 
     // Actividad por hora del día (reviews)
@@ -101,18 +117,6 @@ export default function MetricasPage() {
         hour: `${String(h).padStart(2, '0')}h`,
         count,
       }))
-    )
-
-    // Plataformas favoritas
-    const provMap: Record<string, number> = {}
-    for (const f of (favoritesRes.data ?? []) as { provider_name: string | null }[]) {
-      if (f.provider_name) provMap[f.provider_name] = (provMap[f.provider_name] ?? 0) + 1
-    }
-    setByProvider(
-      Object.entries(provMap)
-        .sort((a, b) => b[1] - a[1])
-        .slice(0, 10)
-        .map(([provider, count]) => ({ provider, count }))
     )
 
     // Top watchlist
@@ -178,23 +182,89 @@ export default function MetricasPage() {
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
 
-        {/* Registros por mes */}
+        {/* Onboarding — desglose real.
+            `onboarding_completed = true` no distingue terminar de saltar:
+            handleSkip() lo pone en true igual que handleFinish(). La única señal
+            de completado real es onboarding_completed_at. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-5">Registros por mes — últimos 12 meses</h2>
-          <ResponsiveContainer width="100%" height={220}>
-            <LineChart data={regsByMonth} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
-              <XAxis dataKey="label" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} />
-              <YAxis tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip {...tooltipStyle} labelStyle={{ color: '#FFFD02' }} />
-              <Line type="monotone" dataKey="count" name="Registros" stroke="#FFFD02" strokeWidth={2} dot={{ fill: '#FFFD02', r: 3 }} />
-            </LineChart>
-          </ResponsiveContainer>
+          <h2 className="text-sm font-semibold text-white mb-1">Onboarding</h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">
+            Desglose real sobre {overview?.onboarding.total ?? 0} perfiles ·
+            {' '}<code className="text-zinc-500">onboarding_completed</code> por sí solo mezcla completado con salteado
+          </p>
+          {!overview ? (
+            <p className="text-[#A0A0B0] text-sm py-6 text-center">Sin datos</p>
+          ) : (
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <OnboardingCard
+                icon={<CheckCircle2 size={16} />}
+                label="Completado real"
+                hint="tiene onboarding_completed_at"
+                value={overview.onboarding.completadoReal}
+                total={overview.onboarding.total}
+                tone="green"
+              />
+              <OnboardingCard
+                icon={<SkipForward size={16} />}
+                label="Salteado"
+                hint="apretó “Saltar onboarding”"
+                value={overview.onboarding.salteado}
+                total={overview.onboarding.total}
+                tone="amber"
+              />
+              <OnboardingCard
+                icon={<LogOut size={16} />}
+                label="Abandonado"
+                hint="ni completó ni salteó"
+                value={overview.onboarding.abandonado}
+                total={overview.onboarding.total}
+                tone="red"
+              />
+            </div>
+          )}
         </div>
 
-        {/* Por país */}
+        {/* Registros por mes — fecha de alta real (auth.users.created_at).
+            Antes se graficaba profiles.updated_at, que es cuándo se tocó la fila
+            por última vez, no cuándo se dio de alta el usuario. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-5">Usuarios por país (top 15)</h2>
+          <h2 className="text-sm font-semibold text-white mb-1">Registros por mes — últimos 12 meses</h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">
+            Fecha de alta real desde auth.users
+            {overview && ` · ${overview.registrosTotales} en total, ${overview.sinConfirmar} sin confirmar el email`}
+          </p>
+          {!overview ? (
+            <p className="text-[#A0A0B0] text-sm py-12 text-center">Sin datos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={220}>
+              <LineChart data={overview.registrosPorMes} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
+                <XAxis dataKey="mes" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} />
+                <YAxis tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} labelStyle={{ color: '#FFFD02' }} />
+                <Line type="monotone" dataKey="total" name="Registros" stroke="#FFFD02" strokeWidth={2} dot={{ fill: '#FFFD02', r: 3 }} />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
+        </div>
+
+        {/* Por país.
+            NO ES UN DATO REAL. `profiles.country` no se completa por
+            geolocalización: hoy los 115 perfiles tienen 'AR', que es el valor por
+            defecto. El gráfico queda porque va a servir cuando se detecte el país
+            de verdad, pero mientras tanto no se puede leer como distribución
+            geográfica. */}
+        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
+          <h2 className="text-sm font-semibold text-white mb-2">Usuarios por país (top 15)</h2>
+          <div className="mb-5 bg-amber-900/20 border border-amber-800/60 rounded-xl px-4 py-2.5 flex items-start gap-2.5">
+            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-[11px] text-amber-200/90 leading-relaxed">
+              <span className="font-semibold">Este dato todavía no es real.</span>{' '}
+              <code className="text-amber-300">profiles.country</code> no se detecta por geolocalización:
+              es un valor por defecto y hoy todos los perfiles tienen el mismo. No lo uses para
+              decidir nada hasta que se implemente la detección de país.
+            </p>
+          </div>
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byCountry} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
@@ -221,11 +291,15 @@ export default function MetricasPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Plataformas favoritas */}
+        {/* Plataformas favoritas.
+            Del endpoint: `favorites` tiene RLS owner-only, así que leído desde el
+            navegador esto mostraba únicamente las plataformas del propio admin
+            presentadas como estadística de toda la base. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-5">Plataformas favoritas (top 10)</h2>
+          <h2 className="text-sm font-semibold text-white mb-1">Plataformas favoritas (top 10)</h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">Sobre los favoritos de todos los usuarios</p>
           <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={byProvider} layout="vertical" margin={{ top: 0, right: 20, left: 80, bottom: 0 }}>
+            <BarChart data={overview?.plataformasFavoritas ?? []} layout="vertical" margin={{ top: 0, right: 20, left: 80, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
               <YAxis type="category" dataKey="provider" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} width={80} />

@@ -12,6 +12,14 @@ import {
 type ActivityType = 'review' | 'list' | 'user' | 'watchlist' | 'follow'
 type DateFilter = 'today' | '7d' | '30d'
 
+interface NewUserRow {
+  id: string
+  username: string | null
+  avatar_url: string | null
+  /** auth.users.created_at — la fecha de alta real. */
+  auth_created_at: string | null
+}
+
 interface ActivityItem {
   id: string
   type: ActivityType
@@ -52,10 +60,18 @@ export default function ActividadPage() {
         ? new Date(Date.now() - 7  * 86400_000).toISOString()
         : new Date(Date.now() - 30 * 86400_000).toISOString()
 
-    const [reviewsRes, listsRes, usersRes, watchlistRes, followsRes] = await Promise.all([
+    // Los registros nuevos salen de /api/admin/users, no de profiles: la fecha
+    // de alta real vive en auth.users.created_at y desde el cliente no se puede
+    // leer. Antes acá se usaba profiles.updated_at, que es cuándo se tocó la
+    // fila por última vez, y se lo etiquetaba como "Nuevo usuario registrado".
+    const newUsersPromise = fetch('/api/admin/users?sort_by=auth_created_at&sort_dir=desc&limit=50')
+      .then(async r => (r.ok ? ((await r.json()) as { users: NewUserRow[] }).users : []))
+      .catch(() => [] as NewUserRow[])
+
+    const [reviewsRes, listsRes, newUsers, watchlistRes, followsRes] = await Promise.all([
       supabase.from('reviews').select('id, user_id, title, rating, body, created_at').gte('created_at', cutoff).order('created_at', { ascending: false }).limit(50),
       supabase.from('lists').select('id, user_id, title, is_public, created_at').gte('created_at', cutoff).order('created_at', { ascending: false }).limit(50),
-      supabase.from('profiles').select('id, username, avatar_url, updated_at').gte('updated_at', cutoff).order('updated_at', { ascending: false }).limit(50),
+      newUsersPromise,
       supabase.from('watchlist').select('id, user_id, title, media_type, media_id, added_at').gte('added_at', cutoff).order('added_at', { ascending: false }).limit(50),
       supabase.from('follows').select('follower_id, following_id, created_at').gte('created_at', cutoff).order('created_at', { ascending: false }).limit(50),
     ])
@@ -104,15 +120,17 @@ export default function ActividadPage() {
       })
     }
 
-    // New users
-    for (const u of (usersRes.data ?? []) as { id: string; username: string | null; avatar_url: string | null; updated_at: string }[]) {
+    // New users — con la fecha de alta real; el filtro por período se aplica
+    // acá porque el endpoint devuelve los últimos N sin recorte temporal.
+    for (const u of newUsers) {
+      if (!u.auth_created_at || u.auth_created_at < cutoff) continue
       all.push({
         id: `usr-${u.id}`, type: 'user',
         userId: u.id,
         username: u.username, avatarUrl: u.avatar_url,
         summary: `Nuevo usuario registrado`,
         link: `/usuario/${u.username}`,
-        timestamp: u.updated_at,
+        timestamp: u.auth_created_at,
       })
     }
 

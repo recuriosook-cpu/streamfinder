@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import type { AdminOverview } from '@/app/api/admin/overview/route'
 import {
   Users, FileText, List, Star, Loader2, AlertCircle, Film, Tv,
 } from 'lucide-react'
@@ -50,11 +51,10 @@ export default function ResumenPage() {
   const [error,   setError]   = useState<string | null>(null)
 
   const [totalUsers,   setTotalUsers]   = useState(0)
-  const [activeWeek,   setActiveWeek]   = useState(0)
   const [totalReviews, setTotalReviews] = useState(0)
   const [totalLists,   setTotalLists]   = useState(0)
 
-  const [regsByDay,   setRegsByDay]   = useState<{ day: string; label: string; count: number }[]>([])
+  const [overview,    setOverview]    = useState<AdminOverview | null>(null)
   const [actByDay,    setActByDay]    = useState<{ day: string; label: string; reviews: number; ratings: number; listas: number; total: number }[]>([])
   const [topRated,    setTopRated]    = useState<TopMedia[]>([])
   const [topWatchlist, setTopWatchlist] = useState<TopMedia[]>([])
@@ -65,27 +65,30 @@ export default function ResumenPage() {
     setLoading(true)
     setError(null)
 
-    const weekAgo  = new Date(Date.now() - 7  * 86400_000).toISOString()
-    const monthAgo = new Date(Date.now() - 30 * 86400_000).toISOString()
+    const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString()
+
+    // Las métricas de usuarios (activos, registros) vienen del endpoint: se
+    // calculan con service role sobre auth.users, que es donde está la fecha
+    // real de alta. Desde el cliente sólo se puede ver profiles.updated_at.
+    const overviewPromise = fetch('/api/admin/overview')
+      .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
+      .catch(() => null)
 
     const [
+      ov,
       profilesRes,
-      activeWeekRes,
       reviewsCountRes,
       listsCountRes,
-      regsDayRes,
       reviewsWeekRes,
       ratingsWeekRes,
       listsWeekRes,
       topRatedRes,
       topWatchlistRes,
     ] = await Promise.all([
+      overviewPromise,
       supabase.from('profiles').select('*', { count: 'exact', head: true }),
-      supabase.from('profiles').select('*', { count: 'exact', head: true }).gte('last_active', weekAgo),
       supabase.from('reviews').select('*', { count: 'exact', head: true }),
       supabase.from('lists').select('*', { count: 'exact', head: true }),
-      // Last 30 days regs: fetch updated_at from profiles
-      supabase.from('profiles').select('updated_at').gte('updated_at', monthAgo),
       // Activity last 7 days
       supabase.from('reviews').select('created_at').gte('created_at', weekAgo),
       supabase.from('ratings').select('rated_at').gte('rated_at', weekAgo),
@@ -97,26 +100,12 @@ export default function ResumenPage() {
     ])
 
     if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
+    if (!ov) setError('No se pudo leer /api/admin/overview — las métricas de usuarios no se muestran.')
 
-    setTotalUsers(profilesRes.count ?? 0)
-    setActiveWeek(activeWeekRes.count ?? 0)
+    setOverview(ov)
+    setTotalUsers(ov?.registrosTotales ?? profilesRes.count ?? 0)
     setTotalReviews(reviewsCountRes.count ?? 0)
     setTotalLists(listsCountRes.count ?? 0)
-
-    // Registrations by day (last 30)
-    const regMap: Record<string, number> = {}
-    for (const p of (regsDayRes.data ?? []) as { updated_at: string }[]) {
-      const k = p.updated_at.slice(0, 10)
-      regMap[k] = (regMap[k] ?? 0) + 1
-    }
-    const days30: typeof regsByDay = []
-    for (let i = 29; i >= 0; i--) {
-      const d   = new Date(Date.now() - i * 86400_000)
-      const key = d.toISOString().slice(0, 10)
-      const lbl = d.toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
-      days30.push({ day: key, label: lbl, count: regMap[key] ?? 0 })
-    }
-    setRegsByDay(days30)
 
     // Activity by day (last 7)
     const revMap: Record<string, number>  = {}
@@ -191,43 +180,78 @@ export default function ResumenPage() {
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
-          <StatCard icon={<Users size={20} />}    label="Usuarios registrados" value={totalUsers}   sub={`+${activeWeek} activos esta semana`} color="yellow" />
-          <StatCard icon={<Users size={20} />}    label="Activos esta semana"  value={activeWeek}   color="green"  />
+          <StatCard
+            icon={<Users size={20} />}
+            label="Usuarios registrados"
+            value={totalUsers}
+            sub="Alta real (auth.users)"
+            color="yellow"
+          />
+          <StatCard
+            icon={<Users size={20} />}
+            label="Activos esta semana"
+            value={overview ? overview.activos7d : '—'}
+            sub={overview ? `${overview.activos30d} en 30 días` : undefined}
+            color="green"
+          />
           <StatCard icon={<FileText size={20} />} label="Reseñas publicadas"   value={totalReviews} color="purple" />
           <StatCard icon={<List size={20} />}     label="Listas creadas"       value={totalLists}   color="blue"   />
         </div>
 
-        {/* Line chart: registros últimos 30 días */}
+        {/* last_active recién se empieza a poblar: /api/ping-active venía roto por
+            la service role key mal nombrada, así que la columna estuvo en NULL
+            para todos los perfiles. Sin este aviso el 0 se lee como "no entra
+            nadie" en vez de "todavía no hay datos". */}
+        {overview && overview.activos30d === 0 && (
+          <div className="bg-amber-900/20 border border-amber-800/60 rounded-xl px-5 py-3 flex items-start gap-3">
+            <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
+            <p className="text-xs text-amber-200/90 leading-relaxed">
+              <span className="font-semibold">Sin datos de actividad todavía.</span>{' '}
+              <code className="text-amber-300">last_active</code> se empezó a registrar recién ahora
+              (el endpoint que lo escribía estaba roto). Los números de &quot;activos&quot; se van a
+              poblar a medida que los usuarios vuelvan a entrar.
+            </p>
+          </div>
+        )}
+
+        {/* Line chart: registros por mes.
+            Antes este panel graficaba profiles.updated_at por día y lo llamaba
+            "actividad de perfiles". updated_at no es ni la fecha de alta ni la
+            de actividad: es cuándo se tocó la fila por última vez. Ahora sale de
+            auth.users.created_at vía /api/admin/overview. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-1">Actividad de perfiles — últimos 30 días</h2>
-          <p className="text-xs text-[#A0A0B0] mb-5">Basado en updated_at de perfiles</p>
-          <ResponsiveContainer width="100%" height={200}>
-            <LineChart data={regsByDay} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
-              <XAxis
-                dataKey="label"
-                tick={{ fill: '#A0A0B0', fontSize: 10 }}
-                interval={4}
-                tickLine={false}
-                axisLine={false}
-              />
-              <YAxis tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip
-                contentStyle={{ background: '#1C1C27', border: '1px solid #2A2A3A', borderRadius: 8, color: '#fff', fontSize: 12 }}
-                labelStyle={{ color: '#FFFD02' }}
-                cursor={{ stroke: '#FFFD02', strokeWidth: 1, strokeDasharray: '4 4' }}
-              />
-              <Line
-                type="monotone"
-                dataKey="count"
-                name="Perfiles activos"
-                stroke="#FFFD02"
-                strokeWidth={2}
-                dot={false}
-                activeDot={{ r: 4, fill: '#FFFD02' }}
-              />
-            </LineChart>
-          </ResponsiveContainer>
+          <h2 className="text-sm font-semibold text-white mb-1">Registros por mes — últimos 12 meses</h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">Fecha de alta real, desde auth.users</p>
+          {!overview ? (
+            <p className="text-[#A0A0B0] text-sm py-12 text-center">Sin datos</p>
+          ) : (
+            <ResponsiveContainer width="100%" height={200}>
+              <LineChart data={overview.registrosPorMes} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
+                <XAxis
+                  dataKey="mes"
+                  tick={{ fill: '#A0A0B0', fontSize: 10 }}
+                  tickLine={false}
+                  axisLine={false}
+                />
+                <YAxis tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip
+                  contentStyle={{ background: '#1C1C27', border: '1px solid #2A2A3A', borderRadius: 8, color: '#fff', fontSize: 12 }}
+                  labelStyle={{ color: '#FFFD02' }}
+                  cursor={{ stroke: '#FFFD02', strokeWidth: 1, strokeDasharray: '4 4' }}
+                />
+                <Line
+                  type="monotone"
+                  dataKey="total"
+                  name="Registros"
+                  stroke="#FFFD02"
+                  strokeWidth={2}
+                  dot={{ fill: '#FFFD02', r: 3 }}
+                  activeDot={{ r: 4, fill: '#FFFD02' }}
+                />
+              </LineChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Bar chart: actividad últimos 7 días */}

@@ -20,6 +20,8 @@ interface AdminUser {
   email: string | null
   country: string | null
   updated_at: string
+  /** Fecha de alta real, de auth.users. `profiles` no tiene created_at. */
+  auth_created_at: string | null
   last_active: string | null
   blocked: boolean | null
   blocked_at: string | null
@@ -41,7 +43,7 @@ interface ApiResponse {
 interface Review { id: string; title: string; rating: number | null; body: string | null; created_at: string }
 interface UserList { id: string; title: string; is_public: boolean; created_at: string }
 
-type SortKey = 'username' | 'updated_at' | 'last_active' | 'review_count' | 'list_count' | 'follow_count' | 'points'
+type SortKey = 'username' | 'auth_created_at' | 'last_active' | 'review_count' | 'list_count' | 'follow_count' | 'points'
 type SortDir = 'asc' | 'desc'
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -129,7 +131,7 @@ export default function UsuariosPage() {
   const [countries, setCountries] = useState<string[]>([]) // populated from first load
 
   // Sort
-  const [sortKey, setSortKey] = useState<SortKey>('updated_at')
+  const [sortKey, setSortKey] = useState<SortKey>('auth_created_at')
   const [sortDir, setSortDir] = useState<SortDir>('desc')
 
   // Pagination
@@ -386,7 +388,7 @@ export default function UsuariosPage() {
                   {/* País */}
                   <th className="px-4 py-3 text-left text-xs text-[#A0A0B0] font-medium hidden lg:table-cell">País</th>
                   {/* Registro */}
-                  <SortTh label="Registro"      sortKey="updated_at"   currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden md:table-cell" />
+                  <SortTh label="Registro"      sortKey="auth_created_at" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden md:table-cell" />
                   {/* Última actividad */}
                   <SortTh label="Últ. acceso"   sortKey="last_active"  currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden lg:table-cell" />
                   {/* Verificado */}
@@ -458,7 +460,7 @@ export default function UsuariosPage() {
 
                       {/* Registro */}
                       <td className="px-4 py-3 hidden md:table-cell">
-                        <span className="text-xs text-[#A0A0B0]">{timeAgo(user.updated_at)}</span>
+                        <span className="text-xs text-[#A0A0B0]">{timeAgo(user.auth_created_at)}</span>
                       </td>
 
                       {/* Última actividad */}
@@ -663,7 +665,7 @@ export default function UsuariosPage() {
                   {[
                     ['Email',         selected.email ?? '—'],
                     ['País',          selected.country ?? '—'],
-                    ['Registro',      fmtDate(selected.updated_at)],
+                    ['Registro',      fmtDate(selected.auth_created_at)],
                     ['Últ. acceso',   timeAgo(selected.last_active)],
                     ['Nivel',         `Nv.${selected.level ?? '—'} · ${(selected.points ?? 0).toLocaleString()} pts`],
                     ['Actividad',     `${selected.review_count} reseñas · ${selected.list_count} listas`],

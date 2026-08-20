@@ -26,25 +26,37 @@ async function requireAdmin() {
 
 // ── Module-level cache (survives warm invocations, resets on cold start) ──
 
-interface EmailCache { map: Record<string, string>; ts: number }
-let emailCache: EmailCache | null = null
+/**
+ * Datos que sólo viven en `auth.users`: el email y la fecha de alta real.
+ *
+ * `profiles` no tiene `created_at`. La columna "Registro" de la tabla mostraba
+ * `profiles.updated_at`, que es cuándo se tocó la fila por última vez — hoy
+ * coincide con el alta porque nada escribe esa columna, pero es una coincidencia
+ * frágil: alcanza con que alguien agregue un trigger de updated_at (lo normal)
+ * para que todas las fechas históricas se pisen. La fecha buena es ésta.
+ */
+interface AuthInfo { email: string | null; createdAt: string | null }
+interface AuthCache { map: Record<string, AuthInfo>; ts: number }
+let authCache: AuthCache | null = null
 const EMAIL_TTL = 90_000 // 90 seconds
 
-async function getEmailMap(admin: SupabaseClient): Promise<Record<string, string>> {
-  if (emailCache && Date.now() - emailCache.ts < EMAIL_TTL) return emailCache.map
+async function getAuthMap(admin: SupabaseClient): Promise<Record<string, AuthInfo>> {
+  if (authCache && Date.now() - authCache.ts < EMAIL_TTL) return authCache.map
 
-  const map: Record<string, string> = {}
+  const map: Record<string, AuthInfo> = {}
   let page = 1
   // eslint-disable-next-line no-constant-condition
   while (true) {
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
     if (error || !data?.users?.length) break
-    for (const u of data.users) { if (u.email) map[u.id] = u.email }
+    for (const u of data.users) {
+      map[u.id] = { email: u.email ?? null, createdAt: u.created_at ?? null }
+    }
     if (data.users.length < 1000) break
     page++
   }
 
-  emailCache = { map, ts: Date.now() }
+  authCache = { map, ts: Date.now() }
   return map
 }
 
@@ -65,22 +77,24 @@ export async function GET(req: Request) {
   const search  = (searchParams.get('search') ?? '').trim()
   const country = searchParams.get('country') ?? ''
   const blocked = searchParams.get('blocked') ?? 'all'   // all | yes | no
-  const sortBy  = searchParams.get('sort_by') ?? 'updated_at'
+  const sortBy  = searchParams.get('sort_by') ?? 'auth_created_at'
   const sortDir = searchParams.get('sort_dir') ?? 'desc'
 
-  // Column sorts supported natively by PostgREST
+  // Column sorts supported natively by PostgREST.
+  // `auth_created_at` no está acá a propósito: vive en auth.users, no en
+  // profiles, así que PostgREST no lo puede ordenar y cae en el sort en JS.
   const DB_SORT_COLS = ['username', 'display_name', 'updated_at', 'last_active', 'points', 'level']
   const useDbSort = DB_SORT_COLS.includes(sortBy)
 
-  // 1. Get email map (cached)
-  const emailMap = await getEmailMap(admin)
+  // 1. Get auth map (cached): email + fecha de alta real
+  const authMap = await getAuthMap(admin)
 
   // 2. Resolve email-search user IDs
   let emailMatchIds: string[] | null = null
   if (search) {
     const q = search.toLowerCase()
-    emailMatchIds = Object.entries(emailMap)
-      .filter(([, email]) => email.toLowerCase().includes(q))
+    emailMatchIds = Object.entries(authMap)
+      .filter(([, info]) => (info.email ?? '').toLowerCase().includes(q))
       .map(([id]) => id)
   }
 
@@ -123,8 +137,8 @@ export async function GET(req: Request) {
     const { data: profiles, error: dErr } = await dataQ
     if (dErr) return NextResponse.json({ error: dErr.message }, { status: 500 })
 
-    const result = await enrichProfiles(admin, emailMap, (profiles ?? []) as ProfileRow[])
-    return jsonResponse(result, count ?? 0, page, limit, emailMap)
+    const result = await enrichProfiles(admin, authMap, (profiles ?? []) as ProfileRow[])
+    return jsonResponse(result, count ?? 0, page, limit)
   }
 
   // ── Case B: sort by computed count → fetch all matching profiles ────────
@@ -146,19 +160,28 @@ export async function GET(req: Request) {
     }
   }
 
-  const enriched = await enrichProfiles(admin, emailMap, allProfiles)
+  const enriched = await enrichProfiles(admin, authMap, allProfiles)
 
-  // Sort by computed field
+  // Sort by computed field.
+  // `auth_created_at` es un ISO string y el resto son contadores, así que hay
+  // que comparar distinto según el tipo o las fechas salen todas en 0.
   enriched.sort((a, b) => {
-    const av = (a[sortBy as keyof typeof a] as number) ?? 0
-    const bv = (b[sortBy as keyof typeof b] as number) ?? 0
-    return sortDir === 'asc' ? av - bv : bv - av
+    const av = a[sortBy as keyof typeof a]
+    const bv = b[sortBy as keyof typeof b]
+    if (typeof av === 'string' || typeof bv === 'string') {
+      const as = (av as string) ?? ''
+      const bs = (bv as string) ?? ''
+      return sortDir === 'asc' ? as.localeCompare(bs) : bs.localeCompare(as)
+    }
+    const an = (av as number) ?? 0
+    const bn = (bv as number) ?? 0
+    return sortDir === 'asc' ? an - bn : bn - an
   })
 
   const total  = enriched.length
   const sliced = enriched.slice(page * limit, (page + 1) * limit)
 
-  return jsonResponse(sliced, total, page, limit, emailMap)
+  return jsonResponse(sliced, total, page, limit)
 }
 
 // ── Helpers ───────────────────────────────────────────────────────────────
@@ -167,7 +190,7 @@ type ProfileRow = Record<string, unknown> & { id: string }
 
 async function enrichProfiles(
   admin: SupabaseClient,
-  emailMap: Record<string, string>,
+  authMap: Record<string, AuthInfo>,
   profiles: ProfileRow[]
 ) {
   if (!profiles.length) return []
@@ -195,10 +218,12 @@ async function enrichProfiles(
 
   return profiles.map(p => ({
     ...p,
-    email:        emailMap[p.id] ?? null,
-    review_count: revCounts[p.id] ?? 0,
-    list_count:   lstCounts[p.id] ?? 0,
-    follow_count: flwCounts[p.id] ?? 0,
+    email:           authMap[p.id]?.email ?? null,
+    // Fecha de alta real. La UI muestra ésta en la columna "Registro".
+    auth_created_at: authMap[p.id]?.createdAt ?? null,
+    review_count:    revCounts[p.id] ?? 0,
+    list_count:      lstCounts[p.id] ?? 0,
+    follow_count:    flwCounts[p.id] ?? 0,
   }))
 }
 
@@ -206,8 +231,7 @@ function jsonResponse(
   users: unknown[],
   total: number,
   page: number,
-  limit: number,
-  emailMap: Record<string, string>
+  limit: number
 ) {
   return NextResponse.json(
     { users, total, page, limit },
