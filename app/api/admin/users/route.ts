@@ -1,7 +1,8 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient, SupabaseClient } from '@supabase/supabase-js'
+import { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { requireAdminClient } from '@/lib/service-role'
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 
@@ -55,11 +56,8 @@ export async function GET(req: Request) {
   const adminUser = await requireAdmin()
   if (!adminUser) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const admin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const { admin, failure } = requireAdminClient('admin/users')
+  if (failure) return failure
 
   const { searchParams } = new URL(req.url)
   const page    = Math.max(0, parseInt(searchParams.get('page') ?? '0'))

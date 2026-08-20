@@ -12,7 +12,7 @@
 import { createClient } from '@supabase/supabase-js'
 
 const SUPABASE_URL = 'https://ddoqsdgiggkhbsulxncs.supabase.co'
-const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY
+const SERVICE_KEY  = process.env.SUPABASE_SERVICE_ROLE_KEY ?? process.env.SUPABASE_SERVICE_ROLE
 const TMDB_KEY     = 'acb96af19f5ef54f650ed3a6149dbb70'
 
 if (!SERVICE_KEY) {

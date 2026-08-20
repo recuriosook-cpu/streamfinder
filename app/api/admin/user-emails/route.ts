@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { requireAdminClient } from '@/lib/service-role'
 
 async function getAdminUser() {
   const cookieStore = await cookies()
@@ -26,11 +26,8 @@ export async function GET() {
   const admin = await getAdminUser()
   if (!admin) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const { admin: adminClient, failure } = requireAdminClient('admin/user-emails')
+  if (failure) return failure
 
   const { data, error } = await adminClient.auth.admin.listUsers({ perPage: 1000 })
   if (error) return NextResponse.json({ error: error.message }, { status: 500 })

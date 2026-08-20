@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { requireAdminClient } from '@/lib/service-role'
 
 export async function POST() {
   const cookieStore = await cookies()
@@ -30,16 +30,21 @@ export async function POST() {
     return NextResponse.json({ ok: true, skipped: true })
   }
 
-  const adminClient = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const { admin: adminClient, failure } = requireAdminClient('ping-active')
+  if (failure) return failure
 
-  await adminClient
+  const { error } = await adminClient
     .from('profiles')
     .update({ last_active: new Date().toISOString() })
     .eq('id', user.id)
+
+  // Antes esto se ignoraba: el update fallaba con 401 por la key rota y la ruta
+  // contestaba ok igual, así que `last_active` quedó NULL en todos los perfiles
+  // sin que nada lo dijera.
+  if (error) {
+    console.error('[ping-active] no se pudo actualizar last_active:', error.message)
+    return NextResponse.json({ ok: false, error: error.message }, { status: 500 })
+  }
 
   return NextResponse.json({ ok: true })
 }

@@ -1,5 +1,6 @@
 import { NextResponse } from 'next/server'
-import { createClient } from '@supabase/supabase-js'
+import type { SupabaseClient } from '@supabase/supabase-js'
+import { requireAdminClient } from '@/lib/service-role'
 import { sendPushToUser, buildPushPayload } from '@/lib/send-push-notification'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -35,16 +36,6 @@ function authorized(req: Request): boolean {
   return auth === `Bearer ${secret}`
 }
 
-// ── Supabase admin client ──────────────────────────────────────────────────
-
-function adminClient() {
-  return createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
-}
-
 // ── TMDB helpers ───────────────────────────────────────────────────────────
 
 interface TmdbMovie {
@@ -67,7 +58,7 @@ async function fetchActorMovies(actorId: number): Promise<TmdbMovie[]> {
 // ── Notification helpers ───────────────────────────────────────────────────
 
 async function checkPref(
-  admin: ReturnType<typeof adminClient>,
+  admin: SupabaseClient,
   userId: string,
   prefKey: string
 ): Promise<boolean> {
@@ -89,7 +80,9 @@ export async function GET(req: Request) {
     return NextResponse.json({ error: 'Unauthorized' }, { status: 401 })
   }
 
-  const admin = adminClient()
+  const { admin, failure } = requireAdminClient('cron/daily-notifications')
+  if (failure) return failure
+
   const mmdd  = todayMMDD()
   const today = todayStart()
   const cutoff = thirtyDaysAgo()

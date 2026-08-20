@@ -1,4 +1,5 @@
 import { createClient, type SupabaseClient } from '@supabase/supabase-js'
+import { NextResponse } from 'next/server'
 
 /**
  * Cliente admin de Supabase, con la service role key.
@@ -48,4 +49,40 @@ export function getAdminClient(): SupabaseClient {
   return createClient(process.env.NEXT_PUBLIC_SUPABASE_URL!, key, {
     auth: { autoRefreshToken: false, persistSession: false },
   })
+}
+
+/**
+ * Versión para route handlers.
+ *
+ * Devuelve `{ admin }` cuando la key está, o `{ failure }` con un 500 ya armado
+ * cuando falta. La gracia es que la ruta no pueda seguir de largo con un
+ * cliente roto: o hay cliente, o hay respuesta de error. El `scope` sale en el
+ * log del servidor para saber qué ruta se quedó sin key.
+ *
+ * Uso:
+ *   const { admin, failure } = requireAdminClient('admin/users')
+ *   if (failure) return failure
+ */
+export function requireAdminClient(
+  scope: string
+): { admin: SupabaseClient; failure: null } | { admin: null; failure: NextResponse } {
+  try {
+    return { admin: getAdminClient(), failure: null }
+  } catch (err: unknown) {
+    if (err instanceof MissingServiceRoleError) {
+      console.error(`[${scope}] ${err.message}`)
+      return {
+        admin: null,
+        failure: NextResponse.json(
+          {
+            error: 'server_misconfigured',
+            message:
+              'Falta la service role key en el servidor. La operación no se ejecutó.',
+          },
+          { status: 500 }
+        ),
+      }
+    }
+    throw err
+  }
 }

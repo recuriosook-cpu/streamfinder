@@ -1,7 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
-import { createClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
+import { requireAdminClient } from '@/lib/service-role'
 
 const ADMIN_EMAIL = 'hola@ferlage.com.ar'
 
@@ -36,11 +36,8 @@ export async function POST(req: Request) {
     return NextResponse.json({ error: 'userId requerido' }, { status: 400 })
   }
 
-  const supabaseAdmin = createClient(
-    process.env.NEXT_PUBLIC_SUPABASE_URL!,
-    process.env.SUPABASE_SERVICE_ROLE_KEY!,
-    { auth: { autoRefreshToken: false, persistSession: false } }
-  )
+  const { admin: supabaseAdmin, failure } = requireAdminClient('admin/ban-user')
+  if (failure) return failure
 
   // Ban for ~100 years (effectively permanent, reversible from Supabase dashboard)
   const { error } = await supabaseAdmin.auth.admin.updateUserById(userId, {
