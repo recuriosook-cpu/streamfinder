@@ -109,25 +109,50 @@ function getAnonId(): string {
  * Vive en sessionStorage, así que una pestaña nueva ya es una sesión nueva. Y
  * además se renueva si pasaron 30 minutos sin eventos, para que una pestaña
  * abierta toda la noche no cuente como una sola sesión eterna.
+ *
+ * El respaldo en memoria NO es decorativo. Antes existía la variable pero nunca
+ * se leía al entrar a la función: se asignaba y se devolvía en la misma
+ * llamada. Con eso, en cualquier navegador donde sessionStorage no esté
+ * disponible —Safari privado, un iframe sin allow-same-origin, storage lleno—
+ * cada `track()` minteaba un id nuevo, y la sesión de esa persona salía
+ * partida en tantas sesiones como eventos hubiera generado.
+ *
+ * `getAnonId()` acá al lado ya lo hacía bien; esto era la asimetría.
+ *
+ * Con storage roto la sesión sigue muriendo al recargar —el estado de módulo no
+ * sobrevive—, y eso no tiene arreglo posible sin storage. Pero al menos la
+ * visita queda entera en vez de hecha pedazos evento por evento.
  */
 let memorySessionId: string | null = null
+let memorySessionLast = 0
 
 function getSessionId(): string {
   const now = Date.now()
-  const existing = readStore('session', SESSION_KEY)
+
+  // El storage manda; la memoria es el respaldo. Se leen por separado porque
+  // pueden fallar de a uno: se puede haber escrito el id y no el timestamp.
+  const stored = readStore('session', SESSION_KEY)
   const lastRaw = readStore('session', SESSION_TS)
-  const last = lastRaw ? Number(lastRaw) : 0
+
+  const existing = stored ?? memorySessionId
+  // `Number('')` y `Number('abc')` dan 0 y NaN, los dos falsy: el `last &&` de
+  // abajo los trata como "no hay timestamp" y abre sesión nueva, que es lo
+  // correcto.
+  const last = lastRaw ? Number(lastRaw) : memorySessionLast
 
   if (existing && last && now - last < SESSION_TIMEOUT_MS) {
+    memorySessionId = existing
+    memorySessionLast = now
     writeStore('session', SESSION_TS, String(now))
     return existing
   }
 
   const fresh = uuid()
   memorySessionId = fresh
+  memorySessionLast = now
   writeStore('session', SESSION_KEY, fresh)
   writeStore('session', SESSION_TS, String(now))
-  return memorySessionId
+  return fresh
 }
 
 // ── Usuario ────────────────────────────────────────────────────────────────
