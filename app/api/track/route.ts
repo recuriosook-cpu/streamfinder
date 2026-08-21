@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
+import { classifyUserAgent } from '@/lib/analytics-bots'
 import {
   sanitizeProps,
   sanitizePath,
@@ -24,6 +25,10 @@ import {
  *   2. **Nada de datos personales en `props`.** Ver `sanitizeProps`: las claves
  *      que huelen a credencial se descartan enteras y los valores que parecen
  *      email o token se reemplazan por un marcador.
+ *
+ * Los eventos de bots se guardan marcados con `is_bot`, no se descartan. El
+ * porqué está en `lib/analytics-bots.ts`: en dos palabras, marcar mal es un
+ * UPDATE y descartar mal no se arregla nunca. El panel filtra `is_bot = false`.
  */
 
 export const runtime = 'nodejs'
@@ -54,6 +59,9 @@ interface EventRow {
   props: EventProps
   platform: string
   path: string | null
+  is_bot: boolean
+  /** Qué patrón matcheó. Sirve para auditar el filtro sin adivinar. */
+  bot_reason: string | null
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────
@@ -70,6 +78,10 @@ export async function POST(req: NextRequest) {
     if (!body) return NextResponse.json({ ok: true, accepted: 0 })
 
     // Acepta `{ events: [...] }`, un array pelado, o un evento suelto.
+    // Una sola vez por request: el user-agent es del request, no del evento, y
+    // un lote trae hasta 50 eventos del mismo navegador.
+    const verdict = classifyUserAgent(req.headers.get('user-agent'))
+
     const rawEvents: unknown[] = Array.isArray(body)
       ? body
       : Array.isArray((body as { events?: unknown }).events)
@@ -110,6 +122,8 @@ export async function POST(req: NextRequest) {
         props,
         platform:   ev.platform === 'mobile' ? 'mobile' : 'web',
         path:       sanitizePath(ev.path),
+        is_bot:     verdict.isBot,
+        bot_reason: verdict.reason,
       })
     }
 
