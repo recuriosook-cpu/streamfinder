@@ -6,6 +6,7 @@ import { CountryProvider } from '@/context/CountryContext'
 import { ConditionalShell } from '@/components/ConditionalShell'
 import { PingActive } from '@/components/PingActive'
 import { AnalyticsBoot } from '@/components/AnalyticsBoot'
+import { PageViewTracker } from '@/components/PageViewTracker'
 import { Toaster } from 'sonner'
 
 export const viewport: Viewport = {
@@ -112,6 +113,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ConditionalShell><Footer /></ConditionalShell>
           <PingActive />
           <AnalyticsBoot />
+          <PageViewTracker />
           <Toaster theme="dark" position="top-right" richColors />
         </CountryProvider>
       </body>

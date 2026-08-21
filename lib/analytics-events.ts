@@ -16,6 +16,15 @@
 export const EVENT_NAMES = [
   /** Carga de la app. props: { logueado: boolean } */
   'app_open',
+  /**
+   * Una pantalla vista. props: { path }
+   *
+   * Uno por navegación del router, no uno por render. Es el único evento que
+   * dispara alguien que sólo navega, y por eso existe: sin él una sesión de
+   * veinte pantallas dejaba un solo timestamp y no se le podía calcular
+   * duración. Ver `components/PageViewTracker.tsx`.
+   */
+  'page_view',
   /** Arranca un registro. props: { metodo: 'email' | 'google' | 'facebook' } */
   'signup_started',
   /** El registro se concretó. props: { metodo } */
