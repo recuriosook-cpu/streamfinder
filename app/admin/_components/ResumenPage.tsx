@@ -4,9 +4,11 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
-import type { AdminOverview } from '@/app/api/admin/overview/route'
+import type { AdminOverview, Metrica } from '@/app/api/admin/overview/route'
+import { fmtDuracion } from '@/lib/format-duracion'
 import {
   Users, FileText, List, Star, Loader2, AlertCircle, Film, Tv,
+  UserCheck, Eye, Activity, Clock, Smartphone, TrendingUp, TrendingDown, Info,
 } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
@@ -38,6 +40,102 @@ function StatCard({
     </div>
   )
 }
+
+/** Fecha larga para el cartel de inicio de medición. */
+function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+/**
+ * Tarjeta con número grande y comparación contra el período anterior.
+ *
+ * Tres estados, y la diferencia entre los dos primeros es todo el punto:
+ *
+ *   valor === null  -> "sin datos". No estamos midiendo esto todavía.
+ *   valor === 0     -> un cero de verdad. Medimos y no pasó nada.
+ *   valor > 0       -> el número, con su flecha.
+ *
+ * Y dentro del tercero, `deltaPct === null` significa que el período anterior
+ * fue 0: no hay porcentaje de crecimiento desde cero, así que se muestra el
+ * delta absoluto en vez de un "+100%" inventado.
+ */
+function MetricaCard({
+  icon, label, metrica, formato, sub, color = 'yellow',
+}: {
+  icon: React.ReactNode
+  label: string
+  metrica: Metrica
+  /** Cómo se pinta el número. Por defecto, separador de miles. */
+  formato?: (n: number) => string
+  sub?: string
+  color?: 'yellow' | 'blue' | 'purple' | 'green' | 'teal'
+}) {
+  const styles = {
+    yellow: 'text-[#FFFD02] bg-[#FFFD02]/10',
+    blue:   'text-blue-400 bg-blue-500/10',
+    purple: 'text-purple-400 bg-purple-500/10',
+    green:  'text-emerald-400 bg-emerald-500/10',
+    teal:   'text-teal-400 bg-teal-500/10',
+  }
+
+  const fmt = formato ?? ((n: number) => n.toLocaleString('es-AR'))
+  const sinDatos = metrica.valor === null
+
+  return (
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6">
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${styles[color]}`}>
+        {icon}
+      </div>
+
+      {sinDatos ? (
+        <p className="text-2xl font-black text-zinc-700 italic">sin datos</p>
+      ) : (
+        <p className="text-3xl font-black text-white tabular-nums">{fmt(metrica.valor!)}</p>
+      )}
+
+      <p className="text-sm text-[#A0A0B0] mt-1 font-medium">{label}</p>
+
+      {!sinDatos && <Comparacion metrica={metrica} formato={fmt} />}
+      {sub && <p className="text-xs text-[#A0A0B0]/70 mt-1">{sub}</p>}
+    </div>
+  )
+}
+
+function Comparacion({ metrica, formato }: { metrica: Metrica; formato: (n: number) => string }) {
+  const { valor, previo, deltaPct } = metrica
+  if (valor === null || previo === null) return null
+
+  // Período anterior en cero: el porcentaje no existe. Se muestra el salto en
+  // términos absolutos, que sí se puede afirmar.
+  if (deltaPct === null) {
+    if (valor === 0) {
+      return <p className="text-xs text-[#A0A0B0]/60 mt-1.5">sin actividad en ninguno de los dos períodos</p>
+    }
+    return (
+      <p className="text-xs text-emerald-400 mt-1.5 font-medium">
+        +{formato(valor)} · el período anterior fue cero
+      </p>
+    )
+  }
+
+  const sube = deltaPct > 0
+  const igual = deltaPct === 0
+  const cls = igual ? 'text-[#A0A0B0]' : sube ? 'text-emerald-400' : 'text-red-400'
+
+  return (
+    <p className={`text-xs mt-1.5 font-medium flex items-center gap-1 ${cls}`}>
+      {!igual && (sube ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
+      {igual ? 'igual que' : `${sube ? '+' : ''}${deltaPct}% vs`} el período anterior
+      <span className="text-[#A0A0B0]/60 font-normal">({formato(previo)})</span>
+    </p>
+  )
+}
+
+/** El estado "no estamos midiendo esto". Ver `MetricaCard`. */
+const SIN_DATOS: Metrica = { valor: null, previo: null, deltaPct: null }
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -161,6 +259,11 @@ export default function ResumenPage() {
     )
   }
 
+  // `?? null` y no `!`: si el deploy del endpoint todavía no salió, la
+  // respuesta vieja no trae `actividad` y las tarjetas caen en "sin datos" en
+  // vez de romper el panel con un TypeError.
+  const act = overview?.actividad ?? null
+
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
@@ -196,6 +299,105 @@ export default function ResumenPage() {
           />
           <StatCard icon={<FileText size={20} />} label="Reseñas publicadas"   value={totalReviews} color="purple" />
           <StatCard icon={<List size={20} />}     label="Listas creadas"       value={totalLists}   color="blue"   />
+        </div>
+
+        {/* ── Actividad medida ────────────────────────────────────────────
+            Estas seis salen de las vistas de analytics y TODAS excluyen bots.
+            Van separadas de las tarjetas de arriba a propósito: aquéllas se
+            calculan sobre auth.users y profiles, que existen desde siempre;
+            éstas sólo saben lo que pasó desde que instalamos el tracking.
+            Mezclarlas en la misma grilla haría parecer que todas cubren el
+            mismo período. */}
+        <div>
+          <div className="flex items-baseline justify-between mb-3 flex-wrap gap-2">
+            <h2 className="text-sm font-semibold text-white">Actividad medida</h2>
+            <span className="text-xs text-[#A0A0B0]">Sin bots · comparado con el período anterior</span>
+          </div>
+
+          {/* Mismo criterio que /admin/usuarios: sin este cartel las tarjetas
+              mienten por omisión. "12 conectados esta semana" se lee como el
+              histórico y es lo que pasó desde anteayer. */}
+          <div className="flex items-start gap-2 rounded-xl border border-[#2A2A3A] bg-[#13131A] px-4 py-2.5 mb-4">
+            <Info size={13} className="text-[#FFFD02] shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-relaxed text-[#A0A0B0]">
+              {act && act.disponible && act.medicionDesde ? (
+                <>
+                  Se mide desde el{' '}
+                  <span className="text-white font-medium">{fmtDateTime(act.medicionDesde)}</span>,
+                  cuando se instaló el tracking. Los períodos que empiezan antes de esa fecha están
+                  incompletos: el número es un piso, no el total. Los eventos de crawlers están
+                  excluidos (<code className="text-[#A0A0B0]">is_bot = false</code>).
+                </>
+              ) : (
+                <>
+                  <span className="text-white font-medium">Todavía no hay medición de actividad.</span>{' '}
+                  Falta correr <span className="text-white font-medium">supabase-analytics-resumen.sql</span>{' '}
+                  en la base, o todavía no entró ningún evento de una persona real. Las tarjetas
+                  muestran «sin datos» hasta entonces.
+                </>
+              )}
+            </p>
+          </div>
+
+          <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <MetricaCard
+              icon={<Users size={20} />}
+              label="Se conectaron hoy"
+              metrica={act?.conectadosHoy ?? SIN_DATOS}
+              color="yellow"
+            />
+            <MetricaCard
+              icon={<UserCheck size={20} />}
+              label="Se conectaron esta semana"
+              metrica={act?.conectadosSemana ?? SIN_DATOS}
+              sub="Usuarios distintos en los últimos 7 días"
+              color="green"
+            />
+            <MetricaCard
+              icon={<Eye size={20} />}
+              label="Visitantes anónimos hoy"
+              metrica={act?.anonimosHoy ?? SIN_DATOS}
+              sub="Navegadores sin sesión iniciada. No se pisan con los de arriba"
+              color="blue"
+            />
+            <MetricaCard
+              icon={<Activity size={20} />}
+              label="Sesiones hoy"
+              metrica={act?.sesionesHoy ?? SIN_DATOS}
+              color="teal"
+            />
+            <MetricaCard
+              icon={<Clock size={20} />}
+              label="Duración promedio de sesión"
+              metrica={act?.duracionSesion ?? SIN_DATOS}
+              formato={fmtDuracion}
+              sub={
+                act?.duracionSesionTotal != null
+                  ? `${fmtDuracion(act.duracionSesionTotal)} promedio desde el inicio`
+                  : undefined
+              }
+              color="purple"
+            />
+            <MetricaCard
+              icon={<Smartphone size={20} />}
+              label="Tienen la app instalada"
+              // La app no depende de analytics: sale de user_devices. Un cero
+              // acá es un cero de verdad —nadie la instaló—, no un "no sabemos",
+              // así que va como número y no como "sin datos".
+              metrica={
+                act
+                  ? { valor: act.app.usuarios, previo: act.app.previo, deltaPct: act.app.deltaPct }
+                  : SIN_DATOS
+              }
+              sub={
+                act && act?.app.usuarios > 0
+                  ? `${act?.app.android} Android · ${act?.app.ios} iOS` +
+                    (act?.app.otras > 0 ? ` · ${act?.app.otras} otras` : '')
+                  : 'Ningún dispositivo registrado todavía'
+              }
+              color="green"
+            />
+          </div>
         </div>
 
         {/* last_active recién se empieza a poblar: /api/ping-active venía roto por

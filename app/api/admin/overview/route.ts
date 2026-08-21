@@ -58,6 +58,48 @@ async function requireAdmin() {
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
+/**
+ * Un número con su comparación contra el período anterior.
+ *
+ * `valor: null` es "sin datos" y NO es lo mismo que 0. Con la medición recién
+ * arrancada la diferencia es todo: 0 dice "nadie se conectó", null dice "no
+ * sabemos si se conectó alguien". La UI los muestra distinto.
+ *
+ * `deltaPct: null` es "no comparable", que pasa cuando el período anterior fue
+ * 0: no existe el porcentaje de crecimiento desde cero. En ese caso la UI
+ * muestra el delta absoluto en vez de inventar un ∞.
+ */
+export interface Metrica {
+  valor: number | null
+  previo: number | null
+  deltaPct: number | null
+}
+
+export interface ActividadResumen {
+  /** `false` si las vistas no existen o si todavía no entró un evento humano. */
+  disponible: boolean
+  /** Desde cuándo se mide. Va en el cartel arriba de las tarjetas. */
+  medicionDesde: string | null
+
+  conectadosHoy:    Metrica
+  conectadosSemana: Metrica
+  anonimosHoy:      Metrica
+  sesionesHoy:      Metrica
+  /** Promedio en SEGUNDOS. La UI lo formatea. */
+  duracionSesion:   Metrica
+  /** Promedio de toda la medición, para contexto debajo de la tarjeta. */
+  duracionSesionTotal: number | null
+
+  app: {
+    usuarios: number
+    android: number
+    ios: number
+    otras: number
+    previo: number
+    deltaPct: number | null
+  }
+}
+
 export interface AdminOverview {
   registrosPorMes: { mes: string; total: number }[]
   registrosTotales: number
@@ -73,6 +115,7 @@ export interface AdminOverview {
   }
   plataformasFavoritas: { provider: string; count: number }[]
   paises: { country: string; count: number }[]
+  actividad: ActividadResumen
   generadoEn: string
 }
 
@@ -140,6 +183,123 @@ async function fetchAllRows<T>(
   return out
 }
 
+// ── Actividad (analytics) ─────────────────────────────────────────────────
+
+/** Forma cruda de `admin_resumen_actividad`. Una fila, todo numérico. */
+interface ResumenRow {
+  hoy_desde: string | null
+  usuarios_hoy: number
+  usuarios_ayer: number
+  usuarios_semana: number
+  usuarios_semana_prev: number
+  anonimos_hoy: number
+  anonimos_ayer: number
+  sesiones_hoy: number
+  sesiones_ayer: number
+  seg_prom_hoy: number | null
+  seg_prom_ayer: number | null
+  seg_prom_total: number | null
+  usuarios_con_app: number
+  android: number
+  ios: number
+  otras: number
+  usuarios_con_app_prev: number
+}
+
+/**
+ * Variación porcentual contra el período anterior.
+ *
+ * Devuelve `null` cuando el período anterior fue 0: no existe el porcentaje de
+ * crecimiento desde cero, y mostrar "+∞%" o "+100%" sería inventar. La UI
+ * resuelve ese caso mostrando el delta absoluto.
+ */
+function delta(actual: number, previo: number): number | null {
+  if (previo === 0) return null
+  return Math.round(((actual - previo) / previo) * 1000) / 10
+}
+
+function metrica(actual: number | null, previo: number | null): Metrica {
+  if (actual === null) return { valor: null, previo: null, deltaPct: null }
+  const prev = previo ?? 0
+  return { valor: actual, previo: prev, deltaPct: delta(actual, prev) }
+}
+
+const ACTIVIDAD_VACIA: ActividadResumen = {
+  disponible: false,
+  medicionDesde: null,
+  conectadosHoy:    { valor: null, previo: null, deltaPct: null },
+  conectadosSemana: { valor: null, previo: null, deltaPct: null },
+  anonimosHoy:      { valor: null, previo: null, deltaPct: null },
+  sesionesHoy:      { valor: null, previo: null, deltaPct: null },
+  duracionSesion:   { valor: null, previo: null, deltaPct: null },
+  duracionSesionTotal: null,
+  app: { usuarios: 0, android: 0, ios: 0, otras: 0, previo: 0, deltaPct: null },
+}
+
+/**
+ * Las métricas de actividad, con las vistas de analytics.
+ *
+ * Nunca tira. Si las vistas no están creadas todavía, o si la medición no
+ * arrancó, devuelve el bloque vacío y el resto del resumen —registros,
+ * onboarding, países— sigue funcionando igual. Un panel entero caído porque
+ * falta una vista de métricas sería un mal negocio.
+ *
+ * TODO lo que sale de acá excluye bots: `analytics_sessions` y las ventanas de
+ * `admin_resumen_actividad` filtran `is_bot = false` en la vista. `user_devices`
+ * no necesita el filtro porque no es tráfico web — la escribe la app nativa
+ * después de un login, y un crawler no llega nunca.
+ */
+async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> {
+  const [resumenRes, medicionRes] = await Promise.all([
+    admin.from('admin_resumen_actividad').select('*').maybeSingle(),
+    admin.from('analytics_medicion').select('desde, eventos_humanos').maybeSingle(),
+  ])
+
+  if (resumenRes.error || !resumenRes.data) {
+    if (resumenRes.error) console.error('[admin/overview] admin_resumen_actividad:', resumenRes.error.message)
+    return ACTIVIDAD_VACIA
+  }
+
+  const r = resumenRes.data as unknown as ResumenRow
+  const desde = (medicionRes.data?.desde as string | null) ?? null
+  const eventosHumanos = Number(medicionRes.data?.eventos_humanos ?? 0)
+
+  // La app se cuenta siempre, haya o no medición: `user_devices` no depende de
+  // analytics. Cero dispositivos es un cero verdadero —nadie instaló la app—,
+  // no un "no sabemos".
+  const app = {
+    usuarios: Number(r.usuarios_con_app ?? 0),
+    android:  Number(r.android ?? 0),
+    ios:      Number(r.ios ?? 0),
+    otras:    Number(r.otras ?? 0),
+    previo:   Number(r.usuarios_con_app_prev ?? 0),
+    deltaPct: delta(Number(r.usuarios_con_app ?? 0), Number(r.usuarios_con_app_prev ?? 0)),
+  }
+
+  // Sin un solo evento humano, todo lo demás es "sin datos" y no 0. Un 0 acá
+  // diría "no se conectó nadie", que es una afirmación que no podemos sostener
+  // cuando lo que pasa es que todavía no estamos midiendo.
+  if (eventosHumanos === 0) {
+    return { ...ACTIVIDAD_VACIA, medicionDesde: desde, app }
+  }
+
+  return {
+    disponible: true,
+    medicionDesde: desde,
+    conectadosHoy:    metrica(Number(r.usuarios_hoy ?? 0),    Number(r.usuarios_ayer ?? 0)),
+    conectadosSemana: metrica(Number(r.usuarios_semana ?? 0), Number(r.usuarios_semana_prev ?? 0)),
+    anonimosHoy:      metrica(Number(r.anonimos_hoy ?? 0),    Number(r.anonimos_ayer ?? 0)),
+    sesionesHoy:      metrica(Number(r.sesiones_hoy ?? 0),    Number(r.sesiones_ayer ?? 0)),
+    // `seg_prom_*` viene NULL cuando no hubo ninguna sesión en la ventana. Ese
+    // null se propaga como "sin datos" en vez de convertirse en 0 segundos.
+    duracionSesion: r.seg_prom_hoy === null
+      ? { valor: null, previo: null, deltaPct: null }
+      : metrica(Number(r.seg_prom_hoy), r.seg_prom_ayer === null ? 0 : Number(r.seg_prom_ayer)),
+    duracionSesionTotal: r.seg_prom_total === null ? null : Number(r.seg_prom_total),
+    app,
+  }
+}
+
 function monthKey(iso: string): string {
   const d = new Date(iso)
   return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
@@ -152,7 +312,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
   const d7  = new Date(now - 7  * 86400_000).toISOString()
   const d30 = new Date(now - 30 * 86400_000).toISOString()
 
-  const [authUsers, profiles, favorites] = await Promise.all([
+  const [authUsers, profiles, favorites, actividad] = await Promise.all([
     fetchAuthUsers(admin),
     fetchAllRows<{
       country: string | null
@@ -161,6 +321,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
       onboarding_skipped: boolean | null
     }>(admin, 'profiles', 'country, last_active, onboarding_completed_at, onboarding_skipped'),
     fetchAllRows<{ provider_name: string | null }>(admin, 'favorites', 'provider_name'),
+    buildActividad(admin),
   ])
 
   // ── Registros por mes (12 meses), con la fecha REAL de auth.users ────────
@@ -239,6 +400,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     },
     plataformasFavoritas,
     paises,
+    actividad,
     generadoEn: new Date().toISOString(),
   }
 }
