@@ -8,6 +8,7 @@ import {
   Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   X, ExternalLink, Ban, CheckCircle, Shield, Loader2,
   FileText, List, AlertCircle, MoreHorizontal, UserCheck, RefreshCw,
+  Smartphone, Clock, Info,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -31,6 +32,34 @@ interface AdminUser {
   review_count: number
   list_count: number
   follow_count: number
+
+  /** Tiene al menos un dispositivo registrado en `user_devices`. */
+  tiene_app: boolean
+  /** Las plataformas distintas de sus dispositivos: 'android', 'ios'. */
+  plataformas: string[]
+  /** El `last_seen_at` más reciente de todos sus dispositivos. */
+  ultimo_dispositivo: string | null
+
+  /**
+   * Tiempo de actividad medido, en segundos.
+   *
+   * `null` y 0 son cosas distintas y la UI las muestra distinto: `null` es "de
+   * esta persona no tenemos ni un evento", 0 sería "entró y no hizo nada". Con
+   * la medición recién arrancada, casi todos son `null`.
+   */
+  segundos_totales: number | null
+  sesiones: number | null
+  /** Último evento suyo registrado. No confundir con `last_active`. */
+  ultima_actividad: string | null
+}
+
+/** Desde cuándo existe la medición. Va en el cartel arriba de la tabla. */
+interface Medicion {
+  desde: string | null
+  eventos_humanos: number
+  usuarios_con_datos: number
+  /** `false` si las vistas de analytics todavía no se crearon en la base. */
+  disponible: boolean
 }
 
 interface ApiResponse {
@@ -38,12 +67,16 @@ interface ApiResponse {
   total: number
   page: number
   limit: number
+  medicion?: Medicion
 }
 
 interface Review { id: string; title: string; rating: number | null; body: string | null; created_at: string }
 interface UserList { id: string; title: string; is_public: boolean; created_at: string }
 
-type SortKey = 'username' | 'auth_created_at' | 'last_active' | 'review_count' | 'list_count' | 'follow_count' | 'points'
+type SortKey =
+  | 'username' | 'auth_created_at' | 'last_active'
+  | 'review_count' | 'list_count' | 'follow_count' | 'points'
+  | 'tiene_app' | 'segundos_totales' | 'sesiones'
 type SortDir = 'asc' | 'desc'
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -68,6 +101,32 @@ function timeAgo(iso: string | null | undefined): string {
 function fmtDate(iso: string | null | undefined): string {
   if (!iso) return '—'
   return new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })
+}
+
+function fmtDateTime(iso: string | null | undefined): string {
+  if (!iso) return '—'
+  return new Date(iso).toLocaleString('es-AR', {
+    day: 'numeric', month: 'long', year: 'numeric', hour: '2-digit', minute: '2-digit',
+  })
+}
+
+/**
+ * Segundos a algo legible: "2h 15m", "45m", "30s".
+ *
+ * Nadie lee 8100 segundos y entiende cuánto es. La unidad más chica se corta
+ * cuando ya hay horas —"2h 15m" y no "2h 15m 33s"— porque el tercer nivel de
+ * precisión no cambia ninguna decisión y hace la columna ilegible.
+ */
+function fmtDuracion(segundos: number | null | undefined): string {
+  if (segundos === null || segundos === undefined) return 'sin datos'
+  if (segundos < 60) return `${Math.round(segundos)}s`
+
+  const totalMin = Math.floor(segundos / 60)
+  if (totalMin < 60) return `${totalMin}m`
+
+  const horas = Math.floor(totalMin / 60)
+  const min = totalMin % 60
+  return min > 0 ? `${horas}h ${min}m` : `${horas}h`
 }
 
 // ── Sub-components ─────────────────────────────────────────────────────────
@@ -120,6 +179,7 @@ export default function UsuariosPage() {
   // Data
   const [users,   setUsers]   = useState<AdminUser[]>([])
   const [total,   setTotal]   = useState(0)
+  const [medicion, setMedicion] = useState<Medicion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
 
@@ -184,6 +244,7 @@ export default function UsuariosPage() {
       const data: ApiResponse = await res.json()
       setUsers(data.users)
       setTotal(data.total)
+      setMedicion(data.medicion ?? null)
 
       // Populate country list from first successful load (no filters)
       if (!country && !search && blocked === 'all' && page === 0) {
@@ -366,6 +427,42 @@ export default function UsuariosPage() {
             </div>
           </div>
 
+          {/*
+            Cartel de alcance. No es decorativo: sin él las columnas de tiempo
+            mienten por omisión. Alguien que abra este panel en tres meses va a
+            leer "2h 15m" y entender "esto es lo que esta persona usó la app",
+            cuando en realidad es lo que usó DESDE que instalamos el tracking.
+            La fecha sale de la base, no hardcodeada.
+          */}
+          <div className="mx-4 mt-3 flex items-start gap-2 rounded-xl border border-[#2A2A3A] bg-[#13131A] px-4 py-2.5 shrink-0">
+            <Info size={13} className="text-[#FFFD02] shrink-0 mt-0.5" />
+            <p className="text-[11px] leading-relaxed text-[#A0A0B0]">
+              {medicion?.disponible && medicion.desde ? (
+                <>
+                  <span className="text-white font-medium">Tiempo total</span> y{' '}
+                  <span className="text-white font-medium">Sesiones</span> se miden desde el{' '}
+                  <span className="text-white font-medium">{fmtDateTime(medicion.desde)}</span>
+                  {' '}—cuando se instaló el tracking—, no desde que cada usuario se registró.
+                  No es el histórico completo.
+                  {medicion.usuarios_con_datos > 0 && (
+                    <> Hoy hay datos de{' '}
+                      <span className="text-white font-medium">{medicion.usuarios_con_datos}</span>
+                      {medicion.usuarios_con_datos === 1 ? ' usuario' : ' usuarios'}.
+                    </>
+                  )}
+                </>
+              ) : (
+                <>
+                  <span className="text-white font-medium">Tiempo total</span> y{' '}
+                  <span className="text-white font-medium">Sesiones</span> todavía no están
+                  disponibles: falta crear las vistas de analytics en la base
+                  (<span className="text-white font-medium">supabase-analytics-actividad.sql</span>).
+                  Las columnas muestran «sin datos» hasta entonces.
+                </>
+              )}
+            </p>
+          </div>
+
           {/* Error */}
           {error && (
             <div className="m-4 bg-red-900/30 border border-red-800 rounded-xl px-5 py-4 flex items-start gap-3 shrink-0">
@@ -391,6 +488,12 @@ export default function UsuariosPage() {
                   <SortTh label="Registro"      sortKey="auth_created_at" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden md:table-cell" />
                   {/* Última actividad */}
                   <SortTh label="Últ. acceso"   sortKey="last_active"  currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden lg:table-cell" />
+                  {/* App móvil */}
+                  <SortTh label="App"           sortKey="tiene_app"        currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center" />
+                  {/* Tiempo de actividad medido */}
+                  <SortTh label="Tiempo total"  sortKey="segundos_totales" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center hidden md:table-cell" />
+                  {/* Sesiones */}
+                  <SortTh label="Sesiones"      sortKey="sesiones"         currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center hidden lg:table-cell" />
                   {/* Verificado */}
                   <th className="px-4 py-3 text-center text-xs text-[#A0A0B0] font-medium hidden md:table-cell">✓</th>
                   {/* Reseñas */}
@@ -416,6 +519,9 @@ export default function UsuariosPage() {
                       <td className="px-4 py-3 hidden lg:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-8" /></td>
                       <td className="px-4 py-3 hidden md:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-20" /></td>
                       <td className="px-4 py-3 hidden lg:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-16" /></td>
+                      <td className="px-4 py-3 text-center"><div className="h-4 w-4 bg-[#1C1C27] rounded mx-auto" /></td>
+                      <td className="px-4 py-3 text-center hidden md:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-12 mx-auto" /></td>
+                      <td className="px-4 py-3 text-center hidden lg:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-6 mx-auto" /></td>
                       <td className="px-4 py-3 hidden md:table-cell" />
                       <td className="px-4 py-3 text-center"><div className="h-2.5 bg-[#1C1C27] rounded w-5 mx-auto" /></td>
                       <td className="px-4 py-3 text-center hidden sm:table-cell"><div className="h-2.5 bg-[#1C1C27] rounded w-5 mx-auto" /></td>
@@ -466,6 +572,48 @@ export default function UsuariosPage() {
                       {/* Última actividad */}
                       <td className="px-4 py-3 hidden lg:table-cell">
                         <span className="text-xs text-[#A0A0B0]">{timeAgo(user.last_active)}</span>
+                      </td>
+
+                      {/* App móvil */}
+                      <td className="px-4 py-3 text-center">
+                        {user.tiene_app ? (
+                          <span
+                            className="inline-flex items-center gap-1 text-[10px] bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded-full font-medium"
+                            title={
+                              `${user.plataformas.length ? user.plataformas.join(', ') : 'plataforma desconocida'}` +
+                              ` · visto ${timeAgo(user.ultimo_dispositivo)}`
+                            }
+                          >
+                            <Smartphone size={9} />
+                            {user.plataformas.length ? user.plataformas.join('/') : 'sí'}
+                          </span>
+                        ) : (
+                          <span className="text-xs text-zinc-700" title="Sin dispositivos registrados">—</span>
+                        )}
+                      </td>
+
+                      {/* Tiempo total medido */}
+                      <td className="px-4 py-3 text-center hidden md:table-cell">
+                        {user.segundos_totales === null ? (
+                          // Un cero sería mentira: no sabemos que no usó la app,
+                          // sabemos que no tenemos eventos suyos.
+                          <span className="text-[11px] text-zinc-700 italic" title="Todavía no registramos eventos de este usuario">
+                            sin datos
+                          </span>
+                        ) : (
+                          <span className="inline-flex items-center gap-1 text-xs font-semibold text-[#FFFD02]">
+                            <Clock size={10} className="opacity-60" />
+                            {fmtDuracion(user.segundos_totales)}
+                          </span>
+                        )}
+                      </td>
+
+                      {/* Sesiones */}
+                      <td className="px-4 py-3 text-center hidden lg:table-cell">
+                        {user.sesiones === null
+                          ? <span className="text-[11px] text-zinc-700 italic">sin datos</span>
+                          : <span className="text-sm font-semibold text-teal-400">{user.sesiones}</span>
+                        }
                       </td>
 
                       {/* Verificado */}
@@ -669,6 +817,12 @@ export default function UsuariosPage() {
                     ['Últ. acceso',   timeAgo(selected.last_active)],
                     ['Nivel',         `Nv.${selected.level ?? '—'} · ${(selected.points ?? 0).toLocaleString()} pts`],
                     ['Actividad',     `${selected.review_count} reseñas · ${selected.list_count} listas`],
+                    ['App móvil',     selected.tiene_app
+                                        ? `${selected.plataformas.join(', ') || 'sí'} · visto ${timeAgo(selected.ultimo_dispositivo)}`
+                                        : 'No instalada'],
+                    ['Tiempo medido', selected.segundos_totales === null
+                                        ? 'sin datos aún'
+                                        : `${fmtDuracion(selected.segundos_totales)} · ${selected.sesiones} ${selected.sesiones === 1 ? 'sesión' : 'sesiones'}`],
                   ].map(([label, val]) => (
                     <div key={label} className="bg-[#13131A] rounded-xl px-3 py-2.5 col-span-1 overflow-hidden">
                       <p className="text-[#A0A0B0] text-[10px] uppercase tracking-wide mb-0.5">{label}</p>
