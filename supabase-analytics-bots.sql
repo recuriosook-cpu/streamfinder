@@ -25,12 +25,21 @@
 -- 1. COLUMNAS
 -- ----------------------------------------------------------------
 
--- DEFAULT false y NOT NULL: las filas viejas quedan todas en `false` y el paso
--- 3 se encarga de corregirlas. Preferimos ese orden —agregar barato, corregir
--- después— antes que un DEFAULT true que dejaría a los 16 humanos mal marcados
--- si el backfill se olvida de correr.
+-- NULLABLE y SIN DEFAULT, a propósito. Tres estados, no dos:
+--
+--   NULL   -> fila escrita antes de que existiera el filtro. No sabemos.
+--   true   -> el user-agent matcheó un patrón de bot.
+--   false  -> el user-agent se miró y no matcheó nada.
+--
+-- Un `NOT NULL DEFAULT false` dejaría las 3086 filas viejas indistinguibles de
+-- las nuevas de humanos, y el backfill tendría que adivinar cuáles son cuáles
+-- mirando la hora del deploy. Con el NULL, "lo que falta clasificar" es
+-- exactamente `is_bot IS NULL` y el orden entre correr esto y que salga el
+-- deploy deja de importar.
+--
+-- El código nuevo siempre escribe true o false, nunca NULL.
 ALTER TABLE public.analytics_events
-  ADD COLUMN IF NOT EXISTS is_bot BOOLEAN NOT NULL DEFAULT false;
+  ADD COLUMN IF NOT EXISTS is_bot BOOLEAN;
 
 -- Qué patrón matcheó ('googlebot', 'generico', 'sin-user-agent', ...).
 -- Es lo que permite auditar el filtro: si mañana desaparece el tráfico de algún
@@ -101,21 +110,36 @@ FROM public.analytics_events;
 
 -- 3b. EL UPDATE. Correr recién después de mirar 3a.
 --
--- `created_at < now()` no hace falta: esto se corre una vez, antes de que el
--- deploy nuevo empiece a escribir. Si llegara a correrse después, las filas
--- nuevas ya tienen bot_reason y el WHERE de abajo las excluye.
+-- Son dos, y los dos van contra `is_bot IS NULL`, o sea contra las filas que
+-- todavía nadie clasificó. Por eso no importa si esto se corre antes o después
+-- de que salga el deploy: las filas que escribe el código nuevo ya vienen con
+-- true o false y ninguno de los dos UPDATE las toca.
+--
+-- El orden entre los dos sí importa: primero se marcan los bots, después se
+-- marca como humano TODO lo que quedó sin clasificar.
+
+-- Los que no dejaron ningún rastro de cuenta: bots.
 UPDATE public.analytics_events
    SET is_bot     = true,
        bot_reason = 'backfill-sin-user-agent'
- WHERE bot_reason IS NULL
-   AND is_bot = false
+ WHERE is_bot IS NULL
    AND anon_id NOT IN (
      SELECT DISTINCT anon_id
        FROM public.analytics_events
       WHERE user_id IS NOT NULL
    );
 
--- 3c. VERIFICAR. Tienen que quedar ~16 eventos humanos y ~3070 bots.
+-- Lo que sobrevivió al filtro de arriba son los navegadores que en algún
+-- momento tuvieron sesión iniciada. Se marcan como humanos EXPLÍCITAMENTE: si
+-- quedaran en NULL, el panel —que filtra `is_bot = false`— no los contaría, y
+-- los 16 eventos que sí son de gente real desaparecerían de las métricas.
+UPDATE public.analytics_events
+   SET is_bot     = false,
+       bot_reason = 'backfill-humano-por-user-id'
+ WHERE is_bot IS NULL;
+
+-- 3c. VERIFICAR. Tienen que quedar ~16 eventos humanos y ~3070 bots, y
+--     CERO filas en NULL.
 SELECT is_bot, bot_reason, count(*) AS eventos,
        count(DISTINCT session_id) AS sesiones,
        count(DISTINCT anon_id)    AS navegadores
