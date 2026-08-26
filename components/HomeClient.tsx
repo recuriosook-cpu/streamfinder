@@ -8,7 +8,6 @@ import dynamic from 'next/dynamic'
 import { ChevronLeft, ChevronRight, TrendingUp, Star, List, Users, Compass, X as CloseIcon } from 'lucide-react'
 import CarouselCard from '@/components/CarouselCard'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
-import ReviewPromptDialog from '@/components/ReviewPromptDialog'
 import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
@@ -908,33 +907,6 @@ export default function HomeClient() {
     return () => clearTimeout(t)
   }, [])
 
-  // ── Review prompt — only on mobile, only once per session ────────────────
-  useEffect(() => {
-    if (user === undefined) return // auth not settled yet
-    if (!user) return             // not logged in
-
-    // Only mobile devices — Play Store makes no sense on desktop
-    const isMobile =
-      window.innerWidth < 768 ||
-      /Mobi|Android|iPhone|iPad/i.test(navigator.userAgent)
-    if (!isMobile) return
-
-    // Skip if already checked this session (regardless of shouldShow result)
-    if (sessionStorage.getItem('review_prompt_checked') === '1') return
-
-    const timer = setTimeout(async () => {
-      try {
-        // Mark as checked immediately — don't re-fetch even if shouldShow was false
-        sessionStorage.setItem('review_prompt_checked', '1')
-        const res = await fetch('/api/check-review-prompt')
-        const { shouldShow } = await res.json()
-        if (shouldShow) setShowReviewPrompt(true)
-      } catch { /* non-blocking */ }
-    }, 5000)
-
-    return () => clearTimeout(timer)
-  }, [user]) // re-evaluate once auth resolves
-
   // New sections
   const [recentItems,    setRecentItems]    = useState<RecentItem[]>([])
   const [recentLoading,  setRecentLoading]  = useState(true)
@@ -944,9 +916,6 @@ export default function HomeClient() {
   const [reviewsLoading,  setReviewsLoading]  = useState(true)
   const [officialLists,        setOfficialLists]        = useState<OfficialList[]>([])
   const [officialListsLoading, setOfficialListsLoading] = useState(true)
-
-  // Review prompt
-  const [showReviewPrompt, setShowReviewPrompt] = useState(false)
 
   // ── Auth + hero movie ─────────────────────────────────────────────────────
   useEffect(() => {
@@ -1319,12 +1288,6 @@ export default function HomeClient() {
           🎬 ¡Bienvenido a Glynbox! Tu experiencia está personalizada
         </div>
       )}
-
-      {/* Review prompt — mobile only, once per session */}
-      <ReviewPromptDialog
-        isOpen={showReviewPrompt}
-        onClose={() => setShowReviewPrompt(false)}
-      />
 
       {/* SECCIÓN 1 — HERO CAROUSEL (todos los usuarios) */}
       <HeroCarousel slides={heroSlides} user={user} userName={userName} />
