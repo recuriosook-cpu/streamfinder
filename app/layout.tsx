@@ -7,6 +7,7 @@ import { ConditionalShell } from '@/components/ConditionalShell'
 import { PingActive } from '@/components/PingActive'
 import { AnalyticsBoot } from '@/components/AnalyticsBoot'
 import { PageViewTracker } from '@/components/PageViewTracker'
+import { AppDownloadBarGate } from '@/components/AppDownloadBarGate'
 import { Toaster } from 'sonner'
 
 export const viewport: Viewport = {
@@ -114,6 +115,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PingActive />
           <AnalyticsBoot />
           <PageViewTracker />
+          <ConditionalShell><AppDownloadBarGate /></ConditionalShell>
           <Toaster theme="dark" position="top-right" richColors />
         </CountryProvider>
       </body>
