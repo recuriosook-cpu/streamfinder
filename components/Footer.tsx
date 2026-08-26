@@ -1,4 +1,5 @@
 import Link from 'next/link'
+import { GooglePlayBadge } from './GooglePlayBadge'
 
 function XIcon() {
   return (
@@ -61,6 +62,22 @@ export default function Footer() {
                   {s.icon}
                 </a>
               ))}
+            </div>
+
+            {/*
+              Badge de Google Play. En todas las páginas y en todos los
+              dispositivos, a diferencia de la barra inferior, que es solo de
+              celular y de una sola vez.
+
+              Queda visualmente un poco metido hacia adentro respecto del logo
+              de arriba, y está bien así: el PNG oficial trae el espacio libre
+              obligatorio adentro del archivo como área transparente. Corregir
+              esa sangría con un margen negativo sería meter el layout dentro
+              de ese espacio, que es justo lo que las condiciones de uso del
+              badge piden no hacer.
+            */}
+            <div className="mt-6">
+              <GooglePlayBadge />
             </div>
           </div>
 
