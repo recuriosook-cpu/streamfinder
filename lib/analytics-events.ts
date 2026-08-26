@@ -41,6 +41,37 @@ export const EVENT_NAMES = [
   'provider_click',
   /** Permiso de notificaciones. props: { estado: 'pedido' | 'aceptado' | 'rechazado' } */
   'notif_permission',
+
+  // ── Captación de instalaciones de la app de Android ─────────────────
+  //
+  // Los tres primeros son el embudo de la barra inferior: se muestra, se toca,
+  // se cierra. Van juntos a propósito, porque por separado no dicen nada. Un
+  // conteo de clicks sin el de vistas no es una tasa de conversión, es un
+  // número suelto; y sin el de cierres no se sabe si la barra molesta.
+  //
+  // La barra se muestra una sola vez por navegador, así que `app_banner_shown`
+  // cuenta navegadores alcanzados, no impresiones. `shown` debería ser siempre
+  // >= `clicked` + `dismissed`: la diferencia es la gente que la ignoró y
+  // siguió leyendo, que también es información.
+
+  /** Apareció la barra de descarga. Una vez por navegador. props: {} */
+  'app_banner_shown',
+  /** Tocó el botón de la barra y se fue a Play Store. props: {} */
+  'app_banner_clicked',
+  /** Cerró la barra con la X. props: {} */
+  'app_banner_dismissed',
+  /**
+   * Click en el badge de Google Play del pie de página. props: { path }
+   *
+   * Este va aparte del embudo de la barra y no comparte prefijo por casualidad:
+   * el badge está en todas las páginas y en todos los dispositivos, sin límite
+   * de una vez. Mezclarlo con `app_banner_clicked` volvería inútil la tasa de
+   * conversión de la barra.
+   *
+   * Lleva `path` porque el pie es idéntico en todo el sitio: sin eso no hay
+   * forma de saber desde qué pantalla salió el click.
+   */
+  'app_footer_clicked',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
