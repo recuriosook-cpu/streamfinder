@@ -4,6 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, LogOut, LogIn, Menu, X, UserCircle, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
+import { notificationUrl } from '@/lib/notification-content'
 import { createClient } from '@/lib/supabase'
 import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
@@ -182,20 +183,19 @@ export default function Navbar() {
       supabase.from('notifications').update({ read: true }).eq('id', n.id)
       setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
     }
-    // Navigate to the relevant page
-    if (n.type === 'follow' && n.actor?.username) {
-      router.push(`/usuario/${n.actor.username}`)
-    } else if (n.type === 'level_up' && user) {
-      router.push('/profile')
-    } else if (['review_like', 'review_comment', 'comment_reply', 'mention'].includes(n.type) && n.media_id && n.media_type) {
-      router.push(`/${n.media_type}/${n.media_id}`)
-    } else if (['list_like', 'list_comment'].includes(n.type) && n.entity_id) {
-      router.push(`/listas/${n.entity_id}`)
-    } else if (n.type === 'actor_birthday' && n.entity_id) {
-      router.push(`/actor/${n.entity_id}`)
-    } else if (n.type === 'new_release' && n.entity_id) {
-      router.push(`/movie/${n.entity_id}`)
-    }
+    // El destino sale de `notificationUrl()`, la única tabla tipo → ruta del
+    // proyecto: la misma que usa el push (`buildNotificationContent`) y la que
+    // sirve `/api/notifications` a la app. Antes esto era una cadena de if/else
+    // propia y ya se había desincronizado — para `review_like` la push abría
+    // `/review/{id}` y esto abría `/{media_type}/{media_id}`.
+    router.push(notificationUrl(n.type, {
+      review_id: n.review_id,
+      entity_id: n.entity_id,
+      entity_type: n.entity_type,
+      entity_title: n.entity_title,
+      review_title: n.review_title,
+      actor_id: n.actor_id,
+    }, n.actor?.username ?? null))
   }
 
   // Close notification dropdown when clicking outside
