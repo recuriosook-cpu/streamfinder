@@ -40,8 +40,6 @@ yarn-error.log*
 *.tsbuildinfo
 next-env.d.ts
 
-.vercel
-
 # next-pwa generated files
 /public/sw.js
 /public/sw.js.map
