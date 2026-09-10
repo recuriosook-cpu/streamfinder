@@ -144,23 +144,12 @@ export default async function MoviePage({ params }: Props) {
   }
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, { count: watchedCount }, { data: authData }] = await Promise.all([
+  const [omdbResult, collectionData, { count: watchedCount }] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
-    supabase.auth.getUser(),
   ])
   const omdb = omdbResult
-
-  const userId = authData.user?.id ?? null
-  let filteredSimilar = similar
-  if (userId) {
-    const { data: userWatched } = await supabase
-      .from('watched').select('media_id')
-      .eq('user_id', userId).eq('media_type', 'movie')
-    const watchedIds = new Set((userWatched ?? []).map((w: { media_id: number }) => w.media_id))
-    filteredSimilar = similar.filter((item: { id: number }) => !watchedIds.has(item.id))
-  }
 
   // Cast: top 10 billed actors
   const cast = (credits.cast ?? [])
@@ -430,7 +419,7 @@ export default async function MoviePage({ params }: Props) {
           title={movie.title}
           posterPath={movie.poster_path}
         />
-        <SimilarTitles items={filteredSimilar} mediaType="movie" />
+        <SimilarTitles items={similar} mediaType="movie" />
       </div>
     </div>
   )

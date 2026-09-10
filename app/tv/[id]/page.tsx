@@ -134,21 +134,10 @@ export default async function TVPage({ params }: Props) {
   }
 
   const supabase = createServerClient()
-  const [omdb, { count: watchedCount }, { data: authData }] = await Promise.all([
+  const [omdb, { count: watchedCount }] = await Promise.all([
     getOMDBRatings(externalIds?.imdb_id),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'tv'),
-    supabase.auth.getUser(),
   ])
-
-  const userId = authData.user?.id ?? null
-  let filteredSimilar = similar
-  if (userId) {
-    const { data: userWatched } = await supabase
-      .from('watched').select('media_id')
-      .eq('user_id', userId).eq('media_type', 'tv')
-    const watchedIds = new Set((userWatched ?? []).map((w: { media_id: number }) => w.media_id))
-    filteredSimilar = similar.filter((item: { id: number }) => !watchedIds.has(item.id))
-  }
 
   // Cast: top 10
   const cast = (credits.cast ?? [])
@@ -375,7 +364,7 @@ export default async function TVPage({ params }: Props) {
           title={show.name}
           posterPath={show.poster_path}
         />
-        <SimilarTitles items={filteredSimilar} mediaType="tv" />
+        <SimilarTitles items={similar} mediaType="tv" />
       </div>
     </div>
   )
