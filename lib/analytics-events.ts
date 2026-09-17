@@ -72,6 +72,36 @@ export const EVENT_NAMES = [
    * forma de saber desde qué pantalla salió el click.
    */
   'app_footer_clicked',
+
+  // ── Landing de descarga (/descargar) ────────────────────────────────
+  //
+  // Los dos eventos de una pantalla que no tiene otra cosa que hacer: se ve y
+  // se toca un botón. Van de a pares porque el número que importa no es
+  // ninguno de los dos por separado sino el cociente — cuánta de la gente que
+  // llegó desde una campaña terminó yendo a algún lado.
+  //
+  // Los dos llevan `dispositivo` porque la página muestra botones distintos
+  // según el aparato, y sin esa prop las visitas y los clicks no se podrían
+  // cruzar: un click a Play Store sólo puede venir de alguien a quien se le
+  // ofreció Play Store, y saber a cuántos se les ofreció es justamente el
+  // denominador.
+  //
+  // No reemplazan al `page_view` que `PageViewTracker` dispara igual en esta
+  // ruta. Ese sirve para la duración de sesión y no sabe de dispositivos; este
+  // es el embudo de la landing. Cuentan cosas distintas y conviven.
+
+  /** Se cargó /descargar. props: { dispositivo } */
+  'descargar_viewed',
+  /**
+   * Se tocó uno de los dos botones. props: { dispositivo, destino, boton }
+   *
+   * `destino` es a dónde se fue ('play_store' | 'glynbox_web') y `boton` es
+   * cuál de los dos tocó ('principal' | 'secundario'). Van separados porque no
+   * son lo mismo: en Android el principal lleva a Play Store y en escritorio el
+   * secundario lleva al mismo lado. Con una sola prop no se podría distinguir
+   * "eligió lo que le propusimos" de "eligió la alternativa".
+   */
+  'descargar_clicked',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

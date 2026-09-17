@@ -11,6 +11,8 @@ import {
 } from 'recharts'
 import { COUNTRIES } from '@/lib/countries'
 import type { AdminOverview } from '@/app/api/admin/overview/route'
+import type { DescargarResumen } from '@/app/api/admin/descargar/route'
+import { DISPOSITIVO_LABEL } from '@/lib/device'
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -53,6 +55,25 @@ function OnboardingCard({
   )
 }
 
+// ── Tarjeta del embudo de /descargar ───────────────────────────────────────
+
+function DescargaTile({
+  label, valor, hint, destacado = false,
+}: {
+  label: string
+  valor: string
+  hint: string
+  destacado?: boolean
+}) {
+  return (
+    <div className={`rounded-xl border p-4 ${destacado ? 'border-[#FFFD02]/30 bg-[#FFFD02]/5' : 'border-[#2A2A3A] bg-[#0A0A0F]'}`}>
+      <p className="text-xs font-semibold text-[#A0A0B0]">{label}</p>
+      <p className={`text-2xl font-black tabular-nums mt-1.5 ${destacado ? 'text-[#FFFD02]' : 'text-white'}`}>{valor}</p>
+      <p className="text-[10px] text-[#A0A0B0] mt-1">{hint}</p>
+    </div>
+  )
+}
+
 export default function MetricasPage() {
   const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
@@ -63,6 +84,7 @@ export default function MetricasPage() {
   const [topWatchlist,  setTopWatchlist]  = useState<TopMedia[]>([])
   const [topRated,      setTopRated]      = useState<TopMedia[]>([])
   const [topUsers,      setTopUsers]      = useState<TopUser[]>([])
+  const [descargar,     setDescargar]     = useState<DescargarResumen | null>(null)
 
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
@@ -76,8 +98,17 @@ export default function MetricasPage() {
       .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
       .catch(() => null)
 
+    // El embudo de /descargar sale de `analytics_events`, que anon y
+    // authenticated no pueden leer (ver el REVOKE en
+    // supabase-analytics-actividad.sql). Tiene que pasar por el servidor sí o
+    // sí; desde acá no hay forma de consultarlo.
+    const descargarPromise = fetch('/api/admin/descargar')
+      .then(async r => (r.ok ? ((await r.json()) as DescargarResumen) : null))
+      .catch(() => null)
+
     const [
       ov,
+      desc,
       profilesRes,
       reviewsRes,
       listsCountRes,
@@ -85,6 +116,7 @@ export default function MetricasPage() {
       ratingsRes,
     ] = await Promise.all([
       overviewPromise,
+      descargarPromise,
       supabase.from('profiles').select('id, username, avatar_url').limit(5000),
       supabase.from('reviews').select('user_id, created_at').limit(10000),
       supabase.from('lists').select('user_id').limit(10000),
@@ -93,6 +125,7 @@ export default function MetricasPage() {
     ])
 
     setOverview(ov)
+    setDescargar(desc)
 
     const profiles = (profilesRes.data ?? []) as { id: string; username: string | null; avatar_url: string | null }[]
 
@@ -181,6 +214,64 @@ export default function MetricasPage() {
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
+
+        {/* Landing de descarga — el embudo de /descargar.
+            Visitas y clicks vienen de `analytics_events` vía /api/admin/descargar:
+            la tabla no se puede leer con la anon key. */}
+        <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
+          <h2 className="text-sm font-semibold text-white mb-1">
+            Landing de descarga <code className="text-zinc-500 font-normal">/descargar</code>
+          </h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">
+            {descargar?.disponible
+              ? <>Sólo tráfico humano{descargar.desde && <> · desde el {new Date(descargar.desde).toLocaleDateString('es-AR')}</>}</>
+              : 'Todavía no entró ninguna visita'}
+          </p>
+
+          {!descargar?.disponible ? (
+            <p className="text-[#A0A0B0] text-sm py-6 text-center">Sin datos</p>
+          ) : (
+            <>
+              <div className="grid grid-cols-3 gap-3 mb-5">
+                <DescargaTile label="Visitas"    valor={descargar.totales.visitas.toLocaleString('es-AR')} hint="cargas de la página" />
+                <DescargaTile label="Clicks"     valor={descargar.totales.clicks.toLocaleString('es-AR')}  hint={`${descargar.totales.aPlayStore} a Play · ${descargar.totales.aWeb} al sitio`} />
+                <DescargaTile label="Conversión" valor={descargar.totales.conversionPct === null ? '—' : `${descargar.totales.conversionPct}%`} hint="clicks sobre visitas" destacado />
+              </div>
+
+              <div className="overflow-x-auto">
+                <table className="w-full text-sm">
+                  <thead>
+                    <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+                      <th className="text-left  font-medium py-2 pr-3">Dispositivo</th>
+                      <th className="text-right font-medium py-2 px-3">Visitas</th>
+                      <th className="text-right font-medium py-2 px-3">→ Play Store</th>
+                      <th className="text-right font-medium py-2 px-3">→ Sitio</th>
+                      <th className="text-right font-medium py-2 pl-3">Conversión</th>
+                    </tr>
+                  </thead>
+                  <tbody>
+                    {descargar.porDispositivo.map(fila => (
+                      <tr key={fila.dispositivo} className="border-b border-[#2A2A3A]/60 last:border-0">
+                        <td className="py-2.5 pr-3 text-white">{DISPOSITIVO_LABEL[fila.dispositivo]}</td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">{fila.visitas.toLocaleString('es-AR')}</td>
+                        {/* En iPhone/iPad la página no muestra botón de Play Store, así que
+                            un 0 ahí no es "nadie lo tocó" sino "no se ofrece". Un guion lo
+                            dice; un cero mentiría. */}
+                        <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
+                          {fila.dispositivo === 'ios' ? <span className="text-zinc-600" title="No se ofrece en iOS">—</span> : fila.aPlayStore.toLocaleString('es-AR')}
+                        </td>
+                        <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">{fila.aWeb.toLocaleString('es-AR')}</td>
+                        <td className="py-2.5 pl-3 text-right tabular-nums font-semibold text-[#FFFD02]">
+                          {fila.conversionPct === null ? <span className="text-zinc-600">—</span> : `${fila.conversionPct}%`}
+                        </td>
+                      </tr>
+                    ))}
+                  </tbody>
+                </table>
+              </div>
+            </>
+          )}
+        </div>
 
         {/* Onboarding — desglose real.
             `onboarding_completed = true` no distingue terminar de saltar:
