@@ -32,10 +32,22 @@ import { track, flushAnalytics } from '@/lib/analytics'
  *
  *   - **Tamaño mínimo.** El piso es 40px de alto para el badge. A 180px de
  *     ancho el archivo mide unos 70px de alto, y descontando el margen
- *     transparente el dibujo queda cerca de 47px. Con aire sobre el mínimo.
+ *     transparente el dibujo queda cerca de 54px. Con aire sobre el mínimo.
  *
  * Si algún día hay que cambiarlo, se baja de nuevo el oficial; no se edita este
  * PNG.
+ *
+ * ── Los dos lugares donde se usa ───────────────────────────────────────────
+ *
+ * Nació para el pie, y por eso ese sigue siendo el comportamiento por defecto:
+ * sin props hace exactamente lo que hacía antes. Después lo empezó a usar
+ * `/descargar`, donde el badge no es un adorno del pie sino el botón principal,
+ * y ahí hacían falta dos cosas distintas —otro tamaño y otro evento—, que son
+ * justo las dos props que acepta.
+ *
+ * Lo que NO es configurable, a propósito: el archivo, la proporción, el texto
+ * alternativo y el destino. Todo eso es la parte que las condiciones de marca
+ * fijan, y dejarlo abierto sería invitar a que un caller la rompa sin enterarse.
  */
 
 const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.glynbox.app'
@@ -44,7 +56,38 @@ const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.glynbox.app'
 const BADGE_W = 646
 const BADGE_H = 250
 
-export function GooglePlayBadge() {
+/** El del pie, y el piso razonable para cualquier uso. Ver "Tamaño mínimo". */
+const ANCHO_POR_DEFECTO = '180px'
+
+export interface GooglePlayBadgeProps {
+  /**
+   * Ancho CSS del badge. La altura siempre va en `auto`: la proporción del
+   * asset oficial no se toca.
+   *
+   * **No bajar de 180px.** El dibujo ocupa cerca del 30% del ancho en alto
+   * (el resto del archivo es el margen transparente), así que a 180px quedan
+   * unos 54px de badge dibujado y el piso de marca son 40px. Por debajo de
+   * ~135px se estaría incumpliendo.
+   */
+  ancho?: string
+
+  /**
+   * Qué registrar al tocarlo.
+   *
+   * Por defecto manda `app_footer_clicked`, que es el evento del pie. Quien lo
+   * use en otro contexto tiene que pasar el suyo: mezclar contextos en el mismo
+   * nombre de evento volvería inútiles las dos métricas, que es exactamente lo
+   * que el catálogo de `lib/analytics-events.ts` explica al separar
+   * `app_footer_clicked` de `app_banner_clicked`.
+   *
+   * El `flushAnalytics` NO es responsabilidad del caller: lo hace este
+   * componente siempre, porque el click se lleva la página a Play Store pase lo
+   * que pase y la cola manda de a lotes cada 5 segundos.
+   */
+  onClick?: () => void
+}
+
+export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick }: GooglePlayBadgeProps = {}) {
   const pathname = usePathname()
 
   return (
@@ -54,9 +97,13 @@ export function GooglePlayBadge() {
       rel="noopener noreferrer"
       aria-label="Conseguilo en Google Play"
       onClick={() => {
-        // `path` porque el pie es idéntico en todo el sitio: sin eso no se sabe
-        // desde qué pantalla salió el click.
-        track('app_footer_clicked', { path: pathname ?? null })
+        if (onClick) {
+          onClick()
+        } else {
+          // `path` porque el pie es idéntico en todo el sitio: sin eso no se sabe
+          // desde qué pantalla salió el click.
+          track('app_footer_clicked', { path: pathname ?? null })
+        }
         // El click se lleva la página a Play Store, y la cola de analytics
         // manda de a lotes cada 5 segundos. Sin el flush el evento se pierde.
         flushAnalytics()
@@ -69,7 +116,7 @@ export function GooglePlayBadge() {
         alt="Conseguilo en Google Play"
         width={BADGE_W}
         height={BADGE_H}
-        style={{ width: '180px', height: 'auto' }}
+        style={{ width: ancho, height: 'auto' }}
       />
     </a>
   )

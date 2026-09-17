@@ -3,6 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { track, flushAnalytics } from '@/lib/analytics'
+import { GooglePlayBadge } from '@/components/GooglePlayBadge'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
 
 /**
@@ -23,29 +24,58 @@ import { refinarDispositivo, type Dispositivo } from '@/lib/device'
  * alguien que llegó de un anuncio.
  *
  * El efecto de abajo igual refina el veredicto, pero sólo para el iPad que se
- * hace pasar por Mac. El porqué está en `lib/device.ts`. Es un cambio chico y
- * bien contenido: entre `'desktop'` y `'ios'` el botón principal es el mismo
- * —entrar al sitio— y lo único que se reemplaza es la línea de abajo.
+ * hace pasar por Mac. El porqué está en `lib/device.ts`.
+ *
+ * ── El link a Play Store es el badge oficial ───────────────────────────────
+ *
+ * Los dos lugares donde esta pantalla manda a Play Store —el botón principal en
+ * Android y el link de abajo en escritorio— usan `GooglePlayBadge`, que sirve
+ * el asset oficial sin modificar. Las condiciones de marca de Google piden eso
+ * y prohíben armar un botón propio que lo imite, que es lo que había acá antes.
+ *
+ * De yapa, el URL de la tienda ahora vive en un solo archivo. Antes estaba
+ * copiado en tres.
  */
 
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.glynbox.app'
-
 /**
- * A dónde manda cada botón, en el vocabulario de la métrica.
+ * A dónde manda cada acción, en el vocabulario de la métrica.
  *
  * `glynbox_web` y no `'/'`: lo que se guarda en `analytics_events` tiene que
  * seguir significando lo mismo si mañana la ruta cambia.
  */
 type Destino = 'play_store' | 'glynbox_web'
 
-/** El link chico de abajo: o lleva a algún lado, o es sólo una aclaración. */
-type Secundario =
-  | { tipo: 'link'; texto: string; href: string; externo: boolean; destino: Destino }
-  | { tipo: 'nota'; texto: string }
+/**
+ * Anchos del badge.
+ *
+ * El piso de marca son 40px de badge dibujado, que a esta proporción son ~135px
+ * de ancho; los dos valores están bien por encima. El detalle está en
+ * `components/GooglePlayBadge.tsx`.
+ */
+const ANCHO_BADGE_PRINCIPAL  = '260px'  // en Android es EL botón de la pantalla
+const ANCHO_BADGE_SECUNDARIO = '180px'  // en escritorio es el link de abajo; igual que en el pie
+
+/**
+ * Una de las dos cosas que puede haber en cada ranura de la pantalla.
+ *
+ * Es una unión discriminada y no un objeto con campos opcionales porque las
+ * cuatro formas no comparten nada: un badge no tiene texto propio, una nota no
+ * tiene destino. Con campos opcionales habría que acordarse de cuáles van
+ * juntos; así el `switch` de abajo no compila si falta un caso.
+ *
+ * `badge` no lleva `destino` ni `externo`: el badge siempre va a Play Store y
+ * siempre es externo. Ponerlos sería dejar abierta la puerta a que alguien los
+ * escriba mal y la métrica diga que un click al badge fue al sitio.
+ */
+type Accion =
+  | { tipo: 'boton'; texto: string; href: string; externo: boolean; destino: Destino }
+  | { tipo: 'badge'; ancho: string }
+  | { tipo: 'link';  texto: string; href: string; externo: boolean; destino: Destino }
+  | { tipo: 'nota';  texto: string }
 
 interface Variante {
-  principal: { texto: string; href: string; externo: boolean; destino: Destino }
-  secundario: Secundario
+  principal:  Accion
+  secundario: Accion
 }
 
 /**
@@ -57,10 +87,10 @@ interface Variante {
  * app de iPhone— es cambiar una entrada, no buscar condicionales.
  */
 const VARIANTES: Record<Dispositivo, Variante> = {
-  // Android es el único caso donde hay algo para instalar, así que el botón
-  // grande es el de la tienda y el sitio queda como alternativa.
+  // Android es el único caso donde hay algo para instalar, así que el badge de
+  // la tienda es EL botón de la pantalla y el sitio queda como alternativa.
   android: {
-    principal:  { texto: 'Descargar en Google Play', href: PLAY_URL, externo: true, destino: 'play_store' },
+    principal:  { tipo: 'badge', ancho: ANCHO_BADGE_PRINCIPAL },
     secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/', externo: false, destino: 'glynbox_web' },
   },
 
@@ -68,15 +98,15 @@ const VARIANTES: Record<Dispositivo, Variante> = {
   // perfecto, y abajo se avisa en chico para que nadie se vaya pensando que
   // Glynbox no existe para iOS.
   ios: {
-    principal:  { texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
+    principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
     secundario: { tipo: 'nota', texto: 'La app para iPhone está en camino' },
   },
 
-  // En escritorio no se puede instalar nada, pero el link a Play Store igual
-  // sirve: es gente que después agarra el teléfono.
+  // En escritorio no se puede instalar nada, pero el badge igual sirve: es
+  // gente que después agarra el teléfono.
   desktop: {
-    principal:  { texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
-    secundario: { tipo: 'link', texto: 'Descargar en Google Play', href: PLAY_URL, externo: true, destino: 'play_store' },
+    principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
+    secundario: { tipo: 'badge', ancho: ANCHO_BADGE_SECUNDARIO },
   },
 }
 
@@ -190,6 +220,10 @@ export default function DescargarClient({ dispositivoInicial }: { dispositivoIni
    * lo único que el navegador garantiza con la página muriendo. Para los links
    * internos no hace falta —es navegación del cliente, la cola sigue viva— y
    * forzarlo sería un request de más por cada click.
+   *
+   * El caso del badge es el único que no pasa por el `if`: `GooglePlayBadge`
+   * hace el flush por su cuenta, siempre, porque su destino es externo por
+   * definición.
    */
   const registrarClick = (destino: Destino, boton: 'principal' | 'secundario', externo: boolean) => {
     track('descargar_clicked', { dispositivo, destino, boton })
@@ -205,6 +239,70 @@ export default function DescargarClient({ dispositivoInicial }: { dispositivoIni
   const claseLinkChico =
     'text-[0.8125rem] text-[#A0A0B0] underline decoration-[#2A2A3A] underline-offset-4 ' +
     'transition-colors hover:text-white hover:decoration-[#A0A0B0]'
+
+  /**
+   * Dibuja una ranura.
+   *
+   * Un `switch` sobre la unión y no una cadena de ternarios anidados: con
+   * cuatro formas los ternarios se vuelven ilegibles, y además así TypeScript
+   * avisa si mañana se agrega un `tipo` y alguien se olvida de contemplarlo.
+   */
+  const renderAccion = (accion: Accion, ranura: 'principal' | 'secundario') => {
+    switch (accion.tipo) {
+      case 'badge':
+        return (
+          <GooglePlayBadge
+            ancho={accion.ancho}
+            onClick={() => registrarClick('play_store', ranura, true)}
+          />
+        )
+
+      case 'boton':
+        return accion.externo ? (
+          <a
+            href={accion.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => registrarClick(accion.destino, ranura, true)}
+            className={claseBoton}
+          >
+            {accion.texto}
+          </a>
+        ) : (
+          <Link
+            href={accion.href}
+            onClick={() => registrarClick(accion.destino, ranura, false)}
+            className={claseBoton}
+          >
+            {accion.texto}
+          </Link>
+        )
+
+      case 'link':
+        return accion.externo ? (
+          <a
+            href={accion.href}
+            target="_blank"
+            rel="noopener noreferrer"
+            onClick={() => registrarClick(accion.destino, ranura, true)}
+            className={claseLinkChico}
+          >
+            {accion.texto}
+          </a>
+        ) : (
+          <Link
+            href={accion.href}
+            onClick={() => registrarClick(accion.destino, ranura, false)}
+            className={claseLinkChico}
+          >
+            {accion.texto}
+          </Link>
+        )
+
+      case 'nota':
+        return <p className="text-[0.8125rem] text-[#6B6B7B]">{accion.texto}</p>
+    }
+  }
 
   return (
     <div
@@ -243,7 +341,16 @@ export default function DescargarClient({ dispositivoInicial }: { dispositivoIni
       </header>
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-8">
-        <div className="w-full max-w-sm text-center">
+        {/*
+          La columna se ensancha en pantallas grandes y la de los botones no.
+
+          A 384px —el ancho de móvil— el título en escritorio partía en dos y
+          dejaba "hoy?" solo en la segunda línea, que es el corte más feo
+          posible. Con `sm:max-w-lg` entra en un renglón. Los botones se quedan
+          en `max-w-sm` con su propio contenedor: un botón amarillo de 512px de
+          ancho en un monitor no se lee como un botón, se lee como una barra.
+        */}
+        <div className="w-full max-w-sm text-center sm:max-w-lg">
 
           <h1 className="text-[2rem] font-bold leading-[1.1] tracking-tight text-white sm:text-[2.6rem]">
             ¿No sabés qué ver hoy?
@@ -253,56 +360,35 @@ export default function DescargarClient({ dispositivoInicial }: { dispositivoIni
             Encontrá dónde ver cualquier peli o serie en tu país. Gratis.
           </p>
 
-          <div className="mt-9 sm:mt-10">
-            {principal.externo ? (
-              <a
-                href={principal.href}
-                target="_blank"
-                rel="noopener noreferrer"
-                onClick={() => registrarClick(principal.destino, 'principal', true)}
-                className={claseBoton}
-              >
-                {principal.texto}
-              </a>
-            ) : (
-              <Link
-                href={principal.href}
-                onClick={() => registrarClick(principal.destino, 'principal', false)}
-                className={claseBoton}
-              >
-                {principal.texto}
-              </Link>
-            )}
+          <div className="mx-auto mt-9 w-full max-w-sm sm:mt-10">
+            {/*
+              Centrado con flex y no con `text-center` heredado: el badge es un
+              `inline-block` con ancho propio, así que necesita que lo centre el
+              contenedor. El botón amarillo es `w-full` y le da igual.
+            */}
+            <div className="flex justify-center">
+              {renderAccion(principal, 'principal')}
+            </div>
 
             {/*
-              El bloque de abajo ocupa siempre el mismo alto tenga link o
-              aclaración, así el botón amarillo queda a la misma altura en los
-              tres casos y el refinamiento del iPad no mueve nada de lugar.
+              La ranura de abajo ya NO reserva un alto fijo.
+
+              Mientras las tres variantes tenían texto ahí, un `min-h` alcanzaba
+              para que el botón quedara siempre a la misma altura. Ahora en
+              escritorio hay un badge de ~70px y en iOS una línea de ~20px, así
+              que igualarlas significaría dejar 50px de aire muerto en Android e
+              iOS — en la pantalla que no puede scrollear y en el aparato que es
+              el objetivo de la campaña.
+
+              La consecuencia: en un iPad, cuando el refinamiento corrige
+              `desktop` → `ios` justo después de hidratar, el badge se
+              reemplaza por la línea de texto y el bloque se acomoda. Es un
+              salto de una vez, en un solo tipo de aparato, en el instante
+              anterior a que nadie haya leído nada. Se prefiere eso antes que
+              el aire permanente.
             */}
-            <div className="mt-5 flex min-h-[1.5rem] items-center justify-center">
-              {secundario.tipo === 'link' ? (
-                secundario.externo ? (
-                  <a
-                    href={secundario.href}
-                    target="_blank"
-                    rel="noopener noreferrer"
-                    onClick={() => registrarClick(secundario.destino, 'secundario', true)}
-                    className={claseLinkChico}
-                  >
-                    {secundario.texto}
-                  </a>
-                ) : (
-                  <Link
-                    href={secundario.href}
-                    onClick={() => registrarClick(secundario.destino, 'secundario', false)}
-                    className={claseLinkChico}
-                  >
-                    {secundario.texto}
-                  </Link>
-                )
-              ) : (
-                <p className="text-[0.8125rem] text-[#6B6B7B]">{secundario.texto}</p>
-              )}
+            <div className="mt-5 flex items-center justify-center">
+              {renderAccion(secundario, 'secundario')}
             </div>
           </div>
 
