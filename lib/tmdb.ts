@@ -8,24 +8,43 @@ export const getPosterUrl = (path: string | null | undefined, size = 'w342') =>
 export const getBackdropUrl = (path: string | null, size = 'w1280') =>
   path ? `${IMAGE_BASE}/${size}${path}` : null
 
-async function tmdbFetch(endpoint: string, params: Record<string, string> = {}) {
+/** Cuánto vive en el Data Cache lo que pide `tmdbFetch` si nadie dice otra cosa. */
+const DEFAULT_REVALIDATE = 3600
+
+type FetchOptions = {
+  /**
+   * Segundos de cache. Sólo hace falta pasarlo cuando el dato tolera estar más
+   * viejo que la hora por defecto y conviene que así sea — el mosaico de
+   * `/descargar`, por ejemplo, que no gana nada con refrescarse seguido y sí
+   * pierde si hace esperar a la landing.
+   */
+  revalidate?: number
+}
+
+async function tmdbFetch(
+  endpoint: string,
+  params: Record<string, string> = {},
+  options: FetchOptions = {},
+) {
   const url = new URL(`${BASE_URL}${endpoint}`)
   url.searchParams.set('api_key', TMDB_API_KEY!)
   url.searchParams.set('language', 'es-AR')
   for (const [k, v] of Object.entries(params)) {
     url.searchParams.set(k, v)
   }
-  const res = await fetch(url.toString(), { next: { revalidate: 3600 } })
+  const res = await fetch(url.toString(), {
+    next: { revalidate: options.revalidate ?? DEFAULT_REVALIDATE },
+  })
   if (!res.ok) throw new Error(`TMDB error: ${res.status}`)
   return res.json()
 }
 
-export async function getPopularMovies(page = 1) {
-  return tmdbFetch('/movie/popular', { page: String(page) })
+export async function getPopularMovies(page = 1, options?: FetchOptions) {
+  return tmdbFetch('/movie/popular', { page: String(page) }, options)
 }
 
-export async function getPopularTV(page = 1) {
-  return tmdbFetch('/tv/popular', { page: String(page) })
+export async function getPopularTV(page = 1, options?: FetchOptions) {
+  return tmdbFetch('/tv/popular', { page: String(page) }, options)
 }
 
 export async function searchMulti(query: string, page = 1) {

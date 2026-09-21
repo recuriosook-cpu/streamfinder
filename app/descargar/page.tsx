@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { detectarDispositivo } from '@/lib/device'
+import { obtenerPostersPopulares } from './posters'
 import DescargarClient from './DescargarClient'
 
 /**
@@ -23,6 +24,19 @@ import DescargarClient from './DescargarClient'
  * porque no hay datos que cachear —es HTML fijo con tres variantes— y el
  * resultado depende justamente de quién pregunta. Una versión estática tendría
  * que decidirse por un dispositivo y equivocarse con los otros dos.
+ *
+ * ── El mosaico también se resuelve acá ─────────────────────────────────────
+ *
+ * Los posters de la cartelera se piden en el servidor, no en el navegador. Si
+ * los buscara el cliente, la pantalla aparecería con el hueco vacío y se
+ * llenaría un segundo después, que es la clase de movimiento que distrae justo
+ * cuando la persona está por tocar el botón.
+ *
+ * Se esperan antes de responder, y eso alcanza porque casi nunca hay nada que
+ * esperar: `obtenerPostersPopulares` guarda la respuesta de TMDB seis horas en
+ * el Data Cache, así que sólo el primer visitante de cada ventana paga el viaje
+ * de ida y vuelta. Y si TMDB no contesta, la función devuelve una lista vacía
+ * en vez de tirar: la pantalla se dibuja sin mosaico y el botón sigue ahí.
  *
  * ── Sobre el armazón del sitio ─────────────────────────────────────────────
  *
@@ -49,8 +63,24 @@ export const metadata: Metadata = {
 }
 
 export default async function DescargarPage() {
-  const cabeceras = await headers()
+  // En paralelo: el veredicto del user-agent no depende de los posters ni al
+  // revés, y encadenarlos sumaría la espera de TMDB a la de los headers.
+  const [cabeceras, posters] = await Promise.all([
+    headers(),
+    obtenerPostersPopulares(),
+  ])
+
   const dispositivo = detectarDispositivo(cabeceras.get('user-agent'))
 
-  return <DescargarClient dispositivoInicial={dispositivo} />
+  return (
+    <>
+      {/*
+        Las imágenes del mosaico salen de otro dominio, así que sin esto el
+        navegador recién abre la conexión —DNS, TCP y TLS— cuando encuentra el
+        primer `<img>`. React 19 lo sube solo al `<head>`.
+      */}
+      <link rel="preconnect" href="https://image.tmdb.org" />
+      <DescargarClient dispositivoInicial={dispositivo} posters={posters} />
+    </>
+  )
 }

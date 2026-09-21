@@ -4,6 +4,7 @@ import { useEffect, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { track, flushAnalytics } from '@/lib/analytics'
 import { GooglePlayBadge } from '@/components/GooglePlayBadge'
+import { MosaicoPosters } from './MosaicoPosters'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
 
 /**
@@ -25,6 +26,28 @@ import { refinarDispositivo, type Dispositivo } from '@/lib/device'
  *
  * El efecto de abajo igual refina el veredicto, pero sólo para el iPad que se
  * hace pasar por Mac. El porqué está en `lib/device.ts`.
+ *
+ * ── El mosaico y el reparto de la altura ───────────────────────────────────
+ *
+ * Entre el logo y el título hay una cartelera de posters en movimiento. Las
+ * rutas llegan por prop, ya elegidas en el servidor; el componente que las
+ * dibuja es `MosaicoPosters`.
+ *
+ * Lo que importa acá es cómo se reparte el alto, porque la regla de esta
+ * pantalla sigue siendo que el botón se vea sin scrollear ni en el teléfono más
+ * chico. La banda y el bloque del título son los dos `flex-1`, pero no compiten
+ * de igual a igual:
+ *
+ *   - El bloque del título no puede achicarse por debajo de su contenido —es el
+ *     `min-height: auto` que traen los ítems de un flex en columna—, así que se
+ *     queda con lo que necesita antes que nada.
+ *   - La banda lleva `min-h-0`, que le saca ese piso: agarra lo que sobró,
+ *     aunque sea poco, y si no sobra nada desaparece sin empujar a nadie.
+ *   - Y lleva `max-h-[34svh]` para el caso contrario, el monitor grande, donde
+ *     media pantalla de posters taparía al título en vez de acompañarlo.
+ *
+ * En 320×568 —el piso que nos pusimos— eso deja la banda en algo más de 100px:
+ * un renglón de posters desvaneciéndose, con el botón intacto en su lugar.
  *
  * ── El link a Play Store es el badge oficial ───────────────────────────────
  *
@@ -137,7 +160,14 @@ let visitaRegistrada = false
  */
 const noHayASuscribirse = () => () => {}
 
-export default function DescargarClient({ dispositivoInicial }: { dispositivoInicial: Dispositivo }) {
+export default function DescargarClient({
+  dispositivoInicial,
+  posters,
+}: {
+  dispositivoInicial: Dispositivo
+  /** Rutas de poster de TMDB para el mosaico. Vacío = pantalla sin mosaico. */
+  posters: string[]
+}) {
   /**
    * El aparato que se usa para elegir la variante.
    *
@@ -339,6 +369,8 @@ export default function DescargarClient({ dispositivoInicial }: { dispositivoIni
           style={{ height: '34px', width: 'auto', objectFit: 'contain' }}
         />
       </header>
+
+      <MosaicoPosters posters={posters} />
 
       <div className="relative z-10 flex flex-1 flex-col items-center justify-center px-6 py-8">
         {/*

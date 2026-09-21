@@ -128,6 +128,124 @@ a, button {
   animation: modal-slide-in 150ms ease forwards;
 }
 
+/* ── Mosaico de posters (/descargar) ────────────────────────────── */
+/*
+   La cartelera en movimiento de la landing de campañas. El árbol está en
+   `app/descargar/MosaicoPosters.tsx`; acá está todo lo que se ve y se mueve.
+*/
+
+.mosaico {
+  /* Ancho de cada poster; el alto sale de la proporción 2:3 de TMDB. */
+  --mosaico-ancho: 74px;
+  /* Separación entre posters, y también entre filas. */
+  --mosaico-aire: 10px;
+  /* Cuánto tarda una tira en recorrer su propia mitad. */
+  --mosaico-dur: 70s;
+
+  /*
+     Los bordes se funden con el fondo en vez de cortarse. Es lo que mantiene
+     al título como lo principal de la pantalla: el mosaico no termina en una
+     línea, se desvanece.
+
+     Va con prefijo además de sin él por Safari viejo, donde `mask-image` sin
+     `-webkit-` no hace nada y la banda quedaría con dos cortes duros.
+  */
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 76%, transparent 100%);
+          mask-image: linear-gradient(to bottom, transparent 0%, #000 24%, #000 76%, transparent 100%);
+}
+
+@media (min-width: 640px) {
+  .mosaico {
+    --mosaico-ancho: 96px;
+    --mosaico-aire: 12px;
+  }
+}
+
+.mosaico-inclinado {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: center;
+  gap: var(--mosaico-aire);
+  /*
+     La inclinación es lo que la vuelve una cartelera y no una grilla. Al girar
+     quedan dos triángulos vacíos en las esquinas, y el `scale` los tapa
+     agrandando la capa por detrás del recorte de la banda.
+  */
+  transform: rotate(-3deg) scale(1.14);
+}
+
+.mosaico-fila {
+  overflow: hidden;
+}
+
+.mosaico-tira {
+  display: flex;
+  width: max-content;
+  animation: mosaico-desliz var(--mosaico-dur) linear infinite;
+  will-change: transform;
+}
+
+/*
+   Direcciones alternadas: las filas pares van para el otro lado. `reverse` y
+   no un segundo `@keyframes` — es la misma animación leída al revés.
+*/
+.mosaico-fila:nth-child(even) .mosaico-tira {
+  animation-direction: reverse;
+}
+
+/*
+   Velocidades distintas y arranques desfasados. Con las tres filas a la misma
+   velocidad el conjunto se lee como un bloque único que se desliza; así cada
+   una va por su cuenta. El retraso NEGATIVO es la parte importante: adelanta
+   la animación en vez de hacerla esperar, así que al cargar la página las tres
+   filas ya están en posiciones distintas y ninguna empieza alineada con otra.
+*/
+.mosaico-fila:nth-child(2) .mosaico-tira { --mosaico-dur: 88s; animation-delay: -22s; }
+.mosaico-fila:nth-child(3) .mosaico-tira { --mosaico-dur: 76s; animation-delay: -47s; }
+
+@keyframes mosaico-desliz {
+  from { transform: translate3d(0, 0, 0); }
+  /*
+     Exactamente la mitad: la tira lleva la lista repetida dos veces, así que
+     acá el primer poster de la copia cae justo donde estaba el original y el
+     reinicio no se ve. Ver la nota de `MosaicoPosters.tsx`.
+  */
+  to   { transform: translate3d(-50%, 0, 0); }
+}
+
+.mosaico-poster {
+  flex: none;
+  width: var(--mosaico-ancho);
+  height: auto;
+  aspect-ratio: 2 / 3;
+  object-fit: cover;
+  border-radius: 6px;
+  /*
+     La separación va adentro de cada ítem y no como `gap` de la tira: con
+     `gap`, el 50% de la animación no coincide con el comienzo de la segunda
+     copia y cada vuelta da un tirón. Ver la nota de `MosaicoPosters.tsx`.
+  */
+  margin-right: var(--mosaico-aire);
+  /* Mientras la imagen no llegó, el hueco es del color de las tarjetas. */
+  background-color: #13131A;
+}
+
+/*
+   Menos movimiento: los posters quedan quietos.
+
+   La regla global de más abajo ya neutraliza cualquier animación del sitio,
+   pero esto va explícito igual. Aquella apaga por efecto colateral —le pone
+   una duración de 0.01ms a todo—; esta dice lo que se quiere que pase acá, y
+   sobrevive si alguna vez se afina la global.
+*/
+@media (prefers-reduced-motion: reduce) {
+  .mosaico-tira {
+    animation: none;
+  }
+}
+
 /* ── Accessibility: reduce motion ───────────────────────────────── */
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after {
