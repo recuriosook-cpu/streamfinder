@@ -13,6 +13,7 @@ import { COUNTRIES } from '@/lib/countries'
 import type { AdminOverview } from '@/app/api/admin/overview/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
+import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -205,6 +206,12 @@ export default function MetricasPage() {
           <LandingDescargarPanel />
           <GooglePlayPanel />
         </div>
+
+        {/* Retención — va a lo ancho y no en la grilla de arriba: son cuatro
+            bloques, dos de ellos tablas, y en media columna no entran. Y va
+            después de captación a propósito: primero cómo llegan, después qué
+            pasa con los que llegaron. */}
+        <RetencionPanel />
 
         {/* Onboarding — desglose real.
             `onboarding_completed = true` no distingue terminar de saltar:
