@@ -2,7 +2,7 @@
 
 export const metadata: Metadata = {
   title: "Política de Privacidad — Glynbox",
-  description: "Conoce cómo Glynbox recopila, usa y protege tus datos personales.",
+  description: "Conocé cómo Glynbox recopila, usa y protege tus datos personales.",
 };
 
 export default function PrivacidadPage() {
@@ -10,7 +10,7 @@ export default function PrivacidadPage() {
     <div className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-4xl font-bold mb-2 text-white">Política de Privacidad</h1>
-        <p className="text-[#A0A0B0] mb-12">Última actualización: mayo de 2026</p>
+        <p className="text-[#A0A0B0] mb-12">Última actualización: septiembre de 2026</p>
 
         <div className="space-y-12">
           <section>
@@ -18,20 +18,20 @@ export default function PrivacidadPage() {
               1. Qué datos recopilamos
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
-              Cuando usas Glynbox podemos recopilar los siguientes datos personales:
+              Cuando usás Glynbox podemos recopilar los siguientes datos personales:
             </p>
             <ul className="list-disc list-inside space-y-2 text-zinc-300">
               <li>
                 <span className="text-white font-medium">Correo electrónico</span> — para crear y gestionar tu cuenta.
               </li>
               <li>
-                <span className="text-white font-medium">Nombre y foto de perfil</span> — proporcionados directamente por ti o a través de tu proveedor de autenticación.
+                <span className="text-white font-medium">Nombre y foto de perfil</span> — proporcionados directamente por vos o a través de tu proveedor de autenticación.
               </li>
               <li>
-                <span className="text-white font-medium">Historial de visualización</span> — películas y series que marcas como vistas, en tu lista o favoritas.
+                <span className="text-white font-medium">Historial de visualización</span> — películas y series que marcás como vistas, en tu lista o favoritas.
               </li>
               <li>
-                <span className="text-white font-medium">Reseñas y valoraciones</span> — el contenido que publicas sobre películas y series.
+                <span className="text-white font-medium">Reseñas y valoraciones</span> — el contenido que publicás sobre películas y series.
               </li>
               <li>
                 <span className="text-white font-medium">Interacciones sociales</span> — seguidores, seguidos y actividad pública dentro de la plataforma.
@@ -50,12 +50,13 @@ export default function PrivacidadPage() {
               <li>Personalizar tus recomendaciones de películas y series según tu historial.</li>
               <li>Mostrar tu actividad social a usuarios que te siguen.</li>
               <li>Mantener tu sesión activa y tus preferencias guardadas.</li>
-              <li>Enviarte notificaciones relacionadas con la actividad de tu cuenta (si las activas).</li>
+              <li>Enviarte notificaciones relacionadas con la actividad de tu cuenta (si las activás).</li>
               <li>Mejorar el funcionamiento y la experiencia general de la plataforma.</li>
             </ul>
             <p className="text-[#A0A0B0] mt-4 text-sm">
               No vendemos tus datos personales (nombre, correo, historial) a terceros. La publicidad que
-              mostramos opera a través de cookies de Google AdSense, descritas en la sección 5.
+              mostramos opera a través de cookies de Google AdSense en el sitio web y de Google AdMob en la
+              aplicación móvil, descritas en las secciones 5 y 6.
             </p>
           </section>
 
@@ -102,7 +103,7 @@ export default function PrivacidadPage() {
               </li>
             </ul>
             <p className="text-zinc-300 leading-relaxed mt-3">
-              Puedes eliminar las cookies desde la configuración de tu navegador en cualquier momento, aunque esto puede afectar el funcionamiento de algunas funciones de la plataforma.
+              Podés eliminar las cookies desde la configuración de tu navegador en cualquier momento, aunque esto puede afectar el funcionamiento de algunas funciones de la plataforma.
             </p>
           </section>
 
@@ -160,36 +161,124 @@ export default function PrivacidadPage() {
 
           <section>
             <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
-              6. Derechos del usuario
+              6. Publicidad en la aplicación móvil
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
-              Como usuario de Glynbox tienes los siguientes derechos sobre tus datos:
+              La aplicación móvil de Glynbox para Android muestra publicidad. El proveedor es{" "}
+              <span className="text-white font-medium">Google AdMob</span>, un servicio de Google.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Para mostrar los anuncios, Google puede usar:
             </p>
             <ul className="list-disc list-inside space-y-2 text-zinc-300">
               <li>
-                <span className="text-white font-medium">Acceso</span> — puedes consultar en cualquier momento los datos que tenemos sobre ti desde tu perfil.
+                <span className="text-white font-medium">El identificador de publicidad del dispositivo</span> — un código que Android le asigna a tu teléfono y que podés restablecer o eliminar cuando quieras.
               </li>
               <li>
-                <span className="text-white font-medium">Rectificación</span> — puedes actualizar tu nombre, foto de perfil y otros datos desde la configuración de tu cuenta.
+                <span className="text-white font-medium">Datos de uso de la app</span> — por ejemplo, qué anuncios se te mostraron, si interactuaste con ellos y datos técnicos del dispositivo, como el modelo o la versión de Android.
               </li>
               <li>
-                <span className="text-white font-medium">Eliminación</span> — puedes solicitar la eliminación completa de tu cuenta y todos los datos asociados contactándonos directamente.
+                <span className="text-white font-medium">Datos aproximados de ubicación</span> — derivados de tu dirección IP, para mostrarte anuncios acordes a tu región.
+              </li>
+            </ul>
+            <p className="text-zinc-300 leading-relaxed mt-3 mb-3">
+              Glynbox no le envía a Google tu nombre, tu correo electrónico ni tu historial de visualización con
+              fines publicitarios. El tratamiento de los datos que Google recopila a través de AdMob se rige por
+              sus propias políticas:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-zinc-300 mb-3">
+              <li>
+                <a
+                  href="https://policies.google.com/technologies/ads"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
+                >
+                  Cómo usa Google los datos con fines publicitarios
+                </a>
               </li>
               <li>
-                <span className="text-white font-medium">Exportación</span> — puedes solicitar una copia de tus datos (historial, reseñas, listas) contactando al equipo de soporte.
+                <a
+                  href="https://policies.google.com/privacy"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors"
+                >
+                  Política de privacidad de Google
+                </a>
+              </li>
+            </ul>
+
+            <h3 className="text-base font-semibold text-white mt-8 mb-3">
+              Consentimiento en el Espacio Económico Europeo y el Reino Unido
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Si estás en el Espacio Económico Europeo, Suiza o el Reino Unido, la primera vez que abrís la app te
+              pedimos tu consentimiento para el uso de datos con fines publicitarios. Podés cambiar esa decisión
+              cuando quieras desde{" "}
+              <span className="text-white font-medium">Ajustes → Legales → Opciones de privacidad de anuncios</span>,
+              dentro de la aplicación.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Esa opción aparece únicamente para usuarios del Espacio Económico Europeo, Suiza y el Reino Unido.
+              Cambiar tu consentimiento no afecta el resto de las funciones de Glynbox.
+            </p>
+
+            <h3 className="text-base font-semibold text-white mt-8 mb-3">
+              Cómo desactivar la publicidad personalizada
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              En cualquier país podés pedirle a Android que no se use tu identificador para personalizar anuncios:
+            </p>
+            <ol className="list-decimal list-inside space-y-2 text-zinc-300">
+              <li>
+                Abrí los <span className="text-white font-medium">Ajustes</span> de tu teléfono.
               </li>
               <li>
-                <span className="text-white font-medium">Oposición</span> — puedes oponerte al uso de tus datos para personalización de recomendaciones o actividad social.
+                Entrá en <span className="text-white font-medium">Google → Todos los servicios → Anuncios</span> (según la versión de Android puede aparecer como <span className="text-white font-medium">Privacidad → Anuncios</span>).
+              </li>
+              <li>
+                Elegí <span className="text-white font-medium">Eliminar el ID de publicidad</span> o <span className="text-white font-medium">Desactivar la personalización de anuncios</span>.
+              </li>
+            </ol>
+            <p className="text-zinc-300 leading-relaxed mt-3">
+              Vas a seguir viendo publicidad en la app, pero los anuncios dejan de basarse en tus intereses. Desde
+              ese mismo menú también podés restablecer tu identificador para empezar de cero.
+            </p>
+          </section>
+
+          <section>
+            <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
+              7. Derechos del usuario
+            </h2>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Como usuario de Glynbox tenés los siguientes derechos sobre tus datos:
+            </p>
+            <ul className="list-disc list-inside space-y-2 text-zinc-300">
+              <li>
+                <span className="text-white font-medium">Acceso</span> — podés consultar en cualquier momento los datos que tenemos sobre vos desde tu perfil.
+              </li>
+              <li>
+                <span className="text-white font-medium">Rectificación</span> — podés actualizar tu nombre, foto de perfil y otros datos desde la configuración de tu cuenta.
+              </li>
+              <li>
+                <span className="text-white font-medium">Eliminación</span> — podés solicitar la eliminación completa de tu cuenta y todos los datos asociados contactándonos directamente.
+              </li>
+              <li>
+                <span className="text-white font-medium">Exportación</span> — podés solicitar una copia de tus datos (historial, reseñas, listas) contactando al equipo de soporte.
+              </li>
+              <li>
+                <span className="text-white font-medium">Oposición</span> — podés oponerte al uso de tus datos para personalización de recomendaciones o actividad social.
               </li>
             </ul>
           </section>
 
           <section>
             <h2 className="text-xl font-semibold text-[#FFFD02] mb-4">
-              7. Contacto
+              8. Contacto
             </h2>
             <p className="text-zinc-300 leading-relaxed">
-              Si tienes preguntas sobre esta política de privacidad, deseas ejercer alguno de tus derechos o necesitas soporte, puedes contactarnos en:
+              Si tenés preguntas sobre esta política de privacidad, querés ejercer alguno de tus derechos o necesitás soporte, podés contactarnos en:
             </p>
             <a
               href="mailto:contacto@glynbox.com"
