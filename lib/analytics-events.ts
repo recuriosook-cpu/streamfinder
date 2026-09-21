@@ -102,6 +102,39 @@ export const EVENT_NAMES = [
    * "eligió lo que le propusimos" de "eligió la alternativa".
    */
   'descargar_clicked',
+
+  // ── Acciones dentro de la app de Android ────────────────────────────
+  //
+  // Los cuatro que manda la app nativa. No son exclusivos de ella por
+  // diseño —la web podría emitirlos igual y el día que lo haga van a
+  // convivir en la misma columna— pero hoy sólo llegan con
+  // `platform = 'mobile'`.
+  //
+  // El resto de lo que manda la app reusa los nombres que ya estaban:
+  // `app_open`, `page_view`, `signup_started`, `signup_completed` y los tres
+  // de onboarding. Eso no es ahorro: es lo que permite poner el embudo de
+  // registro de la app al lado del de la web y que las dos columnas
+  // signifiquen lo mismo. Lo que las separa es `platform`, no el nombre.
+
+  /**
+   * Una búsqueda resuelta. props: { tipo, con_resultados }
+   *
+   * Una por búsqueda, ya pasado el debounce: cuenta búsquedas, no teclas.
+   * Paginar los resultados no emite otro.
+   *
+   * Lleva `con_resultados` en vez de existir un evento aparte para el caso
+   * vacío. Con dos eventos, el total de búsquedas es una suma que alguien se
+   * va a olvidar de hacer. (`search_no_results`, que sigue más arriba, es el
+   * que usa la web desde antes; la app no lo manda para no contar dos veces
+   * la misma búsqueda.)
+   */
+  'search_performed',
+  /** Abrió la ficha de una peli o serie. props: { media_type, media_id } */
+  'media_opened',
+  /** Calificó. props: { media_type, media_id, valor } */
+  'media_rated',
+  /** Guardó en watchlist. Sólo al agregar. props: { media_type, media_id } */
+  'watchlist_added',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

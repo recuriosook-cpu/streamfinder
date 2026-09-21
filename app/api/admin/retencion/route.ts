@@ -119,6 +119,18 @@ export interface GrupoComportamiento {
   onboardingCompletoPct: number | null
 }
 
+export interface CohorteApp {
+  /** Lunes de la semana del primer evento de esa instalación. */
+  semana: string
+  instalaciones: number
+  d1: number
+  d7: number
+  d30: number
+  d1Pct: number | null
+  d7Pct: number | null
+  d30Pct: number | null
+}
+
 export interface RetencionResumen {
   disponible: boolean
   motivo: 'sin_migracion' | 'sin_datos' | null
@@ -127,6 +139,14 @@ export interface RetencionResumen {
   /** Desde cuándo hay eventos. Define qué cohortes son legibles. */
   medicionDesde: string | null
   cohortes: CohorteRetencion[]
+  /**
+   * Retención de la app, por semana de instalación.
+   *
+   * Vacío mientras no haya eventos con `platform = 'mobile'`, o si todavía no
+   * se corrió `supabase-analytics-app.sql`. Es la única parte que puede faltar
+   * sin que falte todo el resto, así que se trata aparte.
+   */
+  app: CohorteApp[]
   registro: PasoRegistro[]
   sesiones: SesionesPrimeraSemana | null
   comportamiento: GrupoComportamiento[]
@@ -137,6 +157,10 @@ export interface RetencionResumen {
 
 interface FilaCohorte {
   semana: string; usuarios: number; d1: number; d7: number; d30: number
+  d1_maduro: boolean; d7_maduro: boolean; d30_maduro: boolean
+}
+interface FilaCohorteApp {
+  semana: string; instalaciones: number; d1: number; d7: number; d30: number
   d1_maduro: boolean; d7_maduro: boolean; d30_maduro: boolean
 }
 interface FilaPaso { orden: number; clave: string; etiqueta: string; usuarios: number }
@@ -165,7 +189,7 @@ const num = (v: number | null | undefined): number | null =>
 function vacio(motivo: 'sin_migracion' | 'sin_datos'): RetencionResumen {
   return {
     disponible: false, motivo, semanas: SEMANAS, dias: DIAS, medicionDesde: null,
-    cohortes: [], registro: [], sesiones: null, comportamiento: [],
+    cohortes: [], app: [], registro: [], sesiones: null, comportamiento: [],
     generadoEn: new Date().toISOString(),
   }
 }
@@ -187,9 +211,12 @@ export async function GET() {
   const { admin, failure } = requireAdminClient('admin/retencion')
   if (failure) return failure
 
-  const [cohortesRes, registroRes, sesionesRes, comportamientoRes, medicionRes] =
+  const [cohortesRes, appRes, registroRes, sesionesRes, comportamientoRes, medicionRes] =
     await Promise.all([
       admin.rpc('retencion_cohortes', { p_semanas: SEMANAS }),
+      // La de la app va aparte del resto: su SQL es otro archivo y puede no
+      // estar corrido todavía. Su error NO tira abajo la sección entera.
+      admin.rpc('retencion_app_instalaciones', { p_semanas: SEMANAS }),
       admin.rpc('retencion_embudo_registro', { p_dias: DIAS }),
       admin.rpc('retencion_sesiones_primera_semana', { p_dias: DIAS }),
       admin.rpc('retencion_comportamiento', { p_dias: DIAS }),
@@ -198,6 +225,8 @@ export async function GET() {
       admin.from('analytics_medicion').select('desde').maybeSingle(),
     ])
 
+  // `appRes` queda afuera: su migración es un archivo aparte y su ausencia no
+  // puede dejar sin datos al resto.
   const errores = [cohortesRes.error, registroRes.error, sesionesRes.error, comportamientoRes.error]
   if (errores.some(faltaLaMigracion)) {
     console.warn('[admin/retencion] falta correr supabase-analytics-retencion.sql')
@@ -227,6 +256,30 @@ export async function GET() {
         d30Pct: f.d30_maduro ? porcentaje(Number(f.d30), usuarios) : null,
       }
     })
+
+  // ── Retención de la app ──────────────────────────────────────────────
+  //
+  // Tolerante a propósito: si falta `supabase-analytics-app.sql`, o si la
+  // versión instrumentada todavía no se publicó, esto queda vacío y el resto
+  // de la sección se muestra igual. Al revés —que la falta de la app dejara
+  // sin retención de la web— sería perder lo que ya funcionaba.
+  if (appRes.error && !faltaLaMigracion(appRes.error)) {
+    console.error('[admin/retencion] la parte de app falló:', appRes.error.message)
+  }
+
+  const app: CohorteApp[] = ((appRes.data as FilaCohorteApp[] | null) ?? []).map(f => {
+    const instalaciones = Number(f.instalaciones)
+    return {
+      semana: f.semana,
+      instalaciones,
+      d1: Number(f.d1),
+      d7: Number(f.d7),
+      d30: Number(f.d30),
+      d1Pct:  f.d1_maduro  ? porcentaje(Number(f.d1),  instalaciones) : null,
+      d7Pct:  f.d7_maduro  ? porcentaje(Number(f.d7),  instalaciones) : null,
+      d30Pct: f.d30_maduro ? porcentaje(Number(f.d30), instalaciones) : null,
+    }
+  })
 
   // ── Embudo del registro ──────────────────────────────────────────────
   const filasPaso = ((registroRes.data as FilaPaso[] | null) ?? [])
@@ -293,6 +346,7 @@ export async function GET() {
 
   const hayAlgo =
     cohortes.length > 0 ||
+    app.length > 0 ||
     registro.some(p => p.usuarios > 0) ||
     (sesiones?.usuarios ?? 0) > 0 ||
     comportamiento.length > 0
@@ -313,6 +367,7 @@ export async function GET() {
     dias: DIAS,
     medicionDesde,
     cohortes,
+    app,
     registro,
     sesiones,
     comportamiento,

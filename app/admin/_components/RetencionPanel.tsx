@@ -1,23 +1,28 @@
 'use client'
 
 import { useEffect, useState } from 'react'
-import { Loader2, AlertTriangle, Repeat, UserMinus, LogIn } from 'lucide-react'
+import { Loader2, AlertTriangle, Repeat, UserMinus, LogIn, Smartphone } from 'lucide-react'
 import type {
-  RetencionResumen, CohorteRetencion, PasoRegistro, GrupoComportamiento,
+  RetencionResumen, CohorteRetencion, CohorteApp, PasoRegistro, GrupoComportamiento,
 } from '@/app/api/admin/retencion/route'
 
 /**
  * La sección de retención.
  *
- * Cuatro bloques: cohortes por semana de alta, embudo del registro, sesiones
- * de la primera semana y qué hizo distinto el que volvió.
+ * Cinco bloques: retención de la app por instalación, retención de la web por
+ * semana de alta, embudo del registro, sesiones de la primera semana y qué
+ * hizo distinto el que volvió.
  *
- * ── El cartel de arriba no es decorativo ──────────────────────────────────
+ * ── Dos denominadores distintos en la misma sección ───────────────────────
  *
- * Esta sección nació de la pregunta "por qué se desinstala tanto la app", y no
- * la contesta. La app de Android no manda un solo evento, así que todo esto es
- * la web. Dejarlo dicho en pantalla, y no sólo en el commit, es la diferencia
- * entre una métrica útil y una que se va a leer mal dentro de tres meses.
+ * El bloque de la app cuenta INSTALACIONES y los demás cuentan CUENTAS
+ * REGISTRADAS. No son lo mismo y no se restan: una instalación que nunca se
+ * registró existe sólo en el primero, y una cuenta creada en la web no
+ * aparece en el primero aunque después instale la app.
+ *
+ * Mezclarlos es el error fácil de cometer mirando esto, así que el cartel de
+ * arriba lo dice en pantalla y no sólo acá. Mientras la app no mande nada, ese
+ * mismo cartel avisa que todo lo que se ve es la web.
  *
  * ── Por qué hay tantos guiones ────────────────────────────────────────────
  *
@@ -65,6 +70,43 @@ function CeldaRetencion({ valor, pctValor }: { valor: number; pctValor: number |
       <span className={`font-semibold ${tono}`}>{pctValor}%</span>
       <span className="text-zinc-600 text-[11px] ml-1">({valor})</span>
     </td>
+  )
+}
+
+/**
+ * La misma tabla que la de la web, con otra primera columna.
+ *
+ * Aparte y no un componente genérico con props: son cinco líneas de JSX y
+ * generalizarlo obligaría a parametrizar el nombre de la métrica, el de la
+ * columna y el tipo de la fila para ahorrar eso. La celda coloreada, que es
+ * lo que sí tiene lógica, sí se comparte.
+ */
+function TablaApp({ cohortes }: { cohortes: CohorteApp[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+            <th className="text-left  font-medium py-2 pr-3">Semana</th>
+            <th className="text-right font-medium py-2 px-2">Instalaciones</th>
+            <th className="text-right font-medium py-2 px-2">Día 1</th>
+            <th className="text-right font-medium py-2 px-2">Día 7</th>
+            <th className="text-right font-medium py-2 px-2">Día 30</th>
+          </tr>
+        </thead>
+        <tbody>
+          {cohortes.map(c => (
+            <tr key={c.semana} className="border-b border-[#2A2A3A]/60 last:border-0">
+              <td className="py-2 pr-3 text-white tabular-nums">{semanaCorta(c.semana)}</td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{numero(c.instalaciones)}</td>
+              <CeldaRetencion valor={c.d1}  pctValor={c.d1Pct} />
+              <CeldaRetencion valor={c.d7}  pctValor={c.d7Pct} />
+              <CeldaRetencion valor={c.d30} pctValor={c.d30Pct} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
@@ -242,20 +284,33 @@ export function RetencionPanel() {
       </p>
 
       {/*
-        El aviso de alcance va arriba de todo y en amarillo de advertencia, no
-        al pie en gris: esta sección se pidió para entender las
-        desinstalaciones de la app, y no las explica.
+        El aviso de alcance. Cambia de texto según si la app ya está mandando
+        datos: mientras no llegue nada, sigue siendo la advertencia de que esto
+        es sólo la web. Cuando llega, pasa a explicar qué mide cada bloque, que
+        es la confusión que queda después.
       */}
-      <div className="flex gap-2.5 rounded-xl border border-amber-900/50 bg-amber-500/5 p-3 mb-5">
-        <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
-        <p className="text-[11px] text-amber-200/90 leading-relaxed">
-          <span className="font-semibold">Esto mide la web, no la app.</span>{' '}
-          La app de Android no tiene analytics instrumentado —no manda ningún evento—
-          así que estos números no explican las desinstalaciones. De la app sólo
-          tenemos el conteo agregado de Play, sin usuario ni motivo, en la sección
-          Google Play.
-        </p>
-      </div>
+      {!cargando && datos?.disponible && (datos.app.length === 0 ? (
+        <div className="flex gap-2.5 rounded-xl border border-amber-900/50 bg-amber-500/5 p-3 mb-5">
+          <AlertTriangle size={15} className="text-amber-400 shrink-0 mt-0.5" />
+          <p className="text-[11px] text-amber-200/90 leading-relaxed">
+            <span className="font-semibold">Todavía no llega nada de la app.</span>{' '}
+            Los bloques de abajo son la web. La app ya está instrumentada, pero hasta
+            que la versión con analytics esté publicada e instalada no hay eventos
+            con los que armar su retención — y hay que correr{' '}
+            <code className="text-amber-100">supabase-analytics-app.sql</code>.
+          </p>
+        </div>
+      ) : (
+        <div className="flex gap-2.5 rounded-xl border border-[#2A2A3A] bg-[#0A0A0F] p-3 mb-5">
+          <Smartphone size={15} className="text-[#A0A0B0] shrink-0 mt-0.5" />
+          <p className="text-[11px] text-[#A0A0B0] leading-relaxed">
+            El primer bloque es la <span className="text-white font-semibold">app</span> y
+            se cuenta por instalación; los demás son la{' '}
+            <span className="text-white font-semibold">web</span> y se cuentan por cuenta
+            registrada. No son el mismo denominador y no se restan entre sí.
+          </p>
+        </div>
+      ))}
 
       {cargando ? (
         <div className="flex justify-center py-10">
@@ -266,11 +321,28 @@ export function RetencionPanel() {
       ) : (
         <div className="space-y-7">
 
+          {/* ── 0. Retención de la app ────────────────────────────── */}
+          {datos.app.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5">
+                <Smartphone size={13} className="text-[#A0A0B0]" />
+                App de Android: vuelven, por semana de instalación
+              </h3>
+              <p className="text-[10px] text-[#A0A0B0] mb-3">
+                Una instalación, no una cuenta: se cohortea por el primer evento que
+                mandó ese aparato y cuenta los que no se registraron nunca. Si una
+                instalación deja de aparecer, se abandonó o se borró — Google no dice
+                cuál de las dos.
+              </p>
+              <TablaApp cohortes={datos.app} />
+            </div>
+          )}
+
           {/* ── 1. Cohortes ───────────────────────────────────────── */}
           <div>
             <h3 className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5">
               <Repeat size={13} className="text-[#A0A0B0]" />
-              Vuelven, por semana de alta
+              Web: vuelven, por semana de alta
             </h3>
             <p className="text-[10px] text-[#A0A0B0] mb-3">
               Retención Día-N: tuvo actividad <em>ese</em> día, no antes ni después.
