@@ -4,7 +4,7 @@ import { useCallback, useEffect, useState } from 'react'
 import { Loader2, ExternalLink, Globe, UserPlus, Eye, Clock, Files } from 'lucide-react'
 import { DISPOSITIVO_LABEL } from '@/lib/device'
 import type { DescargarResumen, PasoEmbudo } from '@/app/api/admin/descargar/route'
-import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/analytics-descargar'
+import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-ventanas'
 
 /**
  * El panel de la landing `/descargar`, entero.
@@ -110,7 +110,7 @@ function Tile({
 
 /*
   Los botones salen de la misma lista que valida el endpoint, no de una copia:
-  agregar una ventana es tocar `lib/analytics-descargar.ts` y nada más.
+  agregar una ventana es tocar `lib/metricas-ventanas.ts` y nada más.
 */
 
 // ── Panel ──────────────────────────────────────────────────────────────────

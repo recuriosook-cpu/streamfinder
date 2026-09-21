@@ -7,7 +7,7 @@ import {
   VENTANA_POR_DEFECTO,
   esVentana,
   type Ventana,
-} from '@/lib/analytics-descargar'
+} from '@/lib/metricas-ventanas'
 
 /**
  * GET /api/admin/descargar?dias=7|30
@@ -92,7 +92,7 @@ async function requireAdmin() {
 /**
  * La ventana pedida, o la de por defecto.
  *
- * La lista de ventanas válidas vive en `lib/analytics-descargar.ts`, compartida
+ * La lista de ventanas válidas vive en `lib/metricas-ventanas.ts`, compartida
  * con el panel: ahí está el porqué.
  */
 function leerVentana(req: NextRequest): Ventana {

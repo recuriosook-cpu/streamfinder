@@ -12,6 +12,7 @@ import {
 import { COUNTRIES } from '@/lib/countries'
 import type { AdminOverview } from '@/app/api/admin/overview/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
+import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -183,12 +184,27 @@ export default function MetricasPage() {
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
 
-        {/* Landing /descargar — panel propio, con su filtro y sus propios
-            datos. Todo lo suyo vive en el componente: el embudo, el tiempo
-            por sesión y el corte por dispositivo salen de
-            /api/admin/descargar, que es la única vía posible —
-            `analytics_events` no se puede leer con la anon key. */}
-        <LandingDescargarPanel />
+        {/*
+          Captación: los dos paneles, uno al lado del otro.
+
+          Van en pareja porque cuentan las dos mitades de lo mismo. El de la
+          izquierda sabe cuánta gente que llegó por una campaña tocó el botón
+          de Play Store; el de la derecha, cuánta terminó instalando. Por
+          separado, cada uno responde media pregunta.
+
+          Se apilan hasta `xl` y recién ahí se ponen lado a lado: los dos son
+          densos —una tabla de seis columnas uno, tres gráficos el otro— y
+          partirlos en dos columnas angostas antes de tener el ancho los vuelve
+          ilegibles. `items-start` para que el más corto no se estire.
+
+          Cada uno se pide sus propios datos y mantiene su propio filtro; lo
+          que comparten es la lista de ventanas (`lib/metricas-ventanas.ts`),
+          para que no se pueda terminar comparando 7 días contra 30.
+        */}
+        <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
+          <LandingDescargarPanel />
+          <GooglePlayPanel />
+        </div>
 
         {/* Onboarding — desglose real.
             `onboarding_completed = true` no distingue terminar de saltar:
