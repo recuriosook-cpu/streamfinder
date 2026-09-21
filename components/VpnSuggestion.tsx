@@ -3,6 +3,7 @@
 import { useSyncExternalStore } from 'react'
 import { COUNTRIES, getCountry } from '@/lib/countries'
 import { FlagCircle } from '@/components/CountrySelector'
+import ProviderBadge from '@/components/ProviderBadge'
 import { isRunningInApp } from '@/lib/app-mode'
 import { track } from '@/lib/analytics'
 
@@ -79,9 +80,6 @@ const AFILIADO_URL = 'https://get.surfshark.net/aff_c?offer_id=926&aff_id=1768'
 
 /** Tres banderas. Cuatro ya es una lista, y una lista es un banner. */
 const MAX_PAISES = 3
-
-/** Cuántos proveedores se nombran por país antes de cortar. */
-const MAX_PROVEEDORES_POR_PAIS = 3
 
 /**
  * El orden en que se eligen los países, de más relevante a menos.
@@ -217,34 +215,27 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
 
   return (
     <div className="bg-[#13131A] rounded-xl p-6 mt-4">
-      <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3">
-        Disponible en otros países
-      </p>
+      {destinos.map(({ code, providers }) => (
+        <ProviderBadge
+          key={code}
+          providers={providers}
+          label={
+            <>
+              <FlagCircle code={code} size={18} />
+              Disponible en {getCountry(code).name}
+            </>
+          }
+        />
+      ))}
 
-      <ul className="space-y-2 mb-5">
-        {destinos.map(({ code, providers }) => {
-          const pais = getCountry(code)
-          const nombres = providers
-            .slice(0, MAX_PROVEEDORES_POR_PAIS)
-            .map(p => p.provider_name)
-            .join(', ')
-          return (
-            <li key={code} className="flex items-center gap-2.5 text-sm text-zinc-300">
-              <FlagCircle code={code} size={20} />
-              <span>
-                <span className="text-white font-medium">{pais.name}</span>
-                <span className="text-[#A0A0B0]"> · {nombres}</span>
-              </span>
-            </li>
-          )
-        })}
-      </ul>
-
-      <p className="text-sm text-zinc-300 mb-4">
-        Con una VPN podés acceder al catálogo de otro país.
-      </p>
-
-      <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+      {/*
+        Sin `tmdbLink` a propósito, así que los logos son `div` y no links.
+        El único destino del bloque es Surfshark —no tiene sentido mandar a
+        alguien a la página de TMDB de un país donde igual no puede ver nada— y
+        además cada logo con link emitiría `provider_click`, que mide otra cosa:
+        clicks a plataformas disponibles en el país de quien mira.
+      */}
+      <div className="flex items-center gap-3 mt-6">
         <a
           href={AFILIADO_URL}
           target="_blank"
@@ -252,11 +243,9 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
           onClick={onClick}
           className="inline-flex items-center justify-center shrink-0 rounded-full border border-[#FFFD02]/40 px-5 py-2.5 text-sm font-semibold text-[#FFFD02] hover:bg-[#FFFD02] hover:text-black transition-colors"
         >
-          Probar Surfshark
+          Ver con Surfshark
         </a>
-        <p className="text-xs text-[#A0A0B0] leading-relaxed">
-          Enlace de afiliado: si contratás, Glynbox recibe una comisión sin costo extra para vos.
-        </p>
+        <span className="text-xs text-[#A0A0B0]">Patrocinado</span>
       </div>
     </div>
   )

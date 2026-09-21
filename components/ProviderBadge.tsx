@@ -1,6 +1,7 @@
 'use client'
 
 import Image from 'next/image'
+import type { ReactNode } from 'react'
 import { track } from '@/lib/analytics'
 
 interface Provider {
@@ -11,7 +12,13 @@ interface Provider {
 
 interface Props {
   providers: Provider[]
-  label: string
+  /**
+   * Un nodo y no sólo texto porque `VpnSuggestion` encabeza cada país con la
+   * bandera redonda al lado del nombre. El `<p>` de abajo le aplica el mismo
+   * color y el mismo `uppercase` a lo que venga, así que la etiqueta de un país
+   * termina viéndose igual que "INCLUIDO EN SUSCRIPCIÓN".
+   */
+  label: ReactNode
   tmdbLink?: string
   mediaType?: 'movie' | 'tv'
   mediaId?: number
@@ -34,7 +41,11 @@ export default function ProviderBadge({ providers, label, tmdbLink, mediaType, m
 
   return (
     <div className="mb-6 last:mb-0">
-      <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3">{label}</p>
+      {/*
+        `flex` para que la bandera de `VpnSuggestion` quede alineada con el
+        texto. Una etiqueta que es sólo texto se ve exactamente igual que antes.
+      */}
+      <p className="flex items-center gap-2 text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-3">{label}</p>
       <div className="flex flex-wrap gap-4">
         {providers.map(p => {
           const logo = p.logo_path ? (
