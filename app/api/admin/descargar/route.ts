@@ -1,14 +1,20 @@
-import { NextResponse } from 'next/server'
+import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
-import { DISPOSITIVOS, type Dispositivo } from '@/lib/device'
+import { DISPOSITIVOS, esDispositivo, type Dispositivo } from '@/lib/device'
+import {
+  VENTANA_POR_DEFECTO,
+  esVentana,
+  type Ventana,
+} from '@/lib/analytics-descargar'
 
 /**
- * GET /api/admin/descargar
+ * GET /api/admin/descargar?dias=7|30
  *
- * El embudo de la landing `/descargar`, para el panel: cuánta gente la vio,
- * cuánta tocó un botón, con qué aparato y hacia dónde se fue.
+ * Todo lo que el panel muestra de la landing `/descargar`: el embudo de
+ * visitas → clicks → registros, el tiempo y las páginas por sesión, y el mismo
+ * corte abierto por dispositivo.
  *
  * ── Por qué es un endpoint y no una consulta desde el panel ────────────────
  *
@@ -19,31 +25,39 @@ import { DISPOSITIVOS, type Dispositivo } from '@/lib/device'
  * panel consulta Supabase desde el cliente para casi todo, pero para esto no
  * puede. La service role vive acá y no sale del servidor.
  *
- * ── Por qué son conteos y no una descarga de filas ─────────────────────────
+ * ── Por qué son dos RPC y no veinte conteos ────────────────────────────────
  *
- * La forma obvia sería traer los eventos y agrupar en JavaScript. Funciona hoy
- * y se rompe sola: una landing de campaña es justo el tipo de página que puede
- * juntar cien mil filas en una semana buena, y a esa altura habría que poner un
- * tope — que es lo mismo que decir que el número del panel deja de ser cierto
- * sin avisar.
+ * La versión anterior de este archivo pedía nueve `count(*)` con `head: true`,
+ * uno por combinación de dispositivo y destino. Servía mientras lo único que
+ * había que contar fueran eventos sueltos.
  *
- * Así que se piden conteos: `head: true` con `count: 'exact'` no trae ni una
- * fila, sólo el número, y el número es siempre el real. Son nueve consultas en
- * vez de una, pero van todas juntas en un `Promise.all` y ninguna transporta
- * datos. Es más barato que traer las filas, no más caro.
+ * Ya no alcanza, por dos motivos:
  *
- * El filtro sobre `props` usa la sintaxis de PostgREST para JSONB
- * (`props->>dispositivo`). No hay índice sobre esa expresión; con el volumen de
- * una landing no hace falta, y el día que haga falta se agrega en el SQL sin
- * tocar este archivo.
+ *   1. **El registro no es un evento de esta pantalla.** Ocurre en el
+ *      onboarding, y sólo se le puede atribuir a la landing mirando la sesión
+ *      entera. Eso es un GROUP BY, y PostgREST no agrupa.
+ *   2. **La unidad pasó a ser la sesión.** Contando eventos, alguien que toca
+ *      el botón tres veces daba 300% de conversión sobre su propia visita.
+ *
+ * Así que el agregado vive en SQL (`supabase-analytics-descargar.sql`) y acá
+ * sólo se llaman dos funciones y se arma el JSON. La alternativa —bajarse las
+ * sesiones y promediar en JavaScript— funciona hoy y se rompe sola el día que
+ * una campaña buena deje cien mil filas.
  *
  * ── Los bots ──────────────────────────────────────────────────────────────
  *
- * Todo filtra `is_bot = false`, igual que el resto del panel. En una página que
- * se promociona con links públicos esto no es un detalle: los previsualizadores
- * de WhatsApp, Twitter y Facebook la van a visitar cada vez que alguien comparta
- * el link. Sin el filtro, las visitas serían en buena parte robots y la tasa de
- * conversión daría cualquier cosa.
+ * El filtro `is_bot = false` está adentro de la vista, así que no hay forma de
+ * olvidárselo desde acá. En una página que se promociona con links públicos no
+ * es un detalle: los previsualizadores de WhatsApp, Twitter y Facebook la
+ * visitan cada vez que alguien comparte el link.
+ *
+ * ── Si el SQL todavía no se corrió ─────────────────────────────────────────
+ *
+ * El SQL de este proyecto se aplica a mano en el editor de Supabase, así que el
+ * código puede estar desplegado antes que las funciones existan. En ese caso
+ * Postgres devuelve 42883 / PGRST202 y acá se contesta `disponible: false` con
+ * `motivo: 'sin_migracion'`, para que el panel diga qué falta en vez de
+ * mostrar un panel vacío que parece un bug.
  */
 
 export const runtime = 'nodejs'
@@ -73,168 +87,263 @@ async function requireAdmin() {
   return profile?.username === 'Ferlageok' ? user : null
 }
 
+// ── Ventanas ───────────────────────────────────────────────────────────────
+
+/**
+ * La ventana pedida, o la de por defecto.
+ *
+ * La lista de ventanas válidas vive en `lib/analytics-descargar.ts`, compartida
+ * con el panel: ahí está el porqué.
+ */
+function leerVentana(req: NextRequest): Ventana {
+  const crudo = Number(req.nextUrl.searchParams.get('dias'))
+  return esVentana(crudo) ? crudo : VENTANA_POR_DEFECTO
+}
+
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
 export interface FilaDispositivo {
   dispositivo: Dispositivo
+  /** Sesiones que llegaron a la landing con este aparato. */
   visitas: number
+  /** Sesiones que se fueron a Play Store. */
   aPlayStore: number
+  /** Sesiones que entraron al sitio. */
   aWeb: number
-  /** La suma de los dos de arriba. Se manda calculada para que la UI no sume. */
+  /** Sesiones con al menos un click, a donde sea. No es la suma de las dos de arriba. */
   clicks: number
+  /** Sesiones que terminaron registrándose. */
+  registros: number
   /**
    * Clicks sobre visitas, en porcentaje.
    *
    * `null` cuando no hubo visitas: no existe el porcentaje de conversión sobre
    * cero, y mostrar 0% ahí diría "nadie tocó el botón" cuando lo que pasa es
-   * que nadie llegó. Es la misma distinción que hace `Metrica` en
-   * `/api/admin/overview`.
+   * que nadie llegó.
    */
   conversionPct: number | null
 }
 
+export interface PasoEmbudo {
+  clave: 'visitas' | 'clicks' | 'registros'
+  etiqueta: string
+  valor: number
+  /** Sobre el total de visitas. El primer paso es siempre 100. */
+  pctSobreVisitas: number | null
+  /** Sobre el paso anterior. `null` en el primero. */
+  pctSobreAnterior: number | null
+}
+
 export interface DescargarResumen {
-  /** `false` si la tabla no existe o si todavía no entró ninguna visita. */
+  /** `false` si falta correr el SQL o si todavía no entró ninguna sesión. */
   disponible: boolean
-  /** Primera visita registrada. Va en el cartel de arriba. */
+  motivo: 'sin_migracion' | 'sin_datos' | null
+  /** La ventana efectivamente aplicada. */
+  dias: Ventana
+  /** Primera sesión registrada, sin ventana. Para saber desde cuándo medimos. */
   desde: string | null
-  porDispositivo: FilaDispositivo[]
-  totales: {
-    visitas: number
-    clicks: number
+
+  embudo: {
+    pasos: PasoEmbudo[]
+    /** Reparto del paso del medio. Un click es a Play Store o al sitio. */
     aPlayStore: number
     aWeb: number
-    conversionPct: number | null
+    /** Registros sobre los que entraron al sitio, que es el paso real anterior. */
+    registrosSobreWebPct: number | null
   }
+
+  sesion: {
+    /** Promedio de duración, en segundos. `null` sin sesiones. */
+    segundosPromedio: number | null
+    /** Promedio de páginas vistas. `null` sin sesiones. */
+    vistasPromedio: number | null
+  }
+
+  porDispositivo: FilaDispositivo[]
   generadoEn: string
 }
 
-const VACIO: DescargarResumen = {
-  disponible: false,
-  desde: null,
-  porDispositivo: [],
-  totales: { visitas: 0, clicks: 0, aPlayStore: 0, aWeb: 0, conversionPct: null },
-  generadoEn: new Date().toISOString(),
+// ── Formas que devuelve el SQL ─────────────────────────────────────────────
+
+interface FilaResumen {
+  visitas: number
+  con_click: number
+  con_click_play: number
+  con_click_web: number
+  registros: number
+  segundos_promedio: number | null
+  vistas_promedio: number | null
+  primera: string | null
 }
+
+interface FilaDispositivoSql {
+  dispositivo: string
+  visitas: number
+  con_click_play: number
+  con_click_web: number
+  registros: number
+}
+
+// ── Ayudas ─────────────────────────────────────────────────────────────────
 
 function porcentaje(parte: number, total: number): number | null {
   if (total <= 0) return null
   return Math.round((parte / total) * 1000) / 10
 }
 
+function vacio(dias: Ventana, motivo: 'sin_migracion' | 'sin_datos'): DescargarResumen {
+  return {
+    disponible: false,
+    motivo,
+    dias,
+    desde: null,
+    embudo: { pasos: [], aPlayStore: 0, aWeb: 0, registrosSobreWebPct: null },
+    sesion: { segundosPromedio: null, vistasPromedio: null },
+    porDispositivo: [],
+    generadoEn: new Date().toISOString(),
+  }
+}
+
+/**
+ * ¿El error es "la función no existe"?
+ *
+ * Postgres tira 42883 (undefined_function) y PostgREST lo envuelve como
+ * PGRST202 cuando no encuentra la función en su cache de esquema. Se miran los
+ * dos códigos y, como último recurso, el texto: la respuesta exacta depende de
+ * la versión de PostgREST y esto no puede fallar justo cuando su único trabajo
+ * es explicar qué falta.
+ */
+function faltaLaMigracion(error: { code?: string; message?: string } | null): boolean {
+  if (!error) return false
+  if (error.code === '42883' || error.code === 'PGRST202') return true
+  const msg = (error.message ?? '').toLowerCase()
+  return msg.includes('could not find the function') || msg.includes('does not exist')
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────
 
-export async function GET() {
+export async function GET(req: NextRequest) {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const { admin, failure } = requireAdminClient('admin/descargar')
   if (failure) return failure
 
-  /**
-   * La base de todos los conteos: eventos humanos, sin traer filas.
-   *
-   * Va como `const` y no como `function` a propósito. Una declaración de
-   * función se hoistea al principio del bloque, y TypeScript entonces no puede
-   * dar por buena la garantía de que `admin` no es null —el `if (failure)` de
-   * arriba— porque nada le asegura que no se la llame antes. Con un `const`
-   * definido después del guard, el narrowing vale adentro.
-   */
-  const construir = () =>
-    admin
-      .from('analytics_events')
-      .select('*', { count: 'exact', head: true })
-      .eq('is_bot', false)
+  const dias = leerVentana(req)
 
-  /**
-   * Un conteo exacto sin traer filas.
-   *
-   * Devuelve 0 y loguea si la consulta falla, en vez de tirar: una métrica que
-   * no se pudo calcular no puede tumbar el panel entero. El `disponible` de
-   * abajo distingue "no hay datos" de "hay datos y son cero".
-   */
-  const contar = async (filtros: (q: ReturnType<typeof construir>) => ReturnType<typeof construir>) => {
-    const { count, error } = await filtros(construir())
-    if (error) {
-      console.error('[admin/descargar] conteo falló:', error.message)
-      return 0
-    }
-    return count ?? 0
-  }
-
-  // Nueve conteos y la fecha de la primera visita, todo en paralelo. Ninguno
-  // depende del otro.
-  const [visitas, clicksPlay, clicksWeb, primeraRes] = await Promise.all([
-    Promise.all(
-      DISPOSITIVOS.map(d =>
-        contar(q => q.eq('name', 'descargar_viewed').eq('props->>dispositivo', d))
-      )
-    ),
-    Promise.all(
-      DISPOSITIVOS.map(d =>
-        contar(q =>
-          q.eq('name', 'descargar_clicked')
-            .eq('props->>dispositivo', d)
-            .eq('props->>destino', 'play_store')
-        )
-      )
-    ),
-    Promise.all(
-      DISPOSITIVOS.map(d =>
-        contar(q =>
-          q.eq('name', 'descargar_clicked')
-            .eq('props->>dispositivo', d)
-            .eq('props->>destino', 'glynbox_web')
-        )
-      )
-    ),
-    admin
-      .from('analytics_events')
-      .select('created_at')
-      .eq('name', 'descargar_viewed')
-      .eq('is_bot', false)
-      .order('created_at', { ascending: true })
-      .limit(1)
-      .maybeSingle(),
+  const [resumenRes, dispositivosRes] = await Promise.all([
+    admin.rpc('analytics_descargar_resumen', { p_dias: dias }),
+    admin.rpc('analytics_descargar_dispositivos', { p_dias: dias }),
   ])
 
-  const porDispositivo: FilaDispositivo[] = DISPOSITIVOS.map((dispositivo, i) => {
-    const aPlayStore = clicksPlay[i]
-    const aWeb = clicksWeb[i]
-    const clicks = aPlayStore + aWeb
+  if (faltaLaMigracion(resumenRes.error) || faltaLaMigracion(dispositivosRes.error)) {
+    console.warn('[admin/descargar] falta correr supabase-analytics-descargar.sql')
+    return NextResponse.json(vacio(dias, 'sin_migracion'))
+  }
+
+  if (resumenRes.error || dispositivosRes.error) {
+    console.error(
+      '[admin/descargar] consulta falló:',
+      resumenRes.error?.message ?? dispositivosRes.error?.message
+    )
+    return NextResponse.json(vacio(dias, 'sin_datos'))
+  }
+
+  // La función de resumen es un agregado sin GROUP BY: siempre devuelve
+  // exactamente una fila, aunque esté toda en cero. Que venga vacía sería un
+  // caso imposible, pero no se asume.
+  const fila = (resumenRes.data as FilaResumen[] | null)?.[0]
+  if (!fila || fila.visitas === 0) {
+    const sinDatos = vacio(dias, 'sin_datos')
+    // La fecha de la primera sesión sí se conserva: que no haya nada en los
+    // últimos 7 días no significa que no se esté midiendo.
+    sinDatos.desde = fila?.primera ?? null
+    return NextResponse.json(sinDatos)
+  }
+
+  const visitas   = Number(fila.visitas)
+  const clicks    = Number(fila.con_click)
+  const aPlay     = Number(fila.con_click_play)
+  const aWeb      = Number(fila.con_click_web)
+  const registros = Number(fila.registros)
+
+  const pasos: PasoEmbudo[] = [
+    {
+      clave: 'visitas',
+      etiqueta: 'Visitas',
+      valor: visitas,
+      pctSobreVisitas: 100,
+      pctSobreAnterior: null,
+    },
+    {
+      clave: 'clicks',
+      etiqueta: 'Tocaron un botón',
+      valor: clicks,
+      pctSobreVisitas: porcentaje(clicks, visitas),
+      pctSobreAnterior: porcentaje(clicks, visitas),
+    },
+    {
+      clave: 'registros',
+      etiqueta: 'Se registraron',
+      valor: registros,
+      pctSobreVisitas: porcentaje(registros, visitas),
+      pctSobreAnterior: porcentaje(registros, clicks),
+    },
+  ]
+
+  // Se recorre `DISPOSITIVOS` y no lo que devolvió el SQL, para que el orden de
+  // la tabla sea siempre el mismo y para que un aparato sin sesiones aparezca
+  // en cero en vez de desaparecer de la tabla.
+  const porSql = new Map<string, FilaDispositivoSql>(
+    ((dispositivosRes.data as FilaDispositivoSql[] | null) ?? []).map(f => [f.dispositivo, f])
+  )
+
+  const porDispositivo: FilaDispositivo[] = DISPOSITIVOS.map(dispositivo => {
+    const f = porSql.get(dispositivo)
+    const visitasD = Number(f?.visitas ?? 0)
+    const playD    = Number(f?.con_click_play ?? 0)
+    const webD     = Number(f?.con_click_web ?? 0)
+    // No es play + web: una misma sesión pudo tocar los dos botones, y sumarlos
+    // la contaría dos veces. Se reconstruye con el máximo, que es la cota justa
+    // que se puede afirmar sin volver a consultar por dispositivo.
+    const clicksD  = Math.max(playD, webD)
     return {
       dispositivo,
-      visitas: visitas[i],
-      aPlayStore,
-      aWeb,
-      clicks,
-      conversionPct: porcentaje(clicks, visitas[i]),
+      visitas: visitasD,
+      aPlayStore: playD,
+      aWeb: webD,
+      clicks: clicksD,
+      registros: Number(f?.registros ?? 0),
+      conversionPct: porcentaje(clicksD, visitasD),
     }
   })
 
-  const totalVisitas = porDispositivo.reduce((s, f) => s + f.visitas, 0)
-  const totalPlay    = porDispositivo.reduce((s, f) => s + f.aPlayStore, 0)
-  const totalWeb     = porDispositivo.reduce((s, f) => s + f.aWeb, 0)
-  const totalClicks  = totalPlay + totalWeb
-
-  // "Disponible" es que haya entrado al menos una visita. Con cero visitas y
-  // cero clicks no se puede distinguir una landing que nadie visitó de una
-  // medición que todavía no se desplegó, y el panel muestra cosas distintas.
-  if (totalVisitas === 0 && totalClicks === 0) {
-    return NextResponse.json({ ...VACIO, generadoEn: new Date().toISOString() })
+  // Un aparato que el SQL trajo y que no está en la lista conocida
+  // ('desconocido', o uno nuevo que todavía no exista en `lib/device.ts`) no se
+  // pierde en silencio: se avisa por log. No se muestra en la tabla porque no
+  // hay etiqueta para él, pero sí está contado en los totales del embudo.
+  for (const clave of porSql.keys()) {
+    if (!esDispositivo(clave)) {
+      console.warn('[admin/descargar] dispositivo fuera de catálogo:', clave)
+    }
   }
 
   const resumen: DescargarResumen = {
     disponible: true,
-    desde: (primeraRes.data?.created_at as string | undefined) ?? null,
-    porDispositivo,
-    totales: {
-      visitas: totalVisitas,
-      clicks: totalClicks,
-      aPlayStore: totalPlay,
-      aWeb: totalWeb,
-      conversionPct: porcentaje(totalClicks, totalVisitas),
+    motivo: null,
+    dias,
+    desde: fila.primera,
+    embudo: {
+      pasos,
+      aPlayStore: aPlay,
+      aWeb,
+      registrosSobreWebPct: porcentaje(registros, aWeb),
     },
+    sesion: {
+      segundosPromedio: fila.segundos_promedio === null ? null : Number(fila.segundos_promedio),
+      vistasPromedio:   fila.vistas_promedio   === null ? null : Number(fila.vistas_promedio),
+    },
+    porDispositivo,
     generadoEn: new Date().toISOString(),
   }
 

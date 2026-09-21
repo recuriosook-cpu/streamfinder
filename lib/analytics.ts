@@ -23,6 +23,7 @@ const ENDPOINT = '/api/track'
 const ANON_KEY    = 'glynbox_anon_id'
 const SESSION_KEY = 'glynbox_session_id'
 const SESSION_TS  = 'glynbox_session_last'
+const ORIGEN_KEY  = 'glynbox_origen'
 
 /** Nueva sesión después de esto sin actividad. */
 const SESSION_TIMEOUT_MS = 30 * 60_000
@@ -155,6 +156,95 @@ function getSessionId(): string {
   return fresh
 }
 
+// ── Origen de la sesión ────────────────────────────────────────────────────
+
+/**
+ * De dónde vino esta sesión, cuando vino de algún lado que queremos medir.
+ *
+ * Hoy hay uno solo. Es una unión y no un `string` para que marcar un origen
+ * que el panel no conoce no compile.
+ */
+export type Origen = 'descargar'
+
+/**
+ * Por qué existe esto.
+ *
+ * `/descargar` es la pantalla a la que apuntan las campañas, y la pregunta que
+ * importa de esa plata no es cuántos tocaron el botón sino cuántos terminaron
+ * registrándose. El problema es que el registro no pasa ahí: pasa dos o tres
+ * pantallas después, en el onboarding, cuando ya no queda ningún rastro de por
+ * dónde entró esa persona.
+ *
+ * La marca es ese rastro. Se pone al pisar la landing y a partir de ahí viaja
+ * en las props de todos los eventos de la sesión, así que el `signup_completed`
+ * del final se le puede atribuir a la campaña. De paso, como la llevan también
+ * los `page_view`, se puede medir cuánto se quedó y cuántas páginas vio esa
+ * gente en particular.
+ *
+ * ── Por qué va pegada al `session_id` ──────────────────────────────────────
+ *
+ * Guardada a secas en sessionStorage, la marca sobreviviría a la renovación de
+ * sesión por inactividad: la pestaña sigue siendo la misma, así que alguien que
+ * deja la página abierta una hora y vuelve arrancaría una sesión NUEVA que
+ * igual se contaría como una visita a la landing. El panel vería visitas que
+ * nunca ocurrieron.
+ *
+ * Por eso se guarda `origen:session_id` y al leer se compara. Si la sesión se
+ * renovó, la marca de la anterior no aplica y hay que volver a pisar la landing
+ * para marcarse de nuevo — que es exactamente lo que significa "durante toda su
+ * sesión".
+ *
+ * Lo que sí sobrevive, y tiene que sobrevivir, es la ida y vuelta al login de
+ * Google: es la misma pestaña, así que sessionStorage sigue ahí cuando el
+ * usuario vuelve a `/auth/callback`. Si el login abriera una pestaña nueva la
+ * marca se perdería, y ese registro quedaría sin atribuir.
+ */
+let memoryOrigen: string | null = null
+
+/**
+ * Marca la sesión. Idempotente: la primera marca gana.
+ *
+ * Que la primera gane importa el día que haya un segundo origen. Alguien que
+ * entró por una campaña y más tarde pasa por otra landing sigue siendo de la
+ * primera, que es la que lo trajo.
+ */
+export function marcarOrigen(origen: Origen): void {
+  try {
+    if (typeof window === 'undefined') return
+
+    const sessionId = getSessionId()
+    const actual = leerOrigen(sessionId)
+    if (actual) return
+
+    const valor = `${origen}:${sessionId}`
+    memoryOrigen = valor
+    writeStore('session', ORIGEN_KEY, valor)
+  } catch { /* nunca romper por medición */ }
+}
+
+/**
+ * El origen de la sesión en curso, o `null`.
+ *
+ * Recibe el `session_id` ya resuelto en vez de pedirlo: `track()` lo acaba de
+ * calcular, y volver a llamar a `getSessionId()` acá adentro reescribiría el
+ * timestamp de actividad por segunda vez en la misma llamada.
+ */
+function leerOrigen(sessionId: string): Origen | null {
+  const guardado = readStore('session', ORIGEN_KEY) ?? memoryOrigen
+  if (!guardado) return null
+
+  // `split` con límite no existe en JS como en otros lenguajes, y el valor
+  // tiene un solo separador útil: lo que va antes del primer `:` es el origen.
+  const corte = guardado.indexOf(':')
+  if (corte < 0) return null
+
+  const origen = guardado.slice(0, corte)
+  const deSesion = guardado.slice(corte + 1)
+
+  if (deSesion !== sessionId) return null
+  return origen === 'descargar' ? origen : null
+}
+
 // ── Usuario ────────────────────────────────────────────────────────────────
 
 /**
@@ -280,12 +370,26 @@ export function track(name: EventName, props: EventProps = {}): void {
     const sessionId = getSessionId()
     const path = window.location?.pathname ?? null
 
+    // La marca de origen viaja en las props de cada evento, y no en una
+    // columna propia, por una razón de costos: una columna obligaría a migrar
+    // `analytics_events` y a tocar `/api/track`, y `props` ya es JSONB y ya se
+    // consulta así en el panel (ver `props->>dispositivo`). El día que haya
+    // muchos orígenes y la consulta pese, se agrega un índice en el SQL sin
+    // tocar una línea de acá.
+    //
+    // No pisa una prop `origen` que venga del llamador. Hoy no hay ninguna,
+    // pero el orden importa: lo que el evento dice de sí mismo gana sobre lo
+    // que infiere la sesión.
+    const origen = leerOrigen(sessionId)
+    const propsFinales: EventProps =
+      origen && props.origen === undefined ? { ...props, origen } : props
+
     // Se encola YA, con el user_id que haya cacheado. Si todavía no se resolvió,
     // se completa cuando llegue: encolar es sincrónico para que `track()` no
     // devuelva promesa y nadie tenga que await-earlo.
     const event: QueuedEvent = {
       name,
-      props,
+      props: propsFinales,
       path,
       user_id: cachedUserId,
       anon_id: anonId,

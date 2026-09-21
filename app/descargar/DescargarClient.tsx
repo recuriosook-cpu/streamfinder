@@ -2,7 +2,7 @@
 
 import { useEffect, useSyncExternalStore } from 'react'
 import Link from 'next/link'
-import { track, flushAnalytics } from '@/lib/analytics'
+import { track, flushAnalytics, marcarOrigen } from '@/lib/analytics'
 import { GooglePlayBadge } from '@/components/GooglePlayBadge'
 import { MosaicoPosters } from './MosaicoPosters'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
@@ -26,6 +26,14 @@ import { refinarDispositivo, type Dispositivo } from '@/lib/device'
  *
  * El efecto de abajo igual refina el veredicto, pero sólo para el iPad que se
  * hace pasar por Mac. El porqué está en `lib/device.ts`.
+ *
+ * ── La marca de origen ─────────────────────────────────────────────────────
+ *
+ * Al montar, la sesión queda marcada como venida de acá. Esa marca viaja en
+ * todos los eventos que siguen —incluido el `signup_completed` que ocurre tres
+ * pantallas después, en el onboarding— y es lo que permite saber cuánta de la
+ * gente que trajo una campaña terminó registrándose. El detalle está en
+ * `lib/analytics.ts`.
  *
  * ── El mosaico y el reparto de la altura ───────────────────────────────────
  *
@@ -194,6 +202,23 @@ export default function DescargarClient({
     () => refinarDispositivo(dispositivoInicial),  // en el navegador
     () => dispositivoInicial,                      // en el servidor y al hidratar
   )
+
+  /**
+   * Marca la sesión como venida de la campaña.
+   *
+   * En su propio efecto y declarado ANTES del de la visita, porque los efectos
+   * corren en orden de declaración y el `descargar_viewed` de abajo tiene que
+   * salir ya marcado. El `page_view` que dispara `PageViewTracker` también:
+   * vive en el layout raíz, y los efectos de los hijos corren antes que los de
+   * los padres.
+   *
+   * Sin guard de "una sola vez" a diferencia de la visita: `marcarOrigen` ya es
+   * idempotente y, si la sesión se renovó por inactividad con la pestaña
+   * abierta en esta pantalla, volver a marcar es justamente lo correcto.
+   */
+  useEffect(() => {
+    marcarOrigen('descargar')
+  }, [])
 
   useEffect(() => {
     if (visitaRegistrada) return
