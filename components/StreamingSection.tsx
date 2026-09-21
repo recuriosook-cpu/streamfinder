@@ -12,6 +12,13 @@ interface Provider {
 
 interface RegionData {
   flatrate?: Provider[]
+  /**
+   * Gratis con publicidad. TMDB lo devuelve aparte de `flatrate` y hasta ahora
+   * esta sección lo ignoraba: un título que en tu país está gratis en Pluto TV
+   * figuraba como "no hay información". Cuenta como disponible, y de hecho es
+   * la mejor forma de estarlo.
+   */
+  ads?: Provider[]
   rent?: Provider[]
   buy?: Provider[]
   link?: string
@@ -26,7 +33,7 @@ interface Props {
 export default function StreamingSection({ results, mediaType, mediaId }: Props) {
   const { country, countryData } = useCountry()
   const region = results[country] ?? {}
-  const hasData = region.flatrate || region.rent || region.buy
+  const hasData = region.flatrate || region.ads || region.rent || region.buy
 
   return (
     <div className="mt-10">
@@ -41,6 +48,7 @@ export default function StreamingSection({ results, mediaType, mediaId }: Props)
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
           <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.ads ?? []}      label="Gratis con publicidad"   tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
           <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
           <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
         </div>
