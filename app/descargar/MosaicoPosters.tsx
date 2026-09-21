@@ -18,18 +18,30 @@ import { getPosterUrl } from '@/lib/tmdb'
  * son tres renglones y acá adentro serían estilos en línea calculados por
  * índice.
  *
- * ── Por qué las tiras repiten la lista ─────────────────────────────────────
+ * ── Por qué las tiras repiten la lista cinco veces ─────────────────────────
  *
- * Una tira se anima de `translateX(0)` a `translateX(-50%)` y vuelve a empezar.
- * Con la lista repetida exactamente dos veces, ese `-50%` cae justo sobre el
- * comienzo de la copia, así que el salto del reinicio es invisible y la fila
- * parece infinita. Son el doble de etiquetas `<img>` pero las mismas URLs, o
- * sea ninguna descarga de más.
+ * Una tira se anima corriéndose exactamente el ancho de UNA copia y vuelve a
+ * empezar. Como la copia siguiente arranca justo donde estaba la anterior, el
+ * salto del reinicio es invisible y la fila parece infinita.
  *
- * Por eso mismo la separación entre posters es un `margin-right` y no un `gap`
- * de flex: con `gap`, la mitad del ancho total no coincide con el comienzo de
- * la segunda copia —queda medio espacio de diferencia— y cada vuelta pega un
- * tironcito. Con el margen adentro de cada ítem la cuenta cierra exacta.
+ * Eso pide dos copias como mínimo, pero dos no alcanzan: cuando la tira está
+ * corrida una copia entera, lo que queda tapando la fila es solamente la copia
+ * que sobra, y si esa copia mide menos que la pantalla aparece un vacío negro
+ * a la derecha. Con seis posters por fila una copia mide ~650px, así que en un
+ * monitor cualquiera se veía el agujero. `COPIAS` es el número que garantiza
+ * que siempre sobre pantalla de más.
+ *
+ * Son muchas etiquetas `<img>` y ninguna descarga extra: las URLs son las
+ * mismas seis por fila y el navegador las pide una sola vez.
+ *
+ * El desplazamiento se mide en píxeles reales —`--mosaico-n` por el ancho de
+ * un poster— y no con un porcentaje del total. Con `-50%` la distancia
+ * dependería de cuántas copias haya, y agregar una rompería el empalme.
+ *
+ * Por lo mismo la separación entre posters es un `margin-right` y no un `gap`
+ * de flex: el `gap` no se aplica después del último ítem, así que la copia
+ * siguiente no empezaría a un ancho exacto de la anterior y cada vuelta
+ * pegaría un tironcito de medio espacio.
  *
  * ── Accesibilidad ──────────────────────────────────────────────────────────
  *
@@ -40,6 +52,15 @@ import { getPosterUrl } from '@/lib/tmdb'
 
 /** Cuántas filas tiene la cartelera. */
 const FILAS = 3
+
+/**
+ * Cuántas veces se repite la lista de una fila dentro de su tira.
+ *
+ * Cinco cubre hasta unos 2500px de ancho de pantalla, que es más que cualquier
+ * monitor que vaya a abrir esto. El porqué de que no alcancen dos está en la
+ * nota de arriba.
+ */
+const COPIAS = 5
 
 /**
  * Mínimo de posters para que valga la pena dibujar algo.
@@ -90,8 +111,17 @@ export function MosaicoPosters({ posters }: { posters: string[] }) {
       <div className="mosaico-inclinado pointer-events-none">
         {filas.map((fila, i) => (
           <div key={i} className="mosaico-fila">
-            <div className="mosaico-tira">
-              {[...fila, ...fila].map((ruta, j) => (
+            <div
+              className="mosaico-tira"
+              /*
+                Cuántos posters tiene una copia. El CSS lo necesita para saber
+                cuánto correr la tira en cada vuelta, y se lo pasamos desde acá
+                porque el reparto puede no dar seis exactos si TMDB devolvió
+                menos de lo pedido.
+              */
+              style={{ '--mosaico-n': fila.length } as React.CSSProperties}
+            >
+              {Array.from({ length: COPIAS }, () => fila).flat().map((ruta, j) => (
                 /* eslint-disable-next-line @next/next/no-img-element */
                 <img
                   key={`${ruta}-${j}`}

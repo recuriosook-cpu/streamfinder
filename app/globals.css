@@ -139,7 +139,7 @@ a, button {
   --mosaico-ancho: 74px;
   /* Separación entre posters, y también entre filas. */
   --mosaico-aire: 10px;
-  /* Cuánto tarda una tira en recorrer su propia mitad. */
+  /* Cuánto tarda una tira en recorrer una copia entera. */
   --mosaico-dur: 70s;
 
   /*
@@ -185,6 +185,13 @@ a, button {
   width: max-content;
   animation: mosaico-desliz var(--mosaico-dur) linear infinite;
   will-change: transform;
+
+  /*
+     Lo que mide una copia de la fila: la cantidad de posters que tiene
+     —`--mosaico-n`, que la pone el componente— por lo que ocupa cada uno.
+     Es exactamente lo que la animación corre en cada vuelta.
+  */
+  --mosaico-copia: calc(var(--mosaico-n) * (var(--mosaico-ancho) + var(--mosaico-aire)));
 }
 
 /*
@@ -208,11 +215,15 @@ a, button {
 @keyframes mosaico-desliz {
   from { transform: translate3d(0, 0, 0); }
   /*
-     Exactamente la mitad: la tira lleva la lista repetida dos veces, así que
-     acá el primer poster de la copia cae justo donde estaba el original y el
-     reinicio no se ve. Ver la nota de `MosaicoPosters.tsx`.
+     Exactamente una copia: al llegar acá, el primer poster de la copia
+     siguiente quedó donde arrancó el original, así que el reinicio no se ve.
+
+     En píxeles y no en `-50%` a propósito. Un porcentaje se mide contra el
+     ancho total de la tira, o sea que la distancia dependería de cuántas
+     copias haya en el DOM y cambiar `COPIAS` rompería el empalme. Ver la nota
+     de `MosaicoPosters.tsx`.
   */
-  to   { transform: translate3d(-50%, 0, 0); }
+  to   { transform: translate3d(calc(-1 * var(--mosaico-copia)), 0, 0); }
 }
 
 .mosaico-poster {

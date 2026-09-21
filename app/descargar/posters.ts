@@ -14,16 +14,18 @@ import { getPopularMovies, getPopularTV } from '@/lib/tmdb'
 /**
  * Cuántos posters distintos se traen.
  *
- * 24 es lo que llenan tres filas de ocho. No es una cifra libre: cada poster es
+ * 18 es lo que llenan tres filas de seis. No es una cifra libre: cada poster es
  * una imagen más que baja el visitante, y esta es la pantalla a la que llega
  * gente desde un anuncio, muchas veces con datos móviles. En `w185` son unos
- * 15 KB cada una, así que el mosaico entero pesa alrededor de 350 KB — bastante
- * para decoración, y el techo de lo que vale la pena gastar en ella.
+ * 15 KB cada una, así que el mosaico entero pesa alrededor de 270 KB.
  *
  * Las tiras repiten la lista dos veces para poder girar sin corte, pero eso no
  * agrega descargas: son las mismas URLs y el navegador las pide una sola vez.
+ * Lo que sí acorta una fila más corta es el recorrido antes de repetirse: con
+ * seis posters, en una pantalla ancha se llega a ver el mismo dos veces en el
+ * mismo renglón. Es el precio de bajar el peso, y se paga sólo en escritorio.
  */
-export const POSTERS_MOSAICO = 24
+export const POSTERS_MOSAICO = 18
 
 /**
  * Seis horas en el Data Cache.
