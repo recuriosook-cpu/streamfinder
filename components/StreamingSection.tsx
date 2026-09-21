@@ -3,6 +3,7 @@
 import { useCountry } from '@/context/CountryContext'
 import ProviderBadge from '@/components/ProviderBadge'
 import CountrySelector from '@/components/CountrySelector'
+import VpnSuggestion from '@/components/VpnSuggestion'
 
 interface Provider {
   provider_id: number
@@ -42,9 +43,18 @@ export default function StreamingSection({ results, mediaType, mediaId }: Props)
         <CountrySelector variant="full" align="right" />
       </div>
       {!hasData ? (
-        <p className="text-[#A0A0B0]">
-          No hay información de streaming disponible para {countryData.name}.
-        </p>
+        <>
+          <p className="text-[#A0A0B0]">
+            No hay información de streaming disponible para {countryData.name}.
+          </p>
+          {/*
+            Sólo en esta rama: si en tu país hay cualquier forma de verlo
+            —suscripción, gratis con publicidad, alquiler o compra— no hay nada
+            que sugerir. El componente decide solo si además se muestra; ver su
+            comentario de arriba.
+          */}
+          <VpnSuggestion results={results} country={country} mediaType={mediaType} mediaId={mediaId} />
+        </>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
           <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />

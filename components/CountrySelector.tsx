@@ -12,7 +12,13 @@ interface Props {
   onChange?: (code: string) => void
 }
 
-function FlagCircle({ code, size = 24 }: { code: string; size?: number }) {
+/**
+ * Exportada porque `VpnSuggestion` lista países en la misma ficha y tiene que
+ * verse igual. El emoji de bandera de `lib/countries.ts` no sirve para eso:
+ * Windows no lo renderiza —muestra las dos letras del código— así que el
+ * selector siempre usó la imagen y el resto del sitio tiene que hacer lo mismo.
+ */
+export function FlagCircle({ code, size = 24 }: { code: string; size?: number }) {
   return (
     <span
       className="rounded-full overflow-hidden bg-zinc-700 shrink-0 flex items-center justify-center"
