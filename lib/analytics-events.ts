@@ -39,6 +39,25 @@ export const EVENT_NAMES = [
   'search_no_results',
   /** Click en una plataforma de streaming. props: { provider, media_type, media_id } */
   'provider_click',
+  /**
+   * Click en el enlace de afiliado de Surfshark.
+   * props: { media_type, media_id, pais_destino }
+   *
+   * Sale del bloque que aparece en la ficha cuando el título no está
+   * disponible en el país de quien mira pero sí en otro. Ver
+   * `components/VpnSuggestion.tsx`.
+   *
+   * `pais_destino` es el primer país de los que se listan, no todos: el bloque
+   * tiene un solo botón, así que no hay forma de saber cuál de las banderas
+   * convenció. El primero es el de mayor prioridad y el que encabeza el
+   * bloque, que es la mejor aproximación disponible.
+   *
+   * Sin equivalente en la app de Android a propósito: el bloque es sólo de la
+   * web. Promocionar una VPN para ver contenido de otra región es zona gris
+   * con las políticas de Google Play, así que si este evento aparece alguna
+   * vez con `platform = 'mobile'`, es un bug y no un dato.
+   */
+  'surfshark_click',
   /** Permiso de notificaciones. props: { estado: 'pedido' | 'aceptado' | 'rechazado' } */
   'notif_permission',
 
