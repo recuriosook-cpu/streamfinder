@@ -172,3 +172,63 @@ export function familiaGrande(providerId: number): string | null {
 export function esPlataformaGrande(providerId: number): boolean {
   return FAMILIA_POR_ID.has(providerId)
 }
+
+// ── Reventas: la misma plataforma entrando por otra puerta ───────────────────
+
+/**
+ * Los sufijos con que TMDB marca una plataforma revendida por otra tienda.
+ *
+ * "AMC+ Amazon Channel", "AMC+ Roku Premium Channel" y "AMC+" son AMC+ tres
+ * veces, con tres IDs y tres logos. Sin agrupar, un país que las tenga a las
+ * tres muestra tres cuadraditos que dicen lo mismo.
+ *
+ * Es una lista de frases exactas y no un patrón tipo `/channel$/i` a propósito:
+ * "Criterion Channel", "Science Channel", "Travel Channel" y "Plex Channel" son
+ * nombres de plataformas, no reventas. Y un patrón más suelto —cualquier cosa
+ * entre "Amazon" y "Channel"— se come "Amazon Arthaus Channel", que es una
+ * marca propia de Amazon y no una reventa de "Arthaus".
+ *
+ * El "Amzon" no es un error de tipeo nuestro: así está escrito en el catálogo
+ * de TMDB, en "Wild West Amzon Channel" y "Outside TV Features Amzon Channel".
+ *
+ * Las variantes de mayúsculas —"Amazon channel", "Apple Tv channel"— las cubre
+ * la comparación, que va en minúsculas.
+ */
+const SUFIJOS_DE_REVENTA: string[] = [
+  'amazon channels',
+  'amazon channel',
+  'amzon channel',
+  'apple tv channel',
+  'roku premium channel',
+  'roku channel',
+]
+
+/**
+ * El nombre sin el sufijo de reventa. Devuelve el original si no tenía.
+ *
+ * Se aplica en bucle porque hay nombres con dos capas: "Apple TV Amazon
+ * Channel" es Apple TV revendido por Amazon, y queda en "Apple TV".
+ *
+ * Nunca devuelve vacío: si sacar el sufijo no dejaría nada, se devuelve el
+ * nombre entero. Un nombre que es sólo su sufijo es una marca, no una reventa.
+ */
+export function nombreBase(nombre: string): string {
+  let actual = nombre.trim().replace(/\s+/g, ' ')
+
+  for (let vuelta = 0; vuelta < SUFIJOS_DE_REVENTA.length; vuelta++) {
+    const bajo = actual.toLowerCase()
+    const sufijo = SUFIJOS_DE_REVENTA.find(s => bajo.endsWith(' ' + s))
+    if (!sufijo) break
+
+    const recortado = actual.slice(0, actual.length - sufijo.length - 1).trim()
+    if (!recortado) break
+    actual = recortado
+  }
+
+  return actual
+}
+
+/** Si el nombre venía con sufijo de reventa. Sirve para preferir el logo directo. */
+export function esReventa(nombre: string): boolean {
+  return nombreBase(nombre) !== nombre.trim().replace(/\s+/g, ' ')
+}

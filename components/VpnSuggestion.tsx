@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react'
 import { COUNTRIES, getCountry } from '@/lib/countries'
 import { FlagCircle } from '@/components/CountrySelector'
 import ProviderBadge from '@/components/ProviderBadge'
-import { familiaGrande } from '@/lib/providers'
+import { esReventa, familiaGrande, nombreBase } from '@/lib/providers'
 import { isRunningInApp } from '@/lib/app-mode'
 import { track } from '@/lib/analytics'
 
@@ -168,13 +168,49 @@ const enElServidor = () => false
 /**
  * La identidad de una plataforma, para compararla con otra.
  *
- * La familia grande cuando la hay —así "Netflix" y "Netflix Standard with Ads"
- * son la misma cosa— y el `provider_id` pelado para todo lo demás, que es lo
- * mejor que se puede hacer sin una tabla de familias para los 896 proveedores
- * del catálogo de TMDB.
+ * Dos capas, porque TMDB parte una misma plataforma de dos maneras distintas:
+ *
+ *   - Por **plan y marca**: Netflix y "Netflix Standard with Ads" son IDs
+ *     distintos del mismo servicio. Eso lo resuelve `PLATAFORMAS_GRANDES`,
+ *     que enumera los IDs de cada una de las cinco.
+ *
+ *   - Por **reventa**: "AMC+", "AMC+ Amazon Channel" y "AMC+ Roku Premium
+ *     Channel" son AMC+ tres veces, con tres IDs y tres logos. Eso lo resuelve
+ *     `nombreBase()`, que le saca el sufijo al nombre.
+ *
+ * Lo segundo se hace por nombre y no por ID porque son cientos de plataformas
+ * —hay 355 proveedores que terminan en "Amazon Channel"— y enumerarlas a mano
+ * sería una lista imposible de mantener. Para las cinco grandes gana el ID, que
+ * es más preciso: ahí la lista existe y está escrita.
  */
 function plataformaDe(p: Provider): string {
-  return familiaGrande(p.provider_id) ?? `id:${p.provider_id}`
+  return familiaGrande(p.provider_id) ?? `nombre:${nombreBase(p.provider_name).toLowerCase()}`
+}
+
+/**
+ * Los proveedores de una región, uno por plataforma.
+ *
+ * Cuando varios caen en la misma plataforma se queda el que **no** es una
+ * reventa, así el logo que sale es el de AMC+ y no el de AMC+ con el sello de
+ * Amazon encima. Si todos son reventas gana el primero, que es lo único que se
+ * puede hacer.
+ *
+ * El `Map` conserva el orden en que se vio cada plataforma por primera vez, y
+ * `set()` sobre una clave que ya existe no la mueve de lugar: cambiar el logo
+ * no reordena la fila.
+ */
+function unaPorPlataforma(providers: Provider[]): Map<string, Provider> {
+  const porPlataforma = new Map<string, Provider>()
+
+  for (const p of providers) {
+    const clave = plataformaDe(p)
+    const actual = porPlataforma.get(clave)
+    if (!actual || (esReventa(actual.provider_name) && !esReventa(p.provider_name))) {
+      porPlataforma.set(clave, p)
+    }
+  }
+
+  return porPlataforma
 }
 
 /** Lo que se puede ver con una suscripción —o gratis con publicidad— en una región. */
@@ -193,9 +229,11 @@ function porSuscripcion(region: RegionData): Provider[] {
  *      promesa de "poné la VPN y miralo" deja de ser cierta. Lo gratis con
  *      publicidad sí entra, y es el mejor caso que puede darse.
  *
- *   2. **Nunca el país de quien mira.** Ahí puede haber algo —lo que falta es
- *      una plataforma grande— y ofrecerle a alguien una VPN para "viajar" a su
- *      propio país no tendría sentido.
+ *   2. **Nunca el país de quien mira, ni lo que ya tiene en él.** Si el título
+ *      está en MovistarTV en Argentina, ofrecerle a alguien de Argentina
+ *      MovistarTV en Chile es mandarlo a contratar una VPN para llegar a la
+ *      misma plataforma que ya tiene abierta. Esas plataformas se descuentan de
+ *      cada destino, y el país que se queda sin ninguna no se muestra.
  *
  *   3. **Las grandes primero.** Se recorre `ORDEN` dos veces: primero los
  *      países que tienen alguna de `PLATAFORMAS_GRANDES`, después el resto.
@@ -221,9 +259,14 @@ function elegirDestinos(
   results: Record<string, RegionData>,
   paisUsuario: string,
 ): Destino[] {
-  // Todos los países que ofrecen algo, en `ORDEN` y ya deduplicados adentro:
-  // TMDB a veces repite el mismo proveedor en `flatrate` y en `ads`, y casi
-  // siempre repite la plataforma grande en varios planes.
+  // Lo que quien mira ya puede abrir sin moverse de su país. Ninguna es grande
+  // —si lo fuera, el componente ya habría devuelto `null`— pero igual no son
+  // motivo para viajar.
+  const yaLasTiene = new Set(
+    unaPorPlataforma(porSuscripcion(results[paisUsuario] ?? {})).keys(),
+  )
+
+  // Todos los países que ofrecen algo que no tenga ya, en `ORDEN`.
   const candidatos: Destino[] = []
 
   for (const code of ORDEN) {
@@ -232,14 +275,10 @@ function elegirDestinos(
     const region = results[code]
     if (!region) continue
 
-    const providers: Provider[] = []
-    const vistasAca = new Set<string>()
-    for (const p of porSuscripcion(region)) {
-      const plataforma = plataformaDe(p)
-      if (vistasAca.has(plataforma)) continue
-      vistasAca.add(plataforma)
-      providers.push(p)
-    }
+    const providers = [...unaPorPlataforma(porSuscripcion(region))]
+      .filter(([plataforma]) => !yaLasTiene.has(plataforma))
+      .map(([, p]) => p)
+
     if (providers.length === 0) continue
 
     candidatos.push({ code, providers })
