@@ -23,21 +23,23 @@ import { track } from '@/lib/analytics'
  *   1. Hay una plataforma grande en tu país → no se muestra nada. Ya lo podés
  *      ver donde es razonable verlo.
  *
- *   2. Hay algo, pero ninguna plataforma grande → se muestra, y sólo con los
- *      países donde sí está en una grande, y sólo con esas grandes. Mostrar
- *      acá el canal local de otro país sería cambiar un servicio de nicho por
- *      otro, que no es motivo para contratar una VPN.
+ *   2. No hay ninguna grande en tu país → se muestra, con los países donde se
+ *      pueda ver por suscripción o gratis con publicidad, en la plataforma que
+ *      sea. Da igual si abajo hay otra cosa —MovistarTV, o sólo alquiler—: lo
+ *      que decide es que falte una grande.
  *
- *   3. No hay absolutamente nada → se muestra con cualquier plataforma de
- *      cualquier país. Con la vara alta no quedaría nada que ofrecer, y
- *      cualquier forma de verlo es mejor que ninguna.
+ * Las grandes siguen pesando, pero en el orden y no en el corte: los países
+ * que tienen una van primero. Antes cortaban, y eso dejaba afuera casos que
+ * valían la pena — /movie/586791 está en AMC+ en Estados Unidos y en nada
+ * parecido en el resto del mundo, así que no aparecía nunca. Un servicio que
+ * no está entre los cinco grandes sigue siendo una forma de ver la película;
+ * lo que no es, es motivo para ignorar a HBO Max si HBO Max también la tiene.
  *
- * Las tres las decide este componente, no quien lo monta: `StreamingSection`
- * lo renderiza siempre y acá se devuelve `null` cuando no corresponde. Es una
- * sola regla y conviene que tenga un solo lugar donde leerse.
+ * La decisión la toma este componente, no quien lo monta: `StreamingSection`
+ * lo renderiza siempre y acá se devuelve `null` cuando no corresponde.
  *
  * "Plataforma grande" se mide sólo sobre `flatrate` y `ads`. Que Prime Video
- * te alquile la película no es estar en Prime Video, igual que para el punto 2.
+ * te alquile la película no es estar en Prime Video.
  *
  * ── Por qué no aparece en el HTML que cachea el CDN ────────────────────────
  *
@@ -191,13 +193,16 @@ function porSuscripcion(region: RegionData): Provider[] {
  *      promesa de "poné la VPN y miralo" deja de ser cierta. Lo gratis con
  *      publicidad sí entra, y es el mejor caso que puede darse.
  *
- *   2. **Nunca el país de quien mira.** En el caso 3 ahí no hay nada, pero en
- *      el 2 sí hay algo —lo que falta es una plataforma grande— y ofrecerle a
- *      alguien una VPN para "viajar" a su propio país no tendría sentido.
+ *   2. **Nunca el país de quien mira.** Ahí puede haber algo —lo que falta es
+ *      una plataforma grande— y ofrecerle a alguien una VPN para "viajar" a su
+ *      propio país no tendría sentido.
  *
- *   3. **`soloGrandes` recorta a `PLATAFORMAS_GRANDES`.** Es el caso 2 del
- *      comentario de arriba: el país entra sólo si tiene una grande, y del
- *      país se muestran nada más que las grandes.
+ *   3. **Las grandes primero.** Se recorre `ORDEN` dos veces: primero los
+ *      países que tienen alguna de `PLATAFORMAS_GRANDES`, después el resto.
+ *      Así, con el tope de tres banderas, un país con HBO Max le gana a uno
+ *      con un canal local aunque el canal local esté más arriba en `ORDEN`;
+ *      pero si no hay ninguna grande en ningún lado, el canal local igual sale
+ *      en vez de no mostrar nada.
  *
  * El desempate es por plataforma repetida: si Estados Unidos y México ofrecen
  * los dos nada más que Netflix, se queda el primero y se sigue buscando uno
@@ -215,25 +220,21 @@ function porSuscripcion(region: RegionData): Provider[] {
 function elegirDestinos(
   results: Record<string, RegionData>,
   paisUsuario: string,
-  soloGrandes: boolean,
 ): Destino[] {
-  const elegidos: Destino[] = []
-  const plataformasVistas = new Set<string>()
+  // Todos los países que ofrecen algo, en `ORDEN` y ya deduplicados adentro:
+  // TMDB a veces repite el mismo proveedor en `flatrate` y en `ads`, y casi
+  // siempre repite la plataforma grande en varios planes.
+  const candidatos: Destino[] = []
 
   for (const code of ORDEN) {
-    if (elegidos.length >= MAX_PAISES) break
     if (code === paisUsuario) continue
 
     const region = results[code]
     if (!region) continue
 
-    // Dedupe dentro del país: TMDB a veces repite el mismo proveedor en
-    // `flatrate` y en `ads`, y casi siempre repite la plataforma en varios
-    // planes.
     const providers: Provider[] = []
     const vistasAca = new Set<string>()
     for (const p of porSuscripcion(region)) {
-      if (soloGrandes && !familiaGrande(p.provider_id)) continue
       const plataforma = plataformaDe(p)
       if (vistasAca.has(plataforma)) continue
       vistasAca.add(plataforma)
@@ -241,11 +242,25 @@ function elegirDestinos(
     }
     if (providers.length === 0) continue
 
-    // ¿Aporta alguna plataforma que no se haya nombrado ya?
-    if (![...vistasAca].some(plataforma => !plataformasVistas.has(plataforma))) continue
+    candidatos.push({ code, providers })
+  }
 
-    for (const plataforma of vistasAca) plataformasVistas.add(plataforma)
-    elegidos.push({ code, providers })
+  // Las grandes mandan en el orden. Cada mitad conserva `ORDEN` adentro.
+  const conGrande = (d: Destino) => d.providers.some(p => familiaGrande(p.provider_id))
+  const ordenados = [...candidatos.filter(conGrande), ...candidatos.filter(d => !conGrande(d))]
+
+  const elegidos: Destino[] = []
+  const plataformasVistas = new Set<string>()
+
+  for (const destino of ordenados) {
+    if (elegidos.length >= MAX_PAISES) break
+
+    const plataformas = destino.providers.map(plataformaDe)
+    // ¿Aporta alguna plataforma que no se haya nombrado ya?
+    if (!plataformas.some(plataforma => !plataformasVistas.has(plataforma))) continue
+
+    for (const plataforma of plataformas) plataformasVistas.add(plataforma)
+    elegidos.push(destino)
   }
 
   return elegidos
@@ -260,15 +275,11 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
 
   const region = results[country] ?? {}
 
-  // Regla 1: si ya está en una grande acá, no hay nada que sugerir.
+  // Regla 1: si ya está en una grande acá, no hay nada que sugerir. Lo que
+  // haya abajo de eso no cambia nada, así que es la única pregunta.
   if (porSuscripcion(region).some(p => familiaGrande(p.provider_id))) return null
 
-  // Regla 2 contra regla 3. `hayAlgo` es la misma pregunta que se hacía
-  // `StreamingSection` para elegir su rama: cualquiera de las cuatro formas de
-  // verlo, alquiler y compra incluidos.
-  const hayAlgo = Boolean(region.flatrate || region.ads || region.rent || region.buy)
-
-  const destinos = elegirDestinos(results, country, hayAlgo)
+  const destinos = elegirDestinos(results, country)
   if (destinos.length === 0) return null
 
   const onClick = () => {
