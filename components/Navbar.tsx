@@ -169,18 +169,56 @@ export default function Navbar() {
       ...(r.review_id ? reviewMediaMap[r.review_id] ?? {} : {}),
     })) as NotifItem[])
     setNotifLoading(false)
-    const unreadIds = rows.filter(r => !r.read).map(r => r.id)
-    if (unreadIds.length > 0) {
-      await supabase.from('notifications').update({ read: true }).in('id', unreadIds)
-      setUnreadCount(0)
+
+    /*
+      Se marcan TODAS las que tiene sin leer, y no las que entraron en el
+      dropdown.
+
+      Antes esto filtraba `rows` —las 15 más nuevas— y mandaba esos ids. El
+      problema es que la consulta de arriba pide las 15 más nuevas *sin filtrar
+      por `read`, así que en cuanto alguien junta más de 15 notificaciones sin
+      abrir la campanita, las que sobran quedan abajo de la ventana. Y como son
+      las más viejas, nunca vuelven a entrar: la ventana se llena de leídas, el
+      filtro devuelve una lista vacía, no sale ningún UPDATE, y ese resto queda
+      sin leer para siempre con el puntito prendido.
+
+      Filtrar por `read` acá tampoco alcanzaría: marcaría las 15 sin leer más
+      nuevas y dejaría el mismo resto atrás. La ventana del dropdown es una
+      decisión de cuánto dibujar, y no tiene por qué decidir qué se marca.
+
+      El UPDATE sale siempre, aunque no haya nada sin leer. Un UPDATE que no
+      toca ninguna fila es barato —`notifications_user_idx` cubre el
+      `user_id`— y evita depender de `unreadCount`, que es un contador que se
+      refresca al montar y puede estar viejo si llegó algo mientras la pestaña
+      estaba abierta. Eso nos devolvería al mismo agujero.
+    */
+    const { error: marcarError } = await supabase
+      .from('notifications')
+      .update({ read: true })
+      .eq('user_id', user.id)
+      .eq('read', false)
+
+    // El resultado se descartaba entero, así que un fallo no dejaba rastro en
+    // ningún lado: ni consola, ni estado, ni contador. El bug de la ventana
+    // estuvo dando vueltas justamente porque desde afuera se ve igual que un
+    // UPDATE que falla.
+    if (marcarError) {
+      console.error('[notifications] no se pudieron marcar como leídas:', marcarError.message)
+      return
     }
+    setUnreadCount(0)
   }
 
   function handleNotifClick(n: NotifItem) {
     setNotifOpen(false)
-    // Mark individual notification as read (fire-and-forget)
+    // Marcado individual, sin esperar: la navegación no puede quedar colgada
+    // de un UPDATE. Es redundante con el masivo de `openNotifications()` y
+    // está igual por si aquel falló.
     if (!n.read) {
       supabase.from('notifications').update({ read: true }).eq('id', n.id)
+        .then(({ error }) => {
+          if (error) console.error('[notifications] no se pudo marcar como leída:', error.message)
+        })
       setNotifs(prev => prev.map(x => x.id === n.id ? { ...x, read: true } : x))
     }
     // El destino sale de `notificationUrl()`, la única tabla tipo → ruta del
