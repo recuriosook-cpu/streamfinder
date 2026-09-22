@@ -81,3 +81,94 @@ export function buildProviderUrl(providerId: number, title: string): string | nu
   const fn = PROVIDER_URL_TEMPLATES[providerId]
   return fn ? fn(encodeURIComponent(title)) : null
 }
+
+// ── Las "plataformas grandes" ────────────────────────────────────────────────
+
+/**
+ * Las cinco plataformas que justifican pagar una VPN para verlas.
+ *
+ * Es la lista que decide si aparece el bloque de Surfshark: si el título está
+ * en alguna de estas en tu país, no hay nada que sugerir. Para cambiar la
+ * regla alcanza con agregar o sacar una familia de acá.
+ *
+ * ── Por qué cada una es una familia de IDs y no un número ──────────────────
+ *
+ * TMDB no tiene un ID por plataforma sino uno por *oferta*: cada plan, cada
+ * relanzamiento de marca y cada reventa a través de otra tienda entra al
+ * catálogo como un proveedor nuevo, con su propio ID y su propio logo. Netflix
+ * con publicidad es 1796 y no 8; Paramount+ tiene siete IDs entre planes y
+ * reventas. Mirar un solo número es el bug que ya tuvimos con Max, que arrastra
+ * el 384 viejo además del 1899 de hoy.
+ *
+ * Los IDs de abajo salieron de cruzar `/watch/providers/movie` y
+ * `/watch/providers/tv` (896 proveedores) con los que realmente aparecen en las
+ * respuestas de `watch/providers` de 120 títulos populares. Todos menos el 384
+ * están vivos hoy; ese queda por lo que decíamos, porque cuesta cero.
+ *
+ * ── Ojo con los "Amazon Channel" ──────────────────────────────────────────
+ *
+ * Hay casi 400 proveedores que terminan en "Amazon Channel" y NO son Prime
+ * Video: son suscripciones de terceros que Amazon revende adentro de su app.
+ * "AMC+ Amazon Channel" es AMC+, no Prime Video; "Shudder Amazon Channel" es
+ * Shudder. Meterlos todos en la familia de Prime Video haría que cualquier
+ * canal de nicho contara como plataforma grande, que es justo lo contrario de
+ * lo que la lista quiere decir.
+ *
+ * Los únicos que entran son los de una plataforma grande revendida: "HBO Max
+ * Amazon Channel" es HBO Max, y va con HBO Max. Igual con las reventas por
+ * Apple TV y por Roku de Paramount+.
+ */
+export const PLATAFORMAS_GRANDES: { slug: string; name: string; ids: number[] }[] = [
+  {
+    slug: 'hbo-max',
+    name: 'HBO Max',
+    //   1899 HBO Max · 384 el ID viejo · 1825 reventa por Amazon · 2284 por U-NEXT (JP)
+    ids: [1899, 384, 1825, 2284],
+  },
+  {
+    slug: 'netflix',
+    name: 'Netflix',
+    //   8 Netflix · 1796 Standard with Ads · 175 Netflix Kids
+    ids: [8, 1796, 175],
+  },
+  {
+    slug: 'disney-plus',
+    name: 'Disney+',
+    //   337 "Disney Plus" · 122 "Disney+", el ID que usan varias regiones
+    ids: [337, 122],
+  },
+  {
+    slug: 'prime-video',
+    name: 'Prime Video',
+    //   119 y 9 Prime Video · 2100 with Ads · 613 Free with Ads
+    //   (el 10, "Amazon Video", es la tienda de alquiler y compra: no entra)
+    ids: [119, 9, 2100, 613],
+  },
+  {
+    slug: 'paramount-plus',
+    name: 'Paramount+',
+    //   531 Paramount+ · 2303 Premium · 2304 Basic with Ads · 2616 Essential
+    //   582 reventa por Amazon · 1853 por Apple TV · 633 por Roku
+    ids: [531, 2303, 2304, 2616, 582, 1853, 633],
+  },
+]
+
+/** ID de proveedor → slug de la familia grande. Se arma una sola vez. */
+const FAMILIA_POR_ID = new Map<number, string>(
+  PLATAFORMAS_GRANDES.flatMap(f => f.ids.map(id => [id, f.slug] as [number, string])),
+)
+
+/**
+ * El slug de la plataforma grande a la que pertenece el proveedor, o `null`.
+ *
+ * Sirve para las dos preguntas que hace `VpnSuggestion`: si un proveedor es
+ * grande, y si dos proveedores distintos son en realidad la misma plataforma
+ * —Netflix y "Netflix Standard with Ads" no son dos razones para viajar—.
+ */
+export function familiaGrande(providerId: number): string | null {
+  return FAMILIA_POR_ID.get(providerId) ?? null
+}
+
+export function esPlataformaGrande(providerId: number): boolean {
+  return FAMILIA_POR_ID.has(providerId)
+}

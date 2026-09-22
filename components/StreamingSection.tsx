@@ -43,18 +43,9 @@ export default function StreamingSection({ results, mediaType, mediaId }: Props)
         <CountrySelector variant="full" align="right" />
       </div>
       {!hasData ? (
-        <>
-          <p className="text-[#A0A0B0]">
-            No hay información de streaming disponible para {countryData.name}.
-          </p>
-          {/*
-            Sólo en esta rama: si en tu país hay cualquier forma de verlo
-            —suscripción, gratis con publicidad, alquiler o compra— no hay nada
-            que sugerir. El componente decide solo si además se muestra; ver su
-            comentario de arriba.
-          */}
-          <VpnSuggestion results={results} country={country} mediaType={mediaType} mediaId={mediaId} />
-        </>
+        <p className="text-[#A0A0B0]">
+          No hay información de streaming disponible para {countryData.name}.
+        </p>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
           <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
@@ -63,6 +54,14 @@ export default function StreamingSection({ results, mediaType, mediaId }: Props)
           <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
         </div>
       )}
+      {/*
+        Va en las dos ramas, no sólo en la de "no hay información": ahora el
+        bloque también aparece cuando en tu país hay algo pero no una de las
+        plataformas grandes —MovistarTV, o sólo alquiler—. Cuál de los tres
+        casos es, y si corresponde mostrar algo, lo decide el propio componente
+        con los mismos `results`; ver su comentario de arriba.
+      */}
+      <VpnSuggestion results={results} country={country} mediaType={mediaType} mediaId={mediaId} />
     </div>
   )
 }
