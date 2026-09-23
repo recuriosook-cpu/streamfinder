@@ -58,10 +58,11 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
   return (
     <html lang="es">
       <head>
-        <link rel="icon" type="image/jpeg" href="/favicon.jpg" />
-        <link rel="apple-touch-icon" href="/favicon.jpg" />
-        <link rel="manifest" href="/manifest.json" />
-        <meta name="theme-color" content="#FFFD02" />
+        {/*
+          Favicon, apple-touch-icon, manifest y theme-color los emite Next desde
+          `metadata` y `viewport`. Repetirlos acá duplicaba las etiquetas y el
+          navegador pedía el favicon dos veces.
+        */}
         <meta name="mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-capable" content="yes" />
         <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent" />

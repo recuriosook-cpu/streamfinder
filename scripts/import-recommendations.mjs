@@ -42,7 +42,8 @@
  * es igual para los dos casos—, así que no hay una señal mejor.
  *
  * Las URLs que devuelve Instagram vencen a los pocos días; por eso se baja la
- * imagen y se guarda en el bucket, y nunca se guarda la URL de Instagram.
+ * imagen y se guarda en el bucket, y nunca se guarda la URL de Instagram. Cómo
+ * se guarda (tamaño, formato, caché) está en `recommendation-images.mjs`.
  *
  * Correlo desde tu computadora, no desde un servidor: Instagram trata peor a
  * las IP de datacenter y eso no está probado.
@@ -51,8 +52,7 @@
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
-
-const BUCKET = 'recommendations'
+import { subirPortada, subirAvatar } from './recommendation-images.mjs'
 
 /** Pausa entre posts. 162 seguidos sin pausa no cortaron, pero no cuesta nada. */
 const PAUSA_MS = 300
@@ -182,16 +182,6 @@ async function bajarPortada(codigo) {
   return null
 }
 
-// ── Storage ────────────────────────────────────────────────────────────────
-
-async function subir(ruta, buf) {
-  const { error } = await db.storage.from(BUCKET).upload(ruta, buf, {
-    contentType: 'image/jpeg',
-    upsert: true,
-  })
-  if (error) throw new Error(`Storage: ${error.message}`)
-}
-
 // ── Creador ────────────────────────────────────────────────────────────────
 
 async function prepararCreador() {
@@ -208,8 +198,7 @@ async function prepararCreador() {
     const og = await ogImage(`https://www.instagram.com/${usuario}/`)
     const buf = og && await bajarImagen(og, UA_NAVEGADOR)
     if (buf) {
-      avatarPath = `avatars/${usuario}.jpg`
-      await subir(avatarPath, buf)
+      avatarPath = (await subirAvatar(db, usuario, buf)).ruta
     } else {
       console.warn(`⚠️  No se pudo bajar el avatar de @${usuario}; se muestra la inicial.`)
     }
@@ -271,8 +260,7 @@ async function main() {
       const portada = await bajarPortada(rec.codigo)
       if (!portada) throw new Error('Instagram no devolvió la portada')
 
-      const coverPath = `covers/${rec.codigo}.jpg`
-      await subir(coverPath, portada.buf)
+      const coverPath = (await subirPortada(db, rec.codigo, portada.buf)).ruta
 
       const { error: errUpsert } = await db
         .from('creator_recommendations')
