@@ -14,6 +14,7 @@ import type { AdminOverview } from '@/app/api/admin/overview/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
+import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 
 interface TopMedia {
   media_id: number; media_type: string; title: string; poster_path: string | null; count: number
@@ -59,6 +60,10 @@ function OnboardingCard({
 export default function MetricasPage() {
   const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
+  const [refrescando, setRefrescando] = useState(false)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
+  /** Sube en cada refresco; los paneles lo escuchan para volver a pedir lo suyo. */
+  const [recarga, setRecarga] = useState(0)
 
   const [overview,      setOverview]      = useState<AdminOverview | null>(null)
   const [byCountry,     setByCountry]     = useState<{ country: string; count: number }[]>([])
@@ -68,14 +73,22 @@ export default function MetricasPage() {
   const [topUsers,      setTopUsers]      = useState<TopUser[]>([])
 
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefrescoAlVolver(fetchAll, actualizadoEn)
 
   async function fetchAll() {
-    setLoading(true)
+    // La primera carga tapa la pantalla con el spinner. Las siguientes dejan
+    // los gráficos a la vista y sólo hacen girar el botón.
+    if (actualizadoEn) {
+      setRefrescando(true)
+      setRecarga(n => n + 1)
+    } else {
+      setLoading(true)
+    }
 
     // registros por mes, plataformas y países salen del endpoint: se calculan
     // con service role. Desde el cliente, `favorites` tiene RLS owner-only, así
     // que el gráfico de plataformas mostraba sólo las del propio admin.
-    const overviewPromise = fetch('/api/admin/overview')
+    const overviewPromise = fetch('/api/admin/overview', { cache: 'no-store' })
       .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
       .catch(() => null)
 
@@ -163,6 +176,8 @@ export default function MetricasPage() {
     setTopUsers(topUsers)
 
     setLoading(false)
+    setRefrescando(false)
+    setActualizadoEn(new Date())
   }
 
   if (loading) return (
@@ -178,9 +193,12 @@ export default function MetricasPage() {
 
   return (
     <div className="min-h-screen pb-20">
-      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5">
-        <h1 className="text-xl font-bold text-white">Métricas</h1>
-        <p className="text-sm text-[#A0A0B0] mt-0.5">Estadísticas profundas de la plataforma</p>
+      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white">Métricas</h1>
+          <p className="text-sm text-[#A0A0B0] mt-0.5">Estadísticas profundas de la plataforma</p>
+        </div>
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={refrescando} onActualizar={fetchAll} />
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
@@ -203,15 +221,15 @@ export default function MetricasPage() {
           para que no se pueda terminar comparando 7 días contra 30.
         */}
         <div className="grid grid-cols-1 xl:grid-cols-2 gap-6 items-start">
-          <LandingDescargarPanel />
-          <GooglePlayPanel />
+          <LandingDescargarPanel recarga={recarga} />
+          <GooglePlayPanel recarga={recarga} />
         </div>
 
         {/* Retención — va a lo ancho y no en la grilla de arriba: son cuatro
             bloques, dos de ellos tablas, y en media columna no entran. Y va
             después de captación a propósito: primero cómo llegan, después qué
             pasa con los que llegaron. */}
-        <RetencionPanel />
+        <RetencionPanel recarga={recarga} />
 
         {/* Onboarding — desglose real.
             `onboarding_completed = true` no distingue terminar de saltar:

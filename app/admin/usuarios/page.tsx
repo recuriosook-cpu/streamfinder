@@ -4,10 +4,11 @@ import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import {
   Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   X, ExternalLink, Ban, CheckCircle, Shield, Loader2,
-  FileText, List, AlertCircle, MoreHorizontal, UserCheck, RefreshCw,
+  FileText, List, AlertCircle, MoreHorizontal, UserCheck,
   Smartphone, Clock, Info,
 } from 'lucide-react'
 
@@ -182,6 +183,7 @@ export default function UsuariosPage() {
   const [medicion, setMedicion] = useState<Medicion | null>(null)
   const [loading, setLoading] = useState(true)
   const [error,   setError]   = useState<string | null>(null)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
 
   // Filters
   const [searchRaw, setSearchRaw] = useState('')
@@ -219,6 +221,8 @@ export default function UsuariosPage() {
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [search, country, blocked, sortKey, sortDir, page])
 
+  useRefrescoAlVolver(fetchUsers, actualizadoEn)
+
   async function fetchUsers() {
     setLoading(true)
     setError(null)
@@ -234,7 +238,7 @@ export default function UsuariosPage() {
     if (blocked !== 'all') params.set('blocked', blocked)
 
     try {
-      const res = await fetch(`/api/admin/users?${params}`)
+      const res = await fetch(`/api/admin/users?${params}`, { cache: 'no-store' })
       if (!res.ok) {
         const body = await res.json().catch(() => ({}))
         setError(body.error ?? `Error ${res.status}`)
@@ -245,6 +249,7 @@ export default function UsuariosPage() {
       setUsers(data.users)
       setTotal(data.total)
       setMedicion(data.medicion ?? null)
+      setActualizadoEn(new Date())
 
       // Populate country list from first successful load (no filters)
       if (!country && !search && blocked === 'all' && page === 0) {
@@ -357,14 +362,7 @@ export default function UsuariosPage() {
               }
             </p>
           </div>
-          <button
-            onClick={fetchUsers}
-            disabled={loading}
-            className="p-2 text-[#A0A0B0] hover:text-white transition-colors disabled:opacity-40"
-            title="Recargar"
-          >
-            <RefreshCw size={16} className={loading ? 'animate-spin' : ''} />
-          </button>
+          <RefrescoControl actualizadoEn={actualizadoEn} cargando={loading} onActualizar={fetchUsers} />
         </div>
       </div>
 

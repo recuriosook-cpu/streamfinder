@@ -91,7 +91,11 @@ const tooltipStyle = {
 
 // ── Panel ──────────────────────────────────────────────────────────────────
 
-export function GooglePlayPanel() {
+/**
+ * `recarga` lo sube la página de métricas cuando se refresca: cada cambio
+ * vuelve a pedir los datos con la ventana elegida.
+ */
+export function GooglePlayPanel({ recarga = 0 }: { recarga?: number }) {
   const [dias, setDias] = useState<Ventana>(VENTANA_POR_DEFECTO)
   const [datos, setDatos] = useState<PlayResumen | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -99,7 +103,7 @@ export function GooglePlayPanel() {
   const cargar = useCallback(async (ventana: Ventana) => {
     setCargando(true)
     try {
-      const r = await fetch(`/api/admin/play?dias=${ventana}`)
+      const r = await fetch(`/api/admin/play?dias=${ventana}`, { cache: 'no-store' })
       setDatos(r.ok ? ((await r.json()) as PlayResumen) : null)
     } catch {
       setDatos(null)
@@ -108,7 +112,7 @@ export function GooglePlayPanel() {
     }
   }, [])
 
-  useEffect(() => { void cargar(dias) }, [dias, cargar])
+  useEffect(() => { void cargar(dias) }, [dias, cargar, recarga])
 
   const serie = (datos?.serie ?? []).map(d => ({
     ...d,

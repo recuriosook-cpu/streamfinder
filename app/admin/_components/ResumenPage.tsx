@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import type { AdminOverview, Metrica } from '@/app/api/admin/overview/route'
 import { fmtDuracion } from '@/lib/format-duracion'
+import { RefrescoControl, useRefrescoAlVolver } from './Refresco'
 import {
   Users, FileText, List, Star, Loader2, AlertCircle, Film, Tv,
   UserCheck, Eye, Activity, Clock, Smartphone, TrendingUp, TrendingDown, Info,
@@ -146,6 +147,8 @@ interface TopMedia {
 export default function ResumenPage() {
   const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
+  const [refrescando, setRefrescando] = useState(false)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
   const [error,   setError]   = useState<string | null>(null)
 
   const [totalUsers,   setTotalUsers]   = useState(0)
@@ -158,9 +161,13 @@ export default function ResumenPage() {
   const [topWatchlist, setTopWatchlist] = useState<TopMedia[]>([])
 
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefrescoAlVolver(fetchAll, actualizadoEn)
 
   async function fetchAll() {
-    setLoading(true)
+    // La primera carga tapa la pantalla con el spinner. Las siguientes dejan
+    // los números a la vista y sólo hacen girar el botón.
+    if (actualizadoEn) setRefrescando(true)
+    else setLoading(true)
     setError(null)
 
     const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString()
@@ -168,7 +175,7 @@ export default function ResumenPage() {
     // Las métricas de usuarios (activos, registros) vienen del endpoint: se
     // calculan con service role sobre auth.users, que es donde está la fecha
     // real de alta. Desde el cliente sólo se puede ver profiles.updated_at.
-    const overviewPromise = fetch('/api/admin/overview')
+    const overviewPromise = fetch('/api/admin/overview', { cache: 'no-store' })
       .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
       .catch(() => null)
 
@@ -197,7 +204,7 @@ export default function ResumenPage() {
       supabase.from('watchlist').select('media_id, media_type, title, poster_path').gte('added_at', weekAgo).limit(2000),
     ])
 
-    if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); return }
+    if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); setRefrescando(false); return }
     if (!ov) setError('No se pudo leer /api/admin/overview — las métricas de usuarios no se muestran.')
 
     setOverview(ov)
@@ -249,6 +256,8 @@ export default function ResumenPage() {
     setTopWatchlist(Object.values(wlCount).sort((a, b) => b.count - a.count).slice(0, 5))
 
     setLoading(false)
+    setRefrescando(false)
+    setActualizadoEn(new Date())
   }
 
   if (loading) {
@@ -267,9 +276,12 @@ export default function ResumenPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5">
-        <h1 className="text-xl font-bold text-white">Resumen</h1>
-        <p className="text-sm text-[#A0A0B0] mt-0.5">Vista general de Glynbox</p>
+      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white">Resumen</h1>
+          <p className="text-sm text-[#A0A0B0] mt-0.5">Vista general de Glynbox</p>
+        </div>
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={refrescando} onActualizar={fetchAll} />
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">

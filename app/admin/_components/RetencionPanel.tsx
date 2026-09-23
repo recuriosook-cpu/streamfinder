@@ -258,18 +258,22 @@ function TablaComportamiento({ grupos }: { grupos: GrupoComportamiento[] }) {
 
 // ── Panel ──────────────────────────────────────────────────────────────────
 
-export function RetencionPanel() {
+/**
+ * `recarga` lo sube la página de métricas cuando se refresca: cada cambio
+ * vuelve a pedir los datos.
+ */
+export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
   const [datos, setDatos] = useState<RetencionResumen | null>(null)
   const [cargando, setCargando] = useState(true)
 
   useEffect(() => {
     let vivo = true
-    fetch('/api/admin/retencion')
+    fetch('/api/admin/retencion', { cache: 'no-store' })
       .then(async r => (r.ok ? ((await r.json()) as RetencionResumen) : null))
       .catch(() => null)
       .then(d => { if (vivo) { setDatos(d); setCargando(false) } })
     return () => { vivo = false }
-  }, [])
+  }, [recarga])
 
   const maxPaso = datos?.registro[0]?.usuarios ?? 0
 

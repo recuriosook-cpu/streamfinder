@@ -115,7 +115,11 @@ function Tile({
 
 // ── Panel ──────────────────────────────────────────────────────────────────
 
-export function LandingDescargarPanel() {
+/**
+ * `recarga` lo sube la página de métricas cuando se refresca: cada cambio
+ * vuelve a pedir los datos con la ventana elegida.
+ */
+export function LandingDescargarPanel({ recarga = 0 }: { recarga?: number }) {
   const [dias, setDias] = useState<Ventana>(VENTANA_POR_DEFECTO)
   const [datos, setDatos] = useState<DescargarResumen | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -123,7 +127,7 @@ export function LandingDescargarPanel() {
   const cargar = useCallback(async (ventana: Ventana) => {
     setCargando(true)
     try {
-      const r = await fetch(`/api/admin/descargar?dias=${ventana}`)
+      const r = await fetch(`/api/admin/descargar?dias=${ventana}`, { cache: 'no-store' })
       setDatos(r.ok ? ((await r.json()) as DescargarResumen) : null)
     } catch {
       setDatos(null)
@@ -132,7 +136,7 @@ export function LandingDescargarPanel() {
     }
   }, [])
 
-  useEffect(() => { void cargar(dias) }, [dias, cargar])
+  useEffect(() => { void cargar(dias) }, [dias, cargar, recarga])
 
   const visitas = datos?.embudo.pasos.find(p => p.clave === 'visitas')?.valor ?? 0
 
