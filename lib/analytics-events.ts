@@ -58,6 +58,18 @@ export const EVENT_NAMES = [
    * vez con `platform = 'mobile'`, es un bug y no un dato.
    */
   'surfshark_click',
+  /**
+   * Tocó la miniatura de "Recomendado por …" en una ficha.
+   * props: { creador, media_type, media_id }
+   *
+   * `creador` es el usuario de Instagram, sin @ (`ferlageok`), y no el nombre:
+   * es lo que identifica al creador en la tabla `creators` y no cambia si
+   * cambia cómo se muestra el nombre. Ver `components/CreatorRecommendations.tsx`.
+   *
+   * Lo mandan la web y la app. En la web cuenta la apertura del modal con el
+   * reproductor; en la app, la salida a Instagram.
+   */
+  'recomendacion_click',
   /** Permiso de notificaciones. props: { estado: 'pedido' | 'aceptado' | 'rechazado' } */
   'notif_permission',
 

@@ -48,6 +48,8 @@ import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
+import CreatorRecommendations from '@/components/CreatorRecommendations'
+import { getCreatorRecommendations } from '@/lib/creator-recommendations'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
@@ -166,9 +168,10 @@ export default async function TVPage({ params }: Props) {
   }
 
   const supabase = createServerClient()
-  const [omdb, { count: watchedCount }] = await Promise.all([
+  const [omdb, { count: watchedCount }, creatorRecs] = await Promise.all([
     getOMDBRatings(externalIds?.imdb_id),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'tv'),
+    getCreatorRecommendations(supabase, 'tv', numId),
   ])
 
   // Cast: top 10
@@ -382,6 +385,7 @@ export default async function TVPage({ params }: Props) {
           </div>
         </div>
 
+        <CreatorRecommendations items={creatorRecs} mediaType="tv" mediaId={show.id} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         <CastCarousel cast={cast} />
         <CrewSection crew={creators} title="Creadores" />

@@ -48,6 +48,8 @@ import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
+import CreatorRecommendations from '@/components/CreatorRecommendations'
+import { getCreatorRecommendations } from '@/lib/creator-recommendations'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
@@ -176,10 +178,11 @@ export default async function MoviePage({ params }: Props) {
   }
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, { count: watchedCount }] = await Promise.all([
+  const [omdbResult, collectionData, { count: watchedCount }, creatorRecs] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
+    getCreatorRecommendations(supabase, 'movie', numId),
   ])
   const omdb = omdbResult
 
@@ -434,6 +437,7 @@ export default async function MoviePage({ params }: Props) {
           </div>
         </div>
 
+        <CreatorRecommendations items={creatorRecs} mediaType="movie" mediaId={movie.id} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         {collectionData && collectionData.parts?.length > 1 && (
           <CollectionSection collection={collectionData} currentMovieId={movie.id} />
