@@ -615,7 +615,7 @@ function OfficialListsSection({ lists, loading }: { lists: OfficialList[]; loadi
               <div className="flex items-center gap-2 pt-2.5 border-t border-[#2A2A3A]">
                 <div className="w-5 h-5 rounded-full overflow-hidden shrink-0 bg-[#1C1C27]">
                   {/* eslint-disable-next-line @next/next/no-img-element */}
-                  <img src="/favicon.jpg" alt="Glynbox" className="w-full h-full object-cover" />
+                  <img src="/favicon-96.png" alt="Glynbox" className="w-full h-full object-cover" />
                 </div>
                 <span className="text-xs text-white font-medium">Glynbox</span>
                 <span className="text-[9px] font-bold px-1.5 py-0.5 rounded-full ml-auto shrink-0"

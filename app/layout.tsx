@@ -16,9 +16,11 @@ export const viewport: Viewport = {
 
 export const metadata: Metadata = {
   metadataBase: new URL('https://glynbox.com'),
+  // Versiones chicas de `favicon.jpg`, que es de 1000×1000 y pesa 64 KB para
+  // mostrarse a 16–32 px: el favicon pasa a 1,2 KB y el de iOS a 2 KB.
   icons: {
-    icon: '/favicon.jpg',
-    apple: '/favicon.jpg',
+    icon: { url: '/favicon-96.png', sizes: '96x96', type: 'image/png' },
+    apple: { url: '/apple-touch-icon.png', sizes: '180x180', type: 'image/png' },
   },
   title: 'Glynbox — Descubrí qué ver hoy',
   description: 'Encontrá películas y series según tu estado de ánimo. Reseñas, recomendaciones personalizadas y comunidad de cinéfilos en Argentina y Latinoamérica.',

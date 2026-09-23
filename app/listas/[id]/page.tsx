@@ -235,7 +235,7 @@ export default function ListPage() {
             <div className="flex items-center gap-2.5 mb-4 w-fit">
               <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0">
                 {/* eslint-disable-next-line @next/next/no-img-element */}
-                <img src="/favicon.jpg" alt="Glynbox" className="w-full h-full object-cover" />
+                <img src="/favicon-96.png" alt="Glynbox" className="w-full h-full object-cover" />
               </div>
               <div className="flex items-center gap-2 flex-wrap">
                 <span className="text-sm font-semibold text-white">Glynbox</span>
