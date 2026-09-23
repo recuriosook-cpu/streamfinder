@@ -8,6 +8,23 @@ export const getPosterUrl = (path: string | null | undefined, size = 'w342') =>
 export const getBackdropUrl = (path: string | null, size = 'w1280') =>
   path ? `${IMAGE_BASE}/${size}${path}` : null
 
+/**
+ * El título original, sólo si es distinto del que se muestra.
+ *
+ * TMDB lo devuelve siempre (`original_title` / `original_name`), también
+ * cuando coincide con el traducido. Se compara sin mayúsculas ni espacios de
+ * más para que "Up" contra "UP" no aparezca como un título distinto.
+ */
+export function originalTitleIfDifferent(
+  shown: string | null | undefined,
+  original: string | null | undefined,
+): string | null {
+  const o = original?.trim()
+  if (!o) return null
+  const norm = (s: string) => s.replace(/\s+/g, ' ').trim().toLocaleLowerCase()
+  return norm(o) === norm(shown ?? '') ? null : o
+}
+
 /** Cuánto vive en el Data Cache lo que pide `tmdbFetch` si nadie dice otra cosa. */
 const DEFAULT_REVALIDATE = 3600
 

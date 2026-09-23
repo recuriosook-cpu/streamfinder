@@ -1,4 +1,4 @@
-﻿import { getMovieDetails, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+﻿import { getMovieDetails, originalTitleIfDifferent, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import { createServerClient } from '@/lib/supabase-server'
 
@@ -213,6 +213,7 @@ export default async function MoviePage({ params }: Props) {
   const parsedAwards = parseAwards(omdb.awards)
 
   const allProviders = watchData?.results ?? {}
+  const originalTitle = originalTitleIfDifferent(movie.title, movie.original_title)
   const backdrop = getBackdropUrl(movie.backdrop_path)
   const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
@@ -286,6 +287,9 @@ export default async function MoviePage({ params }: Props) {
           {/* Info */}
           <div className="flex-1 min-w-0">
             <h1 className="text-2xl sm:text-3xl md:text-4xl font-bold mb-2 text-white">{movie.title}</h1>
+            {originalTitle && (
+              <p className="-mt-1 mb-3 text-xs text-zinc-500">Título original: {originalTitle}</p>
+            )}
             {movie.tagline && <p className="text-[#A0A0B0] italic mb-3 text-sm">{movie.tagline}</p>}
 
             <div className="flex flex-wrap gap-3 text-sm text-[#A0A0B0] mb-3">
