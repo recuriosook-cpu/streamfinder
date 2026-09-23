@@ -4,6 +4,7 @@ import { useEffect, useState, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import {
   Flag, Trash2, X, Ban, ExternalLink,
   Loader2, AlertCircle, Check,
@@ -35,9 +36,11 @@ export default function AdminReportesPage() {
   const [statusFilter, setStatusFilter] = useState<ReportStatus>('pending')
   const [processingId, setProcessingId] = useState<string | null>(null)
   const [fetchError,   setFetchError]   = useState<string | null>(null)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
   const [banConfirm,   setBanConfirm]   = useState<{ reportId: string; userId: string; username: string } | null>(null)
 
   useEffect(() => { fetchReports() }, [statusFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefrescoAlVolver(fetchReports, actualizadoEn)
 
   async function fetchReports() {
     setLoading(true)
@@ -50,7 +53,7 @@ export default function AdminReportesPage() {
       .order('created_at', { ascending: false })
 
     if (error) { setFetchError(error.message); setLoading(false); return }
-    if (!rawReports?.length) { setReports([]); setLoading(false); return }
+    if (!rawReports?.length) { setReports([]); setLoading(false); setActualizadoEn(new Date()); return }
 
     const profileIds = [
       ...new Set([
@@ -97,6 +100,7 @@ export default function AdminReportesPage() {
 
     setReports(enriched)
     setLoading(false)
+    setActualizadoEn(new Date())
   }
 
   async function resolveReport(reportId: string, status: 'resolved' | 'dismissed') {
@@ -157,9 +161,12 @@ export default function AdminReportesPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5">
-        <h1 className="text-xl font-bold text-white">Reportes</h1>
-        <p className="text-sm text-[#A0A0B0] mt-0.5">{reports.length} {statusFilter === 'pending' ? 'pendientes' : statusFilter === 'resolved' ? 'resueltos' : 'descartados'}</p>
+      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white">Reportes</h1>
+          <p className="text-sm text-[#A0A0B0] mt-0.5">{reports.length} {statusFilter === 'pending' ? 'pendientes' : statusFilter === 'resolved' ? 'resueltos' : 'descartados'}</p>
+        </div>
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={loading} onActualizar={fetchReports} />
       </div>
 
       {/* Filter tabs */}

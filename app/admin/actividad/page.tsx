@@ -4,6 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import {
   FileText, List, UserPlus, Bookmark, UserCheck,
   Loader2, Trash2, Calendar,
@@ -45,12 +46,14 @@ export default function ActividadPage() {
   const supabase = useRef(createClient()).current
   const [items,   setItems]   = useState<ActivityItem[]>([])
   const [loading, setLoading] = useState(true)
+  const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
 
   const [typeFilter, setTypeFilter] = useState<ActivityType | 'all'>('all')
   const [dateFilter, setDateFilter] = useState<DateFilter>('7d')
   const [deleting,   setDeleting]   = useState<string | null>(null)
 
   useEffect(() => { fetchAll() }, [dateFilter]) // eslint-disable-line react-hooks/exhaustive-deps
+  useRefrescoAlVolver(fetchAll, actualizadoEn)
 
   async function fetchAll() {
     setLoading(true)
@@ -64,7 +67,7 @@ export default function ActividadPage() {
     // de alta real vive en auth.users.created_at y desde el cliente no se puede
     // leer. Antes acá se usaba profiles.updated_at, que es cuándo se tocó la
     // fila por última vez, y se lo etiquetaba como "Nuevo usuario registrado".
-    const newUsersPromise = fetch('/api/admin/users?sort_by=auth_created_at&sort_dir=desc&limit=50')
+    const newUsersPromise = fetch('/api/admin/users?sort_by=auth_created_at&sort_dir=desc&limit=50', { cache: 'no-store' })
       .then(async r => (r.ok ? ((await r.json()) as { users: NewUserRow[] }).users : []))
       .catch(() => [] as NewUserRow[])
 
@@ -166,6 +169,7 @@ export default function ActividadPage() {
 
     setItems(all)
     setLoading(false)
+    setActualizadoEn(new Date())
   }
 
   async function deleteContent(item: ActivityItem) {
@@ -201,9 +205,12 @@ export default function ActividadPage() {
   return (
     <div className="min-h-screen pb-20">
       {/* Header */}
-      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5">
-        <h1 className="text-xl font-bold text-white">Actividad</h1>
-        <p className="text-sm text-[#A0A0B0] mt-0.5">{visible.length} eventos · feed cronológico</p>
+      <div className="bg-[#13131A] border-b border-[#2A2A3A] px-6 py-5 flex flex-wrap items-center justify-between gap-3">
+        <div>
+          <h1 className="text-xl font-bold text-white">Actividad</h1>
+          <p className="text-sm text-[#A0A0B0] mt-0.5">{visible.length} eventos · feed cronológico</p>
+        </div>
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={loading} onActualizar={fetchAll} />
       </div>
 
       {/* Filters */}
