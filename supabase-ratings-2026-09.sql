@@ -63,34 +63,58 @@ ALTER TABLE reviews ADD CONSTRAINT reviews_rating_check
   CHECK (rating >= 0.5 AND rating <= 5 AND rating * 2 = trunc(rating * 2));
 
 -- ── 2. Lectura según la privacidad ────────────────────────────────────────
+--
+-- La decisión va en una función SECURITY DEFINER y no escrita dentro de la
+-- política. Dentro de una política, las consultas a `profiles` y `follows`
+-- pasan también por las políticas de esas tablas con los permisos de quien
+-- mira: si algún día `profiles` deja de ser de lectura pública, la política
+-- no encontraría el perfil y —escrita con NOT EXISTS— mostraría las notas de
+-- todos. La función lee con sus propios permisos y, si no encuentra el
+-- perfil, oculta: ante la duda, no mostrar.
+--
+-- Es la regla de "Ocultar actividad" + "Perfil privado", y la van a usar las
+-- demás tablas de actividad (vistas, watchlist...) en el proyecto de
+-- privacidad.
+
+CREATE OR REPLACE FUNCTION puede_ver_actividad(dueno UUID)
+RETURNS BOOLEAN
+LANGUAGE sql
+STABLE
+SECURITY DEFINER
+SET search_path = public
+AS $$
+  SELECT
+    dueno = auth.uid()
+    OR EXISTS (
+      SELECT 1
+      FROM profiles p
+      WHERE p.id = dueno
+        AND NOT p.hide_activity
+        AND (
+          NOT p.is_private
+          OR EXISTS (
+            SELECT 1 FROM follows f
+            WHERE f.follower_id = auth.uid()
+              AND f.following_id = dueno
+          )
+        )
+    )
+$$;
+
+REVOKE EXECUTE ON FUNCTION puede_ver_actividad(UUID) FROM PUBLIC;
+GRANT EXECUTE ON FUNCTION puede_ver_actividad(UUID) TO anon, authenticated;
 
 DROP POLICY IF EXISTS "Notas visibles según la privacidad del dueño" ON ratings;
 CREATE POLICY "Notas visibles según la privacidad del dueño"
   ON ratings FOR SELECT
-  USING (
-    NOT EXISTS (
-      SELECT 1
-      FROM profiles p
-      WHERE p.id = ratings.user_id
-        AND (
-          p.hide_activity
-          OR (
-            p.is_private
-            AND NOT EXISTS (
-              SELECT 1 FROM follows f
-              WHERE f.follower_id = auth.uid()
-                AND f.following_id = ratings.user_id
-            )
-          )
-        )
-    )
-  );
+  USING (puede_ver_actividad(user_id));
 
 COMMIT;
 
 -- ── Verificación (solo lectura) ───────────────────────────────────────────
 -- Tiene que devolver las dos restricciones nuevas y las dos políticas de
--- lectura de `ratings` (la del dueño y la nueva).
+-- lectura de `ratings` (la del dueño y la nueva, que llama a
+-- puede_ver_actividad).
 SELECT conrelid::regclass::text AS tabla, conname AS nombre, pg_get_constraintdef(oid) AS definicion
 FROM pg_constraint
 WHERE conname IN ('ratings_rating_check', 'reviews_rating_check')
