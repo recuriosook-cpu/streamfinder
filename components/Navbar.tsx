@@ -5,6 +5,7 @@ import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, LogOut, LogIn, Menu, X, UserCircle, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
 import { notificationUrl } from '@/lib/notification-content'
+import { formatNotifTime } from '@/lib/format-fecha-notificacion'
 import { createClient } from '@/lib/supabase'
 import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
@@ -661,7 +662,7 @@ export default function Navbar() {
                       ) : (
                         notifs.map(n => {
                           const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
-                          const time     = new Date(n.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+                          const time     = formatNotifTime(n.created_at)
                           const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
                           const actorVerified = n.actor?.username === 'Ferlageok' || n.actor?.username === 'ferlageok'
                           return (
