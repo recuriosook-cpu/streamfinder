@@ -74,15 +74,12 @@ DO $$ BEGIN
 END $$;
 
 -- ── ratings ──────────────────────────────────────────────────
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies WHERE tablename='ratings'
-    AND policyname='Ratings are publicly readable'
-  ) THEN
-    CREATE POLICY "Ratings are publicly readable"
-      ON ratings FOR SELECT USING (true);
-  END IF;
-END $$;
+--
+-- Sacado el 2026-09-24. Esta política se agregó en abril para que la
+-- actividad de los perfiles mostrara las notas, pero nunca se aplicó en
+-- producción: `ratings` sigue siendo de lectura sólo para el dueño (ver
+-- `supabase-profile-setup.sql`). Si se decide abrirla, que sea con su propia
+-- migración, que además respete "Perfil privado" y "Ocultar actividad".
 
 -- ── pinned_favorites ──────────────────────────────────────────────
 DO $$ BEGIN

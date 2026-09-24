@@ -69,19 +69,31 @@ WHERE p.username IS NULL;
 
 -- ----------------------------------------------------------------
 -- 3. REVIEWS
+--
+-- Verificado contra producción el 2026-09-24. Diferencias con lo que decía
+-- antes este archivo:
+--   - `rating` es numeric(3,1) (medias estrellas), no entero. El CHECK
+--     arranca en 1: 0,5 se rechaza aunque la web y la app lo ofrecen.
+--   - `has_spoiler` (lo agrega `supabase-spoiler-mention.sql`) y
+--     `comment_count`, que ningún SQL del repo crea ni mantiene: se agregó a
+--     mano en Supabase.
+--   - `user_id` apunta a `profiles`, mientras que `ratings.user_id` apunta a
+--     `auth.users`. Es así en producción; no es un error de este archivo.
 -- ----------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS reviews (
-  id          UUID        DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id     UUID        NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
-  media_id    INTEGER     NOT NULL,
-  media_type  TEXT        NOT NULL CHECK (media_type IN ('movie', 'tv')),
-  title       TEXT        NOT NULL,
-  poster_path TEXT,
-  rating      INTEGER     CHECK (rating BETWEEN 1 AND 5),
-  body        TEXT,
-  recommended BOOLEAN     NOT NULL DEFAULT true,
-  created_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
-  updated_at  TIMESTAMPTZ NOT NULL DEFAULT NOW(),
+  id            UUID         DEFAULT gen_random_uuid() PRIMARY KEY,
+  user_id       UUID         NOT NULL REFERENCES profiles(id) ON DELETE CASCADE,
+  media_id      INTEGER      NOT NULL,
+  media_type    TEXT         NOT NULL CHECK (media_type IN ('movie', 'tv')),
+  title         TEXT         NOT NULL,
+  poster_path   TEXT,
+  rating        NUMERIC(3,1) CHECK (rating >= 1 AND rating <= 5),
+  body          TEXT,
+  recommended   BOOLEAN      NOT NULL DEFAULT true,
+  has_spoiler   BOOLEAN      DEFAULT false,
+  comment_count INTEGER      NOT NULL DEFAULT 0,
+  created_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
+  updated_at    TIMESTAMPTZ  NOT NULL DEFAULT NOW(),
   UNIQUE (user_id, media_id, media_type)
 );
 

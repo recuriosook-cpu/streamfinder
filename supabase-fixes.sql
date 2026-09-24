@@ -4,43 +4,12 @@
 -- Run in: Supabase Dashboard → SQL Editor
 -- ================================================================
 
--- ── 1. RATINGS — ensure table exists and has public SELECT ──────
-
-CREATE TABLE IF NOT EXISTS ratings (
-  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id     uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  media_id    integer     NOT NULL,
-  media_type  text        NOT NULL CHECK (media_type IN ('movie', 'tv')),
-  title       text        NOT NULL DEFAULT '',
-  poster_path text,
-  rating      integer     NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  rated_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (user_id, media_id, media_type)
-);
-
-ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
-
--- Public read (needed for profile activity feed)
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'ratings' AND policyname = 'Public can read ratings'
-  ) THEN
-    CREATE POLICY "Public can read ratings"
-      ON ratings FOR SELECT USING (true);
-  END IF;
-END $$;
-
--- Owner write
-DO $$ BEGIN
-  IF NOT EXISTS (
-    SELECT 1 FROM pg_policies
-    WHERE tablename = 'ratings' AND policyname = 'Users manage own ratings'
-  ) THEN
-    CREATE POLICY "Users manage own ratings"
-      ON ratings FOR ALL USING (auth.uid() = user_id);
-  END IF;
-END $$;
+-- ── 1. RATINGS ──────────────────────────────────────────────────
+--
+-- Sacado el 2026-09-24. Acá había una copia de `ratings` con `rating` entero
+-- y una política de lectura pública que en producción no existe: correr este
+-- archivo de nuevo habría hecho públicas las notas de todos sin que nadie lo
+-- decidiera. La definición real está en `supabase-profile-setup.sql`.
 
 
 -- ── 2. NOTIFICATIONS — table, RLS, triggers ─────────────────────

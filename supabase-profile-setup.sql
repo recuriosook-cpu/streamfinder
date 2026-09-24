@@ -105,7 +105,20 @@ CREATE POLICY "Users can delete own watchlist"
   ON watchlist FOR DELETE USING (auth.uid() = user_id);
 
 -- ----------------------------------------------------------------
--- 5. RATINGS  (1–5 estrellas por película/serie)
+-- 5. RATINGS  (1–5 estrellas por película/serie, en medias)
+--
+-- Ésta es LA definición de `ratings`: verificada contra producción el
+-- 2026-09-24 (columnas, restricciones, índices, triggers y políticas).
+-- `supabase-fixes.sql` y `supabase-notifications-setup.sql` tenían copias
+-- viejas —con `rating` entero y una política de lectura pública que en
+-- producción no existe— y se sacaron para que no vuelvan a confundir.
+--
+-- Ojo, tal cual está en producción:
+--   - `rating` es numeric(3,1): guarda medias estrellas, pero el CHECK
+--     arranca en 1, así que 0,5 se rechaza aunque la web y la app lo ofrecen.
+--   - La lectura es sólo del dueño: nadie ve las notas de otro. Por eso el
+--     promedio de la ficha, la actividad de perfiles ajenos y las notas del
+--     feed salen vacíos.
 -- ----------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ratings (
   id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -114,7 +127,7 @@ CREATE TABLE IF NOT EXISTS ratings (
   media_type  TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title       TEXT NOT NULL,
   poster_path TEXT,
-  rating      INTEGER NOT NULL CHECK (rating BETWEEN 1 AND 5),
+  rating      NUMERIC(3,1) NOT NULL CHECK (rating >= 1 AND rating <= 5),
   rated_at    TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, media_id, media_type)
 );

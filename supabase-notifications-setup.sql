@@ -11,30 +11,12 @@
 
 
 -- ── SECTION 1: RATINGS ──────────────────────────────────────────
-
-CREATE TABLE IF NOT EXISTS ratings (
-  id          uuid        DEFAULT gen_random_uuid() PRIMARY KEY,
-  user_id     uuid        NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
-  media_id    integer     NOT NULL,
-  media_type  text        NOT NULL CHECK (media_type IN ('movie', 'tv')),
-  title       text        NOT NULL DEFAULT '',
-  poster_path text,
-  rating      integer     NOT NULL CHECK (rating BETWEEN 1 AND 5),
-  rated_at    timestamptz NOT NULL DEFAULT now(),
-  UNIQUE (user_id, media_id, media_type)
-);
-
-ALTER TABLE ratings ENABLE ROW LEVEL SECURITY;
-
--- Drop and recreate to avoid "already exists" errors
-DROP POLICY IF EXISTS "Public can read ratings"    ON ratings;
-DROP POLICY IF EXISTS "Users manage own ratings"   ON ratings;
-
-CREATE POLICY "Public can read ratings"
-  ON ratings FOR SELECT USING (true);
-
-CREATE POLICY "Users manage own ratings"
-  ON ratings FOR ALL USING (auth.uid() = user_id);
+--
+-- Sacado el 2026-09-24. Acá había una copia de `ratings` con `rating` entero
+-- que además borraba y recreaba las políticas con una de lectura pública que
+-- en producción no existe: correr este archivo de nuevo habría hecho públicas
+-- las notas de todos sin que nadie lo decidiera. La definición real está en
+-- `supabase-profile-setup.sql`.
 
 
 -- ── SECTION 2: NOTIFICATIONS TABLE ──────────────────────────────
@@ -217,7 +199,7 @@ SELECT item, status FROM (
       CASE WHEN EXISTS (
         SELECT 1 FROM pg_policies
          WHERE tablename = 'ratings' AND cmd = 'SELECT'
-      ) THEN '✓ OK' ELSE '✗ MISSING — ratings not publicly readable' END
+      ) THEN '✓ OK' ELSE '✗ MISSING — ratings sin ninguna política de lectura (ni la del dueño)' END
     )
 ) AS t(item, status)
 ORDER BY item;
