@@ -193,8 +193,9 @@ export async function POST(req: Request) {
     // ── 6 y 7. Mandar a los dos canales y limpiar lo muerto ────────────────
     // `sendPushToUser` ya hace web (VAPID sobre push_subscriptions) y móvil
     // (Expo sobre user_devices) en paralelo, y borra las suscripciones que
-    // devuelven 404/410 y los tokens con DeviceNotRegistered. Es lo mismo que
-    // usa /api/send-push: un solo lugar donde se envía.
+    // devuelven 404/410 y los tokens con DeviceNotRegistered. Es el único lugar
+    // que manda push por notificaciones de usuarios: `/api/send-push`, que
+    // mandaba texto armado por el navegador, se borró el 2026-09-24.
     await sendPushToUser(
       row.user_id,
       { title: text.title, body: text.body, url: text.url, tag: type },

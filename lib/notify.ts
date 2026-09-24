@@ -73,28 +73,15 @@ export async function sendNotification(
   }
 
   const { error } = await supabase.from('notifications').insert(payload)
-  if (error) { console.error(`[notify] ${payload.type}:`, error.message); return }
+  if (error) console.error(`[notify] ${payload.type}:`, error.message)
 
-  // Fire-and-forget push — only from browser context (web-push is server-only)
-  if (typeof window !== 'undefined') {
-    fetch('/api/send-push', {
-      method: 'POST',
-      headers: { 'Content-Type': 'application/json' },
-      body: JSON.stringify({
-        userId:      payload.user_id,
-        type:        payload.type,
-        actorName:   payload.actor_username,
-        entityTitle: payload.entity_title ?? payload.review_title,
-        entityId:    payload.entity_id,
-      }),
-    })
-      .then(res => {
-        if (!res.ok) {
-          res.json().catch(() => null).then(b =>
-            console.warn('[push] send-push failed', res.status, b)
-          )
-        }
-      })
-      .catch(err => console.warn('[push] fetch error:', err))
-  }
+  // El push no se manda desde acá. Lo manda `/api/push/on-notification`, que
+  // Supabase llama con cada fila nueva de `notifications` y que arma el texto
+  // desde la base (el nombre del actor sale de su perfil por `actor_id`).
+  //
+  // Antes esto además llamaba a `/api/send-push` con el nombre y el título que
+  // mandaba el navegador, y esa ruta mandaba el push tal cual: cualquier
+  // usuario logueado podía hacerle llegar a cualquier otro "Fulano te empezó a
+  // seguir" con el nombre que quisiera. Se borró el 2026-09-24. De paso, cada
+  // notificación hecha desde la web sonaba dos veces (esa ruta + el webhook).
 }
