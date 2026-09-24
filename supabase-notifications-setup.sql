@@ -1,3 +1,14 @@
+-- ⚠️  HISTÓRICO — NO CORRER (anotado el 2026-09-24).
+--
+-- Este archivo no refleja producción y correrlo de nuevo hace daño:
+--   - Crea los triggers trg_notify_follow / trg_notify_review_like, que en
+--     producción no existen: la web y la app ya crean esas notificaciones
+--     desde el cliente, así que cada follow y cada like se avisaría dos veces.
+--   - Las definiciones de ratings y de las políticas de notifications que
+--     tenía se sacaron o quedaron viejas.
+-- Lo vigente: ratings en supabase-profile-setup.sql (+ supabase-ratings-2026-09.sql),
+-- el INSERT de notifications en supabase-notifications-insert-2026-09.sql.
+
 -- ================================================================
 -- StreamFinder — Notifications + Ratings setup (DEFINITIVE)
 -- Run in: Supabase Dashboard → SQL Editor
@@ -60,15 +71,11 @@ CREATE POLICY "Users update own notifications"
   USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
--- Authenticated users can insert notifications where they are the actor.
--- This is used by client-side follow/like actions as a fallback when
--- DB triggers are unavailable.
-DROP POLICY IF EXISTS "Authenticated users insert notifications" ON notifications;
-CREATE POLICY "Authenticated users insert notifications"
-  ON notifications
-  FOR INSERT
-  TO authenticated
-  WITH CHECK (auth.uid() = actor_id);
+-- INSERT: sacado el 2026-09-24. Acá se creaba "Authenticated users insert
+-- notifications" con WITH CHECK (auth.uid() = actor_id) y sin límite de tipos.
+-- Las políticas se suman: correrla de nuevo dejaría otra vez crear avisos de
+-- sistema (level_up, new_release…) con cualquier texto. La regla vigente está
+-- en `supabase-notifications-insert-2026-09.sql`.
 
 
 -- ── SECTION 4: TRIGGER — new follow ─────────────────────────────

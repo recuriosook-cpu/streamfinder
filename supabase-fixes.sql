@@ -1,3 +1,14 @@
+-- ⚠️  HISTÓRICO — NO CORRER (anotado el 2026-09-24).
+--
+-- Este archivo no refleja producción y correrlo de nuevo hace daño:
+--   - Crea los triggers trg_notify_follow / trg_notify_review_like, que en
+--     producción no existen: la web y la app ya crean esas notificaciones
+--     desde el cliente, así que cada follow y cada like se avisaría dos veces.
+--   - Las definiciones de ratings y de las políticas de notifications que
+--     tenía se sacaron o quedaron viejas.
+-- Lo vigente: ratings en supabase-profile-setup.sql (+ supabase-ratings-2026-09.sql),
+-- el INSERT de notifications en supabase-notifications-insert-2026-09.sql.
+
 -- ================================================================
 -- StreamFinder — Fix script
 -- Safe to re-run (uses IF NOT EXISTS / CREATE OR REPLACE).
