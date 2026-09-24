@@ -6,18 +6,28 @@ import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, LogOut, LogIn, Menu, X, UserCircle, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
 import { notificationUrl } from '@/lib/notification-content'
 import { formatNotifTime } from '@/lib/format-fecha-notificacion'
+import { track } from '@/lib/analytics'
 import { createClient } from '@/lib/supabase'
 import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
 
-const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
 interface SearchResult {
   movies: Array<{ id: number; title: string; poster_path: string | null; release_date?: string }>
   tv:     Array<{ id: number; name:  string; poster_path: string | null; first_air_date?: string }>
   people: Array<{ id: number; name:  string; profile_path: string | null; known_for_department: string | null }>
   users:  Array<{ id: string; username: string | null; display_name: string | null; avatar_url: string | null }>
+  /** El título corregido cuando la búsqueda tenía un error; ver `lib/search.ts`. */
+  correction: string | null
 }
+
+/**
+ * Cuánto tiene que quedar quieta una búsqueda sin resultados para contarla.
+ * Sin esto, cada tramo de lo que se va escribiendo ("interst", "interste"...)
+ * sería un `search_no_results`, y el evento dejaría de decir qué no se
+ * encuentra para decir qué se estaba tipeando.
+ */
+const NO_RESULTS_QUIETO_MS = 1500
 
 interface NotifItem {
   id: string
@@ -47,6 +57,10 @@ export default function Navbar() {
   const [showRecent, setShowRecent] = useState(false)
   const searchRef = useRef<HTMLDivElement>(null)
   const debounceRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  const noResultsRef = useRef<ReturnType<typeof setTimeout> | null>(null)
+  // Las búsquedas sin resultados ya contadas en esta visita: borrar y volver a
+  // escribir lo mismo no es otra búsqueda fallida.
+  const noResultsContadas = useRef(new Set<string>())
   const [menuOpen, setMenuOpen] = useState(false)
   const [searchFocused, setSearchFocused] = useState(false)
   const [userLevel, setUserLevel] = useState<{ emoji: string; name: string; pct: number; pts: number; nextMin: number } | null>(null)
@@ -265,37 +279,55 @@ export default function Navbar() {
   const fetchSuggestions = useCallback(async (q: string) => {
     if (!q.trim()) { setSearchResults(null); setSearchOpen(false); return }
     setSearchLoading(true)
-    const base = 'https://api.themoviedb.org/3'
-    const params = `api_key=${TMDB_KEY}&language=es-AR&query=${encodeURIComponent(q)}&page=1`
+    // En minúsculas: el CDN cachea `/api/search` por URL, y "Batman" y
+    // "batman" dan lo mismo.
+    const termino = q.trim().toLowerCase()
     try {
-      const [moviesRes, tvRes, peopleRes, usersRes] = await Promise.all([
-        fetch(`${base}/search/movie?${params}`).then(r => r.ok ? r.json() : { results: [] }),
-        fetch(`${base}/search/tv?${params}`).then(r => r.ok ? r.json() : { results: [] }),
-        fetch(`${base}/search/person?${params}`).then(r => r.ok ? r.json() : { results: [] }),
+      const [mediaRes, usersRes] = await Promise.all([
+        fetch(`/api/search?type=all&q=${encodeURIComponent(termino)}`)
+          .then(r => r.ok ? r.json() : { results: [], correction: null }) as Promise<{
+            results: Array<{ media_type: string } & Record<string, unknown>>
+            correction: string | null
+          }>,
         supabase
           .from('profiles')
           .select('id, username, display_name, avatar_url')
           .or(`username.ilike.%${q.trim()}%,display_name.ilike.%${q.trim()}%`)
           .limit(3),
       ])
-      setSearchResults({
-        movies: (moviesRes.results ?? []).slice(0, 5),
-        tv:     (tvRes.results     ?? []).slice(0, 5),
-        people: (peopleRes.results ?? []).slice(0, 5),
-        users:  (usersRes.data     ?? []),
-      })
+      // Vienen ordenados por relevancia, todos los tipos mezclados.
+      const deTipo = <T,>(tipo: string) =>
+        mediaRes.results.filter(r => r.media_type === tipo).slice(0, 5) as unknown as T[]
+      const resultados: SearchResult = {
+        movies: deTipo<SearchResult['movies'][number]>('movie'),
+        tv:     deTipo<SearchResult['tv'][number]>('tv'),
+        people: deTipo<SearchResult['people'][number]>('person'),
+        users:  (usersRes.data ?? []),
+        correction: mediaRes.correction ?? null,
+      }
+      setSearchResults(resultados)
       setSearchOpen(true)
+
+      const vacio = !resultados.movies.length && !resultados.tv.length && !resultados.people.length && !resultados.users.length
+      if (vacio && !noResultsContadas.current.has(termino)) {
+        noResultsRef.current = setTimeout(() => {
+          noResultsContadas.current.add(termino)
+          track('search_no_results', { query: q.trim(), tipo: 'sugerencias' })
+        }, NO_RESULTS_QUIETO_MS)
+      }
     } catch {
       setSearchResults(null)
     } finally {
       setSearchLoading(false)
     }
-  }, [supabase]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [supabase])
 
   const handleQueryChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const val = e.target.value
     setQuery(val)
     if (debounceRef.current) clearTimeout(debounceRef.current)
+    // Siguió escribiendo: la búsqueda vacía anterior era un tramo, no una falla.
+    if (noResultsRef.current) clearTimeout(noResultsRef.current)
     if (!val.trim()) {
       setSearchResults(null)
       setSearchOpen(false)
@@ -306,7 +338,11 @@ export default function Navbar() {
     debounceRef.current = setTimeout(() => fetchSuggestions(val), 300)
   }
 
-  const closeSearch = () => { setSearchOpen(false); setSearchResults(null); setShowRecent(false); setSearchFocused(false) }
+  const closeSearch = () => {
+    // Si se va a `/search` con Enter, esa página ya cuenta la búsqueda vacía.
+    if (noResultsRef.current) clearTimeout(noResultsRef.current)
+    setSearchOpen(false); setSearchResults(null); setShowRecent(false); setSearchFocused(false)
+  }
 
   function handleResultClick() {
     if (query.trim()) saveSearch(query.trim())
@@ -406,6 +442,12 @@ export default function Navbar() {
           {/* Dropdown */}
           {searchOpen && searchResults && (
             <div className="absolute left-0 right-0 top-full mt-1 bg-[#13131A] border border-[#2A2A3A] rounded-xl shadow-2xl z-50 overflow-hidden max-h-[70vh] overflow-y-auto">
+
+              {searchResults.correction && (
+                <p className="px-4 pt-3 text-xs text-[#A0A0B0]">
+                  Mostrando resultados para <span className="text-white font-medium">{searchResults.correction}</span>
+                </p>
+              )}
 
               {/* ── Users ───────────────────────────────────── */}
               {searchResults.users.length > 0 && (

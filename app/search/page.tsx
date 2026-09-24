@@ -1,4 +1,4 @@
-﻿import { searchMulti } from '@/lib/tmdb'
+﻿import { buscar } from '@/lib/search'
 import { createServerClient } from '@/lib/supabase-server'
 import MediaCard from '@/components/MediaCard'
 import Link from 'next/link'
@@ -32,7 +32,7 @@ export default async function SearchPage({ searchParams }: Props) {
   // Fetch media results and user results in parallel
   const supabase = createServerClient()
   const [mediaData, usersRes] = await Promise.all([
-    searchMulti(q, Number(page)),
+    buscar(q, 'all', Number(page) || 1),
     supabase
       .from('profiles')
       .select('id, username, display_name, avatar_url')
@@ -40,8 +40,8 @@ export default async function SearchPage({ searchParams }: Props) {
       .limit(6),
   ])
 
-  const mediaResults = (mediaData.results ?? []).filter(
-    (item: { media_type: string }) => item.media_type === 'movie' || item.media_type === 'tv'
+  const mediaResults = mediaData.results.filter(
+    item => item.media_type === 'movie' || item.media_type === 'tv'
   )
 
   const userResults: UserResult[] = (usersRes.data ?? []).filter(
@@ -57,6 +57,11 @@ export default async function SearchPage({ searchParams }: Props) {
         <p className="text-[#A0A0B0] text-sm mt-1">
           {mediaData.total_results ?? 0} resultado{mediaData.total_results !== 1 ? 's' : ''} de películas y series
         </p>
+        {mediaData.correction && (
+          <p className="text-[#A0A0B0] text-sm mt-1">
+            Mostrando resultados para <span className="text-white font-medium">{mediaData.correction}</span>
+          </p>
+        )}
       </div>
 
       {/* ── Users section ──────────────────────────────────────── */}
@@ -123,24 +128,15 @@ export default async function SearchPage({ searchParams }: Props) {
             </h2>
           )}
           <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-            {mediaResults.map((item: {
-              id: number
-              media_type: 'movie' | 'tv'
-              title?: string
-              name?: string
-              poster_path: string | null
-              vote_average: number
-              release_date?: string
-              first_air_date?: string
-            }) => (
+            {mediaResults.map(item => (
               <MediaCard
                 key={`${item.media_type}-${item.id}`}
                 id={item.id}
                 title={item.title ?? item.name ?? ''}
-                posterPath={item.poster_path}
-                rating={item.vote_average}
+                posterPath={item.poster_path ?? null}
+                rating={item.vote_average ?? 0}
                 year={(item.release_date ?? item.first_air_date ?? '').slice(0, 4)}
-                mediaType={item.media_type}
+                mediaType={item.media_type as 'movie' | 'tv'}
               />
             ))}
           </div>
