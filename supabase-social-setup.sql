@@ -72,8 +72,9 @@ WHERE p.username IS NULL;
 --
 -- Verificado contra producción el 2026-09-24. Diferencias con lo que decía
 -- antes este archivo:
---   - `rating` es numeric(3,1) (medias estrellas), no entero. El CHECK
---     arranca en 1: 0,5 se rechaza aunque la web y la app lo ofrecen.
+--   - `rating` es numeric(3,1) (medias estrellas), no entero. El CHECK va de
+--     0,5 a 5 en pasos de 0,5 desde `supabase-ratings-2026-09.sql` (antes
+--     arrancaba en 1 y rechazaba el 0,5 que la web y la app ofrecen).
 --   - `has_spoiler` (lo agrega `supabase-spoiler-mention.sql`) y
 --     `comment_count`, que ningún SQL del repo crea ni mantiene: se agregó a
 --     mano en Supabase.
@@ -87,7 +88,9 @@ CREATE TABLE IF NOT EXISTS reviews (
   media_type    TEXT         NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title         TEXT         NOT NULL,
   poster_path   TEXT,
-  rating        NUMERIC(3,1) CHECK (rating >= 1 AND rating <= 5),
+  rating        NUMERIC(3,1)
+                CONSTRAINT reviews_rating_check
+                CHECK (rating >= 0.5 AND rating <= 5 AND rating * 2 = trunc(rating * 2)),
   body          TEXT,
   recommended   BOOLEAN      NOT NULL DEFAULT true,
   has_spoiler   BOOLEAN      DEFAULT false,

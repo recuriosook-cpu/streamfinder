@@ -113,12 +113,13 @@ CREATE POLICY "Users can delete own watchlist"
 -- viejas —con `rating` entero y una política de lectura pública que en
 -- producción no existe— y se sacaron para que no vuelvan a confundir.
 --
--- Ojo, tal cual está en producción:
---   - `rating` es numeric(3,1): guarda medias estrellas, pero el CHECK
---     arranca en 1, así que 0,5 se rechaza aunque la web y la app lo ofrecen.
---   - La lectura es sólo del dueño: nadie ve las notas de otro. Por eso el
---     promedio de la ficha, la actividad de perfiles ajenos y las notas del
---     feed salen vacíos.
+-- Cambios aplicados después con `supabase-ratings-2026-09.sql` (ya corrido):
+--   - El CHECK de `rating` va de 0,5 a 5 en pasos de 0,5
+--     (`ratings_rating_check`). Antes arrancaba en 1 y rechazaba el 0,5 que
+--     la web y la app ofrecen.
+--   - Además de la lectura del dueño, "Notas visibles según la privacidad del
+--     dueño": los demás ven las notas salvo que el dueño tenga "Ocultar
+--     actividad", o "Perfil privado" y no lo sigan (`puede_ver_actividad`).
 -- ----------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ratings (
   id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,
@@ -127,7 +128,9 @@ CREATE TABLE IF NOT EXISTS ratings (
   media_type  TEXT NOT NULL CHECK (media_type IN ('movie', 'tv')),
   title       TEXT NOT NULL,
   poster_path TEXT,
-  rating      NUMERIC(3,1) NOT NULL CHECK (rating >= 1 AND rating <= 5),
+  rating      NUMERIC(3,1) NOT NULL
+              CONSTRAINT ratings_rating_check
+              CHECK (rating >= 0.5 AND rating <= 5 AND rating * 2 = trunc(rating * 2)),
   rated_at    TIMESTAMPTZ DEFAULT NOW(),
   UNIQUE(user_id, media_id, media_type)
 );
