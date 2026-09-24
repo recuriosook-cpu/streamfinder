@@ -8,8 +8,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * HTML que cachea el CDN. Puede ir ahí porque no depende de quién mira: es lo
  * mismo para todos, a diferencia del bloque de Surfshark. La portada es una URL
  * pública de Storage que no vence, así que el HTML cacheado nunca apunta a una
- * imagen rota. Ver `supabase-creator-recommendations.sql` y
- * `scripts/import-recommendations.mjs`.
+ * imagen rota. Ver `supabase-creator-recommendations.sql`; se cargan desde
+ * `/admin/recomendaciones` o con `scripts/import-recommendations.mjs`.
  */
 
 const BUCKET = 'recommendations'

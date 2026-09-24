@@ -25,40 +25,25 @@
  *
  * ── De dónde sale la portada ───────────────────────────────────────────────
  *
- * Probado contra los posts reales el 2026-09-23, sin credenciales:
+ * Igual que en el panel `/admin/recomendaciones`: el método, y por qué un post
+ * sin portada limpia se guarda con `embeddable = false`, están en
+ * `lib/instagram-covers.ts`; cómo se guarda la imagen (tamaño, formato, caché),
+ * en `lib/recommendation-images.ts`. El reporte final lista los posts que
+ * salieron con la portada con botón de play, para reemplazarlas a mano si hace
+ * falta.
  *
- *   1. `instagram.com/p/<código>/media/?size=l` redirige a la portada limpia,
- *      en 640×1136. Anda para casi todos los posts.
- *   2. Si ese da error, `og:image` de la página del post pedida como el bot de
- *      Facebook. Anda para todos, pero en los reels trae un botón de play
- *      pegado en la imagen y sale más chica (361×640). El reporte final lista
- *      cuáles salieron así, para reemplazarlas a mano si hace falta.
- *
- * Que no haya portada limpia es además la señal de que el post tiene la
- * inserción deshabilitada: los 3 de 162 que caen en el paso 2 son los mismos 3
- * cuyo reproductor embebido muestra el cartel de error. Por eso esas filas se
- * guardan con `embeddable = false` y la web los manda directo a Instagram.
- * El reproductor no se puede consultar sin un navegador —el HTML de `/embed/`
- * es igual para los dos casos—, así que no hay una señal mejor.
- *
- * Las URLs que devuelve Instagram vencen a los pocos días; por eso se baja la
- * imagen y se guarda en el bucket, y nunca se guarda la URL de Instagram. Cómo
- * se guarda (tamaño, formato, caché) está en `recommendation-images.mjs`.
- *
- * Correlo desde tu computadora, no desde un servidor: Instagram trata peor a
- * las IP de datacenter y eso no está probado.
+ * Para cargar de a uno está el panel; esto queda para cargas grandes desde un
+ * CSV, o para cuando Instagram no le conteste al servidor.
  */
 
 import { readFileSync } from 'node:fs'
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
-import { subirPortada, subirAvatar } from './recommendation-images.mjs'
+import { subirPortada, subirAvatar } from '../lib/recommendation-images.ts'
+import { codigoDePost, fichaDeLink, bajarPortada, bajarAvatar } from '../lib/instagram-covers.ts'
 
 /** Pausa entre posts. 162 seguidos sin pausa no cortaron, pero no cuesta nada. */
 const PAUSA_MS = 300
-
-const UA_NAVEGADOR = 'Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/140.0 Safari/537.36'
-const UA_FACEBOOK  = 'facebookexternalhit/1.1'
 
 // ── Argumentos y credenciales ──────────────────────────────────────────────
 
@@ -132,55 +117,16 @@ function parsearCsv(texto) {
 
 /** Una fila del CSV, validada. Tira con un mensaje legible si algo no cierra. */
 function interpretarFila([titulo = '', link = '', ficha = '']) {
-  const post = link.match(/instagram\.com\/(?:[\w.]+\/)?(?:p|reel|reels|tv)\/([\w-]+)/)
-  if (!post) throw new Error(`el link de Instagram no es un post: "${link}"`)
+  const codigo = codigoDePost(link)
+  if (!codigo) throw new Error(`el link de Instagram no es un post: "${link}"`)
 
-  const media = ficha.match(/glynbox\.com\/(movie|tv)\/(\d+)/)
+  const media = fichaDeLink(ficha)
   if (!media) throw new Error(`el link de glynbox no es una ficha: "${ficha}"`)
 
-  return {
-    titulo:    titulo.trim(),
-    codigo:    post[1],
-    mediaType: media[1],
-    tmdbId:    Number(media[2]),
-  }
+  return { titulo: titulo.trim(), codigo, ...media }
 }
-
-// ── Instagram ──────────────────────────────────────────────────────────────
 
 const pausa = ms => new Promise(r => setTimeout(r, ms))
-
-function esJpeg(buf) {
-  return buf.length > 1000 && buf[0] === 0xff && buf[1] === 0xd8
-}
-
-async function bajarImagen(url, userAgent) {
-  const res = await fetch(url, { headers: { 'User-Agent': userAgent }, redirect: 'follow' })
-  if (!res.ok) return null
-  const buf = Buffer.from(await res.arrayBuffer())
-  return esJpeg(buf) ? buf : null
-}
-
-/** `og:image` de una página de Instagram, pedida como el bot de Facebook. */
-async function ogImage(url) {
-  const res = await fetch(url, { headers: { 'User-Agent': UA_FACEBOOK } })
-  if (!res.ok) return null
-  const html = await res.text()
-  const m = html.match(/<meta property="og:image" content="([^"]+)"/)
-  return m ? m[1].replaceAll('&amp;', '&') : null
-}
-
-/** La portada de un post. `{ buf, limpia }` o `null`. Ver el encabezado. */
-async function bajarPortada(codigo) {
-  const limpia = await bajarImagen(`https://www.instagram.com/p/${codigo}/media/?size=l`, UA_NAVEGADOR)
-  if (limpia) return { buf: limpia, limpia: true }
-
-  const og = await ogImage(`https://www.instagram.com/p/${codigo}/`)
-  const conPlay = og && await bajarImagen(og, UA_NAVEGADOR)
-  if (conPlay) return { buf: conPlay, limpia: false }
-
-  return null
-}
 
 // ── Creador ────────────────────────────────────────────────────────────────
 
@@ -195,8 +141,7 @@ async function prepararCreador() {
   let avatarPath = existente?.avatar_path ?? null
 
   if (!avatarPath || args.forzar) {
-    const og = await ogImage(`https://www.instagram.com/${usuario}/`)
-    const buf = og && await bajarImagen(og, UA_NAVEGADOR)
+    const buf = await bajarAvatar(usuario)
     if (buf) {
       avatarPath = (await subirAvatar(db, usuario, buf)).ruta
     } else {

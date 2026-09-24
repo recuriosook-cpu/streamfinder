@@ -1,6 +1,6 @@
 /**
  * Pasa las portadas y avatares ya cargados al formato de
- * `recommendation-images.mjs`: WebP de 450 px, con hash en el nombre y caché de
+ * `lib/recommendation-images.ts`: WebP de 450 px, con hash en el nombre y caché de
  * un año. Las imágenes salen del mismo Storage; a Instagram no se le pide nada.
  *
  * Uso:
@@ -22,7 +22,7 @@
 
 import { parseArgs } from 'node:util'
 import { createClient } from '@supabase/supabase-js'
-import { BUCKET, subirPortada, subirAvatar, esRutaOptimizada } from './recommendation-images.mjs'
+import { BUCKET, subirPortada, subirAvatar, esRutaOptimizada } from '../lib/recommendation-images.ts'
 
 const PAUSA_MS = 300
 const REINTENTOS = 3

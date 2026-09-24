@@ -1,7 +1,12 @@
 /**
  * Cómo se guardan en Storage las imágenes de las recomendaciones de creadores
- * (portadas y avatares). Lo usan `import-recommendations.mjs` y
- * `optimize-recommendation-covers.mjs`, para que las dos cosas guarden igual.
+ * (portadas y avatares). Lo usan el panel `/admin/recomendaciones` y los
+ * scripts `import-recommendations.mjs` y `optimize-recommendation-covers.mjs`,
+ * para que todos guarden igual.
+ *
+ * Los scripts lo importan tal cual con Node (24 saca los tipos solo), así que
+ * acá va TypeScript "borrable": anotaciones sí; enums, alias `@/` e imports
+ * sin extensión no.
  *
  * ── Tamaño y formato ──────────────────────────────────────────────────────
  *
@@ -26,6 +31,7 @@
 
 import { createHash } from 'node:crypto'
 import sharp from 'sharp'
+import type { SupabaseClient } from '@supabase/supabase-js'
 
 export const BUCKET = 'recommendations'
 
@@ -35,14 +41,14 @@ const CALIDAD_WEBP  = 75
 const UN_ANO        = String(365 * 24 * 60 * 60)
 
 /** Achica a `ancho` (sin agrandar nunca) y pasa a WebP. */
-async function aWebp(buf, ancho) {
+async function aWebp(buf: Buffer, ancho: number): Promise<Buffer> {
   return sharp(buf)
     .resize({ width: ancho, withoutEnlargement: true })
     .webp({ quality: CALIDAD_WEBP })
     .toBuffer()
 }
 
-function hash(buf) {
+function hash(buf: Buffer): string {
   return createHash('sha256').update(buf).digest('hex').slice(0, 10)
 }
 
@@ -53,7 +59,13 @@ function hash(buf) {
  * `upsert: true` no pisa nada distinto: si la ruta ya existe es porque el
  * contenido es idéntico (el nombre sale del hash), así que re-subir es gratis.
  */
-async function subir(db, carpeta, nombre, original, ancho) {
+async function subir(
+  db: SupabaseClient,
+  carpeta: string,
+  nombre: string,
+  original: Buffer,
+  ancho: number,
+): Promise<{ ruta: string; bytes: number }> {
   const webp = await aWebp(original, ancho)
   const ruta = `${carpeta}/${nombre}-${hash(webp)}.webp`
 
@@ -68,16 +80,16 @@ async function subir(db, carpeta, nombre, original, ancho) {
 }
 
 /** `covers/<código>-<hash>.webp` */
-export function subirPortada(db, codigo, original) {
+export function subirPortada(db: SupabaseClient, codigo: string, original: Buffer) {
   return subir(db, 'covers', codigo, original, ANCHO_PORTADA)
 }
 
 /** `avatars/<usuario>-<hash>.webp` */
-export function subirAvatar(db, usuario, original) {
+export function subirAvatar(db: SupabaseClient, usuario: string, original: Buffer) {
   return subir(db, 'avatars', usuario, original, ANCHO_AVATAR)
 }
 
 /** ¿Esta ruta ya está en el formato de este módulo? */
-export function esRutaOptimizada(ruta) {
+export function esRutaOptimizada(ruta: string | null | undefined): boolean {
   return /-[0-9a-f]{10}\.webp$/.test(ruta ?? '')
 }

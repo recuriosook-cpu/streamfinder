@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Activity, Flag, BarChart3,
-  Shield, X, Menu, ArrowLeft, ChevronRight,
+  Shield, X, Menu, ArrowLeft, ChevronRight, Clapperboard,
 } from 'lucide-react'
 
 const NAV = [
@@ -14,6 +14,7 @@ const NAV = [
   { href: '/admin/actividad', icon: Activity,         label: 'Actividad', emoji: '🎬' },
   { href: '/admin/reportes',  icon: Flag,             label: 'Reportes',  emoji: '🚨' },
   { href: '/admin/metricas',  icon: BarChart3,        label: 'Métricas',  emoji: '📈' },
+  { href: '/admin/recomendaciones', icon: Clapperboard, label: 'Recomendaciones', emoji: '🎥' },
 ]
 
 interface Props {

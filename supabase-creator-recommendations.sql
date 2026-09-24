@@ -6,12 +6,13 @@
 --
 -- La portada NO se lee de Instagram en cada visita: las direcciones de imagen
 -- de Instagram vencen a los ~4 días y las fichas se cachean una hora en el CDN.
--- Se baja una sola vez con `scripts/import-recommendations.mjs` y queda en el
--- bucket `recommendations` de Storage. Acá se guarda la ruta dentro del bucket,
--- no la URL, así un cambio de dominio de Supabase no obliga a reescribir filas.
+-- Se baja una sola vez, desde el panel `/admin/recomendaciones` o con
+-- `scripts/import-recommendations.mjs`, y queda en el bucket `recommendations`
+-- de Storage. Acá se guarda la ruta dentro del bucket, no la URL, así un
+-- cambio de dominio de Supabase no obliga a reescribir filas.
 --
--- Lectura pública (anon), escritura sólo con la service role key: el script de
--- carga la usa y la service role saltea RLS, así que no hay políticas de
+-- Lectura pública (anon), escritura sólo con la service role key: el panel y
+-- el script la usan y la service role saltea RLS, así que no hay políticas de
 -- escritura.
 
 CREATE TABLE IF NOT EXISTS creators (
