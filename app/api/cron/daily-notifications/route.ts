@@ -1,7 +1,11 @@
 import { NextResponse } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
-import { sendPushToUser, buildPushPayload } from '@/lib/send-push-notification'
+
+// El push de cada notificación no se manda desde acá: lo manda
+// `/api/push/on-notification`, que Supabase llama con cada fila nueva de
+// `notifications`. Hasta el 2026-09-24 este cron además mandaba el push por su
+// cuenta, y cada cumpleaños y estreno sonaba dos veces.
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB_BASE = 'https://api.themoviedb.org/3'
@@ -132,9 +136,6 @@ export async function GET(req: Request) {
       })
       if (error) { summary.errors.push(`birthday insert ${actor_id}: ${error.message}`); continue }
       summary.birthday++
-      // Push notification (fire-and-forget)
-      const bdPush = buildPushPayload('actor_birthday', undefined, actor_name, String(actor_id))
-      if (bdPush) sendPushToUser(user_id, bdPush, { type: 'actor_birthday', entityId: String(actor_id) }).catch(() => {})
     }
   }
 
@@ -196,9 +197,6 @@ export async function GET(req: Request) {
           })
           if (error) { summary.errors.push(`new_release ${movie.id}: ${error.message}`); continue }
           summary.new_release++
-          // Push notification (fire-and-forget)
-          const nrPush = buildPushPayload('new_release', undefined, entityTitle, String(movie.id))
-          if (nrPush) sendPushToUser(userId, nrPush, { type: 'new_release', entityId: String(movie.id) }).catch(() => {})
         }
       }
     }

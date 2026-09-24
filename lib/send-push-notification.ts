@@ -55,39 +55,6 @@ export interface PushPayload {
   tag?:  string
 }
 
-export function buildPushPayload(
-  type: NotifType,
-  actorName?: string,
-  entityTitle?: string,
-  entityId?: string
-): PushPayload | null {
-  const actor = actorName || 'Alguien'
-  switch (type) {
-    case 'follow':
-      return { title: '🤝 Nuevo seguidor', body: `${actor} empezó a seguirte`, url: '/comunidad', tag: 'follow' }
-    case 'review_like':
-      return { title: '❤️ Me gusta en tu reseña', body: `A ${actor} le gustó tu reseña de ${entityTitle || ''}`, url: '/comunidad', tag: 'review-like' }
-    case 'review_comment':
-      return { title: '💬 Comentaron tu reseña', body: `${actor} comentó tu reseña de ${entityTitle || ''}`, url: '/comunidad', tag: 'review-comment' }
-    case 'comment_reply':
-      return { title: '↩️ Respondieron tu comentario', body: `${actor} respondió tu comentario`, url: '/comunidad', tag: 'comment-reply' }
-    case 'mention':
-      return { title: '👋 Te mencionaron', body: `${actor} te mencionó en una reseña`, url: '/comunidad', tag: 'mention' }
-    case 'level_up':
-      return { title: '🏆 ¡Subiste de nivel!', body: `Ahora sos ${entityTitle || ''}`, url: '/profile', tag: 'level-up' }
-    case 'list_like':
-      return { title: '❤️ Me gusta en tu lista', body: `A ${actor} le gustó "${entityTitle || ''}"`, url: entityId ? `/listas/${entityId}` : '/', tag: 'list-like' }
-    case 'list_comment':
-      return { title: '💬 Comentaron tu lista', body: `${actor} comentó "${entityTitle || ''}"`, url: entityId ? `/listas/${entityId}` : '/', tag: 'list-comment' }
-    case 'actor_birthday':
-      return { title: '🎂 ¡Hoy cumple años!', body: `${entityTitle || ''} cumple años hoy`, url: entityId ? `/actor/${entityId}` : '/', tag: 'birthday' }
-    case 'new_release':
-      return { title: '🎬 Nueva película', body: entityTitle || '', url: entityId ? `/movie/${entityId}` : '/', tag: 'new-release' }
-    default:
-      return null
-  }
-}
-
 /**
  * Notifica al usuario por todos los canales que tenga.
  *
@@ -98,8 +65,8 @@ export function buildPushPayload(
  * VAPID sería absurdo.
  *
  * `meta` es lo que la app necesita para saber a dónde llevar al tocar la
- * notificación. La ruta sale de `payload.url`, que ya arma `buildPushPayload`
- * para el push web: un solo mapeo de tipo → destino para los dos.
+ * notificación. La ruta sale de `payload.url`, que arma `buildNotificationContent`
+ * (`lib/notification-content.ts`): un solo mapeo de tipo → texto y destino.
  */
 export async function sendPushToUser(
   userId: string,

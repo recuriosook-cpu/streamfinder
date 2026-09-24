@@ -9,8 +9,8 @@ import type { PushPayload } from './send-push-notification'
  * Va aparte del push web (`send-push-notification.ts`) porque el transporte no
  * tiene nada que ver: el web usa VAPID y habla directo con el endpoint que le
  * dio el navegador; Expo recibe un token y se encarga de FCM/APNs. Lo que sí
- * comparten es `buildPushPayload`, así que el texto de cada tipo de
- * notificación se escribe una sola vez.
+ * comparten es el texto, que arma `buildNotificationContent`
+ * (`lib/notification-content.ts`) una sola vez para los dos.
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -31,8 +31,8 @@ type ExpoTicket = {
 /**
  * Lo que viaja en `data` y lee la app al tocar la notificación.
  *
- * `url` es la ruta de glynbox.com —la misma que ya arma `buildPushPayload` para
- * el push web— y la app la resuelve con su parser de deep links. Así no hay un
+ * `url` es la ruta de glynbox.com —la misma que usa el push web, armada por
+ * `buildNotificationContent`— y la app la resuelve con su parser de deep links. Así no hay un
  * segundo mapeo de tipo → pantalla que mantener del lado del servidor.
  */
 export type ExpoPushData = {
