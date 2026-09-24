@@ -152,17 +152,24 @@ async function resolveActor(
  * reseña. Como el webhook dispara en el mismo instante del INSERT, es
  * prácticamente seguro que sea ése. Si algún día se empieza a completar
  * `comment_id`, ese camino tiene prioridad y deja de ser heurística.
+ *
+ * El comentario tiene que ser del actor. `comment_id` lo manda el cliente: sin
+ * ese filtro, alguien podía apuntarlo al comentario de otra persona y hacerlo
+ * aparecer en el push bajo su nombre. (En `comment_reply` la web manda el
+ * comentario *respondido*, que es del destinatario: con el filtro cae al
+ * fallback y el push muestra la respuesta, que es lo que tenía que mostrar.)
  */
 async function resolveCommentText(
   admin: SupabaseClient,
   row: NotificationRow
 ): Promise<string> {
   try {
-    if (row.comment_id) {
+    if (row.comment_id && row.actor_id) {
       const { data } = await admin
         .from('review_comments')
         .select('content')
         .eq('id', row.comment_id)
+        .eq('user_id', row.actor_id)
         .maybeSingle()
       const content = (data as { content: string | null } | null)?.content
       if (content) return excerpt(content)
@@ -185,12 +192,16 @@ async function resolveCommentText(
   return ''
 }
 
-/** Título de la reseña, si la fila no lo trae. */
+/**
+ * Título de la reseña (el de la película o serie), leído de la base.
+ *
+ * No se usa `row.review_title`: lo manda el cliente, y alguien podía poner
+ * cualquier texto y hacerlo llegar como "Tu reseña de {texto}".
+ */
 async function resolveReviewTitle(
   admin: SupabaseClient,
   row: NotificationRow
 ): Promise<string> {
-  if (row.review_title?.trim()) return row.review_title.trim()
   if (!row.review_id) return ''
   const { data } = await admin
     .from('reviews')
@@ -198,6 +209,39 @@ async function resolveReviewTitle(
     .eq('id', row.review_id)
     .maybeSingle()
   return (data as { title: string | null } | null)?.title?.trim() ?? ''
+}
+
+/**
+ * Nombre de la lista, leído de la base. Mismo motivo que `resolveReviewTitle`:
+ * `entity_title` lo manda el cliente y llegaba tal cual al push.
+ */
+async function resolveListTitle(
+  admin: SupabaseClient,
+  row: NotificationRow
+): Promise<string> {
+  if (!row.entity_id) return ''
+  const { data } = await admin
+    .from('lists')
+    .select('title')
+    .eq('id', row.entity_id)
+    .maybeSingle()
+  return (data as { title: string | null } | null)?.title?.trim() ?? ''
+}
+
+/** Último comentario del actor en la lista, de la base. */
+async function resolveListCommentText(
+  admin: SupabaseClient,
+  row: NotificationRow
+): Promise<string> {
+  if (!row.entity_id || !row.actor_id) return ''
+  const { data } = await admin
+    .from('list_comments')
+    .select('content')
+    .eq('list_id', row.entity_id)
+    .eq('user_id', row.actor_id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  return excerpt((data as { content: string | null }[] | null)?.[0]?.content)
 }
 
 /**
@@ -284,15 +328,20 @@ export async function buildNotificationContent(
     case 'list_like':
       return {
         title: `A ${actor} le gustó tu lista`,
-        body:  row.entity_title?.trim() ?? '',
+        body:  await resolveListTitle(admin, row),
         url,
       }
 
     case 'list_comment': {
-      const comment = await resolveCommentText(admin, row)
+      // Antes buscaba el comentario en `review_comments` (tabla equivocada:
+      // nunca lo encontraba) y caía al nombre de lista que mandaba el cliente.
+      const [comment, listTitle] = await Promise.all([
+        resolveListCommentText(admin, row),
+        resolveListTitle(admin, row),
+      ])
       return {
         title: `${actor} comentó tu lista`,
-        body:  comment || (row.entity_title?.trim() ?? ''),
+        body:  comment || listTitle,
         url,
       }
     }

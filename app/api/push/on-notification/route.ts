@@ -6,6 +6,7 @@ import {
   type NotificationRow,
 } from '@/lib/notification-content'
 import { sendPushToUser } from '@/lib/send-push-notification'
+import { verificarNotificacion } from '@/lib/notification-verification'
 import type { NotifType } from '@/lib/notify'
 
 /**
@@ -166,6 +167,15 @@ export async function POST(req: Request) {
   if (failure) return ok('sin service role')
 
   try {
+    // ── 3b. Que la acción haya pasado de verdad ───────────────────────────
+    // La fila la crea el cliente: sin esto, cualquiera podía mandar "Fulano te
+    // empezó a seguir" sin seguirte. Ver `lib/notification-verification.ts`.
+    const verificacion = await verificarNotificacion(admin, type, row)
+    if (!verificacion.ok) {
+      console.warn('[on-notification] no verificada:', type, verificacion.motivo, row.id ?? '')
+      return ok('no verificada', { type, motivo: verificacion.motivo })
+    }
+
     // ── 4. Respetar las preferencias del destinatario ──────────────────────
     const prefKey = PREF_KEY_BY_TYPE[type]
     if (prefKey) {
