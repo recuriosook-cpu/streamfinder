@@ -13,9 +13,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const supabase = createServerClient()
   const { data: profile } = await supabase
     .from('profiles')
-    .select('display_name, bio, avatar_url')
+    .select('display_name, bio, avatar_url, is_private')
     .eq('username', username)
     .maybeSingle()
+
+  // "Perfil privado": que los buscadores no lo indexen ni sigan sus links.
+  const robots = profile?.is_private ? { index: false, follow: false } : undefined
 
   const displayName = profile?.display_name ?? username
   const description = profile?.bio
@@ -40,6 +43,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images:      [imageUrl],
     },
     alternates: { canonical: `https://glynbox.com/usuario/${username}` },
+    robots,
   }
 }
 

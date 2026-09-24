@@ -19,12 +19,13 @@ import { enforceRateLimit } from '@/lib/rate-limit'
  * lo que la app no puede resolver sin gastar cientos de requests desde el
  * teléfono.
  *
- * Sobre la autorización: `watched` tiene policy de lectura pública y `profiles`
- * también, así que todo lo que se devuelve acá ya es visible para cualquiera que
- * consulte la base con la anon key. Igual se verifica que el perfil exista —para
- * no exponer el endpoint como sonda de ids— y, si viene un Bearer, que sea un
- * token válido. No se exige token porque estos números se muestran en perfiles
- * ajenos, igual que en la web.
+ * Sobre la autorización: lo que se puede ver de `watched` lo decide su RLS
+ * (`puede_ver_actividad`: "Ocultar actividad" y "Perfil privado"). Sin token
+ * se lee como visitante; con token, con los permisos de ese usuario, así un
+ * seguidor ve lo que un desconocido no. Nunca con la service role. Se verifica
+ * que el perfil exista —para no exponer el endpoint como sonda de ids— y, si
+ * viene un Bearer, que sea un token válido. No se exige token porque estos
+ * números se muestran en perfiles ajenos.
  */
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -32,8 +33,21 @@ const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-/** Una hora, como pide el brief. Las vistas no se mueven tan rápido. */
+/** Caché de los datos de TMDB (géneros, créditos): no dependen de nadie. */
 const CACHE_SECONDS = 3600
+
+/**
+ * Caché de la respuesta. Antes era una hora en el CDN más un día de
+ * stale-while-revalidate: alguien que prendía "Ocultar actividad" seguía
+ * mostrando sus estadísticas casi un día.
+ *
+ *   - Con sesión: la respuesta depende de quién mira (un seguidor ve las de un
+ *     perfil privado, un desconocido no), así que sólo en el teléfono.
+ *   - Sin sesión: es la misma para todos, pero corta, para que el cambio de
+ *     privacidad se note en minutos.
+ */
+const CACHE_CON_SESION = 'private, max-age=300'
+const CACHE_SIN_SESION = 'public, s-maxage=300, stale-while-revalidate=60'
 
 /**
  * Cuántos títulos se consultan contra TMDB.
@@ -178,12 +192,14 @@ export async function GET(
     )
   }
 
-  // Cliente con la anon key: las dos tablas que se leen son de lectura pública,
-  // así que no hace falta —ni conviene— usar la service role acá.
-  const supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  // Nunca la service role: lo que se puede ver lo decide la RLS de `watched`
+  // (`puede_ver_actividad`), que respeta "Ocultar actividad" y "Perfil
+  // privado". Sin sesión se lee como visitante.
+  let supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
+  let cacheControl = CACHE_SIN_SESION
 
-  // Si vino un Bearer, tiene que ser un token válido. No se exige: sin él la
-  // respuesta es la misma que ya da la base con la anon key.
+  // Si vino un Bearer, tiene que ser un token válido, y se lee con sus
+  // permisos: así un seguidor de un perfil privado ve sus estadísticas.
   const authHeader = req.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice('Bearer '.length)
@@ -194,6 +210,11 @@ export async function GET(
         { status: 401, headers: CORS_HEADERS }
       )
     }
+    supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY, {
+      global: { headers: { Authorization: `Bearer ${token}` } },
+      auth: { persistSession: false, autoRefreshToken: false },
+    })
+    cacheControl = CACHE_CON_SESION
   }
 
   const { data: profile } = await supabase
@@ -222,7 +243,7 @@ export async function GET(
     return NextResponse.json(EMPTY, {
       headers: {
         ...CORS_HEADERS,
-        'Cache-Control': `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400`,
+        'Cache-Control': cacheControl,
       },
     })
   }
@@ -309,7 +330,7 @@ export async function GET(
   return NextResponse.json(body, {
     headers: {
       ...CORS_HEADERS,
-      'Cache-Control': `public, s-maxage=${CACHE_SECONDS}, stale-while-revalidate=86400`,
+      'Cache-Control': cacheControl,
     },
   })
 }

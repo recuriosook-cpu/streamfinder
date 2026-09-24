@@ -6,6 +6,7 @@ import {
   getFollowingIds,
   getProfilesById,
   getSupabase,
+  getSupabaseAsUser,
   jsonError,
   privateCache,
   readPaging,
@@ -22,15 +23,13 @@ import { enforceRateLimit } from '@/lib/rate-limit'
  * servidor: la web dispara 6 consultas en paralelo desde el navegador y acá eso
  * sería 6 round-trips desde el teléfono.
  *
- * OJO con lo que RLS deja pasar (el proxy lee con la anon key, no saltea las
- * policies):
+ * Lee con el token del usuario, no como anónimo: la RLS decide qué ve cada uno
+ * según la privacidad de los demás ("Perfil privado" / "Ocultar actividad",
+ * con `puede_ver_perfil` y `puede_ver_actividad` en las políticas). Así un
+ * seguidor de un perfil privado ve su actividad y un desconocido no.
  *
- *   - `reviews`, `watchlist` y `lists` son de lectura pública → llegan.
- *   - `ratings` y `notifications` son de lectura sólo para su dueño → los tipos
- *     `rating` y `level_up` van a venir SIEMPRE vacíos hasta que se agregue una
- *     policy pública. Vale la pena saberlo: en la web pasa exactamente lo
- *     mismo, sólo que ahí no se nota porque el array vacío se mezcla con el
- *     resto. El código queda listo para cuando la policy exista.
+ * Los `level_up` siguen viniendo vacíos: `notifications` sólo la lee su dueño,
+ * y esto pide las de otros.
  */
 
 export const OPTIONS = corsPreflight
@@ -628,6 +627,14 @@ export async function GET(req: NextRequest) {
   const userId = await requireUserId(req, supabase)
   if (!userId) return jsonError('Unauthorized', 401)
 
+  // Las lecturas del feed van con los permisos de quien pregunta, no como
+  // visitante: la privacidad (`puede_ver_actividad` / `puede_ver_perfil` en las
+  // políticas) depende de quién mira. Como visitante, un perfil privado le
+  // quedaría oculto también a sus propios seguidores. `requireUserId` ya
+  // validó el token.
+  const token = req.headers.get('authorization')!.slice('Bearer '.length)
+  const db = getSupabaseAsUser(token) ?? supabase
+
   const rawMode = req.nextUrl.searchParams.get('mode') ?? 'all'
   const mode: FeedMode = (MODES as string[]).includes(rawMode)
     ? (rawMode as FeedMode)
@@ -635,7 +642,7 @@ export async function GET(req: NextRequest) {
 
   const { page, limit } = readPaging(req, DEFAULT_LIMIT, MAX_LIMIT)
 
-  const followIds = await getFollowingIds(supabase, userId)
+  const followIds = await getFollowingIds(db, userId)
 
   if (followIds.length === 0) {
     const empty: CommunityFeedResponse = {
@@ -655,13 +662,13 @@ export async function GET(req: NextRequest) {
 
   const [reviews, ratings, watchlist, watched, follows, lists, levelUps] =
     await Promise.all([
-      want.reviews ? loadReviews(supabase, followIds, userId) : [],
-      want.ratings ? loadRatings(supabase, followIds) : [],
-      want.watchlist ? loadWatchlist(supabase, followIds) : [],
-      want.watched ? loadWatched(supabase, followIds) : [],
-      want.follows ? loadFollows(supabase, followIds, userId) : [],
-      want.lists ? loadLists(supabase, followIds) : [],
-      want.levelUps ? loadLevelUps(supabase, followIds) : [],
+      want.reviews ? loadReviews(db, followIds, userId) : [],
+      want.ratings ? loadRatings(db, followIds) : [],
+      want.watchlist ? loadWatchlist(db, followIds) : [],
+      want.watched ? loadWatched(db, followIds) : [],
+      want.follows ? loadFollows(db, followIds, userId) : [],
+      want.lists ? loadLists(db, followIds) : [],
+      want.levelUps ? loadLevelUps(db, followIds) : [],
     ])
 
   const merged: AuthoredItem[] = [
@@ -685,10 +692,10 @@ export async function GET(req: NextRequest) {
   )
 
   const [profiles, recommendations] = await Promise.all([
-    getProfilesById(supabase, profileIds),
+    getProfilesById(db, profileIds),
     // Sólo en el modo completo: filtrando por "reseñas" o por "listas", meter
     // sugerencias de TMDB rompería el filtro que el usuario acaba de elegir.
-    mode === 'all' ? loadRecommendations(supabase, userId) : [],
+    mode === 'all' ? loadRecommendations(db, userId) : [],
   ])
 
   const body: CommunityFeedResponse = {
