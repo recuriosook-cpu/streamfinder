@@ -40,6 +40,9 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const supabase = createClient()
 
   const [reviews, setReviews]                 = useState<Review[]>([])
+  // Cuántas reseñas tiene el título en total. No es `reviews.length`: la lista
+  // trae sólo las 10 más recientes, y el contador se quedaba clavado en 10.
+  const [totalReviews, setTotalReviews]       = useState(0)
   // currentUserId starts null — hook reads it after auth resolves
   const [currentUserId, setCurrentUserId]     = useState<string | null>(null)
   // Reseña resaltada al llegar desde un link `#review-{id}`
@@ -109,10 +112,11 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   async function loadReviews() {
     setLoading(true)
 
-    // Step 1 — fetch the 10 most recent reviews + their like rows
-    const { data: raw, error } = await supabase
+    // Step 1 — fetch the 10 most recent reviews + their like rows, and the
+    // total count in the same query
+    const { data: raw, error, count } = await supabase
       .from('reviews')
-      .select('*, review_likes(user_id)')
+      .select('*, review_likes(user_id)', { count: 'exact' })
       .eq('media_id', mediaId)
       .eq('media_type', mediaType)
       .order('created_at', { ascending: false })
@@ -141,6 +145,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     }))
 
     setReviews(merged)
+    setTotalReviews(count ?? merged.length)
     setLoading(false)
   }
 
@@ -257,6 +262,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     if (!confirm('¿Eliminar reseña?')) return
     await supabase.from('reviews').delete().eq('id', id)
     setReviews(prev => prev.filter(r => r.id !== id))
+    setTotalReviews(prev => Math.max(0, prev - 1))
     toast.success('Reseña eliminada')
   }
 
@@ -324,8 +330,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         <h2 className="text-xl font-bold flex items-center gap-2">
           <MessageSquare size={19} />
           Reseñas
-          {reviews.length > 0 && (
-            <span className="text-sm font-normal text-[#A0A0B0]">({reviews.length})</span>
+          {totalReviews > 0 && (
+            <span className="text-sm font-normal text-[#A0A0B0]">({totalReviews})</span>
           )}
         </h2>
         {currentUserId && !showForm && (

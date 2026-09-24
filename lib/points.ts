@@ -19,11 +19,6 @@ let missingRpcReported = false
  * encadena—, así que el `supabase.rpc(...)` suelto que había antes construía la
  * consulta y la tiraba a la basura sin llegar nunca a la red. Los puntos no se
  * sumaban desde ningún lado.
- *
- * OJO: la función `add_points` todavía NO existe en la base. Están las columnas
- * `profiles.points` y `profiles.level`, pero los `CREATE FUNCTION` de
- * `supabase-levels.sql` (`get_level` + `add_points`) nunca se corrieron. Hasta
- * que se apliquen, esto avisa por consola y no suma nada.
  */
 export function addPoints(userId: string, amount: number): void {
   const supabase = createClient()
