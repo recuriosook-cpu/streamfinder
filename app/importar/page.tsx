@@ -5,7 +5,6 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase'
-import { addPoints } from '@/lib/points'
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Star, Bookmark, FileText, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
 
@@ -205,10 +204,8 @@ export default function ImportarPage() {
 
     res.notFound = [...new Set(notFound)]
 
-    // Award XP for every successfully imported watched entry (2 pts each, same as marking watched manually)
-    if (res.watchedImported > 0) {
-      addPoints(user.id, res.watchedImported * 2)
-    }
+    // Lo importado no suma puntos (decidido el 2026-09-24): importar no es
+    // mirar, y 500 películas de Letterboxd llevaban directo al nivel máximo.
 
     setResult(res)
     setPhase('done')

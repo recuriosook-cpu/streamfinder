@@ -243,7 +243,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
                 review_id:    reviewId,
                 review_title: title,
               })
-              addPoints(p.id, 2)
+              // Ser mencionado no suma puntos (sacado el 2026-09-24).
             }
           }
         }
@@ -285,7 +285,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           ? { ...r, review_likes: [...r.review_likes, { user_id: currentUserId }] }
           : r
       ))
-      if (review.user_id !== currentUserId) addPoints(review.user_id, 2)
+      // Los +2 al autor los da la base (trigger puntos_por_like_resena):
+      // add_points ya no suma puntos a otro usuario.
     }
   }
 

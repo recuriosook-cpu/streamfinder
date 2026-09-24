@@ -449,7 +449,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .insert({ follower_id: currentUserId, following_id: profile.id })
       if (!error) {
         addPoints(currentUserId, 1)      // follower gains 1 pt for following
-        addPoints(profile.id, 3)         // followed user gains 3 pts
+        // Los +3 al seguido los da la base (trigger puntos_por_follow):
+        // add_points ya no suma puntos a otro usuario.
         // Notify the followed user — done client-side since DB triggers are unavailable
         await sendNotification(supabase as Parameters<typeof sendNotification>[0], {
           user_id:  profile.id,
