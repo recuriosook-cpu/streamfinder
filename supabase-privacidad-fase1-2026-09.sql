@@ -1,3 +1,7 @@
+-- ⚠️  NO VOLVER A CORRER. Ya se aplicó, y la parte de "Perfil privado" se deshizo con
+-- supabase-sin-perfil-privado-2026-09.sql (Glynbox no tiene perfiles privados). Correr
+-- esto de nuevo reinstalaría las reglas con puede_ver_perfil. Queda como registro.
+
 -- ── Privacidad, fase 1: que los interruptores tapen lo que prometen ────────
 --
 -- Aprobado el 2026-09-24. Correr entero, una vez; se puede volver a correr.

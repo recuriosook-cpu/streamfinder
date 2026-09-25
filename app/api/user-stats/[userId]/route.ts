@@ -20,9 +20,9 @@ import { enforceRateLimit } from '@/lib/rate-limit'
  * teléfono.
  *
  * Sobre la autorización: lo que se puede ver de `watched` lo decide su RLS
- * (`puede_ver_actividad`: "Ocultar actividad" y "Perfil privado"). Sin token
- * se lee como visitante; con token, con los permisos de ese usuario, así un
- * seguidor ve lo que un desconocido no. Nunca con la service role. Se verifica
+ * (`puede_ver_actividad`, "Ocultar actividad"). Sin token se lee como
+ * visitante; con token, con los permisos de ese usuario, así el dueño ve sus
+ * propias estadísticas aunque oculte su actividad. Nunca con la service role. Se verifica
  * que el perfil exista —para no exponer el endpoint como sonda de ids— y, si
  * viene un Bearer, que sea un token válido. No se exige token porque estos
  * números se muestran en perfiles ajenos.
@@ -41,8 +41,8 @@ const CACHE_SECONDS = 3600
  * stale-while-revalidate: alguien que prendía "Ocultar actividad" seguía
  * mostrando sus estadísticas casi un día.
  *
- *   - Con sesión: la respuesta depende de quién mira (un seguidor ve las de un
- *     perfil privado, un desconocido no), así que sólo en el teléfono.
+ *   - Con sesión: la respuesta depende de quién mira (el dueño ve las suyas
+ *     aunque oculte su actividad, los demás no), así que sólo en el teléfono.
  *   - Sin sesión: es la misma para todos, pero corta, para que el cambio de
  *     privacidad se note en minutos.
  */
@@ -193,13 +193,13 @@ export async function GET(
   }
 
   // Nunca la service role: lo que se puede ver lo decide la RLS de `watched`
-  // (`puede_ver_actividad`), que respeta "Ocultar actividad" y "Perfil
-  // privado". Sin sesión se lee como visitante.
+  // (`puede_ver_actividad`), que respeta "Ocultar actividad". Sin sesión se lee
+  // como visitante.
   let supabase = createClient(SUPABASE_URL, SUPABASE_ANON_KEY)
   let cacheControl = CACHE_SIN_SESION
 
   // Si vino un Bearer, tiene que ser un token válido, y se lee con sus
-  // permisos: así un seguidor de un perfil privado ve sus estadísticas.
+  // permisos: así el dueño ve sus estadísticas aunque oculte su actividad.
   const authHeader = req.headers.get('authorization')
   if (authHeader?.startsWith('Bearer ')) {
     const token = authHeader.slice('Bearer '.length)

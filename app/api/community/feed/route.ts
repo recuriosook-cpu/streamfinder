@@ -24,9 +24,9 @@ import { enforceRateLimit } from '@/lib/rate-limit'
  * sería 6 round-trips desde el teléfono.
  *
  * Lee con el token del usuario, no como anónimo: la RLS decide qué ve cada uno
- * según la privacidad de los demás ("Perfil privado" / "Ocultar actividad",
- * con `puede_ver_perfil` y `puede_ver_actividad` en las políticas). Así un
- * seguidor de un perfil privado ve su actividad y un desconocido no.
+ * ("Ocultar actividad", con `puede_ver_actividad` en las políticas de vistas,
+ * notas y watchlist). Que las lecturas vayan como quien mira es lo que hay que
+ * hacer igual: si mañana una regla depende de quién mira, ya está.
  *
  * Los `level_up` siguen viniendo vacíos: `notifications` sólo la lee su dueño,
  * y esto pide las de otros.
@@ -628,10 +628,8 @@ export async function GET(req: NextRequest) {
   if (!userId) return jsonError('Unauthorized', 401)
 
   // Las lecturas del feed van con los permisos de quien pregunta, no como
-  // visitante: la privacidad (`puede_ver_actividad` / `puede_ver_perfil` en las
-  // políticas) depende de quién mira. Como visitante, un perfil privado le
-  // quedaría oculto también a sus propios seguidores. `requireUserId` ya
-  // validó el token.
+  // visitante: la RLS (`puede_ver_actividad`) decide con esos permisos.
+  // `requireUserId` ya validó el token.
   const token = req.headers.get('authorization')!.slice('Bearer '.length)
   const db = getSupabaseAsUser(token) ?? supabase
 

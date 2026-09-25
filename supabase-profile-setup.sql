@@ -119,7 +119,8 @@ CREATE POLICY "Users can delete own watchlist"
 --     la web y la app ofrecen.
 --   - Además de la lectura del dueño, "Notas visibles según la privacidad del
 --     dueño": los demás ven las notas salvo que el dueño tenga "Ocultar
---     actividad", o "Perfil privado" y no lo sigan (`puede_ver_actividad`).
+--     actividad" (`puede_ver_actividad`, versión vigente en
+--     supabase-sin-perfil-privado-2026-09.sql).
 -- ----------------------------------------------------------------
 CREATE TABLE IF NOT EXISTS ratings (
   id          UUID DEFAULT gen_random_uuid() PRIMARY KEY,

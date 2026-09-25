@@ -1,3 +1,7 @@
+-- ⚠️  NO VOLVER A CORRER. Ya se aplicó. La versión vigente de puede_ver_actividad está
+-- en supabase-sin-perfil-privado-2026-09.sql (sólo "Ocultar actividad"); correr esto de
+-- nuevo le devolvería la rama de "Perfil privado". Queda como registro.
+
 -- ── Notas: media estrella de 0,5, y lectura según la privacidad ────────────
 --
 -- Dos cambios aprobados el 2026-09-24. Correr entero, una vez; se puede volver

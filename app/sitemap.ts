@@ -56,14 +56,8 @@ async function getPublicListPages(): Promise<MetadataRoute.Sitemap> {
   }))
 }
 
-/**
- * Sin los perfiles privados: "Sólo tus seguidores pueden ver tu perfil" no
- * cierra con mandarle el perfil a Google. Las reseñas y listas de esos perfiles
- * no hace falta filtrarlas acá: estas consultas van como visitante y la RLS ya
- * no las devuelve (`puede_ver_perfil`).
- */
 async function getPublicProfilePages(): Promise<MetadataRoute.Sitemap> {
-  const rows = await supabaseFetch('profiles?select=username&username=not.is.null&is_private=eq.false&limit=500')
+  const rows = await supabaseFetch('profiles?select=username&username=not.is.null&limit=500')
   return rows
     .filter(r => r.username)
     .map(r => ({
