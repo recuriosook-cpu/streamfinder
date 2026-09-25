@@ -102,8 +102,11 @@ const PREF_KEY_BY_TYPE: Record<string, string> = {
   comment_reply:  'replies',
   mention:        'mentions',
   level_up:       'level_up',
-  list_like:      'list_like',
-  list_comment:   'list_comment',
+  // Los avisos de listas caen en likes / comments, igual que en la base
+  // (notificaciones_respetan_preferencias) y en la app: no existen claves
+  // list_like ni list_comment en las preferencias.
+  list_like:      'likes',
+  list_comment:   'comments',
   actor_birthday: 'actor_birthday',
   new_release:    'new_release',
 }

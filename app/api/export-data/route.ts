@@ -64,7 +64,9 @@ export async function POST(req: Request) {
     actorsRes,
   ] = await Promise.all([
     supabase.from('profiles')
-      .select('id, username, display_name, bio, avatar_url, points, level, country, notification_preferences, created_at')
+      // Sin created_at: profiles no tiene esa columna, y pedirla hacía fallar la
+      // consulta entera — el perfil salía vacío en todas las exportaciones.
+      .select('id, username, display_name, bio, avatar_url, points, level, country, notification_preferences, favorite_genres, favorite_platforms, hide_activity')
       .eq('id', userId).maybeSingle(),
     supabase.from('watched')
       .select('media_id, media_type, title, poster_path, watched_at')

@@ -191,7 +191,8 @@ export default function ResumenPage() {
       topWatchlistRes,
     ] = await Promise.all([
       overviewPromise,
-      supabase.from('profiles').select('*', { count: 'exact', head: true }),
+      // `id` y no `*`: los usuarios logueados ya no pueden leer todas las columnas.
+      supabase.from('profiles').select('id', { count: 'exact', head: true }),
       supabase.from('reviews').select('*', { count: 'exact', head: true }),
       supabase.from('lists').select('*', { count: 'exact', head: true }),
       // Activity last 7 days

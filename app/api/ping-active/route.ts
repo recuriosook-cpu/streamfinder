@@ -19,7 +19,13 @@ export async function POST() {
   const { data: { user } } = await supabase.auth.getUser()
   if (!user) return NextResponse.json({ ok: false })
 
-  const { data: profile } = await supabase
+  // Con la service role también la lectura: `last_active` es interna y ningún
+  // cliente la puede leer (supabase-profiles-columnas-2026-09.sql), ni siquiera
+  // el dueño con su sesión.
+  const { admin: adminClient, failure } = requireAdminClient('ping-active')
+  if (failure) return failure
+
+  const { data: profile } = await adminClient
     .from('profiles')
     .select('last_active')
     .eq('id', user.id)
@@ -29,9 +35,6 @@ export async function POST() {
   if (profile?.last_active && profile.last_active > oneHourAgo) {
     return NextResponse.json({ ok: true, skipped: true })
   }
-
-  const { admin: adminClient, failure } = requireAdminClient('ping-active')
-  if (failure) return failure
 
   const { error } = await adminClient
     .from('profiles')

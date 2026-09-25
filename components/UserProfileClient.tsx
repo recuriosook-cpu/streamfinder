@@ -473,9 +473,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       setUsernameError('Solo letras, números y guión bajo (3-30 caracteres)')
       return
     }
-    // Rate limit: once per 30 days
-    if (profile.username_changed_at) {
-      const nextAvailable = new Date(new Date(profile.username_changed_at).getTime() + 30 * 24 * 60 * 60 * 1000)
+    // Rate limit: once per 30 days. Se lee acá, con la sesión del dueño: la
+    // página arma el perfil como visitante y un visitante no ve esta columna.
+    // (Además, el valor de la página quedaba viejo si cambiabas el @ dos veces
+    // en la misma visita.)
+    const { data: own } = await supabase
+      .from('profiles')
+      .select('username_changed_at')
+      .eq('id', profile.id)
+      .maybeSingle()
+    const usernameChangedAt = (own as { username_changed_at: string | null } | null)?.username_changed_at
+    if (usernameChangedAt) {
+      const nextAvailable = new Date(new Date(usernameChangedAt).getTime() + 30 * 24 * 60 * 60 * 1000)
       if (new Date() < nextAvailable) {
         const formatted = nextAvailable.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })
         setUsernameError(`Solo podés cambiar tu @ una vez por mes. Próximo cambio disponible el ${formatted}`)

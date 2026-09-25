@@ -47,9 +47,12 @@ export default async function UserProfilePage({ params }: Props) {
   const { username } = await params
   const supabase = createServerClient()
 
+  // Sólo las columnas públicas: esta consulta va como visitante, y un visitante
+  // no puede leer las demás (supabase-profiles-columnas-2026-09.sql). Con `*`
+  // la consulta entera fallaría.
   const { data: profile } = await supabase
     .from('profiles')
-    .select('*')
+    .select('id, username, display_name, avatar_url, bio, instagram_username, tiktok_username, x_username, points, level')
     .eq('username', username)
     .maybeSingle()
 
