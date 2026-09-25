@@ -61,7 +61,7 @@ export async function POST(req: Request) {
   const [
     profileRes, watchedRes, watchlistRes, favoritesRes,
     ratingsRes,  reviewsRes, listsRes,    pinnedRes,
-    actorsRes,
+    actorsRes,   seasonReviewsRes,
   ] = await Promise.all([
     supabase.from('profiles')
       // Sin created_at: profiles no tiene esa columna, y pedirla hacía fallar la
@@ -92,6 +92,9 @@ export async function POST(req: Request) {
     supabase.from('followed_actors')
       .select('actor_id, actor_name, actor_photo, birthday')
       .eq('user_id', userId).range(0, 9999),
+    supabase.from('season_reviews')
+      .select('series_id, series_title, season_number, season_name, rating, body, has_spoiler, created_at, updated_at')
+      .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
   ])
 
   // ── JSON export ──────────────────────────────────────────────────────────
@@ -108,6 +111,7 @@ export async function POST(req: Request) {
       lists:       listsRes.data       ?? [],
       pinned_favorites: pinnedRes.data ?? [],
       followed_actors:  actorsRes.data ?? [],
+      season_reviews:   seasonReviewsRes.data ?? [],
     }
 
     const username = (profileRes.data as { username: string | null } | null)?.username ?? 'user'

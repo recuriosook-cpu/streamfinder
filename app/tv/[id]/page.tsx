@@ -47,6 +47,7 @@ import WatchlistButton from '@/components/WatchlistButton'
 import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
+import SeasonsReviews from '@/components/SeasonsReviews'
 import TrailerSection from '@/components/TrailerSection'
 import CreatorRecommendations from '@/components/CreatorRecommendations'
 import { getCreatorRecommendations } from '@/lib/creator-recommendations'
@@ -398,12 +399,19 @@ export default async function TVPage({ params }: Props) {
           mediaType="tv"
         />
         <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
-        <ReviewsSection
-          mediaId={show.id}
-          mediaType="tv"
-          title={show.name}
-          posterPath={show.poster_path}
-        />
+        <SeasonsReviews
+          seriesId={show.id}
+          seriesTitle={show.name}
+          seriesPoster={show.poster_path}
+          seasons={show.seasons}
+        >
+          <ReviewsSection
+            mediaId={show.id}
+            mediaType="tv"
+            title={show.name}
+            posterPath={show.poster_path}
+          />
+        </SeasonsReviews>
         <SimilarTitles items={similar} mediaType="tv" />
       </div>
     </div>
