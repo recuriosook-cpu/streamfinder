@@ -2,35 +2,19 @@
 import { notFound } from 'next/navigation'
 
 /**
- * Una hora de cache, regenerando de fondo (ISR).
+ * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
+ * header `Vercel-CDN-Cache-Control` de `next.config.ts`.
  *
- * El TTL no agrega desactualización sobre lo que la página ya mostraba: todas
- * las llamadas a TMDB pasan por `lib/tmdb.ts`, que fetchea con
- * `{ next: { revalidate: 3600 } }`. Lo único que cambia es que la página
- * deja de re-renderizarse entera en cada visita.
+ * Con ISR, cada ficha nueva se guardaba en el cache durable de Vercel, que se
+ * cobra por escritura (unidades de 8 KB, unas 16 por ficha). Los bots recorren
+ * ids siempre distintos, así que casi todo lo guardado no se volvía a leer: en
+ * septiembre de 2026 fueron 9M de unidades, $36 y el 72% de la factura, y el
+ * proyecto quedó pausado por el tope de gasto. El cache de la CDN no se cobra.
  *
- * Pasado el TTL, Next sirve la versión vieja al instante y regenera de fondo,
- * así que nadie espera por la regeneración.
+ * Sin `revalidate` ni `generateStaticParams` la página es dinámica. Los
+ * datos de TMDB se siguen cacheando una hora en `lib/tmdb.ts`. No volver a
+ * ponerle ISR sin mirar esto.
  */
-export const revalidate = 3600
-
-/**
- * Devuelve `[]` a propósito, y sin esto no hay cache.
- *
- * Una ruta con parámetro que no declara `generateStaticParams` no entra al
- * pipeline estático de Next: se sirve dinámica siempre, con
- * `Cache-Control: no-store`, aunque tenga `revalidate`. Así estuvieron estas
- * páginas desde que existen — medido en producción, `x-vercel-cache: MISS` en
- * el 100% de las visitas.
- *
- * La lista va vacía porque el catálogo es prácticamente infinito y no tiene
- * sentido prerenderizarlo en el build. Con `dynamicParams` en `true` (el
- * default), cada id que no esté en la lista se genera en su primera visita y
- * queda cacheado. O sea: build corto, y cache igual.
- */
-export async function generateStaticParams() {
-  return []
-}
 
 import type { Metadata } from 'next'
 import Image from 'next/image'

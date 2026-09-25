@@ -27,20 +27,12 @@ import Breadcrumb from '@/components/Breadcrumb'
  *
  * Página aparte y no dentro de la ficha: TMDB da los episodios en un pedido
  * por temporada (de 50 a 450 KB); en la ficha habría que traer todas en cada
- * regeneración. Así cada temporada tiene su propio cache.
+ * visita. Así cada temporada tiene su propio cache.
+ *
+ * Sin ISR, igual que las fichas: se cachea 24 h en la CDN de Vercel con el
+ * header `Vercel-CDN-Cache-Control` de `next.config.ts`. El porqué está en
+ * `app/movie/[id]/page.tsx`.
  */
-
-export const revalidate = 3600
-
-/**
- * `[]` a propósito, como en la ficha: sin `generateStaticParams`, una ruta con
- * parámetros se sirve siempre dinámica (`no-store`) aunque tenga `revalidate`.
- * Con la lista vacía cada temporada se genera en su primera visita y queda
- * cacheada una hora.
- */
-export async function generateStaticParams() {
-  return []
-}
 
 interface Props {
   params: Promise<{ id: string; n: string }>

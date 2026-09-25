@@ -19,6 +19,14 @@ const nextConfig: NextConfig = {
         source: '/.well-known/assetlinks.json',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
+      // Las fichas del catálogo se cachean 24 h en la CDN de Vercel y no con
+      // ISR: las escrituras de ISR se cobran y los bots generan fichas nuevas
+      // sin parar (ver el comentario de app/movie/[id]/page.tsx). Este header
+      // sólo lo lee Vercel: no llega al navegador ni a otros CDN.
+      ...['/movie/:id(\\d+)', '/tv/:id(\\d+)', '/tv/:id(\\d+)/temporada/:n(\\d+)', '/actor/:id(\\d+)', '/director/:id(\\d+)'].map(source => ({
+        source,
+        headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=86400' }],
+      })),
     ]
   },
   images: {
