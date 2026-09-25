@@ -11,7 +11,7 @@ import {
 import { createClient } from '@/lib/supabase'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { getPosterUrl } from '@/lib/tmdb'
-import { addPoints, getLevelInfo } from '@/lib/points'
+import { getLevelInfo } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
 import ReviewCard from '@/components/ReviewCard'
@@ -448,9 +448,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
         .from('follows')
         .insert({ follower_id: currentUserId, following_id: profile.id })
       if (!error) {
-        addPoints(currentUserId, 1)      // follower gains 1 pt for following
-        // Los +3 al seguido los da la base (trigger puntos_por_follow):
-        // add_points ya no suma puntos a otro usuario.
+        // Los puntos de los dos (+1 y +3) los da la base (trigger
+        // puntos_por_follow), una vez por par.
         // Notify the followed user — done client-side since DB triggers are unavailable
         await sendNotification(supabase as Parameters<typeof sendNotification>[0], {
           user_id:  profile.id,

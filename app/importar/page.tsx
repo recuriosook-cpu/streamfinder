@@ -10,6 +10,12 @@ import { toast } from 'sonner'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
+/**
+ * Marca de lo que entra por el importador. Los triggers de puntos la ven y no
+ * suman: importar no es mirar. Ver supabase-puntos-etapa2-2026-09.sql.
+ */
+const ORIGEN = 'letterboxd'
+
 // ── Types ────────────────────────────────────────────────────────────────────
 
 interface LbWatched   { Date: string; Name: string; Year: string; 'Letterboxd URI': string; Rating?: string }
@@ -152,6 +158,7 @@ export default function ImportarPage() {
         user_id: user.id, media_id: movie.id, media_type: 'movie',
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
         watched_at: new Date().toISOString(),
+        origen: ORIGEN,
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.watchedImported++; addLog(`✓ Visto: ${movie.title ?? row.Name}`) }
     }
@@ -181,6 +188,7 @@ export default function ImportarPage() {
         user_id: user.id, media_id: movie.id, media_type: 'movie',
         title: movie.title ?? row.Name, poster_path: movie.poster_path ?? null,
         added_at: new Date().toISOString(),
+        origen: ORIGEN,
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.watchlistImported++; addLog(`🔖 Watchlist: ${movie.title ?? row.Name}`) }
     }
@@ -198,6 +206,7 @@ export default function ImportarPage() {
         body: row.Review.trim(), rating: isNaN(rating ?? NaN) ? null : rating,
         recommended: true, has_spoiler: false,
         created_at: new Date().toISOString(),
+        origen: ORIGEN,
       }, { onConflict: 'user_id,media_id,media_type' })
       if (!error) { res.reviewsImported++; addLog(`✍ Reseña importada: ${movie.title ?? row.Name}`) }
     }

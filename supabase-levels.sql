@@ -1,3 +1,9 @@
+-- ⚠️  HISTÓRICO — NO VOLVER A CORRER (anotado el 2026-09-24).
+--
+-- Correrlo pisaría los puntos de todos con la carga de abajo y reinstalaría
+-- un add_points sin validación. Lo vigente: supabase-puntos-etapa1-2026-09.sql
+-- (sumar_puntos) y supabase-puntos-etapa2-2026-09.sql (triggers + puntos_otorgados).
+
 -- ── Schema ────────────────────────────────────────────────────────────────────
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS points INTEGER DEFAULT 0;
 ALTER TABLE profiles ADD COLUMN IF NOT EXISTS level  INTEGER DEFAULT 1;

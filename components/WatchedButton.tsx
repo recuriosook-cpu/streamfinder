@@ -4,7 +4,6 @@ import { useState, useEffect, useRef } from 'react'
 import { CheckCircle, Calendar, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
-import { addPoints } from '@/lib/points'
 import { toast } from 'sonner'
 
 interface Props {
@@ -99,7 +98,7 @@ export default function WatchedButton({
       return
     }
 
-    addPoints(userId, mediaType === 'movie' ? 3 : 5)
+    // Los puntos los da la base (trigger puntos_por_vista), una vez por título.
     setIsWatched(true)
     toast.success('¡Marcado como visto!')
     closePopup()

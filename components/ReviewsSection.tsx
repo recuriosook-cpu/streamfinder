@@ -6,7 +6,6 @@ import { createClient } from '@/lib/supabase'
 import ReviewCard from '@/components/ReviewCard'
 import MentionTextarea from '@/components/MentionTextarea'
 import { StarIcon } from '@/components/StarDisplay'
-import { addPoints } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
 import { toast } from 'sonner'
@@ -224,8 +223,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         if (reviewId) promptForPush()
       }
 
-      addPoints(currentUserId, 10)
-      if (formBody.trim().length >= 200) addPoints(currentUserId, 5)
+      // Los puntos (+10, y +5 si es larga) los da la base, una vez por reseña:
+      // editar ya no vuelve a sumar. Ver supabase-puntos-etapa2-2026-09.sql.
 
       if (reviewId && formBody.trim()) {
         const mentionedUsernames = [...new Set([...formBody.matchAll(/@(\w+)/g)].map(m => m[1]))]
