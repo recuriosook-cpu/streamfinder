@@ -1,45 +1,21 @@
 'use client'
 
-import { useEffect, useRef, useState, type ReactNode } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Calendar, Loader2, MessageSquare, Star, Trash2, Tv } from 'lucide-react'
+import { Loader2, MessageSquare, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { StarIcon } from '@/components/StarDisplay'
-import {
-  etiquetaTemporada,
-  fechaLarga,
-  nombreTemporada,
-  sinEstrenar,
-  temporadasParaPestanias,
-  type TmdbSeason,
-} from '@/lib/seasons'
+import { fechaLarga, nombreTemporada, sinEstrenar, type TmdbSeason } from '@/lib/seasons'
 
 /**
- * Reseñas de una serie, con pestañas por temporada: Serie · T1 · T2 · … ·
- * Especiales.
+ * Lo de Glynbox sobre una temporada: el promedio de la comunidad, tu nota y
+ * reseña, y las reseñas de los demás (tabla `season_reviews`, ver
+ * supabase-season-reviews.sql). Va en la página de la temporada, debajo de su
+ * portada y datos. Sin estrenar: se ve, pero no se puede calificar.
  *
- * "Serie" es el bloque de siempre (`ReviewsSection`, que llega como
- * `children`): la reseña de la serie entera es aparte de las de temporada, no
- * un promedio. Arriba suma "Promedio de tus temporadas" como dato suelto.
- *
- * Cada temporada tiene su portada, datos de TMDB, tu nota y reseña, y las de
- * la comunidad (tabla `season_reviews`, ver supabase-season-reviews.sql). Los
- * puntos (+5, una vez por temporada) los da la base.
- *
- * La pestaña elegida va en la URL como `?temporada=N` (link directo). Se lee y
- * se escribe en el navegador y no con useSearchParams: la ficha es estática
- * (ISR) y así no hace falta un Suspense que deje el bloque en blanco.
+ * Los puntos (+5, una vez por temporada) los da la base con un trigger.
  */
-
-interface Props {
-  seriesId: number
-  seriesTitle: string
-  seriesPoster: string | null
-  seasons: TmdbSeason[] | null | undefined
-  /** El bloque de reseñas de la serie entera. */
-  children: ReactNode
-}
 
 interface SeasonReview {
   id: string
@@ -52,157 +28,28 @@ interface SeasonReview {
   profiles: { id: string; username: string | null; display_name: string | null; avatar_url: string | null } | null
 }
 
-const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
-const IMG = 'https://image.tmdb.org/t/p'
 const MAX_RESENIAS = 30
 
-function leerTemporadaDeLaURL(): number | null {
-  if (typeof window === 'undefined') return null
-  const raw = new URLSearchParams(window.location.search).get('temporada')
-  return raw !== null && /^\d+$/.test(raw) ? Number(raw) : null
-}
-
-function escribirTemporadaEnLaURL(n: number | null) {
-  const url = new URL(window.location.href)
-  if (n === null) url.searchParams.delete('temporada')
-  else url.searchParams.set('temporada', String(n))
-  window.history.replaceState(window.history.state, '', url)
-}
-
-export default function SeasonsReviews({ seriesId, seriesTitle, seriesPoster, seasons, children }: Props) {
-  const pestanias = temporadasParaPestanias(seasons)
-  const [activa, setActiva] = useState<number | null>(null)
-  const [userId, setUserId] = useState<string | null>(null)
-  const [promedioMio, setPromedioMio] = useState<{ avg: number; n: number } | null>(null)
-  const raiz = useRef<HTMLDivElement>(null)
-  const tira = useRef<HTMLDivElement>(null)
-  const supabase = useRef(createClient()).current
-
-  // Temporada del link directo: se selecciona y se lleva la vista hasta acá.
-  useEffect(() => {
-    if (!pestanias) return
-    const n = leerTemporadaDeLaURL()
-    if (n !== null && pestanias.some(s => s.season_number === n)) {
-      setActiva(n)
-      requestAnimationFrame(() => raiz.current?.scrollIntoView({ behavior: 'smooth', block: 'start' }))
-    }
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-
-  useEffect(() => {
-    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
-  }, [supabase])
-
-  // "Promedio de tus temporadas", para la pestaña Serie.
-  useEffect(() => {
-    if (!userId || !pestanias) return
-    supabase
-      .from('season_reviews')
-      .select('rating')
-      .eq('user_id', userId)
-      .eq('series_id', seriesId)
-      .then(({ data }) => {
-        const notas = (data ?? []).map(r => Number((r as { rating: number }).rating))
-        setPromedioMio(notas.length ? { avg: notas.reduce((a, b) => a + b, 0) / notas.length, n: notas.length } : null)
-      })
-    // `activa` en las dependencias: al volver a "Serie" después de reseñar una
-    // temporada, el promedio ya la incluye.
-  }, [userId, seriesId, activa, supabase]) // eslint-disable-line react-hooks/exhaustive-deps
-
-  // La pestaña elegida siempre a la vista: con 39 temporadas (Los Simpson),
-  // entrar por link a la T38 la dejaba fuera de la tira.
-  useEffect(() => {
-    const boton = tira.current?.querySelector<HTMLElement>('[aria-selected="true"]')
-    const cont = tira.current
-    if (!boton || !cont) return
-    cont.scrollTo({ left: boton.offsetLeft - (cont.clientWidth - boton.offsetWidth) / 2, behavior: 'smooth' })
-  }, [activa])
-
-  if (!pestanias) return <>{children}</>
-
-  const elegir = (n: number | null) => {
-    setActiva(n)
-    escribirTemporadaEnLaURL(n)
-  }
-
-  const temporada = activa === null ? null : pestanias.find(s => s.season_number === activa) ?? null
-
-  return (
-    <div ref={raiz} className="mt-10 scroll-mt-20">
-      <div ref={tira} className="relative flex gap-2 overflow-x-auto pb-2 -mx-1 px-1" role="tablist" aria-label="Temporadas">
-        <Pestania activa={activa === null} onClick={() => elegir(null)}>Serie</Pestania>
-        {pestanias.map(s => (
-          <Pestania key={s.season_number} activa={activa === s.season_number} onClick={() => elegir(s.season_number)}>
-            {etiquetaTemporada(s)}
-          </Pestania>
-        ))}
-      </div>
-
-      {temporada === null ? (
-        <>
-          {promedioMio && (
-            <p className="mt-3 text-sm text-[#A0A0B0]">
-              Promedio de tus temporadas:{' '}
-              <span className="text-white font-semibold">{promedioMio.avg.toFixed(1)}</span>/5
-              <span className="text-zinc-600"> · {promedioMio.n} {promedioMio.n === 1 ? 'temporada' : 'temporadas'}</span>
-            </p>
-          )}
-          {/* ReviewsSection trae su propio margen de arriba */}
-          <div className="-mt-6">{children}</div>
-        </>
-      ) : (
-        <PanelTemporada
-          key={temporada.season_number}
-          seriesId={seriesId}
-          seriesTitle={seriesTitle}
-          seriesPoster={seriesPoster}
-          temporada={temporada}
-          userId={userId}
-        />
-      )}
-    </div>
-  )
-}
-
-function Pestania({ activa, onClick, children }: { activa: boolean; onClick: () => void; children: ReactNode }) {
-  return (
-    <button
-      role="tab"
-      aria-selected={activa}
-      onClick={onClick}
-      className={`shrink-0 px-4 py-1.5 rounded-full text-sm font-medium transition-colors border ${
-        activa
-          ? 'bg-[#FFFD02] text-black border-[#FFFD02]'
-          : 'bg-[#13131A] text-[#A0A0B0] border-[#2A2A3A] hover:text-white'
-      }`}
-    >
-      {children}
-    </button>
-  )
-}
-
-// ── Una temporada ─────────────────────────────────────────────────────────
-
-function PanelTemporada({
+export default function SeasonReviewPanel({
   seriesId,
   seriesTitle,
   seriesPoster,
   temporada,
-  userId,
 }: {
   seriesId: number
   seriesTitle: string
   seriesPoster: string | null
-  temporada: TmdbSeason
-  userId: string | null
+  temporada: Pick<TmdbSeason, 'season_number' | 'name' | 'air_date' | 'poster_path'>
 }) {
-  const supabase = useRef(createClient()).current
+  const [supabase] = useState(createClient)
+  const [userId, setUserId] = useState<string | null>(null)
+  // Si tiene una guardada, aunque no esté entre las 30 más recientes de la lista.
+  const [tengoGuardada, setTengoGuardada] = useState(false)
   const n = temporada.season_number
   const bloqueada = sinEstrenar(temporada)
   const nombre = nombreTemporada(temporada)
   const fecha = fechaLarga(temporada.air_date)
 
-  const [sinopsis, setSinopsis] = useState(temporada.overview?.trim() || '')
   const [resenias, setResenias] = useState<SeasonReview[]>([])
   const [stats, setStats] = useState<{ avg: number; n: number } | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -214,14 +61,9 @@ function PanelTemporada({
   const [guardando, setGuardando] = useState(false)
   const [spoilersVisibles, setSpoilersVisibles] = useState<Set<string>>(new Set())
 
-  // TMDB a veces no tiene la sinopsis en castellano: se prueba en inglés.
   useEffect(() => {
-    if (sinopsis || !TMDB_KEY) return
-    fetch(`https://api.themoviedb.org/3/tv/${seriesId}/season/${n}?api_key=${TMDB_KEY}&language=en-US`)
-      .then(r => (r.ok ? r.json() : null))
-      .then(d => { if (d?.overview) setSinopsis(d.overview) })
-      .catch(() => {})
-  }, [seriesId, n]) // eslint-disable-line react-hooks/exhaustive-deps
+    supabase.auth.getUser().then(({ data }) => setUserId(data.user?.id ?? null))
+  }, [supabase])
 
   // Traer y aplicar van separados: traer no toca el estado, y el estado se
   // cambia recién en el .then (así el efecto no hace un render de más). El
@@ -266,6 +108,7 @@ function PanelTemporada({
       .maybeSingle()
       .then(({ data }) => {
         if (!data) return
+        setTengoGuardada(true)
         const r = data as { rating: number; body: string | null; has_spoiler: boolean }
         setNota(Number(r.rating))
         setTexto(r.body ?? '')
@@ -273,8 +116,7 @@ function PanelTemporada({
       })
   }, [seriesId, n, userId]) // eslint-disable-line react-hooks/exhaustive-deps
 
-  const mia = userId ? resenias.find(r => r.user_id === userId) ?? null : null
-  const yaTieneNota = mia !== null || nota > 0
+  const yaTieneNota = tengoGuardada
 
   async function guardar() {
     if (!userId || nota <= 0 || guardando) return
@@ -299,6 +141,7 @@ function PanelTemporada({
       toast.error('No se pudo guardar. Intentá de nuevo.')
       return
     }
+    setTengoGuardada(true)
     toast.success('Guardado')
     void cargar()
   }
@@ -315,6 +158,7 @@ function PanelTemporada({
       toast.error('No se pudo borrar.')
       return
     }
+    setTengoGuardada(false)
     setNota(0)
     setTexto('')
     setSpoiler(false)
@@ -323,35 +167,9 @@ function PanelTemporada({
   }
 
   const mostrada = hover || nota
-  const poster = temporada.poster_path ?? seriesPoster
 
   return (
-    <div className="mt-5 space-y-6">
-      {/* ── La temporada ── */}
-      <div className="flex gap-4">
-        <div className="w-24 sm:w-28 shrink-0 aspect-[2/3] rounded-lg overflow-hidden bg-zinc-800">
-          {poster && (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={`${IMG}/w185${poster}`} alt={nombre} className="w-full h-full object-cover" />
-          )}
-        </div>
-        <div className="min-w-0 flex-1">
-          <h2 className="text-xl font-bold text-white">{nombre}</h2>
-          <div className="mt-1.5 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#A0A0B0]">
-            {fecha && <span className="inline-flex items-center gap-1"><Calendar size={13} /> {fecha}</span>}
-            {!!temporada.episode_count && (
-              <span className="inline-flex items-center gap-1">
-                <Tv size={13} /> {temporada.episode_count} {temporada.episode_count === 1 ? 'episodio' : 'episodios'}
-              </span>
-            )}
-            {!!temporada.vote_average && temporada.vote_average > 0 && (
-              <span className="inline-flex items-center gap-1"><Star size={13} className="text-[#F5A623]" /> {temporada.vote_average.toFixed(1)} TMDB</span>
-            )}
-          </div>
-          {sinopsis && <p className="mt-3 text-sm text-zinc-300 leading-relaxed line-clamp-6">{sinopsis}</p>}
-        </div>
-      </div>
-
+    <div className="space-y-6">
       {/* ── Comunidad ── */}
       {stats && (
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex items-center gap-4">
@@ -426,7 +244,7 @@ function PanelTemporada({
                 {guardando && <Loader2 size={14} className="animate-spin" />}
                 {yaTieneNota ? 'Guardar cambios' : 'Guardar'}
               </button>
-              {mia && (
+              {tengoGuardada && (
                 <button onClick={borrar} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-red-400">
                   <Trash2 size={13} /> Borrar
                 </button>

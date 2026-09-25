@@ -76,6 +76,14 @@ export async function getTVDetails(id: number) {
   return tmdbFetch(`/tv/${id}`)
 }
 
+/**
+ * Una temporada con sus episodios (`/tv/{id}/season/{n}`). La ficha no los trae:
+ * es un pedido aparte, que usa la página de temporada. Tira si no existe.
+ */
+export async function getTVSeason(id: number, seasonNumber: number, language = 'es-AR') {
+  return tmdbFetch(`/tv/${id}/season/${seasonNumber}`, { language })
+}
+
 export async function getTVExternalIds(id: number) {
   return tmdbFetch(`/tv/${id}/external_ids`)
 }

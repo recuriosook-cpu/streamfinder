@@ -54,6 +54,26 @@ export function sinEstrenar(s: Pick<TmdbSeason, 'air_date'>): boolean {
   return !s.air_date || s.air_date > hoyISO()
 }
 
+const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sep', 'oct', 'nov', 'dic']
+
+/**
+ * '2009-03-08' → '8 mar 2009'. Meses a mano, como en las notificaciones: cada
+ * motor de Intl abrevia distinto y la app tiene que mostrar lo mismo.
+ */
+export function fechaCorta(iso: string | null): string | null {
+  if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
+  const [y, m, d] = iso.split('-').map(Number)
+  return `${d} ${MESES_CORTOS[m - 1]} ${y}`
+}
+
+/** 48 → '48 min', 65 → '1 h 5 min'. */
+export function duracion(minutos: number | null | undefined): string | null {
+  if (!minutos || minutos <= 0) return null
+  if (minutos < 60) return `${minutos} min`
+  const h = Math.floor(minutos / 60), m = minutos % 60
+  return m ? `${h} h ${m} min` : `${h} h`
+}
+
 /** '2026-09-27' → '27 de septiembre de 2026'. */
 export function fechaLarga(iso: string | null): string | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null

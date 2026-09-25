@@ -47,7 +47,8 @@ import WatchlistButton from '@/components/WatchlistButton'
 import RatingStars from '@/components/RatingStars'
 import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
-import SeasonsReviews from '@/components/SeasonsReviews'
+import SeriesReviewsBlock from '@/components/SeriesReviewsBlock'
+import SeasonStrip from '@/components/SeasonStrip'
 import TrailerSection from '@/components/TrailerSection'
 import CreatorRecommendations from '@/components/CreatorRecommendations'
 import { getCreatorRecommendations } from '@/lib/creator-recommendations'
@@ -297,6 +298,10 @@ export default async function TVPage({ params }: Props) {
               </div>
             )}
 
+            {/* Temporadas arriba, visibles sin scrollear: cada una lleva a su
+                página, con episodios, tu nota y las reseñas de la temporada. */}
+            <SeasonStrip seriesId={show.id} seasons={show.seasons} />
+
             {show.overview && (
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Sinopsis</h2>
@@ -399,19 +404,14 @@ export default async function TVPage({ params }: Props) {
           mediaType="tv"
         />
         <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
-        <SeasonsReviews
-          seriesId={show.id}
-          seriesTitle={show.name}
-          seriesPoster={show.poster_path}
-          seasons={show.seasons}
-        >
+        <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>
           <ReviewsSection
             mediaId={show.id}
             mediaType="tv"
             title={show.name}
             posterPath={show.poster_path}
           />
-        </SeasonsReviews>
+        </SeriesReviewsBlock>
         <SimilarTitles items={similar} mediaType="tv" />
       </div>
     </div>
