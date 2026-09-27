@@ -36,28 +36,31 @@ function csvField(value: string | number | null | undefined): string {
   return str
 }
 
+// ── Paginación ─────────────────────────────────────────────────────────────
+
 /**
- * Las notas de capítulos, todas. Por páginas porque la API de Supabase
- * devuelve como mucho 1000 filas por pedido (el `max rows` del proyecto), y
- * una serie larga pasa eso sola.
+ * La API de Supabase devuelve como mucho 1000 filas por pedido (el `max rows`
+ * del proyecto), pida lo que se pida: un `.range(0, 9999)` trae 1000 igual,
+ * sin error ni aviso. Así la exportación salió cortada para cualquiera con más
+ * de 1000 vistas, notas o lo que fuera (encontrado el 2026-09-27).
+ *
+ * Esto pide de a una página hasta que llega una incompleta. La consulta tiene
+ * que tener un orden estable, que termine en columnas que no se repitan para
+ * el usuario: si dos filas empatan, entre una página y la siguiente Postgres
+ * puede devolverlas en otro orden y alguna se pierde o se repite.
  */
-async function todasLasNotasDeCapitulos(
-  supabase: Awaited<ReturnType<typeof getUser>>['supabase'],
-  userId: string,
-) {
-  const PAGINA = 1000
-  const todas: unknown[] = []
+const PAGINA = 1000
+
+async function todas<T>(
+  pagina: (desde: number, hasta: number) => PromiseLike<{ data: T[] | null; error: { message: string } | null }>,
+): Promise<{ data: T[]; error: { message: string } | null }> {
+  const filas: T[] = []
   for (let desde = 0; ; desde += PAGINA) {
-    const { data, error } = await supabase.from('episode_ratings')
-      .select('series_id, series_title, season_number, episode_number, episode_name, rating, created_at, updated_at')
-      .eq('user_id', userId)
-      .order('series_id').order('season_number').order('episode_number')
-      .range(desde, desde + PAGINA - 1)
-    if (error || !data?.length) break
-    todas.push(...data)
-    if (data.length < PAGINA) break
+    const { data, error } = await pagina(desde, desde + PAGINA - 1)
+    if (error) return { data: filas, error }
+    filas.push(...(data ?? []))
+    if (!data || data.length < PAGINA) return { data: filas, error: null }
   }
-  return todas
 }
 
 function csvRow(...fields: (string | number | null | undefined)[]): string {
@@ -92,34 +95,56 @@ export async function POST(req: Request) {
       // consulta entera — el perfil salía vacío en todas las exportaciones.
       .select('id, username, display_name, bio, avatar_url, points, level, country, notification_preferences, favorite_genres, favorite_platforms, hide_activity')
       .eq('id', userId).maybeSingle(),
-    supabase.from('watched')
+    // Cada orden termina en la clave única de la tabla para el usuario: ver
+    // `todas()`.
+    todas((desde, hasta) => supabase.from('watched')
       .select('media_id, media_type, title, poster_path, watched_at')
-      .eq('user_id', userId).range(0, 9999).order('watched_at', { ascending: false }),
-    supabase.from('watchlist')
+      .eq('user_id', userId)
+      .order('watched_at', { ascending: false }).order('media_type').order('media_id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('watchlist')
       .select('media_id, media_type, title, poster_path, added_at')
-      .eq('user_id', userId).range(0, 9999).order('added_at', { ascending: false }),
-    supabase.from('favorites')
+      .eq('user_id', userId)
+      .order('added_at', { ascending: false }).order('media_type').order('media_id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('favorites')
       .select('media_id, media_type, title, poster_path, created_at')
-      .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
-    supabase.from('ratings')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('media_type').order('media_id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('ratings')
       .select('media_id, media_type, title, poster_path, rating, rated_at')
-      .eq('user_id', userId).range(0, 9999).order('rated_at', { ascending: false }),
-    supabase.from('reviews')
+      .eq('user_id', userId)
+      .order('rated_at', { ascending: false }).order('media_type').order('media_id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('reviews')
       .select('id, media_id, media_type, title, poster_path, rating, body, recommended, created_at')
-      .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
-    supabase.from('lists')
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('lists')
       .select('id, title, description, is_public, created_at, list_items(media_id, media_type, title, poster_path, position)')
-      .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('id')
+      .range(desde, hasta)),
     supabase.from('pinned_favorites')
       .select('media_id, media_type, title, poster_path, slot')
       .eq('user_id', userId),
-    supabase.from('followed_actors')
+    todas((desde, hasta) => supabase.from('followed_actors')
       .select('actor_id, actor_name, actor_photo, birthday')
-      .eq('user_id', userId).range(0, 9999),
-    supabase.from('season_reviews')
+      .eq('user_id', userId)
+      .order('actor_id')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('season_reviews')
       .select('series_id, series_title, season_number, season_name, rating, body, has_spoiler, created_at, updated_at')
-      .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
-    todasLasNotasDeCapitulos(supabase, userId),
+      .eq('user_id', userId)
+      .order('created_at', { ascending: false }).order('series_id').order('season_number')
+      .range(desde, hasta)),
+    todas((desde, hasta) => supabase.from('episode_ratings')
+      .select('series_id, series_title, season_number, episode_number, episode_name, rating, created_at, updated_at')
+      .eq('user_id', userId)
+      .order('series_id').order('season_number').order('episode_number')
+      .range(desde, hasta)),
   ])
 
   // ── JSON export ──────────────────────────────────────────────────────────
@@ -137,7 +162,7 @@ export async function POST(req: Request) {
       pinned_favorites: pinnedRes.data ?? [],
       followed_actors:  actorsRes.data ?? [],
       season_reviews:   seasonReviewsRes.data ?? [],
-      episode_ratings:  episodeRatingsRes,
+      episode_ratings:  episodeRatingsRes.data ?? [],
     }
 
     const username = (profileRes.data as { username: string | null } | null)?.username ?? 'user'
