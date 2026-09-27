@@ -111,6 +111,8 @@ export async function POST(req: NextRequest) {
   // 3b. reseñas de temporada (también se van en cascada al borrar el perfil,
   // pero explícito, como el resto)
   await tryDelete('season_reviews', admin.from('season_reviews').delete().eq('user_id', userId))
+  // 3c. notas de capítulos (también en cascada; explícito, como el resto)
+  await tryDelete('episode_ratings', admin.from('episode_ratings').delete().eq('user_id', userId))
   // 4. ratings
   await tryDelete('ratings', admin.from('ratings').delete().eq('user_id', userId))
   // 5. watched

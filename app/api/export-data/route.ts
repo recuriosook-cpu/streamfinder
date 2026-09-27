@@ -36,6 +36,30 @@ function csvField(value: string | number | null | undefined): string {
   return str
 }
 
+/**
+ * Las notas de capítulos, todas. Por páginas porque la API de Supabase
+ * devuelve como mucho 1000 filas por pedido (el `max rows` del proyecto), y
+ * una serie larga pasa eso sola.
+ */
+async function todasLasNotasDeCapitulos(
+  supabase: Awaited<ReturnType<typeof getUser>>['supabase'],
+  userId: string,
+) {
+  const PAGINA = 1000
+  const todas: unknown[] = []
+  for (let desde = 0; ; desde += PAGINA) {
+    const { data, error } = await supabase.from('episode_ratings')
+      .select('series_id, series_title, season_number, episode_number, episode_name, rating, created_at, updated_at')
+      .eq('user_id', userId)
+      .order('series_id').order('season_number').order('episode_number')
+      .range(desde, desde + PAGINA - 1)
+    if (error || !data?.length) break
+    todas.push(...data)
+    if (data.length < PAGINA) break
+  }
+  return todas
+}
+
 function csvRow(...fields: (string | number | null | undefined)[]): string {
   return fields.map(csvField).join(',')
 }
@@ -61,7 +85,7 @@ export async function POST(req: Request) {
   const [
     profileRes, watchedRes, watchlistRes, favoritesRes,
     ratingsRes,  reviewsRes, listsRes,    pinnedRes,
-    actorsRes,   seasonReviewsRes,
+    actorsRes,   seasonReviewsRes, episodeRatingsRes,
   ] = await Promise.all([
     supabase.from('profiles')
       // Sin created_at: profiles no tiene esa columna, y pedirla hacía fallar la
@@ -95,6 +119,7 @@ export async function POST(req: Request) {
     supabase.from('season_reviews')
       .select('series_id, series_title, season_number, season_name, rating, body, has_spoiler, created_at, updated_at')
       .eq('user_id', userId).range(0, 9999).order('created_at', { ascending: false }),
+    todasLasNotasDeCapitulos(supabase, userId),
   ])
 
   // ── JSON export ──────────────────────────────────────────────────────────
@@ -112,6 +137,7 @@ export async function POST(req: Request) {
       pinned_favorites: pinnedRes.data ?? [],
       followed_actors:  actorsRes.data ?? [],
       season_reviews:   seasonReviewsRes.data ?? [],
+      episode_ratings:  episodeRatingsRes,
     }
 
     const username = (profileRes.data as { username: string | null } | null)?.username ?? 'user'

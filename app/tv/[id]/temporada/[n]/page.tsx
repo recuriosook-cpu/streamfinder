@@ -15,15 +15,18 @@ import {
 } from '@/lib/seasons'
 import SeasonStrip from '@/components/SeasonStrip'
 import SeasonReviewPanel from '@/components/SeasonReviewPanel'
+import { EpisodeRating, EpisodeRatingsProvider } from '@/components/EpisodeRatings'
 import Breadcrumb from '@/components/Breadcrumb'
 
 /**
  * Página de una temporada: /tv/{id}/temporada/{n}.
  *
  * Portada y datos de la temporada, lo de Glynbox (tu nota y reseña, las de la
- * comunidad) y la lista de episodios. Los episodios son sólo para ver: número,
- * nombre, imagen, fecha, duración y sinopsis. Sin el puntaje de TMDB por
- * episodio, para que el día que se califiquen en Glynbox no convivan dos.
+ * comunidad) y la lista de episodios. Cada episodio muestra número, nombre,
+ * imagen, fecha, duración y sinopsis, y se puede calificar, con el promedio de
+ * Glynbox al lado. Sin el puntaje de TMDB por episodio, para que no convivan
+ * dos. Las notas y los promedios los carga el navegador (`EpisodeRatings`),
+ * nunca esta página, que se cachea en la CDN.
  *
  * Página aparte y no dentro de la ficha: TMDB da los episodios en un pedido
  * por temporada (de 50 a 450 KB); en la ficha habría que traer todas en cada
@@ -178,6 +181,7 @@ export default async function SeasonPage({ params }: Props) {
         {temporada.episodes.length === 0 ? (
           <p className="text-sm text-[#A0A0B0]">TMDB todavía no tiene los episodios de esta temporada.</p>
         ) : (
+          <EpisodeRatingsProvider seriesId={show.id} seasonNumber={temporada.season_number} seriesTitle={show.name}>
           <ol className="space-y-4">
             {temporada.episodes.map(e => {
               const noSalio = sinEstrenar(e)
@@ -208,6 +212,7 @@ export default async function SeasonPage({ params }: Props) {
                       {e.name?.trim() || `Episodio ${e.episode_number}`}
                     </h3>
                     {meta && <p className="text-xs text-[#A0A0B0] mt-1">{meta}</p>}
+                    <EpisodeRating episodeNumber={e.episode_number} episodeName={e.name} airDate={e.air_date} />
                     {e.overview?.trim() && (
                       <p className="text-sm text-zinc-300 leading-relaxed mt-2 line-clamp-4">{e.overview}</p>
                     )}
@@ -216,6 +221,7 @@ export default async function SeasonPage({ params }: Props) {
               )
             })}
           </ol>
+          </EpisodeRatingsProvider>
         )}
       </section>
 
