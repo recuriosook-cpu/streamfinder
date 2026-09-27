@@ -23,10 +23,11 @@ import Breadcrumb from '@/components/Breadcrumb'
  *
  * Portada y datos de la temporada, lo de Glynbox (tu nota y reseña, las de la
  * comunidad) y la lista de episodios. Cada episodio muestra número, nombre,
- * imagen, fecha, duración y sinopsis, y se puede calificar, con el promedio de
- * Glynbox al lado. Sin el puntaje de TMDB por episodio, para que no convivan
- * dos. Las notas y los promedios los carga el navegador (`EpisodeRatings`),
- * nunca esta página, que se cachea en la CDN.
+ * imagen, fecha, duración y sinopsis, y se puede calificar. Al lado van dos
+ * puntajes que no se mezclan: el de TMDB ("★ 8.4 TMDB", sobre 10) y el promedio
+ * de Glynbox (sobre 5). El de TMDB no es dato del usuario y viene en esta
+ * página; las notas y los promedios de Glynbox los carga el navegador
+ * (`EpisodeRatings`), nunca esta página, que se cachea en la CDN.
  *
  * Página aparte y no dentro de la ficha: TMDB da los episodios en un pedido
  * por temporada (de 50 a 450 KB); en la ficha habría que traer todas en cada
@@ -48,6 +49,8 @@ interface Episodio {
   air_date: string | null
   runtime: number | null
   still_path: string | null
+  vote_average: number | null
+  vote_count: number | null
 }
 
 interface Temporada extends TmdbSeason {
@@ -212,7 +215,13 @@ export default async function SeasonPage({ params }: Props) {
                       {e.name?.trim() || `Episodio ${e.episode_number}`}
                     </h3>
                     {meta && <p className="text-xs text-[#A0A0B0] mt-1">{meta}</p>}
-                    <EpisodeRating episodeNumber={e.episode_number} episodeName={e.name} airDate={e.air_date} />
+                    <EpisodeRating
+                      episodeNumber={e.episode_number}
+                      episodeName={e.name}
+                      airDate={e.air_date}
+                      // Sin votos en TMDB (o sin estrenar) no va nada: ni un 0 ni "sin puntaje".
+                      tmdbScore={!noSalio && (e.vote_count ?? 0) > 0 && (e.vote_average ?? 0) > 0 ? e.vote_average : null}
+                    />
                     {e.overview?.trim() && (
                       <p className="text-sm text-zinc-300 leading-relaxed mt-2 line-clamp-4">{e.overview}</p>
                     )}

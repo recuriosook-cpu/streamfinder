@@ -143,35 +143,58 @@ export function EpisodeRatingsProvider({
   )
 }
 
+/** "★ 8.4 TMDB": el puntaje de TMDB, sobre 10. */
+function PuntajeTmdb({ valor }: { valor: number }) {
+  return (
+    <span className="shrink-0 inline-flex items-center gap-1 text-xs text-[#A0A0B0]">
+      <StarIcon fill="full" size={12} />
+      <span className="text-white font-semibold">{valor.toFixed(1)}</span> TMDB
+    </span>
+  )
+}
+
 /**
- * La fila de un capítulo: tus estrellas a la izquierda y el promedio de
- * Glynbox a la derecha. Sin votos, el promedio no se muestra (nada de "0").
- * Sin estrenar, no hay fila: el capítulo ya dice "Se estrena el …".
+ * La fila de un capítulo: tus estrellas a la izquierda y, a la derecha, dos
+ * puntajes que no se mezclan: el de TMDB (sobre 10) y el promedio de Glynbox
+ * (sobre 5). Cada uno aparece sólo si tiene votos: nada de "0" ni "sin
+ * puntaje". Sin estrenar, no hay fila: el capítulo ya dice "Se estrena el …".
+ *
+ * El de TMDB llega por props desde la página (no es dato del usuario, puede ir
+ * en el HTML cacheado) y se ve desde el primer momento; lo de Glynbox, cuando
+ * termina de cargar en el navegador.
  */
 export function EpisodeRating({
   episodeNumber,
   episodeName,
   airDate,
+  tmdbScore,
 }: {
   episodeNumber: number
   episodeName: string | null
   airDate: string | null
+  /** `null` si TMDB no tiene votos para el capítulo o no se estrenó. */
+  tmdbScore: number | null
 }) {
   const ctx = useContext(EpisodeRatingsContext)
   const [hover, setHover] = useState(0)
+  const tmdb = tmdbScore !== null ? <PuntajeTmdb valor={tmdbScore} /> : null
 
-  // Mientras carga (y en el HTML del servidor) va un espacio del mismo alto,
-  // así la lista no salta. La fecha se chequea recién en el navegador: la
-  // página puede estar cacheada desde ayer y el capítulo haberse estrenado hoy.
-  if (!ctx || !ctx.listo) return <div className="h-7 mt-2" aria-hidden />
+  // Mientras carga (y en el HTML del servidor) va una fila del mismo alto con
+  // el puntaje de TMDB, así la lista no salta. La fecha se chequea recién en el
+  // navegador: la página puede estar cacheada desde ayer y el capítulo haberse
+  // estrenado hoy.
+  if (!ctx || !ctx.listo) return <div className="h-7 mt-2 flex items-center justify-end">{tmdb}</div>
   if (sinEstrenar({ air_date: airDate })) return null
 
   const mia = ctx.mias.get(episodeNumber) ?? 0
   const mostrada = hover || mia
   const stats = ctx.resumen.get(episodeNumber)
+  const glynbox = stats && stats.votos > 0 ? stats : null
 
   return (
-    <div className="mt-2 flex items-center justify-between gap-3">
+    // flex-wrap: en celular, con los dos puntajes no entra todo en una línea y
+    // los puntajes bajan abajo de las estrellas.
+    <div className="mt-2 flex flex-wrap items-center justify-between gap-x-3 gap-y-1">
       <div className="flex items-center" onMouseLeave={() => setHover(0)}>
         {[1, 2, 3, 4, 5].map(s => {
           const fill: 'full' | 'half' | 'empty' = mostrada >= s ? 'full' : mostrada >= s - 0.5 ? 'half' : 'empty'
@@ -197,12 +220,17 @@ export function EpisodeRating({
         })}
         {mia > 0 && <span className="text-xs text-[#A0A0B0] ml-1.5">Tu nota: {mia}</span>}
       </div>
-      {stats && stats.votos > 0 && (
-        <span className="shrink-0 inline-flex items-center gap-1 text-xs text-[#A0A0B0]">
-          <StarIcon fill="full" size={12} />
-          <span className="text-white font-semibold">{stats.promedio.toFixed(1)}</span>
-          · {stats.votos} {stats.votos === 1 ? 'voto' : 'votos'}
-        </span>
+      {(tmdb || glynbox) && (
+        <div className="flex items-center gap-3">
+          {tmdb}
+          {glynbox && (
+            <span className="shrink-0 inline-flex items-center gap-1 text-xs text-[#A0A0B0]">
+              <StarIcon fill="full" size={12} />
+              <span className="text-white font-semibold">{glynbox.promedio.toFixed(1)}</span>
+              Glynbox · {glynbox.votos} {glynbox.votos === 1 ? 'voto' : 'votos'}
+            </span>
+          )}
+        </div>
       )}
     </div>
   )
