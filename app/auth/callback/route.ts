@@ -30,6 +30,11 @@ function lastSignInProvider(user: {
 export async function GET(request: Request) {
   const requestUrl = new URL(request.url)
   const code = requestUrl.searchParams.get('code')
+  // Se vuelve al mismo dominio que recibió el código: ahí quedaron las cookies
+  // de la sesión. En producción es www.glynbox.com; en un deploy de prueba, el
+  // deploy de prueba. Antes iba siempre a glynbox.com y en los deploys de
+  // prueba la sesión nueva quedaba en un dominio y la persona en otro.
+  const origin = requestUrl.origin
 
   if (code) {
     const cookieStore = await cookies()
@@ -93,19 +98,19 @@ export async function GET(request: Request) {
         // dispara /onboarding al montar.
         const metodo = providerOf(user)
         const res = NextResponse.redirect(
-          `https://glynbox.com/onboarding?nuevo=1&metodo=${encodeURIComponent(metodo)}`
+          `${origin}/onboarding?nuevo=1&metodo=${encodeURIComponent(metodo)}`
         )
         res.cookies.set('new_user', 'true', { maxAge: 300, path: '/', sameSite: 'lax', httpOnly: false })
         return res
       }
 
       if (profile.onboarding_completed !== true && profile.onboarding_skipped !== true) {
-        return NextResponse.redirect('https://glynbox.com/onboarding')
+        return NextResponse.redirect(`${origin}/onboarding`)
       }
 
-      return NextResponse.redirect('https://glynbox.com/')
+      return NextResponse.redirect(`${origin}/`)
     }
   }
 
-  return NextResponse.redirect('https://glynbox.com/')
+  return NextResponse.redirect(`${origin}/`)
 }
