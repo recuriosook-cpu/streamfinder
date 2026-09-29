@@ -19,6 +19,12 @@ const nextConfig: NextConfig = {
         source: '/.well-known/assetlinks.json',
         headers: [{ key: 'Content-Type', value: 'application/json' }],
       },
+      {
+        // Lo mismo para iOS: el archivo no tiene extensión y Apple lo quiere
+        // como JSON. Ver public/.well-known/README.md.
+        source: '/.well-known/apple-app-site-association',
+        headers: [{ key: 'Content-Type', value: 'application/json' }],
+      },
       // Las fichas del catálogo se cachean 24 h en la CDN de Vercel y no con
       // ISR: las escrituras de ISR se cobran y los bots generan fichas nuevas
       // sin parar (ver el comentario de app/movie/[id]/page.tsx). Este header

@@ -1,16 +1,30 @@
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { NextResponse } from 'next/server'
+import { getAdminClient } from '@/lib/service-role'
+import { APPLE_WEB_CLIENT_ID, saveAppleToken } from '@/lib/apple-signin'
 
 /**
- * Con qué se registró: 'email' | 'google' | 'facebook'.
+ * Con qué se registró: 'email' | 'google' | 'facebook' | 'apple'.
  *
  * Supabase lo deja en app_metadata.provider. Si viniera algo raro, se manda
  * como 'desconocido' antes que perder el evento entero.
  */
 function providerOf(user: { app_metadata?: { provider?: string } }): string {
   const p = user.app_metadata?.provider
-  return p === 'email' || p === 'google' || p === 'facebook' ? p : 'desconocido'
+  return p === 'email' || p === 'google' || p === 'facebook' || p === 'apple' ? p : 'desconocido'
+}
+
+/** El proveedor de la identidad que inició sesión más recientemente. */
+function lastSignInProvider(user: {
+  identities?: { provider: string; last_sign_in_at?: string }[]
+}): string | null {
+  let latest: { provider: string; at: string } | null = null
+  for (const i of user.identities ?? []) {
+    const at = i.last_sign_in_at ?? ''
+    if (!latest || at > latest.at) latest = { provider: i.provider, at }
+  }
+  return latest?.provider ?? null
 }
 
 export async function GET(request: Request) {
@@ -34,8 +48,22 @@ export async function GET(request: Request) {
       }
     )
 
-    await supabase.auth.exchangeCodeForSession(code)
+    const { data: exchanged } = await supabase.auth.exchangeCodeForSession(code)
     const { data: { user } } = await supabase.auth.getUser()
+
+    // Login con Apple: el refresh token de Apple llega sólo en esta respuesta
+    // y hace falta para revocar el acceso si la persona borra la cuenta (ver
+    // lib/apple-signin.ts). Con qué entró ahora lo dice la identidad con el
+    // último login, no app_metadata.provider, que es con qué se registró. Si
+    // falla, el login sigue igual.
+    const appleRefreshToken = exchanged.session?.provider_refresh_token
+    if (user && lastSignInProvider(user) === 'apple' && appleRefreshToken) {
+      try {
+        await saveAppleToken(getAdminClient(), user.id, APPLE_WEB_CLIENT_ID, appleRefreshToken)
+      } catch (err) {
+        console.error('[auth/callback] apple token:', { userId: user.id, err })
+      }
+    }
 
     if (user) {
       const { data: profile } = await supabase

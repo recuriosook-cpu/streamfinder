@@ -1,0 +1,21 @@
+{
+  "applinks": {
+    "details": [
+      {
+        "appIDs": ["NC56K84KJA.com.glynbox.app"],
+        "components": [
+          { "/": "/movie/*" },
+          { "/": "/tv/*" },
+          { "/": "/listas" },
+          { "/": "/listas/*" },
+          { "/": "/guias" },
+          { "/": "/guias/*" },
+          { "/": "/usuario/*" },
+          { "/": "/actor/*" },
+          { "/": "/director/*" },
+          { "/": "/generos/*" }
+        ]
+      }
+    ]
+  }
+}

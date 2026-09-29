@@ -88,8 +88,27 @@ adb shell am start -a android.intent.action.VIEW -d "https://www.glynbox.com/mov
 Si abre la app en la ficha de Cadena perpetua, está listo. Si abre Chrome,
 falta el fingerprint o no coincide con el del APK instalado.
 
-## iOS
+## `apple-app-site-association` — Universal Links de iOS
 
-`app.json` ya declara `associatedDomains`, pero los Universal Links de iOS
-necesitan además un `apple-app-site-association` en esta misma carpeta, con el
-Team ID de la cuenta de Apple Developer. Se agrega cuando haya build de iOS.
+Le dice a iOS que la app `NC56K84KJA.com.glynbox.app` (Team ID + bundle ID)
+puede abrir los links de glynbox.com. Va sin extensión y se sirve como
+`application/json` (lo fija `next.config.ts`).
+
+**Sólo funciona con `www`.** Apple baja este archivo desde su CDN y no sigue
+redirecciones, y `glynbox.com` responde 307 hacia `www.glynbox.com`. Por eso
+`app.json` declara únicamente `applinks:www.glynbox.com`. Un link al dominio
+sin www abre Safari, que redirige a www y se queda en la web.
+
+Las rutas de `components` son las mismas que el intent filter de Android y
+las que entiende `src/lib/deepLinks.ts` de la app. `/generos` sin id no
+está porque la app no tiene pantalla para eso: la abriría en el inicio. Si se
+agrega una ruta en la app, va también acá y en `app.json`.
+
+### Verificar que quedó bien
+
+```bash
+curl -sI https://www.glynbox.com/.well-known/apple-app-site-association
+# 200 y Content-Type: application/json
+curl -s https://app-site-association.cdn-apple.com/a/v1/www.glynbox.com
+# lo que Apple tiene cacheado; puede tardar hasta un día en actualizarse
+```

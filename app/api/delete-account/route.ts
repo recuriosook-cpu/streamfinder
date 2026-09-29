@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { getAdminClient, MissingServiceRoleError } from '@/lib/service-role'
+import { revokeAppleTokens } from '@/lib/apple-signin'
 import { cookies } from 'next/headers'
 
 /**
@@ -158,6 +159,15 @@ export async function POST(req: NextRequest) {
 
   // 19. Delete profile row
   await tryDelete('profiles', admin.from('profiles').delete().eq('id', userId))
+
+  // 19b. Revocar el acceso de "Iniciar sesión con Apple" (Apple lo exige). Va
+  // antes de borrar el usuario porque apple_tokens se borra en cascada con él.
+  // Si Apple no contesta, se registra y el borrado sigue: la cuenta se borra
+  // igual, que es lo que la persona pidió.
+  const appleProblems = await revokeAppleTokens(admin, userId)
+  if (appleProblems.length > 0) {
+    console.error('[delete-account] apple revoke:', { userId, appleProblems })
+  }
 
   // 20. Delete auth user
   const { error: authError } = await admin.auth.admin.deleteUser(userId)
