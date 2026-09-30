@@ -166,6 +166,17 @@ export const EVENT_NAMES = [
   'media_rated',
   /** Guardó en watchlist. Sólo al agregar. props: { media_type, media_id } */
   'watchlist_added',
+  /**
+   * Sólo de la app: cómo quedaron los anuncios en ese arranque.
+   * props: { estado: 'ready' | 'blocked' | 'preparando', motivo, consentimiento, plataforma }
+   *
+   * Existe porque `client_errors` sólo guarda fallas: sin esto no se puede
+   * saber si un teléfono sin anuncios los pide y no llegan o nunca los pide.
+   * Ver `lib/ads.ts` de glynbox-mobile.
+   */
+  'ads_estado',
+  /** Sólo de la app: llegó un anuncio nativo. props: { plataforma } */
+  'ad_cargado',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
