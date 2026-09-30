@@ -4,6 +4,12 @@ import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
+  // Las imágenes de compartir (lib/share-image.tsx) leen las fuentes y el logo
+  // del disco en runtime. El rastreo de archivos suele encontrarlos solo; esto
+  // lo asegura, porque si faltan cada imagen da 500.
+  outputFileTracingIncludes: {
+    '/api/share/**': ['./assets/share-fonts/**/*', './public/logo.png'],
+  },
   async redirects() {
     return [
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
