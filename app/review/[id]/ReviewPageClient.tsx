@@ -10,6 +10,7 @@ import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
+import { reviewImagePath } from '@/lib/share-urls'
 import { sendNotification } from '@/lib/notify'
 
 // ── Render @mentions as yellow links ──────────────────────────────────────
@@ -44,6 +45,7 @@ interface ReviewData {
   recommended: boolean
   body: string | null
   date: string
+  updatedAt: string | null
 }
 
 interface CommentData {
@@ -84,7 +86,8 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
   const [likeBusy,         setLikeBusy]         = useState(false)
 
   // ── Share URLs ─────────────────────────────────────────────────
-  const reviewUrl  = `https://glynbox.com/review/${review.id}`
+  // Con www: es el dominio que abre la app en iPhone (ver public/.well-known).
+  const reviewUrl  = `https://www.glynbox.com/review/${review.id}`
   const ratingStr  = review.rating ? `${review.rating}⭐` : ''
   const bodySlice100 = (review.body ?? '').slice(0, 100)
   const bodySlice80  = (review.body ?? '').slice(0, 80)
@@ -403,15 +406,12 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                   Compartir
                 </span>
               }
-              instagram={{
-                posterPath:     review.mediaPosterPath,
-                backdropPath:   null,
-                mediaTitle:     review.mediaTitle,
-                rating:         review.rating,
-                body:           review.body,
-                authorUsername: review.authorUsername,
-                authorAvatarUrl: review.authorAvatarUrl,
-              }}
+              // La imagen sólo para la reseña propia.
+              image={currentUserId === review.authorId ? {
+                historia:    reviewImagePath(review.id, 'historia', review.updatedAt),
+                publicacion: reviewImagePath(review.id, 'publicacion', review.updatedAt),
+                nombre:      'glynbox-resena',
+              } : undefined}
             />
           </div>
 

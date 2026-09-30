@@ -100,7 +100,7 @@ redirecciones, y `glynbox.com` responde 307 hacia `www.glynbox.com`. Por eso
 sin www abre Safari, que redirige a www y se queda en la web.
 
 Las rutas de `components` son las mismas que el intent filter de Android y
-las que entiende `src/lib/deepLinks.ts` de la app. `/generos` sin id no
+las que entiende `src/lib/deepLinks.ts` de la app. `/review/*` abre la ficha de lo reseñado. `/generos` sin id no
 está porque la app no tiene pantalla para eso: la abriría en el inicio. Si se
 agrega una ruta en la app, va también acá y en `app.json`.
 

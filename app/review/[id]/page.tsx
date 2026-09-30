@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import { reviewImageUrl } from '@/lib/share-urls'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
@@ -14,7 +15,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const { data: review } = await supabase
     .from('reviews')
-    .select('title, body, rating, poster_path, media_id, media_type')
+    .select('title, body, rating, poster_path, media_id, media_type, updated_at, user_id')
     .eq('id', id)
     .maybeSingle()
 
@@ -23,6 +24,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const posterUrl = review.poster_path
     ? `https://image.tmdb.org/t/p/w500${review.poster_path}`
     : 'https://glynbox.com/logo.png'
+
+  // La vista previa con la reseña (póster, estrellas, autor) sólo si el autor
+  // no oculta su actividad: con "Ocultar actividad" /api/share no la dibuja
+  // para visitantes y queda el póster.
+  const { data: author } = await supabase
+    .from('profiles')
+    .select('hide_activity')
+    .eq('id', review.user_id)
+    .maybeSingle()
+  const previewUrl = author && !author.hide_activity
+    ? reviewImageUrl(id, 'link', review.updated_at)
+    : null
 
   const stars = review.rating
     ? '★'.repeat(Math.floor(review.rating)) + (review.rating % 1 >= 0.5 ? '½' : '')
@@ -37,7 +50,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title:       `${stars} ${review.title} — Glynbox`.trim(),
       description,
-      images:      [{ url: posterUrl, width: 500, height: 750, alt: review.title }],
+      images:      previewUrl
+        ? [{ url: previewUrl, width: 1200, height: 630, alt: review.title }]
+        : [{ url: posterUrl, width: 500, height: 750, alt: review.title }],
       url:         `https://glynbox.com/review/${id}`,
       type:        'article',
       siteName:    'Glynbox',
@@ -46,7 +61,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       card:        'summary_large_image',
       title,
       description,
-      images:      [posterUrl],
+      images:      [previewUrl ?? posterUrl],
     },
   }
 }
@@ -58,7 +73,7 @@ export default async function ReviewPage({ params }: Props) {
   // Fetch review
   const { data: review } = await supabase
     .from('reviews')
-    .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, created_at')
+    .select('id, user_id, media_id, media_type, title, poster_path, rating, body, recommended, created_at, updated_at')
     .eq('id', id)
     .maybeSingle()
 
@@ -105,6 +120,7 @@ export default async function ReviewPage({ params }: Props) {
         recommended:       review.recommended,
         body:              review.body,
         date:              review.created_at,
+        updatedAt:         review.updated_at ?? null,
       }}
       initialLikeCount={likeRes.count ?? 0}
     />

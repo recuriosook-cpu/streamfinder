@@ -2,8 +2,10 @@
 
 import { Share2 } from 'lucide-react'
 import ShareDropdown from '@/components/ShareDropdown'
+import { mediaImagePath } from '@/lib/share-urls'
 
-const BASE = 'https://glynbox.com'
+// Con www: es el dominio que abre la app en iPhone (ver public/.well-known).
+const BASE = 'https://www.glynbox.com'
 
 interface Props {
   mediaId: number
@@ -30,6 +32,7 @@ export default function MediaShareButton({ mediaId, mediaType, title, year, scor
       twitterUrl={twitterUrl}
       copyUrl={url}
       shareText={`Te recomiendo ${label} en Glynbox`}
+      image={{ historia: mediaImagePath(mediaType, mediaId, 'historia'), nombre: 'glynbox' }}
       align="left"
       trigger={
         <span className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium bg-zinc-700 hover:bg-zinc-600 text-white transition-colors w-full sm:w-auto">

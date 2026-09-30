@@ -1,6 +1,7 @@
 ﻿import { getTVDetails, originalTitleIfDifferent, getTVProviders, getTVExternalIds, getTVCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
 import { getOMDBRatings, parseAwards } from '@/lib/omdb'
 import { createServerClient } from '@/lib/supabase-server'
+import { mediaImageUrl } from '@/lib/share-urls'
 
 /**
  * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
@@ -102,7 +103,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph: {
         title,
         description,
-        images:      [{ url: posterUrl, width: 500, height: 750, alt: title }],
+        // La vista previa de glynbox.com (póster, título, año, puntaje), la
+        // misma que genera /api/share. El póster suelto queda de respaldo.
+        images:      [
+          { url: mediaImageUrl('tv', id, 'link'), width: 1200, height: 630, alt: title },
+          { url: posterUrl, width: 500, height: 750, alt: title },
+        ],
         url:         `https://glynbox.com/tv/${id}`,
         type:        'video.tv_show',
         siteName:    'Glynbox',
@@ -111,7 +117,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         card:        'summary_large_image',
         title:       `${title} — Glynbox`,
         description,
-        images:      [posterUrl],
+        images:      [mediaImageUrl('tv', id, 'link')],
       },
       alternates: { canonical: `https://glynbox.com/tv/${id}` },
     }

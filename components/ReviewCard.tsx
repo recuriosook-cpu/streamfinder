@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
+import { reviewImagePath } from '@/lib/share-urls'
 import ReportModal from '@/components/ReportModal'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { sendNotification } from '@/lib/notify'
@@ -446,7 +447,8 @@ function ReviewCard({
           </button>
 
           {(() => {
-            const BASE = typeof window !== 'undefined' ? window.location.origin : 'https://glynbox.com'
+            // Con www: es el dominio que abre la app en iPhone (ver public/.well-known).
+            const BASE = 'https://www.glynbox.com'
             const reviewUrl = `${BASE}/review/${id}`
             const ratingStr = rating ? `⭐${rating}/5` : ''
             const shareText = `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en Glynbox`
@@ -473,15 +475,12 @@ function ReviewCard({
                     Compartir
                   </span>
                 }
-                instagram={{
-                  posterPath: mediaPosterPath ?? null,
-                  backdropPath: null,
-                  mediaTitle,
-                  rating: rating ?? null,
-                  body: body ?? null,
-                  authorUsername,
-                  authorAvatarUrl: authorAvatarUrl ?? null,
-                }}
+                // La imagen sólo para la reseña propia.
+                image={isOwn ? {
+                  historia:    reviewImagePath(id, 'historia'),
+                  publicacion: reviewImagePath(id, 'publicacion'),
+                  nombre:      'glynbox-resena',
+                } : undefined}
               />
             )
           })()}
