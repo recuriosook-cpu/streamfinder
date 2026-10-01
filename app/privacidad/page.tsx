@@ -74,9 +74,12 @@ export default function PrivacidadPage() {
               <li>
                 <span className="text-white font-medium">Facebook</span> — al autenticarte con Facebook, recibimos tu nombre, correo electrónico y foto de perfil pública.
               </li>
+              <li>
+                <span className="text-white font-medium">Apple</span> — al usar Iniciar sesión con Apple, recibimos un identificador de tu cuenta de Apple, tu correo electrónico (o una dirección de reenvío de Apple, si elegís ocultarlo) y tu nombre, que Apple comparte solo la primera vez. Si eliminás tu cuenta de Glynbox, también revocamos el acceso que le diste a Glynbox desde tu cuenta de Apple.
+              </li>
             </ul>
             <p className="text-zinc-300 leading-relaxed mt-3">
-              Estos datos se rigen también por las políticas de privacidad de Google y Facebook respectivamente. Glynbox solo almacena la información mínima necesaria para identificarte dentro de la plataforma.
+              Estos datos se rigen también por las políticas de privacidad de Google, Facebook y Apple respectivamente. Glynbox solo almacena la información mínima necesaria para identificarte dentro de la plataforma.
             </p>
             <p className="text-zinc-300 leading-relaxed mt-3">
               La información sobre películas y series se obtiene de{" "}
@@ -164,7 +167,7 @@ export default function PrivacidadPage() {
               6. Publicidad en la aplicación móvil
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
-              La aplicación móvil de Glynbox para Android muestra publicidad. El proveedor es{" "}
+              La aplicación móvil de Glynbox para Android y para iPhone (iOS) muestra publicidad. El proveedor es{" "}
               <span className="text-white font-medium">Google AdMob</span>, un servicio de Google.
             </p>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -172,10 +175,10 @@ export default function PrivacidadPage() {
             </p>
             <ul className="list-disc list-inside space-y-2 text-zinc-300">
               <li>
-                <span className="text-white font-medium">El identificador de publicidad del dispositivo</span> — un código que Android le asigna a tu teléfono y que podés restablecer o eliminar cuando quieras.
+                <span className="text-white font-medium">El identificador de publicidad del dispositivo</span> — un código que Android o iOS le asigna a tu teléfono y que podés restablecer o eliminar cuando quieras. En iPhone es el identificador de publicidad de Apple (IDFA), y Google solo puede usarlo si lo autorizás en el aviso de seguimiento de Apple (ver más abajo).
               </li>
               <li>
-                <span className="text-white font-medium">Datos de uso de la app</span> — por ejemplo, qué anuncios se te mostraron, si interactuaste con ellos y datos técnicos del dispositivo, como el modelo o la versión de Android.
+                <span className="text-white font-medium">Datos de uso de la app</span> — por ejemplo, qué anuncios se te mostraron, si interactuaste con ellos y datos técnicos del dispositivo, como el modelo o la versión de Android o iOS.
               </li>
               <li>
                 <span className="text-white font-medium">Datos aproximados de ubicación</span> — derivados de tu dirección IP, para mostrarte anuncios acordes a tu región.
@@ -210,6 +213,21 @@ export default function PrivacidadPage() {
             </ul>
 
             <h3 className="text-base font-semibold text-white mt-8 mb-3">
+              Aviso de seguimiento en iPhone (App Tracking Transparency)
+            </h3>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              En iPhone, la primera vez que abrís la app te mostramos una pantalla que explica para qué se usa el
+              identificador de publicidad y, después, el aviso de Apple que pregunta si permitís que Glynbox rastree
+              tu actividad en apps y sitios web de otras empresas.
+            </p>
+            <p className="text-zinc-300 leading-relaxed mb-3">
+              Si no lo permitís, Google no accede a tu identificador de publicidad: vas a seguir viendo anuncios, pero
+              no personalizados. Podés cambiar tu decisión cuando quieras desde{" "}
+              <span className="text-white font-medium">Ajustes del iPhone → Privacidad y seguridad → Rastreo → Glynbox</span>.
+              Esa decisión no afecta el resto de las funciones de Glynbox.
+            </p>
+
+            <h3 className="text-base font-semibold text-white mt-8 mb-3">
               Consentimiento en el Espacio Económico Europeo y el Reino Unido
             </h3>
             <p className="text-zinc-300 leading-relaxed mb-3">
@@ -228,8 +246,21 @@ export default function PrivacidadPage() {
               Cómo desactivar la publicidad personalizada
             </h3>
             <p className="text-zinc-300 leading-relaxed mb-3">
-              En cualquier país podés pedirle a Android que no se use tu identificador para personalizar anuncios:
+              En cualquier país podés pedirle a tu teléfono que no se use tu identificador para personalizar anuncios.
             </p>
+            <p className="text-white font-medium mb-2">En iPhone</p>
+            <ol className="list-decimal list-inside space-y-2 text-zinc-300 mb-4">
+              <li>
+                Abrí los <span className="text-white font-medium">Ajustes</span> del iPhone.
+              </li>
+              <li>
+                Entrá en <span className="text-white font-medium">Privacidad y seguridad → Rastreo</span>.
+              </li>
+              <li>
+                Desactivá <span className="text-white font-medium">Glynbox</span>, o desactivá <span className="text-white font-medium">Permitir que las apps soliciten rastrearte</span> para todas las apps.
+              </li>
+            </ol>
+            <p className="text-white font-medium mb-2">En Android</p>
             <ol className="list-decimal list-inside space-y-2 text-zinc-300">
               <li>
                 Abrí los <span className="text-white font-medium">Ajustes</span> de tu teléfono.
