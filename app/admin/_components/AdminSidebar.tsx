@@ -5,7 +5,7 @@ import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
 import {
   LayoutDashboard, Users, Activity, Flag, BarChart3,
-  Shield, X, Menu, ArrowLeft, ChevronRight, Clapperboard,
+  Shield, X, Menu, ArrowLeft, ChevronRight, Clapperboard, FlaskConical,
 } from 'lucide-react'
 
 const NAV = [
@@ -15,6 +15,8 @@ const NAV = [
   { href: '/admin/reportes',  icon: Flag,             label: 'Reportes',  emoji: '🚨' },
   { href: '/admin/metricas',  icon: BarChart3,        label: 'Métricas',  emoji: '📈' },
   { href: '/admin/recomendaciones', icon: Clapperboard, label: 'Recomendaciones', emoji: '🎥' },
+  // El juego lleva su ícono en vez de un emoji. Ver `app/admin/potion/page.tsx`.
+  { href: '/admin/potion', icon: FlaskConical, label: 'Potion Bottle', emoji: '🧪', imagen: '/potion-icono.png' },
 ]
 
 interface Props {
@@ -51,7 +53,7 @@ export default function AdminSidebar({ username, avatarUrl, displayName }: Props
 
       {/* Nav */}
       <nav className="flex-1 px-3 py-4 space-y-0.5">
-        {NAV.map(({ href, icon: Icon, label, emoji }) => {
+        {NAV.map(({ href, label, emoji, imagen }) => {
           const active = isActive(href)
           return (
             <Link
@@ -63,7 +65,10 @@ export default function AdminSidebar({ username, avatarUrl, displayName }: Props
                   : 'text-[#A0A0B0] hover:text-white hover:bg-[#1C1C27]'
               }`}
             >
-              <span className="text-base leading-none">{emoji}</span>
+              {imagen
+                // eslint-disable-next-line @next/next/no-img-element
+                ? <img src={imagen} alt="" width={20} height={20} className="w-5 h-5 rounded-md shrink-0" />
+                : <span className="text-base leading-none">{emoji}</span>}
               <span>{label}</span>
               {active && <ChevronRight size={14} className="ml-auto" />}
             </Link>
