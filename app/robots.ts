@@ -36,6 +36,10 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'FacebookBot',     disallow: '/' },
       { userAgent: 'YandexBot',       disallow: '/' },
       { userAgent: 'Bytespider',      disallow: '/' },
+      // Buscador de IA de Exa: el 2026-10-13 era el 10 % de las funciones.
+      // También lo frena una regla deny del Firewall; esto es por si respeta
+      // robots.txt y para que deje de intentar.
+      { userAgent: 'ExaSearchBot',    disallow: '/' },
       // Rastreadores de herramientas de SEO: recorren el catálogo entero por
       // los links entre fichas y no le traen visitas a nadie. Cada ficha que
       // piden ejecuta una función (los bots eran el 99,7 % de las fichas
