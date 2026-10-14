@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 import { VENTANA_POR_DEFECTO, esVentana, type Ventana } from '@/lib/metricas-ventanas'
 import { esAppPlay, paqueteDe, type AppPlay } from '@/lib/google-play-reports'
@@ -11,6 +12,9 @@ import { esAppPlay, paqueteDe, type AppPlay } from '@/lib/google-play-reports'
  * Lo que el panel de Google Play muestra: la serie diaria de instalaciones,
  * desinstalaciones, base instalada y visitantes de la ficha, más los totales
  * de la ventana y los de todo lo copiado (`historico`).
+ *
+ * `paises` es la misma ventana desglosada por país, de mayor a menor, desde
+ * `play_install_stats_pais`. Es `null` si esa tabla todavía no existe.
  *
  * `app` elige el paquete (por defecto Glynbox). `desde` es opcional y recorta
  * todo, ventana e histórico: lo usa `/admin/potion` para dejar afuera lo de
@@ -78,6 +82,15 @@ export interface DiaPlayPanel {
   neto: number | null
 }
 
+export interface PaisPlay {
+  /** ISO de dos letras. `ZZ` = Play no supo de dónde. */
+  pais: string
+  instalaciones: number
+  desinstalaciones: number
+  /** El último valor del país dentro de la ventana. `null` si no hay. */
+  baseInstalada: number | null
+}
+
 export interface PlayResumen {
   /** `false` si falta la tabla o si no hay ninguna fila todavía. */
   disponible: boolean
@@ -115,6 +128,12 @@ export interface PlayResumen {
     desde: string | null
   }
 
+  /**
+   * La ventana por país, ordenada por instalaciones y después por base
+   * instalada. `null` si falta correr `supabase-play-stats-paises-2026-10.sql`.
+   */
+  paises: PaisPlay[] | null
+
   generadoEn: string
 }
 
@@ -147,6 +166,7 @@ function vacio(dias: Ventana, app: AppPlay, motivo: 'sin_migracion' | 'sin_datos
       baseInstalada: null, baseInstaladaVariacion: null, conversionFichaPct: null,
     },
     historico: { instalaciones: 0, desinstalaciones: 0, neto: 0, desde: null },
+    paises: [],
     generadoEn: new Date().toISOString(),
   }
 }
@@ -166,6 +186,70 @@ function desdeHace(dias: number): string {
   const d = new Date()
   d.setUTCDate(d.getUTCDate() - (dias - 1))
   return d.toISOString().slice(0, 10)
+}
+
+interface FilaPaisSql {
+  fecha: string
+  pais: string
+  instalaciones: number | null
+  desinstalaciones: number | null
+  base_instalada: number | null
+}
+
+/** Lo que PostgREST devuelve como mucho en un pedido, salvo que se pagine. */
+const PAGINA = 1000
+
+/**
+ * Los países de la ventana, sumados.
+ *
+ * Instalaciones y desinstalaciones se suman. La base instalada no -es un
+ * stock-: de cada país se toma la del último día que tenga dato, igual que el
+ * total de arriba.
+ */
+async function paisesDe(
+  admin: SupabaseClient,
+  paquete: string,
+  desde: string,
+): Promise<PaisPlay[] | null> {
+  const filas: FilaPaisSql[] = []
+
+  for (let pagina = 0; ; pagina++) {
+    const { data, error } = await admin
+      .from('play_install_stats_pais')
+      .select('fecha, pais, instalaciones, desinstalaciones, base_instalada')
+      .eq('package_name', paquete)
+      .gte('fecha', desde)
+      .order('fecha', { ascending: true })
+      .order('pais', { ascending: true })
+      .range(pagina * PAGINA, pagina * PAGINA + PAGINA - 1)
+
+    if (error && faltaLaTabla(error)) return null
+    if (error) {
+      console.error('[admin/play] la consulta por país falló:', error.message)
+      return []
+    }
+    filas.push(...((data ?? []) as FilaPaisSql[]))
+    if (!data || data.length < PAGINA) break
+  }
+
+  const porPais = new Map<string, PaisPlay>()
+  for (const f of filas) {
+    const p = porPais.get(f.pais) ?? {
+      pais: f.pais, instalaciones: 0, desinstalaciones: 0, baseInstalada: null,
+    }
+    p.instalaciones += f.instalaciones ?? 0
+    p.desinstalaciones += f.desinstalaciones ?? 0
+    // Las filas vienen en orden de fecha: la última con dato es la que queda.
+    if (f.base_instalada !== null) p.baseInstalada = f.base_instalada
+    porPais.set(f.pais, p)
+  }
+
+  return [...porPais.values()]
+    .filter(p => p.instalaciones > 0 || p.desinstalaciones > 0 || (p.baseInstalada ?? 0) > 0)
+    .sort((a, b) =>
+      b.instalaciones - a.instalaciones ||
+      (b.baseInstalada ?? 0) - (a.baseInstalada ?? 0) ||
+      a.pais.localeCompare(b.pais))
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────
@@ -200,7 +284,7 @@ export async function GET(req: NextRequest) {
     .eq('package_name', paquete)
   if (piso) consultaHistorico = consultaHistorico.gte('fecha', piso)
 
-  const [ventana, historico] = await Promise.all([
+  const [ventana, historico, paises] = await Promise.all([
     admin
       .from('play_install_stats')
       .select('fecha, instalaciones, desinstalaciones, base_instalada, visitantes_ficha, actualizado_en')
@@ -208,6 +292,7 @@ export async function GET(req: NextRequest) {
       .gte('fecha', desde)
       .order('fecha', { ascending: true }),
     consultaHistorico,
+    paisesDe(admin, paquete, desde),
   ])
   const { data, error } = ventana
 
@@ -283,6 +368,7 @@ export async function GET(req: NextRequest) {
       neto: instalacionesHistorico - desinstalacionesHistorico,
       desde: filasHistorico.reduce<string | null>((min, f) => (!min || f.fecha < min ? f.fecha : min), null),
     },
+    paises,
     generadoEn: new Date().toISOString(),
   }
 

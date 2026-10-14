@@ -305,6 +305,7 @@ export default function PotionPage() {
           recarga={recargaPlay}
           desde={lanzamiento ? LANZAMIENTO.slice(0, 10) : undefined}
           tablaDiaria
+          tablaPaises
         />
 
         {!datos && cargando && (

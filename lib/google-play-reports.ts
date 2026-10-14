@@ -323,6 +323,7 @@ export function decodificar(buf: ArrayBuffer): string {
  */
 const ALIAS = {
   fecha: ['date'],
+  pais: ['country'],
   instalaciones: ['daily device installs'],
   desinstalaciones: ['daily device uninstalls'],
   baseInstalada: ['active device installs'],
@@ -340,7 +341,7 @@ type Campo = keyof typeof ALIAS
  * asignarle un número no compila. Que lo diga el tipo es mejor que acordarse
  * de no meter `fecha` en el array.
  */
-type CampoNumerico = Exclude<Campo, 'fecha'>
+type CampoNumerico = Exclude<Campo, 'fecha' | 'pais'>
 
 const normalizar = (s: string) => s.trim().toLowerCase().replace(/\s+/g, ' ')
 
@@ -447,6 +448,74 @@ export function filasPorFecha(csv: string): Map<string, Partial<DiaPlay>> {
   return salida
 }
 
+/** Un día de un país, del informe de instalaciones desglosado. */
+export interface DiaPaisPlay {
+  fecha: string
+  /** Código ISO de dos letras, en mayúscula. `ZZ` si Play no lo sabe. */
+  pais: string
+  instalaciones: number | null
+  desinstalaciones: number | null
+  baseInstalada: number | null
+}
+
+/**
+ * Las filas de un `installs_..._country.csv`, una por día y país.
+ *
+ * Mismo criterio que `filasPorFecha` -columnas por nombre, celdas vacías en
+ * `null`- pero sin sumar entre países, que es justamente lo que se quiere ver.
+ * Si el mismo par día-país aparece dos veces, se suman: no debería pasar, y
+ * sumar no pierde nada.
+ *
+ * Play escribe un país vacío para las instalaciones que no puede ubicar. Se
+ * guardan como `ZZ` (el código ISO de "desconocido") y no se tiran: sin ellas
+ * la suma de los países no daría el total del día.
+ */
+export function filasPorFechaYPais(csv: string): DiaPaisPlay[] {
+  const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true })
+  const filas = parsed.data ?? []
+  if (filas.length === 0) return []
+
+  const indice = indexarCabeceras(parsed.meta?.fields ?? [])
+  const colFecha = columnaDe(indice, 'fecha')
+  const colPais = columnaDe(indice, 'pais')
+  if (!colFecha || !colPais) {
+    console.error(
+      '[play] el CSV por país no tiene columna de fecha o de país. Cabeceras:',
+      (parsed.meta?.fields ?? []).join(' | ').slice(0, 300)
+    )
+    return []
+  }
+
+  const colInst = columnaDe(indice, 'instalaciones')
+  const colDesinst = columnaDe(indice, 'desinstalaciones')
+  const colBase = columnaDe(indice, 'baseInstalada')
+
+  const sumar = (previo: number | null, col: string | null, fila: Record<string, string>) => {
+    const n = col ? aNumero(fila[col]) : null
+    if (n === null) return previo
+    return (previo ?? 0) + n
+  }
+
+  const salida = new Map<string, DiaPaisPlay>()
+  for (const fila of filas) {
+    const fecha = (fila[colFecha] ?? '').trim()
+    if (!/^\d{4}-\d{2}-\d{2}$/.test(fecha)) continue
+    const crudo = (fila[colPais] ?? '').trim().toUpperCase()
+    const pais = /^[A-Z]{2}$/.test(crudo) ? crudo : 'ZZ'
+
+    const clave = `${fecha}|${pais}`
+    const acum = salida.get(clave) ?? {
+      fecha, pais, instalaciones: null, desinstalaciones: null, baseInstalada: null,
+    }
+    acum.instalaciones = sumar(acum.instalaciones, colInst, fila)
+    acum.desinstalaciones = sumar(acum.desinstalaciones, colDesinst, fila)
+    acum.baseInstalada = sumar(acum.baseInstalada, colBase, fila)
+    salida.set(clave, acum)
+  }
+
+  return [...salida.values()]
+}
+
 // ── Rutas de los informes ──────────────────────────────────────────────────
 
 /** `YYYYMM` de una fecha, que es como Google nombra los archivos mensuales. */
@@ -480,6 +549,11 @@ export function mesesAConsultar(hoy = new Date()): string[] {
  */
 export function rutasInstalls(paquete: string, mes: string): string[] {
   return [`stats/installs/installs_${paquete}_${mes}_overview.csv`]
+}
+
+/** El mismo informe de instalaciones, desglosado por país. */
+export function rutaInstallsPorPais(paquete: string, mes: string): string {
+  return `stats/installs/installs_${paquete}_${mes}_country.csv`
 }
 
 export function rutasFicha(paquete: string, mes: string): string[] {

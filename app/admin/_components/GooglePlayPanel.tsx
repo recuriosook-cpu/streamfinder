@@ -40,7 +40,7 @@ import type { AppPlay } from '@/lib/google-play-reports'
  * ── Glynbox y Potion Bottle ───────────────────────────────────────────────
  *
  * El mismo panel sirve a las dos apps: `app` elige el paquete. `/admin/potion`
- * además pasa `desde` -el lanzamiento- y pide la tabla día por día.
+ * además pasa `desde` -el lanzamiento- y pide las tablas por día y por país.
  */
 
 const numero = (n: number) => n.toLocaleString('es-AR')
@@ -106,6 +106,7 @@ export function GooglePlayPanel({
   app = 'glynbox',
   desde,
   tablaDiaria = false,
+  tablaPaises = false,
 }: {
   recarga?: number
   app?: AppPlay
@@ -113,6 +114,8 @@ export function GooglePlayPanel({
   desde?: string
   /** Una tabla con los números exactos de cada día, debajo de los gráficos. */
   tablaDiaria?: boolean
+  /** Una tabla por país de la ventana elegida, de mayor a menor. */
+  tablaPaises?: boolean
 }) {
   const [dias, setDias] = useState<Ventana>(VENTANA_POR_DEFECTO)
   const [datos, setDatos] = useState<PlayResumen | null>(null)
@@ -303,6 +306,8 @@ export function GooglePlayPanel({
 
           {tablaDiaria && <TablaDiaria serie={datos.serie} />}
 
+          {tablaPaises && <TablaPaises paises={datos.paises} dias={dias} />}
+
           {app === 'glynbox' ? (
             <p className="text-[10px] text-[#A0A0B0] mt-4 leading-relaxed">
               Play no dice de dónde vino cada instalación, así que estas series no se
@@ -353,6 +358,71 @@ function TablaDiaria({ serie }: { serie: PlayResumen['serie'] }) {
           ))}
         </tbody>
       </table>
+    </div>
+  )
+}
+
+// ── Tabla por país ─────────────────────────────────────────────────────────
+
+/** `AR` → `Argentina`. Se crea una vez: armar el formateador no es gratis. */
+const nombresDePais = (() => {
+  try {
+    return new Intl.DisplayNames(['es'], { type: 'region' })
+  } catch {
+    return null
+  }
+})()
+
+function nombrePais(codigo: string): string {
+  if (codigo === 'ZZ') return 'Sin país'
+  try {
+    return nombresDePais?.of(codigo) ?? codigo
+  } catch {
+    return codigo
+  }
+}
+
+function TablaPaises({ paises, dias }: { paises: PlayResumen['paises']; dias: Ventana }) {
+  return (
+    <div className="mt-6">
+      <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0] mb-2">
+        Por país · últimos {dias} días
+      </p>
+      {paises === null ? (
+        <p className="text-xs text-zinc-500 py-4">
+          Falta correr <code className="text-zinc-400">supabase-play-stats-paises-2026-10.sql</code> en
+          el SQL Editor de Supabase. Los países aparecen después de la próxima corrida del cron.
+        </p>
+      ) : paises.length === 0 ? (
+        <p className="text-xs text-zinc-500 py-4">Todavía no hay datos por país en esta ventana.</p>
+      ) : (
+        <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
+          <table className="w-full text-sm">
+            <thead className="sticky top-0 bg-[#13131A]">
+              <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+                <th className="text-left  font-medium py-2 pr-3">País</th>
+                <th className="text-right font-medium py-2 px-2">Instalaciones</th>
+                <th className="text-right font-medium py-2 px-2">Desinstalaciones</th>
+                <th className="text-right font-medium py-2 px-2">Base instalada</th>
+              </tr>
+            </thead>
+            <tbody>
+              {paises.map(p => (
+                <tr key={p.pais} className="border-b border-[#2A2A3A]/60 last:border-0">
+                  <td className="py-2 pr-3 text-white">
+                    {nombrePais(p.pais)} <span className="text-zinc-600 text-[11px]">{p.pais}</span>
+                  </td>
+                  <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{numero(p.instalaciones)}</td>
+                  <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{numero(p.desinstalaciones)}</td>
+                  <td className="py-2 px-2 text-right tabular-nums text-zinc-500">
+                    {p.baseInstalada === null ? '—' : numero(p.baseInstalada)}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      )}
     </div>
   )
 }
