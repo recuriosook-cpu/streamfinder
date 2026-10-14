@@ -114,7 +114,13 @@ export interface AdminOverview {
     total: number
   }
   plataformasFavoritas: { provider: string; count: number }[]
+  /** Sólo perfiles con país real (`country_source` 'auto' o 'manual'). */
   paises: { country: string; count: number }[]
+  /**
+   * Cuántos perfiles tienen país real, de cuántos. `conPais = 0` es "todavía no
+   * hay datos" y el panel muestra el cartel de advertencia.
+   */
+  paisesCobertura: { conPais: number; total: number }
   actividad: ActividadResumen
   generadoEn: string
 }
@@ -181,6 +187,31 @@ async function fetchAllRows<T>(
     from += 1000
   }
   return out
+}
+
+interface PerfilFila {
+  country: string | null
+  /** 'auto' | 'manual' | null. Ver `supabase-pais-real-2026-10.sql`. */
+  country_source: string | null
+  last_active: string | null
+  onboarding_completed_at: string | null
+  onboarding_skipped: boolean | null
+}
+
+/**
+ * Los perfiles, con `country_source` si la columna ya existe. Si todavía no se
+ * corrió la migración se leen sin ella: el resto del resumen no tiene por qué
+ * caerse, y "Usuarios por país" queda vacío, que es lo correcto.
+ */
+async function fetchProfiles(admin: SupabaseClient): Promise<PerfilFila[]> {
+  const base = 'country, last_active, onboarding_completed_at, onboarding_skipped'
+  try {
+    return await fetchAllRows<PerfilFila>(admin, 'profiles', `${base}, country_source`)
+  } catch (err) {
+    console.warn('[admin/overview] perfiles sin country_source:', (err as Error).message)
+    const filas = await fetchAllRows<Omit<PerfilFila, 'country_source'>>(admin, 'profiles', base)
+    return filas.map(f => ({ ...f, country_source: null }))
+  }
 }
 
 // ── Actividad (analytics) ─────────────────────────────────────────────────
@@ -314,12 +345,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
 
   const [authUsers, profiles, favorites, actividad] = await Promise.all([
     fetchAuthUsers(admin),
-    fetchAllRows<{
-      country: string | null
-      last_active: string | null
-      onboarding_completed_at: string | null
-      onboarding_skipped: boolean | null
-    }>(admin, 'profiles', 'country, last_active, onboarding_completed_at, onboarding_skipped'),
+    fetchProfiles(admin),
     fetchAllRows<{ provider_name: string | null }>(admin, 'favorites', 'provider_name'),
     buildActividad(admin),
   ])
@@ -375,15 +401,20 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     .map(([provider, count]) => ({ provider, count }))
 
   // ── Países ───────────────────────────────────────────────────────────────
-  // Ojo: hoy esto es un default, no geolocalización. Ver la nota en /admin/metricas.
+  // Sólo los que tienen origen: un `country_source` NULL es el 'AR' por defecto
+  // de antes de la detección, y contarlo mostraría una distribución inventada.
   const countryCounts: Record<string, number> = {}
+  let conPais = 0
   for (const p of profiles) {
-    if (p.country) countryCounts[p.country] = (countryCounts[p.country] ?? 0) + 1
+    if (!p.country || !p.country_source) continue
+    conPais++
+    countryCounts[p.country] = (countryCounts[p.country] ?? 0) + 1
   }
   const paises = Object.entries(countryCounts)
     .sort((a, b) => b[1] - a[1])
     .slice(0, 15)
     .map(([country, count]) => ({ country, count }))
+  const paisesCobertura = { conPais, total: profiles.length }
 
   return {
     registrosPorMes,
@@ -400,6 +431,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     },
     plataformasFavoritas,
     paises,
+    paisesCobertura,
     actividad,
     generadoEn: new Date().toISOString(),
   }

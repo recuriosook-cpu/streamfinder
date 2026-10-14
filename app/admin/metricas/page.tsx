@@ -298,22 +298,28 @@ export default function MetricasPage() {
         </div>
 
         {/* Por país.
-            NO ES UN DATO REAL. `profiles.country` no se completa por
-            geolocalización: hoy los 115 perfiles tienen 'AR', que es el valor por
-            defecto. El gráfico queda porque va a servir cuando se detecte el país
-            de verdad, pero mientras tanto no se puede leer como distribución
-            geográfica. */}
+            Sólo cuenta perfiles con país real: detectado por la IP al entrar
+            (`country_source = 'auto'`) o elegido en Ajustes ('manual'). Los
+            perfiles de antes de la detección tienen el 'AR' por defecto y
+            quedan afuera hasta su próximo ingreso. Mientras no haya ninguno,
+            sigue el cartel. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-white mb-2">Usuarios por país (top 15)</h2>
-          <div className="mb-5 bg-amber-900/20 border border-amber-800/60 rounded-xl px-4 py-2.5 flex items-start gap-2.5">
-            <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-[11px] text-amber-200/90 leading-relaxed">
-              <span className="font-semibold">Este dato todavía no es real.</span>{' '}
-              <code className="text-amber-300">profiles.country</code> no se detecta por geolocalización:
-              es un valor por defecto y hoy todos los perfiles tienen el mismo. No lo uses para
-              decidir nada hasta que se implemente la detección de país.
+          {(overview?.paisesCobertura.conPais ?? 0) > 0 ? (
+            <p className="mb-5 text-[11px] text-[#A0A0B0]">
+              País detectado en {overview!.paisesCobertura.conPais} de {overview!.paisesCobertura.total} usuarios.
+              El resto se completa cuando vuelvan a entrar.
             </p>
-          </div>
+          ) : (
+            <div className="mb-5 bg-amber-900/20 border border-amber-800/60 rounded-xl px-4 py-2.5 flex items-start gap-2.5">
+              <AlertTriangle size={14} className="text-amber-400 shrink-0 mt-0.5" />
+              <p className="text-[11px] text-amber-200/90 leading-relaxed">
+                <span className="font-semibold">Todavía no hay países detectados.</span>{' '}
+                El país se toma de la IP cuando un usuario entra con sesión iniciada, o de lo que elija
+                en Ajustes. Los perfiles anteriores tienen un valor por defecto y no se cuentan.
+              </p>
+            </div>
+          )}
           <ResponsiveContainer width="100%" height={280}>
             <BarChart data={byCountry} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
