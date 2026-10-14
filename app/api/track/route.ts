@@ -3,6 +3,7 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
 import { classifyUserAgent } from '@/lib/analytics-bots'
+import { paisDelPedido, motivoPaisBloqueado } from '@/lib/geo'
 import {
   sanitizeProps,
   sanitizePath,
@@ -29,6 +30,11 @@ import {
  * Los eventos de bots se guardan marcados con `is_bot`, no se descartan. El
  * porqué está en `lib/analytics-bots.ts`: en dos palabras, marcar mal es un
  * UPDATE y descartar mal no se arregla nunca. El panel filtra `is_bot = false`.
+ *
+ * Además del user-agent, se mira el país que manda Vercel (`lib/geo.ts`): lo
+ * que llegue de un país bloqueado en el firewall se marca como bot aunque el
+ * user-agent sea de un navegador. Es lo que pasó el 13/10: tráfico de China
+ * con user-agents de Chrome normales, que el filtro por user-agent no podía ver.
  */
 
 export const runtime = 'nodejs'
@@ -62,6 +68,27 @@ interface EventRow {
   is_bot: boolean
   /** Qué patrón matcheó. Sirve para auditar el filtro sin adivinar. */
   bot_reason: string | null
+  /** De `x-vercel-ip-country`. Ver `supabase-pais-real-2026-10.sql`. */
+  country?: string | null
+}
+
+/**
+ * La columna `country` todavía no existe: falta correr la migración. PostgREST
+ * contesta PGRST204 ("Could not find the 'country' column").
+ */
+function faltaColumnaPais(error: { code?: string; message?: string }): boolean {
+  return error.code === 'PGRST204' || (error.message ?? '').includes("'country' column")
+}
+
+/**
+ * La fila sin la clave `country`. Borrada, no en `undefined`: en un insert de
+ * varias filas supabase-js arma la lista de columnas con las claves, y una clave
+ * en `undefined` vuelve a pedir la columna que falta.
+ */
+function sinPais(row: EventRow): EventRow {
+  const copia = { ...row }
+  delete copia.country
+  return copia
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────
@@ -80,7 +107,13 @@ export async function POST(req: NextRequest) {
     // Acepta `{ events: [...] }`, un array pelado, o un evento suelto.
     // Una sola vez por request: el user-agent es del request, no del evento, y
     // un lote trae hasta 50 eventos del mismo navegador.
-    const verdict = classifyUserAgent(req.headers.get('user-agent'))
+    const uaVerdict = classifyUserAgent(req.headers.get('user-agent'))
+    const country = paisDelPedido(req.headers)
+    // Si el user-agent ya dijo bot, gana su motivo, que es más específico.
+    const bloqueado = motivoPaisBloqueado(country)
+    const verdict = !uaVerdict.isBot && bloqueado
+      ? { isBot: true, reason: bloqueado }
+      : uaVerdict
 
     const rawEvents: unknown[] = Array.isArray(body)
       ? body
@@ -124,6 +157,7 @@ export async function POST(req: NextRequest) {
         path:       sanitizePath(ev.path),
         is_bot:     verdict.isBot,
         bot_reason: verdict.reason,
+        country,
       })
     }
 
@@ -139,7 +173,15 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ ok: true, accepted: 0, reason: 'not_configured' })
     }
 
-    const { error } = await admin.from('analytics_events').insert(rows)
+    let { error } = await admin.from('analytics_events').insert(rows)
+    if (error && faltaColumnaPais(error)) {
+      // Sin la migración se guarda como antes, sin país. La marca de bot por
+      // país sí queda: va en `is_bot`/`bot_reason`, que ya existen.
+      console.warn('[track] falta correr supabase-pais-real-2026-10.sql')
+      ;({ error } = await admin
+        .from('analytics_events')
+        .insert(rows.map(sinPais)))
+    }
     if (error) {
       console.error('[track] insert falló:', error.message)
       return NextResponse.json({ ok: true, accepted: 0, reason: 'insert_failed' })

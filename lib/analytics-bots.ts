@@ -75,7 +75,7 @@ const CRAWLERS = [
   'gptbot', 'oai-searchbot', 'chatgpt-user', 'perplexitybot', 'perplexity-user',
   'claudebot', 'claude-web', 'claude-searchbot', 'anthropic-ai',
   'meta-externalagent', 'meta-externalfetcher', 'ccbot', 'diffbot',
-  'cohere-ai', 'timpibot', 'youbot', 'imagesiftbot',
+  'cohere-ai', 'timpibot', 'youbot', 'imagesiftbot', 'exasearchbot',
 ] as const
 
 /**
