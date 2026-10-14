@@ -23,58 +23,56 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
   const supabase = useRef(createClient()).current
 
   useEffect(() => {
-    async function init() {
-      // 1. Check if user is logged in — profile.country takes priority
-      const { data: { user } } = await supabase.auth.getUser()
-      if (user) {
-        const { data: profile } = await supabase
-          .from('profiles')
-          .select('country')
-          .eq('id', user.id)
-          .maybeSingle()
-        const profileCountry = (profile as { country?: string | null } | null)?.country
-        if (profileCountry && COUNTRIES.find(c => c.code === profileCountry)) {
-          setCountryState(profileCountry)
-          localStorage.setItem(LS_KEY, profileCountry)
-          return
-        }
-      }
+    const valido = (code: string | null | undefined): code is string =>
+      !!code && COUNTRIES.some(c => c.code === code)
 
-      // 2. Fall back to localStorage
+    async function init() {
+      const { data: { user } } = await supabase.auth.getUser()
       const saved = localStorage.getItem(LS_KEY)
-      if (saved && COUNTRIES.find(c => c.code === saved)) {
+
+      // Sin sesión y con un país ya guardado en este navegador (elegido o
+      // detectado antes): se respeta, sin pedir nada.
+      if (!user && valido(saved)) {
         setCountryState(saved)
-        // Sync to profile if logged in but had no country saved
-        if (user) {
-          supabase.from('profiles').update({ country: saved }).eq('id', user.id)
-        }
         return
       }
 
-      // 3. Auto-detect via IP (first visit only)
-      fetch('https://ipapi.co/json/')
-        .then(r => r.json())
-        .then(async (data: { country_code?: string }) => {
-          const code = data.country_code
-          if (code && COUNTRIES.find(c => c.code === code)) {
-            setCountryState(code)
-            localStorage.setItem(LS_KEY, code)
-            if (user) {
-              await supabase.from('profiles').update({ country: code }).eq('id', user.id)
-            }
-          }
-        })
-        .catch(() => {})
+      // Con sesión, o en la primera visita: decide el servidor, con el país que
+      // Vercel saca de la IP. Con sesión además lo guarda en el perfil, salvo
+      // que la persona lo haya elegido a mano (ver /api/perfil/pais).
+      try {
+        const res = await fetch('/api/perfil/pais', { method: user ? 'POST' : 'GET' })
+        const { pais } = (await res.json()) as { pais?: string | null }
+        // Un país real que no está en COUNTRIES queda en el perfil para las
+        // métricas, pero la página sigue con el guardado o el de por defecto:
+        // no hay catálogo de streaming para mostrarle.
+        if (valido(pais)) {
+          setCountryState(pais)
+          localStorage.setItem(LS_KEY, pais)
+          return
+        }
+      } catch {}
+
+      if (valido(saved)) setCountryState(saved)
     }
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
+  /**
+   * Elegir un país a mano —en Ajustes o en el selector del encabezado— lo deja
+   * como `manual`, y la detección automática no lo vuelve a pisar.
+   */
   const setCountry = useCallback(async (code: string) => {
     setCountryState(code)
     localStorage.setItem(LS_KEY, code)
     const { data: { user } } = await supabase.auth.getUser()
     if (user) {
-      supabase.from('profiles').update({ country: code }).eq('id', user.id)
+      const { error } = await supabase
+        .from('profiles')
+        .update({ country: code, country_source: 'manual' })
+        .eq('id', user.id)
+      // Sin `country_source` (falta la migración) se guarda como antes.
+      if (error) await supabase.from('profiles').update({ country: code }).eq('id', user.id)
     }
   }, [supabase])
 
