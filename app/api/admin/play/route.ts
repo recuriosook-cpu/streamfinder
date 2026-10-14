@@ -134,6 +134,17 @@ export interface PlayResumen {
    */
   paises: PaisPlay[] | null
 
+  /**
+   * Qué días hay copiados de esta app, sin mirar la ventana: el primero y el
+   * último de la tabla por día y de la de países. Para que un panel vacío pueda
+   * decir "hay datos hasta el 14/9" en vez de quedarse callado. Play publica
+   * con uno o dos días de demora, así que el último casi nunca es hoy.
+   */
+  rangos: {
+    dias: { desde: string; hasta: string } | null
+    paises: { desde: string; hasta: string } | null
+  }
+
   generadoEn: string
 }
 
@@ -153,7 +164,13 @@ function porcentaje(parte: number, total: number): number | null {
   return Math.round((parte / total) * 1000) / 10
 }
 
-function vacio(dias: Ventana, app: AppPlay, motivo: 'sin_migracion' | 'sin_datos'): PlayResumen {
+function vacio(
+  dias: Ventana,
+  app: AppPlay,
+  motivo: 'sin_migracion' | 'sin_datos',
+  paises: PlayResumen['paises'] = [],
+  rangos: PlayResumen['rangos'] = { dias: null, paises: null },
+): PlayResumen {
   return {
     disponible: false,
     motivo,
@@ -166,7 +183,8 @@ function vacio(dias: Ventana, app: AppPlay, motivo: 'sin_migracion' | 'sin_datos
       baseInstalada: null, baseInstaladaVariacion: null, conversionFichaPct: null,
     },
     historico: { instalaciones: 0, desinstalaciones: 0, neto: 0, desde: null },
-    paises: [],
+    paises,
+    rangos,
     generadoEn: new Date().toISOString(),
   }
 }
@@ -244,12 +262,32 @@ async function paisesDe(
     porPais.set(f.pais, p)
   }
 
+  // Sin filtrar los países en cero: un país con filas y todo en cero es un
+  // dato, y esconderlo hacía que la tabla pareciera vacía teniendo filas.
   return [...porPais.values()]
-    .filter(p => p.instalaciones > 0 || p.desinstalaciones > 0 || (p.baseInstalada ?? 0) > 0)
     .sort((a, b) =>
       b.instalaciones - a.instalaciones ||
       (b.baseInstalada ?? 0) - (a.baseInstalada ?? 0) ||
       a.pais.localeCompare(b.pais))
+}
+
+/**
+ * El primer y el último día de una tabla para un paquete. Dos pedidos de una
+ * fila cada uno, por el índice (package_name, fecha DESC).
+ */
+async function rangoDe(
+  admin: SupabaseClient,
+  tabla: 'play_install_stats' | 'play_install_stats_pais',
+  paquete: string,
+): Promise<{ desde: string; hasta: string } | null> {
+  const extremo = (ascending: boolean) =>
+    admin.from(tabla).select('fecha').eq('package_name', paquete)
+      .order('fecha', { ascending }).limit(1).maybeSingle()
+
+  const [primero, ultimo] = await Promise.all([extremo(true), extremo(false)])
+  const desde = (primero.data as { fecha?: string } | null)?.fecha
+  const hasta = (ultimo.data as { fecha?: string } | null)?.fecha
+  return desde && hasta ? { desde, hasta } : null
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────
@@ -284,7 +322,7 @@ export async function GET(req: NextRequest) {
     .eq('package_name', paquete)
   if (piso) consultaHistorico = consultaHistorico.gte('fecha', piso)
 
-  const [ventana, historico, paises] = await Promise.all([
+  const [ventana, historico, paises, rangoDias, rangoPaises] = await Promise.all([
     admin
       .from('play_install_stats')
       .select('fecha, instalaciones, desinstalaciones, base_instalada, visitantes_ficha, actualizado_en')
@@ -293,21 +331,28 @@ export async function GET(req: NextRequest) {
       .order('fecha', { ascending: true }),
     consultaHistorico,
     paisesDe(admin, paquete, desde),
+    rangoDe(admin, 'play_install_stats', paquete),
+    // Si la tabla de países no existe, `paisesDe` ya devuelve `null`: acá un
+    // error simplemente deja el rango vacío.
+    rangoDe(admin, 'play_install_stats_pais', paquete),
   ])
   const { data, error } = ventana
+  const rangos = { dias: rangoDias, paises: rangoPaises }
 
   if (faltaLaTabla(error)) {
     console.warn('[admin/play] falta correr supabase-play-stats.sql')
-    return NextResponse.json(vacio(dias, app, 'sin_migracion'))
+    return NextResponse.json(vacio(dias, app, 'sin_migracion', paises, rangos))
   }
 
   if (error) {
     console.error('[admin/play] consulta falló:', error.message)
-    return NextResponse.json(vacio(dias, app, 'sin_datos'))
+    return NextResponse.json(vacio(dias, app, 'sin_datos', paises, rangos))
   }
 
+  // Sin días en la ventana igual se devuelven los países: son otra tabla, con
+  // otros días, y antes quedaban escondidos detrás de este vacío.
   const filas = (data ?? []) as FilaSql[]
-  if (filas.length === 0) return NextResponse.json(vacio(dias, app, 'sin_datos'))
+  if (filas.length === 0) return NextResponse.json(vacio(dias, app, 'sin_datos', paises, rangos))
 
   if (historico.error) console.error('[admin/play] el histórico falló:', historico.error.message)
   const filasHistorico = (historico.data ?? []) as Pick<FilaSql, 'fecha' | 'instalaciones' | 'desinstalaciones'>[]
@@ -369,6 +414,7 @@ export async function GET(req: NextRequest) {
       desde: filasHistorico.reduce<string | null>((min, f) => (!min || f.fecha < min ? f.fecha : min), null),
     },
     paises,
+    rangos,
     generadoEn: new Date().toISOString(),
   }
 

@@ -306,8 +306,6 @@ export function GooglePlayPanel({
 
           {tablaDiaria && <TablaDiaria serie={datos.serie} />}
 
-          {tablaPaises && <TablaPaises paises={datos.paises} dias={dias} />}
-
           {app === 'glynbox' ? (
             <p className="text-[10px] text-[#A0A0B0] mt-4 leading-relaxed">
               Play no dice de dónde vino cada instalación, así que estas series no se
@@ -322,6 +320,13 @@ export function GooglePlayPanel({
             </p>
           )}
         </>
+      )}
+
+      {/* Fuera del bloque de arriba a propósito: los países son otra tabla, con
+          otros días, y no pueden quedar escondidos porque la serie diaria no
+          tenga nada en la ventana. */}
+      {tablaPaises && !cargando && datos && datos.motivo !== 'sin_migracion' && (
+        <TablaPaises paises={datos.paises} dias={dias} rango={datos.rangos?.paises ?? null} />
       )}
     </section>
   )
@@ -382,7 +387,13 @@ function nombrePais(codigo: string): string {
   }
 }
 
-function TablaPaises({ paises, dias }: { paises: PlayResumen['paises']; dias: Ventana }) {
+function TablaPaises({
+  paises, dias, rango,
+}: {
+  paises: PlayResumen['paises']
+  dias: Ventana
+  rango: { desde: string; hasta: string } | null
+}) {
   return (
     <div className="mt-6">
       <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0] mb-2">
@@ -394,7 +405,11 @@ function TablaPaises({ paises, dias }: { paises: PlayResumen['paises']; dias: Ve
           el SQL Editor de Supabase. Los países aparecen después de la próxima corrida del cron.
         </p>
       ) : paises.length === 0 ? (
-        <p className="text-xs text-zinc-500 py-4">Todavía no hay datos por país en esta ventana.</p>
+        <p className="text-xs text-zinc-500 py-4">
+          {rango
+            ? <>Nada en esta ventana. Hay datos por país del {etiquetaFecha(rango.desde)} al {etiquetaFecha(rango.hasta)}.</>
+            : 'Todavía no hay datos por país.'}
+        </p>
       ) : (
         <div className="overflow-x-auto max-h-[360px] overflow-y-auto">
           <table className="w-full text-sm">
@@ -430,6 +445,7 @@ function TablaPaises({ paises, dias }: { paises: PlayResumen['paises']; dias: Ve
 // ── Vacío ──────────────────────────────────────────────────────────────────
 
 function VacioPlay({ datos, dias }: { datos: PlayResumen | null; dias: Ventana }) {
+  const rango = datos?.rangos?.dias ?? null
   if (!datos) {
     return <p className="text-[#A0A0B0] text-sm py-8 text-center">No se pudo cargar el panel.</p>
   }
@@ -450,8 +466,14 @@ function VacioPlay({ datos, dias }: { datos: PlayResumen | null; dias: Ventana }
     <div className="py-8 text-center">
       <div className="flex justify-center mb-2 text-zinc-600"><Download size={20} /></div>
       <p className="text-[#A0A0B0] text-sm">
-        Todavía no hay informes de los últimos {dias} días.
+        No hay informes de Play en esta ventana ({dias} días).
       </p>
+      {rango && (
+        <p className="text-xs text-zinc-400 mt-1.5">
+          Hay datos del {etiquetaFecha(rango.desde)} al {etiquetaFecha(rango.hasta)}.
+          Play publica con uno o dos días de demora.
+        </p>
+      )}
       <p className="text-xs text-zinc-500 mt-1.5 leading-relaxed">
         El cron corre a las 9:30 UTC. Para no esperar:<br />
         <code className="text-zinc-400">
