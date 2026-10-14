@@ -46,6 +46,10 @@ import Papa from 'papaparse'
  *                         por si el panel de variables maltrata los saltos de
  *                         línea.
  *   PLAY_PACKAGE_NAME     Opcional. Por defecto `com.glynbox.app`.
+ *   POTION_PLAY_REPORTS_BUCKET
+ *                         Opcional. Sólo si Potion Bottle está en OTRA cuenta
+ *                         de desarrollador: el bucket es uno por cuenta, no por
+ *                         app. Sin definir, se usa `PLAY_REPORTS_BUCKET`.
  *
  * Y el paso que no es obvio y es el que falla: **el bucket es de Google, no
  * del proyecto de Cloud**. No alcanza con darle permisos de Storage a la
@@ -55,6 +59,33 @@ import Papa from 'papaparse'
  * descargar informes masivos" con alcance **global**, no por app. Con alcance
  * por app, Google contesta 403 y el mensaje no explica por qué.
  */
+
+// ── Las apps ───────────────────────────────────────────────────────────────
+
+/**
+ * Las apps de las que se copian informes. Lista cerrada: el panel la recibe por
+ * querystring (`/api/admin/play?app=`).
+ *
+ * El paquete de Potion Bottle es el de `botellas/app.json`
+ * (`expo.android.package`). Va escrito acá y no por entorno porque no cambia:
+ * cambiarlo sería publicar otra app.
+ */
+export const APPS_PLAY = ['glynbox', 'potion'] as const
+
+export type AppPlay = (typeof APPS_PLAY)[number]
+
+export function esAppPlay(v: unknown): v is AppPlay {
+  return (APPS_PLAY as readonly unknown[]).includes(v)
+}
+
+export const PAQUETE_POTION = 'com.potionbottle.watersort'
+
+export function paqueteDe(app: AppPlay): string {
+  if (app === 'potion') return PAQUETE_POTION
+  // El de Glynbox se puede pisar por entorno, para apuntar a otra app sin
+  // tocar código.
+  return process.env.PLAY_PACKAGE_NAME?.trim() || 'com.glynbox.app'
+}
 
 // ── Configuración ──────────────────────────────────────────────────────────
 
@@ -105,15 +136,15 @@ function leerCuentaDeServicio(crudo: string): { email: string; clavePrivada: str
   }
 }
 
-export function leerConfig(): ResultadoConfig {
+export function leerConfig(app: AppPlay = 'glynbox'): ResultadoConfig {
   const faltan: string[] = []
 
-  const bucket = process.env.PLAY_REPORTS_BUCKET?.trim()
+  const bucket =
+    (app === 'potion' ? process.env.POTION_PLAY_REPORTS_BUCKET?.trim() : undefined) ||
+    process.env.PLAY_REPORTS_BUCKET?.trim()
   if (!bucket) faltan.push('PLAY_REPORTS_BUCKET')
 
-  // El único con default: es el paquete de la app y no cambia. Igual se puede
-  // pisar por entorno, para poder apuntar a otra app sin tocar código.
-  const paquete = process.env.PLAY_PACKAGE_NAME?.trim() || 'com.glynbox.app'
+  const paquete = paqueteDe(app)
 
   const saCrudo = process.env.GOOGLE_PLAY_SA_JSON?.trim()
   if (!saCrudo) faltan.push('GOOGLE_PLAY_SA_JSON')

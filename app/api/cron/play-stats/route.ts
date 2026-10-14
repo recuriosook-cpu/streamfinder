@@ -1,12 +1,15 @@
 import { NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 import {
+  APPS_PLAY,
   leerConfig,
   descargarObjeto,
   filasPorFecha,
   mesesAConsultar,
   rutasInstalls,
   rutasFicha,
+  type AppPlay,
   type ConfigPlay,
   type DiaPlay,
 } from '@/lib/google-play-reports'
@@ -20,8 +23,9 @@ import {
  *
  * ── Qué baja ──────────────────────────────────────────────────────────────
  *
- * Dos informes, dos meses cada uno: el corriente y el anterior. Son cuatro
- * descargas. El mes anterior no es por las dudas — el día 1 el mes en curso
+ * Por cada app de `APPS_PLAY` (Glynbox y Potion Bottle), dos informes, dos
+ * meses cada uno: el corriente y el anterior. Son cuatro descargas por app.
+ * Cada app se copia por su lado: si una falla, la otra se guarda igual. El mes anterior no es por las dudas — el día 1 el mes en curso
  * tiene una sola fila, y Google además sigue corrigiendo los últimos días del
  * mes cerrado durante una semana larga.
  *
@@ -47,7 +51,7 @@ import {
 
 export const runtime = 'nodejs'
 
-/** Cuatro descargas y un parseo de CSV: no entra en los 10s del default. */
+/** Cuatro descargas y un parseo de CSV por app: no entra en los 10s del default. */
 export const maxDuration = 60
 
 // ── Auth ───────────────────────────────────────────────────────────────────
@@ -104,23 +108,18 @@ async function bajarPrimero(
   return null
 }
 
-// ── Handler ────────────────────────────────────────────────────────────────
+// ── Una app ────────────────────────────────────────────────────────────────
 
-export async function GET(req: Request) {
-  if (!authorized(req)) {
-    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
-  }
+type ResultadoApp =
+  | { configurado: false; faltan: string[] }
+  | { configurado: true; paquete: string; filas: number; desde?: string; hasta?: string; avisos: Aviso[]; error?: string }
 
-  const cfg = leerConfig()
+async function copiarApp(admin: SupabaseClient, app: AppPlay): Promise<ResultadoApp> {
+  const cfg = leerConfig(app)
   if (!cfg.ok) {
-    // 200 y no 500: la tarea no falló, todavía no está configurada. Un 500
-    // diario llenaría las alertas de Vercel con algo que no es un incidente.
-    console.warn('[cron/play-stats] sin configurar. Faltan:', cfg.faltan.join(', '))
-    return NextResponse.json({ ok: true, configurado: false, faltan: cfg.faltan })
+    console.warn(`[cron/play-stats] ${app} sin configurar. Faltan:`, cfg.faltan.join(', '))
+    return { configurado: false, faltan: cfg.faltan }
   }
-
-  const { admin, failure } = requireAdminClient('cron/play-stats')
-  if (failure) return failure
 
   const config = cfg.config
   const avisos: Aviso[] = []
@@ -141,13 +140,13 @@ export async function GET(req: Request) {
   }
 
   if (porFecha.size === 0) {
-    console.warn('[cron/play-stats] no se pudo leer ningún informe.', avisos)
-    return NextResponse.json({ ok: true, configurado: true, filas: 0, avisos })
+    console.warn(`[cron/play-stats] ${app}: no se pudo leer ningún informe.`, avisos)
+    return { configurado: true, paquete: config.paquete, filas: 0, avisos }
   }
 
   const filas = [...porFecha.values()].map(d => ({
     package_name:     config.paquete,
-    fecha:            d.fecha,
+    fecha:            d.fecha!,
     // `?? null` y no `?? 0`: un día sin dato tiene que quedar en NULL para que
     // el gráfico dibuje un hueco y no una caída a cero que nunca pasó.
     instalaciones:    d.instalaciones ?? null,
@@ -163,21 +162,43 @@ export async function GET(req: Request) {
     .upsert(filas, { onConflict: 'package_name,fecha' })
 
   if (error) {
-    console.error('[cron/play-stats] el upsert falló:', error.message)
-    // Acá sí 500: la descarga anduvo y la escritura no. Es un problema real y
-    // conviene que se vea en el panel de Vercel.
-    return NextResponse.json(
-      { ok: false, error: error.message, filas: filas.length },
-      { status: 500 }
-    )
+    console.error(`[cron/play-stats] ${app}: el upsert falló:`, error.message)
+    return { configurado: true, paquete: config.paquete, filas: filas.length, avisos, error: error.message }
   }
 
-  return NextResponse.json({
-    ok: true,
+  return {
     configurado: true,
+    paquete: config.paquete,
     filas: filas.length,
-    desde: filas.reduce((min, f) => (f.fecha! < min ? f.fecha! : min), filas[0].fecha!),
-    hasta: filas.reduce((max, f) => (f.fecha! > max ? f.fecha! : max), filas[0].fecha!),
+    desde: filas.reduce((min, f) => (f.fecha < min ? f.fecha : min), filas[0].fecha),
+    hasta: filas.reduce((max, f) => (f.fecha > max ? f.fecha : max), filas[0].fecha),
     avisos,
-  })
+  }
+}
+
+// ── Handler ────────────────────────────────────────────────────────────────
+
+export async function GET(req: Request) {
+  if (!authorized(req)) {
+    return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
+  }
+
+  const { admin, failure } = requireAdminClient('cron/play-stats')
+  if (failure) return failure
+
+  const apps = {} as Record<AppPlay, ResultadoApp>
+  for (const app of APPS_PLAY) apps[app] = await copiarApp(admin, app)
+
+  const resultados = Object.values(apps)
+
+  // Sin configurar es 200 y no 500: la tarea no falló, todavía no está
+  // configurada. Un 500 diario llenaría las alertas de Vercel con algo que no
+  // es un incidente. Sí 500 si una descarga anduvo y la escritura no: es un
+  // problema real y conviene que se vea en el panel de Vercel.
+  const fallo = resultados.some(r => r.configurado && r.error)
+
+  return NextResponse.json(
+    { ok: !fallo, configurado: resultados.some(r => r.configurado), apps },
+    { status: fallo ? 500 : 200 },
+  )
 }

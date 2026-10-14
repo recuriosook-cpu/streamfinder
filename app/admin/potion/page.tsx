@@ -9,9 +9,10 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts'
 import type { PotionPanel, PotionCohorte, PotionDuelos } from '@/app/api/admin/potion/route'
-import { RANGOS, RANGO_POR_DEFECTO, ETIQUETA_RANGO, type Rango } from '@/lib/potion-panel'
+import { RANGOS, RANGO_POR_DEFECTO, ETIQUETA_RANGO, LANZAMIENTO, type Rango } from '@/lib/potion-panel'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
+import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 
 /**
  * Las estadísticas del juego Potion Bottle: Water Sort.
@@ -210,6 +211,13 @@ export default function PotionPage() {
   /** Sólo se pinta la respuesta del último pedido: cambiar el filtro rápido no la pisa con una vieja. */
   const ultimoPedido = useRef(0)
 
+  /** Sube con cada refresco a mano o al volver a la pestaña: el panel de Play lo escucha. */
+  const [recargaPlay, setRecargaPlay] = useState(0)
+  function actualizar() {
+    setRecargaPlay(v => v + 1)
+    void cargar()
+  }
+
   async function cargar() {
     const pedido = ++ultimoPedido.current
     setCargando(true)
@@ -230,7 +238,7 @@ export default function PotionPage() {
   }
 
   useEffect(() => { cargar() }, [rango, lanzamiento]) // eslint-disable-line react-hooks/exhaustive-deps
-  useRefrescoAlVolver(cargar, actualizadoEn)
+  useRefrescoAlVolver(actualizar, actualizadoEn)
 
   const r = datos?.resumen
   const maxEmbudo = datos?.embudo.reduce((m, e) => Math.max(m, e.jugadores), 0) ?? 0
@@ -247,7 +255,7 @@ export default function PotionPage() {
             <p className="text-sm text-[#A0A0B0] mt-0.5">Water Sort · estadísticas del juego</p>
           </div>
         </div>
-        <RefrescoControl actualizadoEn={actualizadoEn} cargando={cargando} onActualizar={cargar} />
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={cargando} onActualizar={actualizar} />
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
@@ -286,6 +294,18 @@ export default function PotionPage() {
             <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
+
+        {/* Google Play: descargas, desinstalaciones y dispositivos con el juego.
+            Va fuera de `datos` a propósito: sale del Supabase de Glynbox y no
+            del juego, así que se ve aunque la conexión con el juego falle.
+            Tiene su propio filtro de 7 y 30 días; del de arriba sólo toma el
+            del lanzamiento. */}
+        <GooglePlayPanel
+          app="potion"
+          recarga={recargaPlay}
+          desde={lanzamiento ? LANZAMIENTO.slice(0, 10) : undefined}
+          tablaDiaria
+        />
 
         {!datos && cargando && (
           <div className="py-24 flex items-center justify-center">

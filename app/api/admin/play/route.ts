@@ -3,13 +3,18 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
 import { VENTANA_POR_DEFECTO, esVentana, type Ventana } from '@/lib/metricas-ventanas'
+import { esAppPlay, paqueteDe, type AppPlay } from '@/lib/google-play-reports'
 
 /**
- * GET /api/admin/play?dias=7|30
+ * GET /api/admin/play?dias=7|30&app=glynbox|potion&desde=YYYY-MM-DD
  *
  * Lo que el panel de Google Play muestra: la serie diaria de instalaciones,
  * desinstalaciones, base instalada y visitantes de la ficha, más los totales
- * de la ventana.
+ * de la ventana y los de todo lo copiado (`historico`).
+ *
+ * `app` elige el paquete (por defecto Glynbox). `desde` es opcional y recorta
+ * todo, ventana e histórico: lo usa `/admin/potion` para dejar afuera lo de
+ * los testers, anterior al lanzamiento.
  *
  * Lee de `play_install_stats`, que llena `/api/cron/play-stats` una vez por
  * día. Acá no se toca Google: si el cron no corrió, esto devuelve lo último
@@ -78,6 +83,7 @@ export interface PlayResumen {
   disponible: boolean
   motivo: 'sin_migracion' | 'sin_datos' | null
   dias: Ventana
+  app: AppPlay
   /** Cuándo corrió el cron por última vez. El panel avisa si quedó viejo. */
   actualizadoEn: string | null
 
@@ -95,6 +101,18 @@ export interface PlayResumen {
     baseInstaladaVariacion: number | null
     /** El único porcentaje: instalaciones sobre visitantes de la ficha. */
     conversionFichaPct: number | null
+  }
+
+  /**
+   * Desde el primer día copiado (o desde `desde`) hasta hoy, sin ventana. Sólo
+   * flujos: la base instalada ya es un acumulado y su último valor está arriba.
+   */
+  historico: {
+    instalaciones: number
+    desinstalaciones: number
+    neto: number
+    /** El primer día con fila. `null` si no hay ninguna. */
+    desde: string | null
   }
 
   generadoEn: string
@@ -116,17 +134,19 @@ function porcentaje(parte: number, total: number): number | null {
   return Math.round((parte / total) * 1000) / 10
 }
 
-function vacio(dias: Ventana, motivo: 'sin_migracion' | 'sin_datos'): PlayResumen {
+function vacio(dias: Ventana, app: AppPlay, motivo: 'sin_migracion' | 'sin_datos'): PlayResumen {
   return {
     disponible: false,
     motivo,
     dias,
+    app,
     actualizadoEn: null,
     serie: [],
     totales: {
       instalaciones: 0, desinstalaciones: 0, neto: 0, visitantes: 0,
       baseInstalada: null, baseInstaladaVariacion: null, conversionFichaPct: null,
     },
+    historico: { instalaciones: 0, desinstalaciones: 0, neto: 0, desde: null },
     generadoEn: new Date().toISOString(),
   }
 }
@@ -160,27 +180,54 @@ export async function GET(req: NextRequest) {
   const crudo = Number(req.nextUrl.searchParams.get('dias'))
   const dias: Ventana = esVentana(crudo) ? crudo : VENTANA_POR_DEFECTO
 
-  const paquete = process.env.PLAY_PACKAGE_NAME?.trim() || 'com.glynbox.app'
+  const pedida = req.nextUrl.searchParams.get('app')
+  const app: AppPlay = esAppPlay(pedida) ? pedida : 'glynbox'
+  const paquete = paqueteDe(app)
 
-  const { data, error } = await admin
+  // Sólo una fecha bien formada: llega por querystring.
+  const desdeCrudo = req.nextUrl.searchParams.get('desde') ?? ''
+  const piso = /^\d{4}-\d{2}-\d{2}$/.test(desdeCrudo) ? desdeCrudo : null
+
+  const inicioVentana = desdeHace(dias)
+  const desde = piso && piso > inicioVentana ? piso : inicioVentana
+
+  // Dos consultas en paralelo: la ventana, con todas las columnas, y el
+  // histórico, sólo con los flujos. Son una fila por día y por app: miles de
+  // filas recién dentro de varios años.
+  let consultaHistorico = admin
     .from('play_install_stats')
-    .select('fecha, instalaciones, desinstalaciones, base_instalada, visitantes_ficha, actualizado_en')
+    .select('fecha, instalaciones, desinstalaciones')
     .eq('package_name', paquete)
-    .gte('fecha', desdeHace(dias))
-    .order('fecha', { ascending: true })
+  if (piso) consultaHistorico = consultaHistorico.gte('fecha', piso)
+
+  const [ventana, historico] = await Promise.all([
+    admin
+      .from('play_install_stats')
+      .select('fecha, instalaciones, desinstalaciones, base_instalada, visitantes_ficha, actualizado_en')
+      .eq('package_name', paquete)
+      .gte('fecha', desde)
+      .order('fecha', { ascending: true }),
+    consultaHistorico,
+  ])
+  const { data, error } = ventana
 
   if (faltaLaTabla(error)) {
     console.warn('[admin/play] falta correr supabase-play-stats.sql')
-    return NextResponse.json(vacio(dias, 'sin_migracion'))
+    return NextResponse.json(vacio(dias, app, 'sin_migracion'))
   }
 
   if (error) {
     console.error('[admin/play] consulta falló:', error.message)
-    return NextResponse.json(vacio(dias, 'sin_datos'))
+    return NextResponse.json(vacio(dias, app, 'sin_datos'))
   }
 
   const filas = (data ?? []) as FilaSql[]
-  if (filas.length === 0) return NextResponse.json(vacio(dias, 'sin_datos'))
+  if (filas.length === 0) return NextResponse.json(vacio(dias, app, 'sin_datos'))
+
+  if (historico.error) console.error('[admin/play] el histórico falló:', historico.error.message)
+  const filasHistorico = (historico.data ?? []) as Pick<FilaSql, 'fecha' | 'instalaciones' | 'desinstalaciones'>[]
+  const instalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.instalaciones ?? 0), 0)
+  const desinstalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.desinstalaciones ?? 0), 0)
 
   const serie: DiaPlayPanel[] = filas.map(f => ({
     fecha: f.fecha,
@@ -218,6 +265,7 @@ export async function GET(req: NextRequest) {
     disponible: true,
     motivo: null,
     dias,
+    app,
     actualizadoEn,
     serie,
     totales: {
@@ -228,6 +276,12 @@ export async function GET(req: NextRequest) {
       baseInstalada,
       baseInstaladaVariacion,
       conversionFichaPct: porcentaje(instalaciones, visitantes),
+    },
+    historico: {
+      instalaciones: instalacionesHistorico,
+      desinstalaciones: desinstalacionesHistorico,
+      neto: instalacionesHistorico - desinstalacionesHistorico,
+      desde: filasHistorico.reduce<string | null>((min, f) => (!min || f.fecha < min ? f.fecha : min), null),
     },
     generadoEn: new Date().toISOString(),
   }

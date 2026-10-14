@@ -8,6 +8,7 @@ import {
 import { Loader2, Download, Trash2, Users, Eye } from 'lucide-react'
 import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-ventanas'
 import type { PlayResumen } from '@/app/api/admin/play/route'
+import type { AppPlay } from '@/lib/google-play-reports'
 
 /**
  * El panel de Google Play.
@@ -35,6 +36,11 @@ import type { PlayResumen } from '@/app/api/admin/play/route'
  * De `play_install_stats`, que llena el cron diario desde el bucket de Cloud
  * Storage de Play. No se le pega a Google desde acá: son CSVs mensuales en
  * UTF-16 que cambian una vez por día.
+ *
+ * ── Glynbox y Potion Bottle ───────────────────────────────────────────────
+ *
+ * El mismo panel sirve a las dos apps: `app` elige el paquete. `/admin/potion`
+ * además pasa `desde` -el lanzamiento- y pide la tabla día por día.
  */
 
 const numero = (n: number) => n.toLocaleString('es-AR')
@@ -95,7 +101,19 @@ const tooltipStyle = {
  * `recarga` lo sube la página de métricas cuando se refresca: cada cambio
  * vuelve a pedir los datos con la ventana elegida.
  */
-export function GooglePlayPanel({ recarga = 0 }: { recarga?: number }) {
+export function GooglePlayPanel({
+  recarga = 0,
+  app = 'glynbox',
+  desde,
+  tablaDiaria = false,
+}: {
+  recarga?: number
+  app?: AppPlay
+  /** `YYYY-MM-DD`. Lo anterior no se cuenta, ni en la ventana ni en el total. */
+  desde?: string
+  /** Una tabla con los números exactos de cada día, debajo de los gráficos. */
+  tablaDiaria?: boolean
+}) {
   const [dias, setDias] = useState<Ventana>(VENTANA_POR_DEFECTO)
   const [datos, setDatos] = useState<PlayResumen | null>(null)
   const [cargando, setCargando] = useState(true)
@@ -103,14 +121,16 @@ export function GooglePlayPanel({ recarga = 0 }: { recarga?: number }) {
   const cargar = useCallback(async (ventana: Ventana) => {
     setCargando(true)
     try {
-      const r = await fetch(`/api/admin/play?dias=${ventana}`, { cache: 'no-store' })
+      const params = new URLSearchParams({ dias: String(ventana), app })
+      if (desde) params.set('desde', desde)
+      const r = await fetch(`/api/admin/play?${params}`, { cache: 'no-store' })
       setDatos(r.ok ? ((await r.json()) as PlayResumen) : null)
     } catch {
       setDatos(null)
     } finally {
       setCargando(false)
     }
-  }, [])
+  }, [app, desde])
 
   useEffect(() => { void cargar(dias) }, [dias, cargar, recarga])
 
@@ -195,6 +215,17 @@ export function GooglePlayPanel({ recarga = 0 }: { recarga?: number }) {
             />
           </div>
 
+          {datos.historico.desde && (
+            <p className="text-xs text-[#A0A0B0] mb-5">
+              Desde el {etiquetaFecha(datos.historico.desde)}:{' '}
+              <span className="text-white font-semibold tabular-nums">{numero(datos.historico.instalaciones)}</span> instalaciones,{' '}
+              <span className="text-white font-semibold tabular-nums">{numero(datos.historico.desinstalaciones)}</span> desinstalaciones,{' '}
+              neto <span className="text-white font-semibold tabular-nums">
+                {datos.historico.neto >= 0 ? '+' : ''}{numero(datos.historico.neto)}
+              </span>.
+            </p>
+          )}
+
           {/* ── Instalaciones vs. desinstalaciones ────────────────────── */}
           <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0] mb-2">
             Instalaciones y desinstalaciones
@@ -270,14 +301,59 @@ export function GooglePlayPanel({ recarga = 0 }: { recarga?: number }) {
             </ResponsiveContainer>
           </div>
 
-          <p className="text-[10px] text-[#A0A0B0] mt-4 leading-relaxed">
-            Play no dice de dónde vino cada instalación, así que estas series no se
-            pueden cruzar fila por fila con los clics de la landing: se miran juntas
-            para ver si se mueven igual, no para atribuir.
-          </p>
+          {tablaDiaria && <TablaDiaria serie={datos.serie} />}
+
+          {app === 'glynbox' ? (
+            <p className="text-[10px] text-[#A0A0B0] mt-4 leading-relaxed">
+              Play no dice de dónde vino cada instalación, así que estas series no se
+              pueden cruzar fila por fila con los clics de la landing: se miran juntas
+              para ver si se mueven igual, no para atribuir.
+            </p>
+          ) : (
+            <p className="text-[10px] text-[#A0A0B0] mt-4 leading-relaxed">
+              Instalaciones cuenta dispositivos, reinstalaciones incluidas. Base instalada
+              son los dispositivos con la app que la usaron en los últimos 30 días. Los
+              días de Play son en UTC, y Google corrige los últimos días durante una semana.
+            </p>
+          )}
         </>
       )}
     </section>
+  )
+}
+
+// ── Tabla día por día ──────────────────────────────────────────────────────
+
+/** El día más reciente arriba. Un `—` es un día sin dato, no un cero. */
+function TablaDiaria({ serie }: { serie: PlayResumen['serie'] }) {
+  const celda = (v: number | null) => (v === null ? '—' : numero(v))
+  return (
+    <div className="mt-5 overflow-x-auto max-h-[320px] overflow-y-auto">
+      <table className="w-full text-sm">
+        <thead className="sticky top-0 bg-[#13131A]">
+          <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+            <th className="text-left  font-medium py-2 pr-3">Día</th>
+            <th className="text-right font-medium py-2 px-2">Instalaciones</th>
+            <th className="text-right font-medium py-2 px-2">Desinstalaciones</th>
+            <th className="text-right font-medium py-2 px-2">Neto</th>
+            <th className="text-right font-medium py-2 px-2">Base instalada</th>
+          </tr>
+        </thead>
+        <tbody>
+          {[...serie].reverse().map(d => (
+            <tr key={d.fecha} className="border-b border-[#2A2A3A]/60 last:border-0">
+              <td className="py-2 pr-3 text-white tabular-nums">{etiquetaFecha(d.fecha)}</td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{celda(d.instalaciones)}</td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{celda(d.desinstalaciones)}</td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-300">
+                {d.neto === null ? '—' : `${d.neto >= 0 ? '+' : ''}${numero(d.neto)}`}
+              </td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-500">{celda(d.baseInstalada)}</td>
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
   )
 }
 
