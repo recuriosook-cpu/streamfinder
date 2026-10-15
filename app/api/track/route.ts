@@ -4,6 +4,7 @@ import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
 import { classifyUserAgent } from '@/lib/analytics-bots'
 import { paisDelPedido, motivoPaisBloqueado } from '@/lib/geo'
+import { sistemaDeLaApp } from '@/lib/device'
 import {
   sanitizeProps,
   sanitizePath,
@@ -109,6 +110,9 @@ export async function POST(req: NextRequest) {
     // un lote trae hasta 50 eventos del mismo navegador.
     const uaVerdict = classifyUserAgent(req.headers.get('user-agent'))
     const country = paisDelPedido(req.headers)
+    // El sistema de la app nativa (android | ios), que la app no manda: sale
+    // del user-agent de su cliente HTTP. Ver `sistemaDeLaApp`.
+    const sistema = sistemaDeLaApp(req.headers.get('user-agent'))
     // Si el user-agent ya dijo bot, gana su motivo, que es más específico.
     const bloqueado = motivoPaisBloqueado(country)
     const verdict = !uaVerdict.isBot && bloqueado
@@ -142,6 +146,14 @@ export async function POST(req: NextRequest) {
       const props = sanitizeProps(ev.props)
       if (props === null) { discarded++; continue }  // se pasó de 2KB
 
+      // En los eventos de la app, `os` lo pone el servidor y pisa lo que haya
+      // mandado el cliente: es la única fuente que separa Android de iPhone.
+      const esApp = ev.platform === 'mobile'
+      if (esApp) {
+        if (sistema) props.os = sistema
+        else delete props.os
+      }
+
       rows.push({
         // Sin verificar contra la sesión a propósito: el user_id acá es una
         // pista para agrupar, no una credencial. Nada se autoriza en base a
@@ -153,7 +165,7 @@ export async function POST(req: NextRequest) {
         session_id: sessionId,
         name:       ev.name,
         props,
-        platform:   ev.platform === 'mobile' ? 'mobile' : 'web',
+        platform:   esApp ? 'mobile' : 'web',
         path:       sanitizePath(ev.path),
         is_bot:     verdict.isBot,
         bot_reason: verdict.reason,

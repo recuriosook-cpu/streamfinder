@@ -63,6 +63,31 @@ function fmtDateTime(iso: string | null | undefined): string {
  * fue 0: no hay porcentaje de crecimiento desde cero, así que se muestra el
  * delta absoluto en vez de un "+100%" inventado.
  */
+/**
+ * Las líneas de abajo del recuadro de la app.
+ *
+ * El número grande cuenta instalaciones; esto lo reparte (con o sin sesión,
+ * por sistema), dice cuántas tienen notificaciones —el número que antes se
+ * mostraba como "tienen la app"— y lo pone al lado de lo que dice Google Play.
+ */
+function lineasDeLaApp(act: AdminOverview['actividad']): string[] {
+  const u = act.appUso
+  const fecha = (iso: string) =>
+    new Date(iso.length === 10 ? `${iso}T12:00:00` : iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'numeric' })
+  const lineas = [
+    `${u.conSesion.toLocaleString('es-AR')} con sesión · ${u.sinSesion.toLocaleString('es-AR')} sin sesión`,
+    `Android ${u.android} · iOS ${u.ios}` + (u.sinSistema > 0 ? ` · sin dato ${u.sinSistema}` : ''),
+    `${act.app.usuarios.toLocaleString('es-AR')} con notificaciones activas`,
+  ]
+  if (u.play) {
+    lineas.push(`Google Play: ${u.play.activos.toLocaleString('es-AR')} dispositivos activos (al ${fecha(u.play.fecha)})`)
+  }
+  if (u.desde && Date.now() - new Date(u.desde).getTime() < 30 * 864e5) {
+    lineas.push(`Se mide desde el ${fecha(u.desde)}: la ventana de 30 días todavía no está llena`)
+  }
+  return lineas
+}
+
 function MetricaCard({
   icon, label, metrica, formato, sub, color = 'yellow',
 }: {
@@ -71,7 +96,8 @@ function MetricaCard({
   metrica: Metrica
   /** Cómo se pinta el número. Por defecto, separador de miles. */
   formato?: (n: number) => string
-  sub?: string
+  /** Una línea o varias, una abajo de la otra. */
+  sub?: string | string[]
   color?: 'yellow' | 'blue' | 'purple' | 'green' | 'teal'
 }) {
   const styles = {
@@ -100,7 +126,9 @@ function MetricaCard({
       <p className="text-sm text-[#A0A0B0] mt-1 font-medium">{label}</p>
 
       {!sinDatos && <Comparacion metrica={metrica} formato={fmt} />}
-      {sub && <p className="text-xs text-[#A0A0B0]/70 mt-1">{sub}</p>}
+      {(Array.isArray(sub) ? sub : sub ? [sub] : []).map((linea) => (
+        <p key={linea} className="text-xs text-[#A0A0B0]/70 mt-1">{linea}</p>
+      ))}
     </div>
   )
 }
@@ -391,25 +419,41 @@ export default function ResumenPage() {
               }
               color="purple"
             />
-            <MetricaCard
-              icon={<Smartphone size={20} />}
-              label="Tienen la app instalada"
-              // La app no depende de analytics: sale de user_devices. Un cero
-              // acá es un cero de verdad —nadie la instaló—, no un "no sabemos",
-              // así que va como número y no como "sin datos".
-              metrica={
-                act
-                  ? { valor: act.app.usuarios, previo: act.app.previo, deltaPct: act.app.deltaPct }
-                  : SIN_DATOS
-              }
-              sub={
-                act && act?.app.usuarios > 0
-                  ? `${act?.app.android} Android · ${act?.app.ios} iOS` +
-                    (act?.app.otras > 0 ? ` · ${act?.app.otras} otras` : '')
-                  : 'Ningún dispositivo registrado todavía'
-              }
-              color="green"
-            />
+            {act?.appUso.disponible ? (
+              <MetricaCard
+                icon={<Smartphone size={20} />}
+                label="Usan la app (últimos 30 días)"
+                // Instalaciones, no usuarios: un `anon_id` de la app con algún
+                // evento en 30 días, con o sin sesión. Ver
+                // supabase-analytics-app-uso-2026-10.sql.
+                metrica={act.appUso.activas}
+                sub={lineasDeLaApp(act)}
+                color="green"
+              />
+            ) : (
+              <MetricaCard
+                icon={<Smartphone size={20} />}
+                label="Con notificaciones de la app"
+                // Sin el SQL nuevo queda el número viejo, con el nombre que le
+                // corresponde: `user_devices` son los tokens de notificaciones,
+                // no las instalaciones.
+                metrica={
+                  act
+                    ? { valor: act.app.usuarios, previo: act.app.previo, deltaPct: act.app.deltaPct }
+                    : SIN_DATOS
+                }
+                sub={
+                  act && act.app.usuarios > 0
+                    ? [
+                        `${act.app.android} Android · ${act.app.ios} iOS` +
+                          (act.app.otras > 0 ? ` · ${act.app.otras} otras` : ''),
+                        'Falta correr supabase-analytics-app-uso-2026-10.sql',
+                      ]
+                    : 'Ningún dispositivo registrado todavía'
+                }
+                color="green"
+              />
+            )}
           </div>
         </div>
 

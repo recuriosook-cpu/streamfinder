@@ -90,6 +90,11 @@ export interface ActividadResumen {
   /** Promedio de toda la medición, para contexto debajo de la tarjeta. */
   duracionSesionTotal: number | null
 
+  /**
+   * Usuarios con token de notificaciones (`user_devices`). NO es "tienen la
+   * app": sólo entran los que iniciaron sesión en la app y aceptaron el
+   * permiso. Va como línea secundaria del recuadro de la app.
+   */
   app: {
     usuarios: number
     android: number
@@ -98,6 +103,26 @@ export interface ActividadResumen {
     previo: number
     deltaPct: number | null
   }
+
+  /** El recuadro de la app. Ver `supabase-analytics-app-uso-2026-10.sql`. */
+  appUso: AppUso
+}
+
+export interface AppUso {
+  /** `false` si todavía no se corrió el SQL: el panel cae al número viejo. */
+  disponible: boolean
+  /** Instalaciones (`anon_id` de la app) con eventos en los últimos 30 días. */
+  activas: Metrica
+  conSesion: number
+  sinSesion: number
+  android: number
+  ios: number
+  /** Instalaciones que todavía no mandaron de qué sistema son. */
+  sinSistema: number
+  /** Primer evento de la app. Si es de hace menos de 30 días, la ventana no está llena. */
+  desde: string | null
+  /** "Dispositivos activos" de Google Play, el último día publicado. */
+  play: { activos: number; fecha: string } | null
 }
 
 export interface AdminOverview {
@@ -265,6 +290,71 @@ const ACTIVIDAD_VACIA: ActividadResumen = {
   duracionSesion:   { valor: null, previo: null, deltaPct: null },
   duracionSesionTotal: null,
   app: { usuarios: 0, android: 0, ios: 0, otras: 0, previo: 0, deltaPct: null },
+  appUso: {
+    disponible: false,
+    activas: { valor: null, previo: null, deltaPct: null },
+    conSesion: 0, sinSesion: 0, android: 0, ios: 0, sinSistema: 0,
+    desde: null,
+    play: null,
+  },
+}
+
+interface AppUsoRow {
+  activas: number
+  con_sesion: number
+  sin_sesion: number
+  android: number
+  ios: number
+  sin_sistema: number
+  activas_prev: number
+  desde: string | null
+}
+
+/**
+ * Las instalaciones de la app que se usan, y los dispositivos activos de Play
+ * para ponerlos al lado.
+ *
+ * Nunca tira, igual que `buildActividad`: sin la función SQL devuelve
+ * `disponible: false` y el panel muestra el número de notificaciones como
+ * antes. Play va aparte: puede faltar sin que falte lo otro.
+ */
+async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
+  const [usoRes, playRes] = await Promise.all([
+    admin.rpc('admin_app_uso'),
+    admin
+      .from('play_install_stats')
+      .select('fecha, base_instalada')
+      .eq('package_name', 'com.glynbox.app')
+      .not('base_instalada', 'is', null)
+      .order('fecha', { ascending: false })
+      .limit(1)
+      .maybeSingle(),
+  ])
+
+  if (playRes.error) console.error('[admin/overview] play_install_stats:', playRes.error.message)
+  const play = playRes.data
+    ? { activos: Number(playRes.data.base_instalada), fecha: String(playRes.data.fecha) }
+    : null
+
+  const fila = (usoRes.data as AppUsoRow[] | null)?.[0]
+  if (usoRes.error || !fila) {
+    if (usoRes.error) console.error('[admin/overview] admin_app_uso:', usoRes.error.message)
+    return { ...ACTIVIDAD_VACIA.appUso, play }
+  }
+
+  const activas = Number(fila.activas)
+  const previo = Number(fila.activas_prev)
+  return {
+    disponible: true,
+    activas: { valor: activas, previo, deltaPct: delta(activas, previo) },
+    conSesion:  Number(fila.con_sesion),
+    sinSesion:  Number(fila.sin_sesion),
+    android:    Number(fila.android),
+    ios:        Number(fila.ios),
+    sinSistema: Number(fila.sin_sistema),
+    desde: fila.desde,
+    play,
+  }
 }
 
 /**
@@ -281,14 +371,15 @@ const ACTIVIDAD_VACIA: ActividadResumen = {
  * después de un login, y un crawler no llega nunca.
  */
 async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> {
-  const [resumenRes, medicionRes] = await Promise.all([
+  const [resumenRes, medicionRes, appUso] = await Promise.all([
     admin.from('admin_resumen_actividad').select('*').maybeSingle(),
     admin.from('analytics_medicion').select('desde, eventos_humanos').maybeSingle(),
+    buildAppUso(admin),
   ])
 
   if (resumenRes.error || !resumenRes.data) {
     if (resumenRes.error) console.error('[admin/overview] admin_resumen_actividad:', resumenRes.error.message)
-    return ACTIVIDAD_VACIA
+    return { ...ACTIVIDAD_VACIA, appUso }
   }
 
   const r = resumenRes.data as unknown as ResumenRow
@@ -311,7 +402,7 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
   // diría "no se conectó nadie", que es una afirmación que no podemos sostener
   // cuando lo que pasa es que todavía no estamos midiendo.
   if (eventosHumanos === 0) {
-    return { ...ACTIVIDAD_VACIA, medicionDesde: desde, app }
+    return { ...ACTIVIDAD_VACIA, medicionDesde: desde, app, appUso }
   }
 
   return {
@@ -328,6 +419,7 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
       : metrica(Number(r.seg_prom_hoy), r.seg_prom_ayer === null ? 0 : Number(r.seg_prom_ayer)),
     duracionSesionTotal: r.seg_prom_total === null ? null : Number(r.seg_prom_total),
     app,
+    appUso,
   }
 }
 

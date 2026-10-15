@@ -115,3 +115,26 @@ export function refinarDispositivo(base: Dispositivo): Dispositivo {
 
   return base
 }
+
+/**
+ * El sistema de la app nativa, a partir del user-agent con el que llama a
+ * `/api/track`.
+ *
+ * La app no lo manda en los eventos —todos dicen `platform: 'mobile'`—, pero
+ * los pedidos de React Native traen el user-agent del cliente HTTP de cada
+ * sistema, y eso alcanza (visto en los logs de Vercel, 2026-10-15):
+ *
+ *   - Android: `okhttp/4.12.0`
+ *   - iPhone:  `Glynbox/5 CFNetwork/1568.100.1 Darwin/24.0.0`
+ *
+ * Es un string del cliente, así que se puede falsear; acá no autoriza nada,
+ * sólo reparte un conteo. `null` cuando no se reconoce: mejor "sin dato" que
+ * adivinar.
+ */
+export function sistemaDeLaApp(userAgent: string | null | undefined): 'android' | 'ios' | null {
+  if (!userAgent) return null
+  const ua = userAgent.toLowerCase()
+  if (ua.includes('okhttp') || ua.includes('android')) return 'android'
+  if (ua.includes('cfnetwork') || ua.includes('darwin') || ua.includes('iphone') || ua.includes('ipad')) return 'ios'
+  return null
+}
