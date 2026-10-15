@@ -11,7 +11,8 @@
 -- Qué se quiere medir, de la gente que entra por la landing de campañas:
 --
 --   1. Cuántos la visitaron.
---   2. Cuántos tocaron cada botón, separando Play Store de "entrar al sitio".
+--   2. Cuántos tocaron cada botón, separando App Store, Play Store y "entrar
+--      al sitio".
 --   3. De los que entraron al sitio, cuántos terminaron registrándose.
 --   4. Cuánto tiempo se quedaron y cuántas páginas vieron.
 --
@@ -42,9 +43,9 @@
 --
 -- ── Lo que no se puede medir ──────────────────────────────────────────────
 --
--- Quien se va a Play Store sale del sitio y no vuelve a aparecer. De esa rama
--- sólo se cuenta el click; la instalación ocurre en Google y no llega hasta
--- acá. El panel lo dice en pantalla para que nadie lea ese número como
+-- Quien se va a Play Store o al App Store sale del sitio y no vuelve a
+-- aparecer. De esas ramas sólo se cuenta el click; la instalación ocurre en
+-- Google o en Apple y no llega hasta acá. El panel lo dice en pantalla para que nadie lea ese número como
 -- instalaciones.
 --
 -- ================================================================
@@ -126,7 +127,15 @@ SELECT
     (array_agg(e.props->>'dispositivo' ORDER BY e.created_at)
        FILTER (WHERE e.name = 'descargar_viewed' AND e.props->>'dispositivo' IS NOT NULL))[1],
     'desconocido'
-  ) AS dispositivo
+  ) AS dispositivo,
+
+  -- Desde la app de iPhone (2026-10): en iPhone y en la computadora la landing
+  -- ofrece el App Store. Va al FINAL y no junto a `clicks_play` a propósito:
+  -- `CREATE OR REPLACE VIEW` sólo deja agregar columnas al final, y moverla
+  -- obligaría a borrar la vista.
+  count(*) FILTER (
+    WHERE e.name = 'descargar_clicked' AND e.props->>'destino' = 'app_store'
+  )::int AS clicks_app_store
 
 FROM public.analytics_events e
 JOIN marcadas m ON m.session_id = e.session_id
@@ -148,17 +157,25 @@ GROUP BY e.session_id;
 --
 -- `primera` va sin ventana a propósito: es "desde cuándo medimos", y sirve
 -- justamente para saber si los últimos 30 días son 30 días de datos o tres.
+--
+-- El DROP es porque `CREATE OR REPLACE FUNCTION` no deja cambiar las columnas
+-- que devuelve, y en 2026-10 se sumó `con_click_app_store`. Con el DROP el
+-- archivo se puede seguir corriendo más de una vez. Los permisos se vuelven a
+-- dar en la sección 5.
 
-CREATE OR REPLACE FUNCTION public.analytics_descargar_resumen(p_dias int DEFAULT 30)
+DROP FUNCTION IF EXISTS public.analytics_descargar_resumen(int);
+
+CREATE FUNCTION public.analytics_descargar_resumen(p_dias int DEFAULT 30)
 RETURNS TABLE (
-  visitas           bigint,
-  con_click         bigint,
-  con_click_play    bigint,
-  con_click_web     bigint,
-  registros         bigint,
-  segundos_promedio numeric,
-  vistas_promedio   numeric,
-  primera           timestamptz
+  visitas             bigint,
+  con_click           bigint,
+  con_click_play      bigint,
+  con_click_web       bigint,
+  registros           bigint,
+  segundos_promedio   numeric,
+  vistas_promedio     numeric,
+  primera             timestamptz,
+  con_click_app_store bigint
 )
 LANGUAGE sql
 STABLE
@@ -176,13 +193,14 @@ AS $$
   )
   SELECT
     count(*)::bigint,
-    count(*) FILTER (WHERE v.clicks_play + v.clicks_web > 0)::bigint,
+    count(*) FILTER (WHERE v.clicks_play + v.clicks_web + v.clicks_app_store > 0)::bigint,
     count(*) FILTER (WHERE v.clicks_play > 0)::bigint,
     count(*) FILTER (WHERE v.clicks_web  > 0)::bigint,
     count(*) FILTER (WHERE v.registros   > 0)::bigint,
     round(avg(v.segundos)::numeric, 1),
     round(avg(v.vistas)::numeric, 2),
-    (SELECT min(s.inicio) FROM public.analytics_descargar_sesiones s)
+    (SELECT min(s.inicio) FROM public.analytics_descargar_sesiones s),
+    count(*) FILTER (WHERE v.clicks_app_store > 0)::bigint
   FROM ventana v;
 $$;
 
@@ -192,14 +210,23 @@ $$;
 --
 -- Va aparte y no como columna del resumen porque devuelve N filas y el resumen
 -- devuelve una. Las dos las pide el endpoint en paralelo.
+--
+-- `con_click` es "tocó algún botón", contado acá y no reconstruido en el
+-- endpoint: una sesión que tocó dos botones es un click, no dos, y desde las
+-- columnas por destino eso no se puede saber. El DROP, por lo mismo que en el
+-- resumen.
 
-CREATE OR REPLACE FUNCTION public.analytics_descargar_dispositivos(p_dias int DEFAULT 30)
+DROP FUNCTION IF EXISTS public.analytics_descargar_dispositivos(int);
+
+CREATE FUNCTION public.analytics_descargar_dispositivos(p_dias int DEFAULT 30)
 RETURNS TABLE (
-  dispositivo    text,
-  visitas        bigint,
-  con_click_play bigint,
-  con_click_web  bigint,
-  registros      bigint
+  dispositivo         text,
+  visitas             bigint,
+  con_click_play      bigint,
+  con_click_web       bigint,
+  registros           bigint,
+  con_click_app_store bigint,
+  con_click           bigint
 )
 LANGUAGE sql
 STABLE
@@ -209,7 +236,9 @@ AS $$
     count(*)::bigint,
     count(*) FILTER (WHERE s.clicks_play > 0)::bigint,
     count(*) FILTER (WHERE s.clicks_web  > 0)::bigint,
-    count(*) FILTER (WHERE s.registros   > 0)::bigint
+    count(*) FILTER (WHERE s.registros   > 0)::bigint,
+    count(*) FILTER (WHERE s.clicks_app_store > 0)::bigint,
+    count(*) FILTER (WHERE s.clicks_play + s.clicks_web + s.clicks_app_store > 0)::bigint
   FROM public.analytics_descargar_sesiones s
   WHERE s.inicio >= now() - make_interval(days => GREATEST(p_dias, 1))
   GROUP BY s.dispositivo;
@@ -260,7 +289,7 @@ GRANT  EXECUTE ON FUNCTION public.analytics_descargar_dispositivos(int)
 -- Las últimas sesiones, una por fila:
 --
 --   SELECT session_id, dispositivo, segundos, vistas,
---          clicks_play, clicks_web, registros, inicio
+--          clicks_play, clicks_web, clicks_app_store, registros, inicio
 --     FROM public.analytics_descargar_sesiones
 --    ORDER BY inicio DESC
 --    LIMIT 20;

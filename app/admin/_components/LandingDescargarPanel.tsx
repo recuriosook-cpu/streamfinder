@@ -23,8 +23,8 @@ import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-vent
  *
  * ── Lo que el panel no puede saber ────────────────────────────────────────
  *
- * Quien se va a Play Store sale del sitio y no vuelve. De esa rama se cuenta el
- * click y nada más: la instalación ocurre en Google. El cartel de abajo lo dice
+ * Quien se va a una tienda sale del sitio y no vuelve. De esas ramas se cuenta
+ * el click y nada más: la instalación ocurre en Google o en Apple. El cartel lo dice
  * en pantalla, porque es exactamente el número que alguien va a leer como
  * "instalaciones" si no se lo aclara.
  */
@@ -190,11 +190,24 @@ export function LandingDescargarPanel({ recarga = 0 }: { recarga?: number }) {
             ))}
           </div>
 
-          {/* Reparto del paso del medio. Va como dos chips debajo del embudo y
-              no como dos pasos más: Play Store y el sitio son ramas paralelas,
-              no etapas sucesivas, y ponerlas en la escalera daría a entender
-              que una lleva a la otra. */}
-          <div className="grid grid-cols-2 gap-3 mb-5">
+          {/* Reparto del paso del medio. Va como chips debajo del embudo y no
+              como pasos más: las tiendas y el sitio son ramas paralelas, no
+              etapas sucesivas, y ponerlas en la escalera daría a entender que
+              una lleva a la otra. */}
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 mb-5">
+            <div className="rounded-xl border border-[#2A2A3A] bg-[#0A0A0F] p-3.5">
+              <div className="flex items-center gap-1.5 text-[#A0A0B0] mb-1.5">
+                <ExternalLink size={13} />
+                <span className="text-xs font-semibold">Se fueron al App Store</span>
+              </div>
+              <p className="text-xl font-black tabular-nums text-white">
+                {numero(datos.embudo.aAppStore)}
+              </p>
+              <p className="text-[10px] text-[#A0A0B0] mt-1">
+                acá se pierden de vista: la instalación ocurre en Apple
+              </p>
+            </div>
+
             <div className="rounded-xl border border-[#2A2A3A] bg-[#0A0A0F] p-3.5">
               <div className="flex items-center gap-1.5 text-[#A0A0B0] mb-1.5">
                 <ExternalLink size={13} />
@@ -245,6 +258,7 @@ export function LandingDescargarPanel({ recarga = 0 }: { recarga?: number }) {
                 <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
                   <th className="text-left  font-medium py-2 pr-3">Dispositivo</th>
                   <th className="text-right font-medium py-2 px-3">Visitas</th>
+                  <th className="text-right font-medium py-2 px-3">→ App Store</th>
                   <th className="text-right font-medium py-2 px-3">→ Play Store</th>
                   <th className="text-right font-medium py-2 px-3">→ Sitio</th>
                   <th className="text-right font-medium py-2 px-3">Registros</th>
@@ -256,9 +270,15 @@ export function LandingDescargarPanel({ recarga = 0 }: { recarga?: number }) {
                   <tr key={fila.dispositivo} className="border-b border-[#2A2A3A]/60 last:border-0">
                     <td className="py-2.5 pr-3 text-white">{DISPOSITIVO_LABEL[fila.dispositivo]}</td>
                     <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">{numero(fila.visitas)}</td>
-                    {/* En iPhone/iPad la página no muestra botón de Play Store, así que
-                        un 0 ahí no es "nadie lo tocó" sino "no se ofrece". Un guion lo
+                    {/* Cada tienda se ofrece sólo donde sirve: en Android no hay botón
+                        del App Store y en iPhone/iPad no hay de Play Store, así que un
+                        0 ahí no es "nadie lo tocó" sino "no se ofrece". Un guion lo
                         dice; un cero mentiría. */}
+                    <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
+                      {fila.dispositivo === 'android'
+                        ? <span className="text-zinc-600" title="No se ofrece en Android">—</span>
+                        : numero(fila.aAppStore)}
+                    </td>
                     <td className="py-2.5 px-3 text-right tabular-nums text-zinc-300">
                       {fila.dispositivo === 'ios'
                         ? <span className="text-zinc-600" title="No se ofrece en iOS">—</span>

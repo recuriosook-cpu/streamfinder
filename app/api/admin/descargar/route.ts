@@ -108,9 +108,11 @@ export interface FilaDispositivo {
   visitas: number
   /** Sesiones que se fueron a Play Store. */
   aPlayStore: number
+  /** Sesiones que se fueron al App Store. */
+  aAppStore: number
   /** Sesiones que entraron al sitio. */
   aWeb: number
-  /** Sesiones con al menos un click, a donde sea. No es la suma de las dos de arriba. */
+  /** Sesiones con al menos un click, a donde sea. No es la suma de las tres de arriba. */
   clicks: number
   /** Sesiones que terminaron registrándose. */
   registros: number
@@ -145,8 +147,9 @@ export interface DescargarResumen {
 
   embudo: {
     pasos: PasoEmbudo[]
-    /** Reparto del paso del medio. Un click es a Play Store o al sitio. */
+    /** Reparto del paso del medio. Un click es a una tienda o al sitio. */
     aPlayStore: number
+    aAppStore: number
     aWeb: number
     /** Registros sobre los que entraron al sitio, que es el paso real anterior. */
     registrosSobreWebPct: number | null
@@ -174,6 +177,11 @@ interface FilaResumen {
   segundos_promedio: number | null
   vistas_promedio: number | null
   primera: string | null
+  /**
+   * Desde 2026-10. Opcionales porque el código se despliega antes de que se
+   * corra el SQL: con la versión vieja no vienen y valen 0.
+   */
+  con_click_app_store?: number
 }
 
 interface FilaDispositivoSql {
@@ -182,6 +190,9 @@ interface FilaDispositivoSql {
   con_click_play: number
   con_click_web: number
   registros: number
+  /** Desde 2026-10; ver `FilaResumen`. */
+  con_click_app_store?: number
+  con_click?: number
 }
 
 // ── Ayudas ─────────────────────────────────────────────────────────────────
@@ -197,7 +208,7 @@ function vacio(dias: Ventana, motivo: 'sin_migracion' | 'sin_datos'): DescargarR
     motivo,
     dias,
     desde: null,
-    embudo: { pasos: [], aPlayStore: 0, aWeb: 0, registrosSobreWebPct: null },
+    embudo: { pasos: [], aPlayStore: 0, aAppStore: 0, aWeb: 0, registrosSobreWebPct: null },
     sesion: { segundosPromedio: null, vistasPromedio: null },
     porDispositivo: [],
     generadoEn: new Date().toISOString(),
@@ -264,6 +275,7 @@ export async function GET(req: NextRequest) {
   const visitas   = Number(fila.visitas)
   const clicks    = Number(fila.con_click)
   const aPlay     = Number(fila.con_click_play)
+  const aApp      = Number(fila.con_click_app_store ?? 0)
   const aWeb      = Number(fila.con_click_web)
   const registros = Number(fila.registros)
 
@@ -303,14 +315,17 @@ export async function GET(req: NextRequest) {
     const visitasD = Number(f?.visitas ?? 0)
     const playD    = Number(f?.con_click_play ?? 0)
     const webD     = Number(f?.con_click_web ?? 0)
-    // No es play + web: una misma sesión pudo tocar los dos botones, y sumarlos
-    // la contaría dos veces. Se reconstruye con el máximo, que es la cota justa
+    const appD     = Number(f?.con_click_app_store ?? 0)
+    // Con el SQL de 2026-10 viene contado. Con el viejo no: ahí no es play +
+    // web, porque una misma sesión pudo tocar los dos botones y sumarlos la
+    // contaría dos veces, y se reconstruye con el máximo, que es la cota justa
     // que se puede afirmar sin volver a consultar por dispositivo.
-    const clicksD  = Math.max(playD, webD)
+    const clicksD  = f?.con_click !== undefined ? Number(f.con_click) : Math.max(playD, webD, appD)
     return {
       dispositivo,
       visitas: visitasD,
       aPlayStore: playD,
+      aAppStore: appD,
       aWeb: webD,
       clicks: clicksD,
       registros: Number(f?.registros ?? 0),
@@ -336,6 +351,7 @@ export async function GET(req: NextRequest) {
     embudo: {
       pasos,
       aPlayStore: aPlay,
+      aAppStore: aApp,
       aWeb,
       registrosSobreWebPct: porcentaje(registros, aWeb),
     },
