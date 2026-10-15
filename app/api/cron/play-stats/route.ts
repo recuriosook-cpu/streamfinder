@@ -12,6 +12,7 @@ import {
   rutaInstallsPorPais,
   rutasFicha,
   type AppPlay,
+  type ColumnasUsadas,
   type ConfigPlay,
   type DiaPlay,
   type DiaPaisPlay,
@@ -26,8 +27,8 @@ import {
  *
  * ── Qué baja ──────────────────────────────────────────────────────────────
  *
- * Por cada app de `APPS_PLAY` (Glynbox y Potion Bottle), dos meses -el
- * corriente y el anterior- de tres archivos: instalaciones, la ficha, y las
+ * Por cada app de `APPS_PLAY` (Glynbox y Potion Bottle), tres meses -el
+ * corriente y los dos anteriores, ver `mesesAConsultar`- de tres archivos: instalaciones, la ficha, y las
  * instalaciones por país. El mes anterior no es por las dudas — el día 1 el mes
  * en curso tiene una sola fila, y Google además sigue corrigiendo los últimos
  * días del mes cerrado durante una semana larga.
@@ -79,6 +80,14 @@ interface Aviso {
 }
 
 /**
+ * Por archivo leído, de qué columna salió cada número. Va en la respuesta y en
+ * el log: es lo que permite saber, sin bajar el CSV, si las desinstalaciones
+ * salieron de "Daily Device Uninstalls" o de una alternativa (ver `ALIAS` en
+ * `lib/google-play-reports.ts`).
+ */
+type Columnas = Record<string, ColumnasUsadas>
+
+/**
  * Baja el primer archivo que exista de una lista de candidatos.
  *
  * Los informes de la ficha salen desglosados por país o por fuente de tráfico
@@ -90,11 +99,17 @@ async function bajarPrimero(
   config: ConfigPlay,
   candidatos: string[],
   avisos: Aviso[],
+  columnas: Columnas,
 ): Promise<Map<string, Partial<DiaPlay>> | null> {
   for (const ruta of candidatos) {
     const res = await descargarObjeto(config, ruta)
 
-    if (res.estado === 'ok') return filasPorFecha(res.texto)
+    if (res.estado === 'ok') {
+      const usadas: ColumnasUsadas = {}
+      const filas = filasPorFecha(res.texto, usadas)
+      columnas[ruta] = usadas
+      return filas
+    }
     if (res.estado === 'no_esta') continue
 
     if (res.estado === 'sin_permiso') {
@@ -126,7 +141,7 @@ function faltaLaTabla(error: { code?: string; message?: string }): boolean {
 
 /**
  * Filas por pedido de upsert. Los países son unas decenas por día y se copian
- * dos meses: miles de filas, que en un solo pedido rozan el límite de cuerpo
+ * tres meses: miles de filas, que en un solo pedido rozan el límite de cuerpo
  * de PostgREST.
  */
 const LOTE = 1000
@@ -146,6 +161,7 @@ type ResultadoApp =
       hasta?: string
       paises: ResultadoPaises
       avisos: Aviso[]
+      columnas: Columnas
       error?: string
     }
 
@@ -155,6 +171,7 @@ async function copiarDias(
   app: AppPlay,
   config: ConfigPlay,
   avisos: Aviso[],
+  columnas: Columnas,
 ): Promise<{ filas: number; desde?: string; hasta?: string; error?: string }> {
   /** Acumulador por fecha: los dos informes se mezclan acá. */
   const porFecha = new Map<string, Partial<DiaPlay>>()
@@ -167,8 +184,8 @@ async function copiarDias(
   }
 
   for (const mes of mesesAConsultar()) {
-    fusionar(await bajarPrimero(config, rutasInstalls(config.paquete, mes), avisos))
-    fusionar(await bajarPrimero(config, rutasFicha(config.paquete, mes), avisos))
+    fusionar(await bajarPrimero(config, rutasInstalls(config.paquete, mes), avisos, columnas))
+    fusionar(await bajarPrimero(config, rutasFicha(config.paquete, mes), avisos, columnas))
   }
 
   if (porFecha.size === 0) {
@@ -211,13 +228,18 @@ async function copiarPaises(
   app: AppPlay,
   config: ConfigPlay,
   avisos: Aviso[],
+  columnas: Columnas,
 ): Promise<ResultadoPaises> {
   const dias: DiaPaisPlay[] = []
 
   for (const mes of mesesAConsultar()) {
     const ruta = rutaInstallsPorPais(config.paquete, mes)
     const res = await descargarObjeto(config, ruta)
-    if (res.estado === 'ok') dias.push(...filasPorFechaYPais(res.texto))
+    if (res.estado === 'ok') {
+      const usadas: ColumnasUsadas = {}
+      dias.push(...filasPorFechaYPais(res.texto, usadas))
+      columnas[ruta] = usadas
+    }
     else if (res.estado === 'sin_permiso') avisos.push({ ruta, motivo: '403 — sin acceso al bucket.' })
     else if (res.estado === 'error') avisos.push({ ruta, motivo: res.detalle })
     // `no_esta`: un mes sin datos no genera archivo. Normal.
@@ -262,10 +284,18 @@ async function copiarApp(admin: SupabaseClient, app: AppPlay): Promise<Resultado
   }
 
   const avisos: Aviso[] = []
-  const dias = await copiarDias(admin, app, cfg.config, avisos)
-  const paises = await copiarPaises(admin, app, cfg.config, avisos)
+  const columnas: Columnas = {}
+  const dias = await copiarDias(admin, app, cfg.config, avisos, columnas)
+  const paises = await copiarPaises(admin, app, cfg.config, avisos, columnas)
 
-  return { configurado: true, paquete: cfg.config.paquete, ...dias, paises, avisos }
+  for (const [ruta, usadas] of Object.entries(columnas)) {
+    // La ficha no trae bajas: sólo interesan los de instalaciones.
+    if (ruta.includes('/installs/')) {
+      console.info(`[cron/play-stats] ${ruta}: desinstalaciones de "${usadas.desinstalaciones ?? 'ninguna'}"`)
+    }
+  }
+
+  return { configurado: true, paquete: cfg.config.paquete, ...dias, paises, avisos, columnas }
 }
 
 // ── Handler ────────────────────────────────────────────────────────────────

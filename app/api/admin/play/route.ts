@@ -82,6 +82,31 @@ export interface DiaPlayPanel {
   neto: number | null
 }
 
+/**
+ * Cómo se pasa de la base instalada de un día a la de otro.
+ *
+ *   baseInicio + instalaciones − desinstalaciones − otras = baseFin
+ *
+ * Los flujos son los de los días POSTERIORES a `desde` hasta `hasta`
+ * inclusive: la base de `desde` ya incluye lo que pasó ese día.
+ *
+ * `otras` no es un dato de Play, es lo que falta para cerrar. La base instalada
+ * cuenta aparatos que usaron la app en los últimos 30 días, así que también
+ * baja sin desinstalaciones: un aparato que no la abre en 30 días sale de la
+ * base sin desinstalar, y una reinstalación en el mismo aparato suma una
+ * instalación sin sumar base. Negativo = la base creció más de lo que explican
+ * las instalaciones (aparatos que vuelven a usarla).
+ */
+export interface Cuadre {
+  desde: string
+  hasta: string
+  baseInicio: number
+  baseFin: number
+  instalaciones: number
+  desinstalaciones: number
+  otras: number
+}
+
 export interface PaisPlay {
   /** ISO de dos letras. `ZZ` = Play no supo de dónde. */
   pais: string
@@ -114,6 +139,8 @@ export interface PlayResumen {
     baseInstaladaVariacion: number | null
     /** El único porcentaje: instalaciones sobre visitantes de la ficha. */
     conversionFichaPct: number | null
+    /** De la base del primer día con dato a la del último. */
+    cuadre: Cuadre | null
   }
 
   /**
@@ -126,6 +153,13 @@ export interface PlayResumen {
     neto: number
     /** El primer día con fila. `null` si no hay ninguna. */
     desde: string | null
+    cuadre: Cuadre | null
+    /**
+     * `false` si en todo lo copiado hay instalaciones y ninguna baja: Play no
+     * está informando desinstalaciones, y el panel no tiene que mostrar ese 0
+     * como si fuera un dato.
+     */
+    bajasInformadas: boolean
   }
 
   /**
@@ -164,6 +198,36 @@ function porcentaje(parte: number, total: number): number | null {
   return Math.round((parte / total) * 1000) / 10
 }
 
+type FilaFlujo = Pick<FilaSql, 'fecha' | 'instalaciones' | 'desinstalaciones' | 'base_instalada'>
+
+/** Ver `Cuadre`. `filas` en orden de fecha. `null` si no hay dos días con base. */
+function cuadreDe(filas: FilaFlujo[]): Cuadre | null {
+  const conBase = filas.filter(f => f.base_instalada !== null)
+  if (conBase.length < 2) return null
+  const inicio = conBase[0]
+  const fin = conBase[conBase.length - 1]
+
+  let instalaciones = 0
+  let desinstalaciones = 0
+  for (const f of filas) {
+    if (f.fecha <= inicio.fecha || f.fecha > fin.fecha) continue
+    instalaciones += f.instalaciones ?? 0
+    desinstalaciones += f.desinstalaciones ?? 0
+  }
+
+  const baseInicio = inicio.base_instalada as number
+  const baseFin = fin.base_instalada as number
+  return {
+    desde: inicio.fecha,
+    hasta: fin.fecha,
+    baseInicio,
+    baseFin,
+    instalaciones,
+    desinstalaciones,
+    otras: baseInicio + instalaciones - desinstalaciones - baseFin,
+  }
+}
+
 function vacio(
   dias: Ventana,
   app: AppPlay,
@@ -180,9 +244,11 @@ function vacio(
     serie: [],
     totales: {
       instalaciones: 0, desinstalaciones: 0, neto: 0, visitantes: 0,
-      baseInstalada: null, baseInstaladaVariacion: null, conversionFichaPct: null,
+      baseInstalada: null, baseInstaladaVariacion: null, conversionFichaPct: null, cuadre: null,
     },
-    historico: { instalaciones: 0, desinstalaciones: 0, neto: 0, desde: null },
+    historico: {
+      instalaciones: 0, desinstalaciones: 0, neto: 0, desde: null, cuadre: null, bajasInformadas: true,
+    },
     paises,
     rangos,
     generadoEn: new Date().toISOString(),
@@ -318,8 +384,9 @@ export async function GET(req: NextRequest) {
   // filas recién dentro de varios años.
   let consultaHistorico = admin
     .from('play_install_stats')
-    .select('fecha, instalaciones, desinstalaciones')
+    .select('fecha, instalaciones, desinstalaciones, base_instalada')
     .eq('package_name', paquete)
+    .order('fecha', { ascending: true })
   if (piso) consultaHistorico = consultaHistorico.gte('fecha', piso)
 
   const [ventana, historico, paises, rangoDias, rangoPaises] = await Promise.all([
@@ -355,7 +422,7 @@ export async function GET(req: NextRequest) {
   if (filas.length === 0) return NextResponse.json(vacio(dias, app, 'sin_datos', paises, rangos))
 
   if (historico.error) console.error('[admin/play] el histórico falló:', historico.error.message)
-  const filasHistorico = (historico.data ?? []) as Pick<FilaSql, 'fecha' | 'instalaciones' | 'desinstalaciones'>[]
+  const filasHistorico = (historico.data ?? []) as FilaFlujo[]
   const instalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.instalaciones ?? 0), 0)
   const desinstalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.desinstalaciones ?? 0), 0)
 
@@ -406,12 +473,15 @@ export async function GET(req: NextRequest) {
       baseInstalada,
       baseInstaladaVariacion,
       conversionFichaPct: porcentaje(instalaciones, visitantes),
+      cuadre: cuadreDe(filas),
     },
     historico: {
       instalaciones: instalacionesHistorico,
       desinstalaciones: desinstalacionesHistorico,
       neto: instalacionesHistorico - desinstalacionesHistorico,
       desde: filasHistorico.reduce<string | null>((min, f) => (!min || f.fecha < min ? f.fecha : min), null),
+      cuadre: cuadreDe(filasHistorico),
+      bajasInformadas: !(instalacionesHistorico > 0 && desinstalacionesHistorico === 0),
     },
     paises,
     rangos,

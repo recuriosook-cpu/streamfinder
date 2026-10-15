@@ -7,7 +7,7 @@ import {
 } from 'recharts'
 import { Loader2, Download, Trash2, Users, Eye } from 'lucide-react'
 import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-ventanas'
-import type { PlayResumen } from '@/app/api/admin/play/route'
+import type { Cuadre, PlayResumen } from '@/app/api/admin/play/route'
 import type { AppPlay } from '@/lib/google-play-reports'
 
 /**
@@ -187,7 +187,11 @@ export function GooglePlayPanel({
               icono={<Download size={13} />}
               label="Instalaciones"
               valor={numero(datos.totales.instalaciones)}
-              hint={`${numero(datos.totales.desinstalaciones)} desinstalaciones`}
+              hint={
+                datos.historico.bajasInformadas
+                  ? `${numero(datos.totales.desinstalaciones)} desinstalaciones`
+                  : 'Play no informa las desinstalaciones'
+              }
             />
             <Tile
               icono={<Eye size={13} />}
@@ -214,18 +218,31 @@ export function GooglePlayPanel({
               icono={<Trash2 size={13} />}
               label="Neto"
               valor={`${datos.totales.neto >= 0 ? '+' : ''}${numero(datos.totales.neto)}`}
-              hint="instalaciones menos bajas"
+              hint={datos.historico.bajasInformadas ? 'instalaciones menos bajas' : 'sin las bajas, que Play no informa'}
             />
           </div>
+
+          <TablaCuadre
+            ventana={datos.totales.cuadre}
+            historico={datos.historico.cuadre}
+            dias={dias}
+            bajasInformadas={datos.historico.bajasInformadas}
+          />
 
           {datos.historico.desde && (
             <p className="text-xs text-[#A0A0B0] mb-5">
               Desde el {etiquetaFecha(datos.historico.desde)}:{' '}
               <span className="text-white font-semibold tabular-nums">{numero(datos.historico.instalaciones)}</span> instalaciones,{' '}
-              <span className="text-white font-semibold tabular-nums">{numero(datos.historico.desinstalaciones)}</span> desinstalaciones,{' '}
-              neto <span className="text-white font-semibold tabular-nums">
-                {datos.historico.neto >= 0 ? '+' : ''}{numero(datos.historico.neto)}
-              </span>.
+              {datos.historico.bajasInformadas ? (
+                <>
+                  <span className="text-white font-semibold tabular-nums">{numero(datos.historico.desinstalaciones)}</span> desinstalaciones,{' '}
+                  neto <span className="text-white font-semibold tabular-nums">
+                    {datos.historico.neto >= 0 ? '+' : ''}{numero(datos.historico.neto)}
+                  </span>.
+                </>
+              ) : (
+                <>sin desinstalaciones informadas por Play.</>
+              )}
             </p>
           )}
 
@@ -329,6 +346,91 @@ export function GooglePlayPanel({
         <TablaPaises paises={datos.paises} dias={dias} rango={datos.rangos?.paises ?? null} />
       )}
     </section>
+  )
+}
+
+// ── Cuadre de la base instalada ────────────────────────────────────────────
+
+/**
+ * De la base instalada de un día a la de otro, con los flujos en el medio:
+ * la cuenta que tiene que cerrar. "Otras bajas" es lo que falta para cerrarla
+ * (ver `Cuadre` en el endpoint): aparatos que pasaron 30 días sin abrir la app,
+ * que salen de la base sin desinstalar, y reinstalaciones en el mismo aparato.
+ */
+function TablaCuadre({
+  ventana, historico, dias, bajasInformadas,
+}: {
+  ventana: Cuadre | null
+  historico: Cuadre | null
+  dias: Ventana
+  bajasInformadas: boolean
+}) {
+  const columnas = [
+    ventana && { titulo: `Últimos ${dias} días`, c: ventana },
+    historico && { titulo: `Desde el ${etiquetaFecha(historico.desde)}`, c: historico },
+  ].filter((x): x is { titulo: string; c: Cuadre } => !!x)
+  if (columnas.length === 0) return null
+
+  const firmado = (signo: '+' | '−', n: number) => `${signo} ${numero(n)}`
+  const otras = (n: number) => (n >= 0 ? firmado('−', n) : firmado('+', -n))
+
+  const filas: { label: string; valor: (c: Cuadre) => string; total?: boolean }[] = [
+    { label: 'Base al empezar', valor: c => `${numero(c.baseInicio)} (${etiquetaFecha(c.desde)})` },
+    { label: 'Instalaciones', valor: c => firmado('+', c.instalaciones) },
+    {
+      label: 'Desinstalaciones',
+      valor: c => (bajasInformadas ? firmado('−', c.desinstalaciones) : 'sin dato'),
+    },
+    {
+      label: bajasInformadas ? 'Otras bajas (30 días sin usarla)' : 'Bajas de cualquier tipo',
+      valor: c => otras(c.otras),
+    },
+    { label: 'Base al terminar', valor: c => `${numero(c.baseFin)} (${etiquetaFecha(c.hasta)})`, total: true },
+  ]
+
+  return (
+    <div className="mb-5">
+      <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0] mb-2">
+        Cómo cierra la base instalada
+      </p>
+      <div className="overflow-x-auto">
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] text-[#A0A0B0] border-b border-[#2A2A3A]">
+              <th className="text-left font-medium py-1.5 pr-3" />
+              {columnas.map(col => (
+                <th key={col.titulo} className="text-right font-medium py-1.5 px-2">{col.titulo}</th>
+              ))}
+            </tr>
+          </thead>
+          <tbody>
+            {filas.map(f => (
+              <tr
+                key={f.label}
+                className={f.total ? 'border-t border-[#2A2A3A]' : ''}
+              >
+                <td className={`py-1.5 pr-3 ${f.total ? 'text-white font-semibold' : 'text-[#A0A0B0]'}`}>
+                  {f.label}
+                </td>
+                {columnas.map(col => (
+                  <td
+                    key={col.titulo}
+                    className={`py-1.5 px-2 text-right tabular-nums ${f.total ? 'text-white font-semibold' : 'text-zinc-300'}`}
+                  >
+                    {f.valor(col.c)}
+                  </td>
+                ))}
+              </tr>
+            ))}
+          </tbody>
+        </table>
+      </div>
+      <p className="text-[10px] text-[#A0A0B0] mt-2 leading-relaxed">
+        {bajasInformadas
+          ? 'La base instalada son los aparatos que usaron la app en los últimos 30 días: también baja cuando alguien deja de abrirla sin desinstalarla, y una reinstalación suma una instalación sin sumar base. "Otras bajas" es lo que queda para que la cuenta cierre; no lo informa Play.'
+          : 'Play no está informando desinstalaciones para esta app, así que no se pueden separar de los aparatos que dejaron de usarla: la última fila de bajas es todo lo que falta para que la cuenta cierre.'}
+      </p>
+    </div>
   )
 }
 

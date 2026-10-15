@@ -325,7 +325,14 @@ const ALIAS = {
   fecha: ['date'],
   pais: ['country'],
   instalaciones: ['daily device installs'],
-  desinstalaciones: ['daily device uninstalls'],
+  // "Daily Device Uninstalls" está en el informe de Glynbox pero viene en 0
+  // todos los días: del 1/8 al 9/10 fueron 422 instalaciones, 0 bajas y la
+  // base creció 209. Por eso hay alternativas, y `columnaDe` saltea una
+  // columna toda en cero cuando la siguiente tiene datos. "Uninstall events"
+  // cuenta eventos (dos bajas del mismo aparato son dos) y "Daily User
+  // Uninstalls" cuenta cuentas de Google; ninguna es igual a la primera, pero
+  // las dos son desinstalaciones reales y un 0 no lo es.
+  desinstalaciones: ['daily device uninstalls', 'uninstall events', 'daily user uninstalls'],
   baseInstalada: ['active device installs'],
   visitantes: ['store listing visitors'],
   adquisiciones: ['store listing acquisitions'],
@@ -350,13 +357,35 @@ function indexarCabeceras(campos: string[]): Map<string, string> {
   return new Map(campos.map(c => [normalizar(c), c]))
 }
 
-function columnaDe(indice: Map<string, string>, campo: Campo): string | null {
-  for (const alias of ALIAS[campo]) {
-    const real = indice.get(alias)
-    if (real) return real
+/**
+ * La columna real de un campo.
+ *
+ * Con `filas`, prefiere el primer alias que tenga algún valor distinto de cero
+ * en el archivo: una columna presente y toda en cero es una métrica que Google
+ * dejó de llenar, no un mes sin movimiento. Si todas las que existen están en
+ * cero, devuelve la primera: ahí el cero es el dato.
+ */
+function columnaDe(
+  indice: Map<string, string>,
+  campo: Campo,
+  filas?: Record<string, string>[],
+): string | null {
+  const existentes = ALIAS[campo]
+    .map(alias => indice.get(alias))
+    .filter((c): c is string => !!c)
+
+  if (filas && existentes.length > 1) {
+    const conDatos = existentes.find(col => filas.some(f => (aNumero(f[col]) ?? 0) !== 0))
+    if (conDatos) return conDatos
   }
-  return null
+  return existentes[0] ?? null
 }
+
+/**
+ * Qué columna del CSV terminó alimentando cada campo. Lo devuelve el cron para
+ * que se pueda ver, sin bajar el archivo, de dónde salió cada número.
+ */
+export type ColumnasUsadas = Partial<Record<Campo, string | null>>
 
 /**
  * Un número de una celda, o `null`.
@@ -396,7 +425,10 @@ export interface DiaPlay {
  * eso sí funciona— pero sumar dos filas del mismo día del overview la
  * duplicaría. Como el overview trae una fila por día, no pasa.
  */
-export function filasPorFecha(csv: string): Map<string, Partial<DiaPlay>> {
+export function filasPorFecha(
+  csv: string,
+  usadas?: ColumnasUsadas,
+): Map<string, Partial<DiaPlay>> {
   const parsed = Papa.parse<Record<string, string>>(csv, {
     header: true,
     skipEmptyLines: true,
@@ -421,8 +453,9 @@ export function filasPorFecha(csv: string): Map<string, Partial<DiaPlay>> {
   ]
   const columnas = new Map<CampoNumerico, string>()
   for (const campo of numericos) {
-    const col = columnaDe(indice, campo)
+    const col = columnaDe(indice, campo, filas)
     if (col) columnas.set(campo, col)
+    if (usadas && (col || !(campo in usadas))) usadas[campo] = col
   }
 
   const salida = new Map<string, Partial<DiaPlay>>()
@@ -470,7 +503,7 @@ export interface DiaPaisPlay {
  * guardan como `ZZ` (el código ISO de "desconocido") y no se tiran: sin ellas
  * la suma de los países no daría el total del día.
  */
-export function filasPorFechaYPais(csv: string): DiaPaisPlay[] {
+export function filasPorFechaYPais(csv: string, usadas?: ColumnasUsadas): DiaPaisPlay[] {
   const parsed = Papa.parse<Record<string, string>>(csv, { header: true, skipEmptyLines: true })
   const filas = parsed.data ?? []
   if (filas.length === 0) return []
@@ -486,9 +519,10 @@ export function filasPorFechaYPais(csv: string): DiaPaisPlay[] {
     return []
   }
 
-  const colInst = columnaDe(indice, 'instalaciones')
-  const colDesinst = columnaDe(indice, 'desinstalaciones')
-  const colBase = columnaDe(indice, 'baseInstalada')
+  const colInst = columnaDe(indice, 'instalaciones', filas)
+  const colDesinst = columnaDe(indice, 'desinstalaciones', filas)
+  const colBase = columnaDe(indice, 'baseInstalada', filas)
+  if (usadas) Object.assign(usadas, { instalaciones: colInst, desinstalaciones: colDesinst, baseInstalada: colBase })
 
   const sumar = (previo: number | null, col: string | null, fila: Record<string, string>) => {
     const n = col ? aNumero(fila[col]) : null
@@ -526,14 +560,19 @@ export function mesDe(d: Date): string {
 /**
  * Los meses que hay que bajar hoy.
  *
- * Siempre dos: el corriente y el anterior. El anterior no es por las dudas —
+ * Tres: el corriente y los dos anteriores. El anterior no es por las dudas —
  * el día 1 de cada mes, el mes en curso tiene una fila y todo lo demás está en
  * el archivo de al lado, y además Google sigue corrigiendo los últimos días
  * del mes cerrado durante una semana larga.
+ *
+ * El tercero es margen para cuando cambia cómo se lee un archivo: la corrida
+ * siguiente reescribe tres meses y no sólo dos. Se agregó cuando las
+ * desinstalaciones pasaron a leerse de otra columna (2026-10), para que se
+ * corrigiera también agosto, el primer mes copiado.
  */
 export function mesesAConsultar(hoy = new Date()): string[] {
-  const anterior = new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - 1, 1))
-  return [mesDe(anterior), mesDe(hoy)]
+  const hace = (n: number) => new Date(Date.UTC(hoy.getUTCFullYear(), hoy.getUTCMonth() - n, 1))
+  return [mesDe(hace(2)), mesDe(hace(1)), mesDe(hoy)]
 }
 
 /**
