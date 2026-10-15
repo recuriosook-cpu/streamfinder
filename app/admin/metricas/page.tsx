@@ -14,6 +14,7 @@ import type { AdminOverview } from '@/app/api/admin/overview/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
+import { AppMedicionPanel } from '@/app/admin/_components/AppMedicionPanel'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 
 interface TopMedia {
@@ -272,6 +273,11 @@ export default function MetricasPage() {
             </div>
           )}
         </div>
+
+        {/* Lo nuevo de la app, con eventos: embudo de onboarding por flujo,
+            notificaciones y modo deslizar. Después del desglose por perfiles
+            porque el embudo es el detalle de ese mismo onboarding. */}
+        <AppMedicionPanel recarga={recarga} />
 
         {/* Registros por mes — fecha de alta real (auth.users.created_at).
             Antes se graficaba profiles.updated_at, que es cuándo se tocó la fila
