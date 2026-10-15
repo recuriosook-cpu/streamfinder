@@ -201,6 +201,13 @@ export const EVENT_NAMES = [
   'push_aceptado',
   /** Tocó "Ahora no". props: { origen, flujo } */
   'push_ahora_no',
+  /**
+   * Abrió la app tocando una notificación push. Sólo de la app.
+   * props: { tipo, envio, arranque: 'frio' | 'abierta' }. `tipo` es el `data.type`
+   * de la push ('recomendacion' para "Ferlage te recomienda ver") y `envio` el
+   * id de `push_envios`, que el historial de `/admin/recomendaciones` cuenta.
+   */
+  'push_abierta',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

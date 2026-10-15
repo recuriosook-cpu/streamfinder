@@ -8,11 +8,17 @@ import {
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import { codigoDePost, fichaDeLink } from '@/lib/instagram-covers'
 import type { RecomendacionAdmin } from '@/app/api/admin/recomendaciones/route'
+import type { NotificarEstado } from '@/app/api/admin/recomendaciones/notificar/route'
+import { EnviarNotificacion, HistorialEnvios } from './Notificaciones'
 
 /**
  * Carga de recomendaciones de creadores, de a una: el link del post de
  * Instagram y el de la ficha de Glynbox. Todo lo demás (portada, WebP,
  * Storage, fila) lo hace `/api/admin/recomendaciones`; ver ahí.
+ *
+ * Con "Enviar notificación" marcado, al cargar aparece el envío de "Ferlage te
+ * recomienda ver" para ese título (`Notificaciones.tsx`). Cargar NO manda
+ * nada: el envío es otro botón, con confirmación.
  */
 
 interface Creador { id: number; name: string; username: string }
@@ -42,6 +48,10 @@ export default function AdminRecomendacionesPage() {
   const [enviando,  setEnviando]  = useState(false)
   const [resultado, setResultado] = useState<Resultado | null>(null)
 
+  const [conNotificacion, setConNotificacion] = useState(true)
+  const [aNotificar, setANotificar] = useState<RecomendacionAdmin | null>(null)
+  const [notificar, setNotificar] = useState<NotificarEstado | null>(null)
+
   const [filtro,     setFiltro]     = useState('')
   const [confirmar,  setConfirmar]  = useState<number | null>(null)
   const [borrandoId, setBorrandoId] = useState<number | null>(null)
@@ -49,9 +59,17 @@ export default function AdminRecomendacionesPage() {
   useEffect(() => { cargar() }, [])
   useRefrescoAlVolver(cargar, actualizadoEn)
 
+  async function cargarNotificar() {
+    try {
+      const res = await fetch('/api/admin/recomendaciones/notificar', { cache: 'no-store' })
+      if (res.ok) setNotificar(await res.json())
+    } catch { /* el envío queda deshabilitado hasta que cargue */ }
+  }
+
   async function cargar() {
     setCargando(true)
     setErrorLista(null)
+    void cargarNotificar()
     try {
       const res  = await fetch('/api/admin/recomendaciones', { cache: 'no-store' })
       const data = await res.json()
@@ -77,6 +95,7 @@ export default function AdminRecomendacionesPage() {
     if (!puedeEnviar) return
     setEnviando(true)
     setResultado(null)
+    setANotificar(null)
     try {
       const res  = await fetch('/api/admin/recomendaciones', {
         method: 'POST',
@@ -86,11 +105,13 @@ export default function AdminRecomendacionesPage() {
       const data = await res.json().catch(() => ({}))
       if (res.ok) {
         setResultado({ tipo: 'ok', item: data.item })
+        if (conNotificacion) setANotificar(data.item)
         setItems(prev => [data.item, ...prev])
         setPost('')
         setFicha('')
       } else if (res.status === 409) {
         setResultado({ tipo: 'duplicado', mensaje: data.message, existente: data.existente ?? null })
+        if (conNotificacion && data.existente) setANotificar(data.existente)
       } else {
         setResultado({ tipo: 'error', mensaje: data.message ?? `Error ${res.status}` })
       }
@@ -186,10 +207,21 @@ export default function AdminRecomendacionesPage() {
               <span className="text-xs text-[#A0A0B0]">Creador: <span className="text-white">{creadores[0].name}</span></span>
             ) : null}
 
+            <label className="ml-auto inline-flex items-center gap-2 text-xs text-zinc-300 cursor-pointer select-none">
+              <input
+                type="checkbox"
+                checked={conNotificacion}
+                onChange={e => setConNotificacion(e.target.checked)}
+                disabled={enviando}
+                className="accent-[#FFFD02]"
+              />
+              Enviar notificación
+            </label>
+
             <button
               type="submit"
               disabled={!puedeEnviar}
-              className="ml-auto inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFFD02] text-black text-sm font-semibold disabled:opacity-40 transition-opacity"
+              className=" inline-flex items-center gap-2 px-4 py-2.5 rounded-xl bg-[#FFFD02] text-black text-sm font-semibold disabled:opacity-40 transition-opacity"
             >
               {enviando ? <Loader2 size={15} className="animate-spin" /> : <Plus size={15} />}
               {enviando ? 'Bajando portada…' : 'Cargar'}
@@ -197,7 +229,18 @@ export default function AdminRecomendacionesPage() {
           </div>
 
           {resultado && <ResultadoCarga resultado={resultado} />}
+
+          {aNotificar && (
+            <EnviarNotificacion
+              key={aNotificar.id}
+              item={aNotificar}
+              estado={notificar}
+              onEnviado={() => void cargarNotificar()}
+            />
+          )}
         </form>
+
+        <HistorialEnvios estado={notificar} />
 
         {/* Lista */}
         <div className="space-y-3">
