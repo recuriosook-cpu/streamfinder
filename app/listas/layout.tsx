@@ -4,7 +4,7 @@ import { itunesPara } from '@/lib/tiendas'
 export const metadata: Metadata = {
   title: 'Listas de películas y series — Glynbox',
   description: 'Descubrí listas curadas de películas y series. Crea tus propias listas y compartilas con la comunidad.',
-  itunes: itunesPara('C:/Program Files/Git/listas'),
+  itunes: itunesPara('/listas'),
   openGraph: {
     title: 'Listas de películas y series — Glynbox',
     description: 'Descubrí listas curadas de películas y series. Crea tus propias listas y compartilas con la comunidad.',
