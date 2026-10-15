@@ -54,6 +54,9 @@ export const metadata: Metadata = {
     canonical: 'https://glynbox.com',
   },
   manifest: '/manifest.json',
+  // El aviso nativo de Safari en iPhone ("Abrir" / "Obtener"), con el Apple ID
+  // de la app en App Store Connect. Los demás navegadores ignoran la etiqueta.
+  itunes: { appId: '6817536332' },
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {
