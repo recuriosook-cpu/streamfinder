@@ -185,6 +185,22 @@ export const EVENT_NAMES = [
   'ads_estado',
   /** Sólo de la app: llegó un anuncio nativo. props: { plataforma } */
   'ad_cargado',
+
+  // ── Permiso de notificaciones, sólo de la app ───────────────────────
+  //
+  // El pedido propio que va antes del diálogo del sistema. Los tres llevan
+  // `origen`: 'onboarding' (la tarjeta de "Tus primeras recomendaciones") o
+  // 'watchlist' (el segundo ofrecimiento, una sola vez, al guardar algo en la
+  // watchlist por primera vez después de un "Ahora no"), y `flujo: 'corto'`.
+  // Aceptados sobre ofrecidos es la tasa; `resultado` dice qué contestó
+  // después el sistema, porque tocar "Sí" y negar en el diálogo no es aceptar.
+
+  /** Se mostró el pedido. props: { origen, flujo } */
+  'push_ofrecido',
+  /** Tocó "Sí, avisame". props: { origen, flujo, resultado: 'granted' | 'denied' | 'error' | ... } */
+  'push_aceptado',
+  /** Tocó "Ahora no". props: { origen, flujo } */
+  'push_ahora_no',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
