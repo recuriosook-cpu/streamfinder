@@ -12,7 +12,8 @@ const CAROUSEL_PLATFORMS = [
   { id: 8,   name: 'Netflix',      color: '#E50914' },
   { id: 337, name: 'Disney+',      color: '#113CCF' },
   { id: 119, name: 'Amazon Prime', color: '#00A8E0' },
-  { id: 384, name: 'Max',          color: '#5822B4' },
+  // 1899 y no 384: el 384 es el id viejo de Max (ver PLATAFORMAS_GRANDES).
+  { id: 1899, name: 'Max',         color: '#5822B4' },
   { id: 531, name: 'Paramount+',   color: '#0064FF' },
   { id: 350, name: 'Apple TV+',    color: '#444444' },
   { id: 283, name: 'Crunchyroll',  color: '#F47521' },

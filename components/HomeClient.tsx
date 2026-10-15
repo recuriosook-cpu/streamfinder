@@ -31,7 +31,9 @@ const PlatformCarousel = dynamic(() => import('@/components/PlatformCarousel'), 
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
-const PROVIDER_IDS = '8|337|119|384|531|350'
+// Max va con los dos ids: 1899 es el de hoy y 384 el viejo, que TMDB todavía
+// usa en algunos títulos (ver PLATAFORMAS_GRANDES en lib/providers.ts).
+const PROVIDER_IDS = '8|337|119|1899|384|531|350'
 
 const GENRE_TO_ID: Record<string, number> = {
   'Acción': 28, 'Comedia': 35, 'Drama': 18, 'Terror': 27,
