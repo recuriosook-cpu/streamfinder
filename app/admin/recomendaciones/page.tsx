@@ -10,6 +10,7 @@ import { codigoDePost, fichaDeLink } from '@/lib/instagram-covers'
 import type { RecomendacionAdmin } from '@/app/api/admin/recomendaciones/route'
 import type { NotificarEstado } from '@/app/api/admin/recomendaciones/notificar/route'
 import { EnviarNotificacion, HistorialEnvios } from './Notificaciones'
+import { ResumenSemanal } from './ResumenSemanal'
 
 /**
  * Carga de recomendaciones de creadores, de a una: el link del post de
@@ -241,6 +242,8 @@ export default function AdminRecomendacionesPage() {
         </form>
 
         <HistorialEnvios estado={notificar} />
+
+        <ResumenSemanal recargar={actualizadoEn?.getTime() ?? 0} />
 
         {/* Lista */}
         <div className="space-y-3">

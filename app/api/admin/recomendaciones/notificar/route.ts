@@ -3,12 +3,15 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { deleteDeadTokens, sendExpoPushToTokens } from '@/lib/expo-push'
 import {
-  deleteDeadTokens,
-  getExpoReceipts,
-  sendExpoPushToTokens,
-  type ExpoTicketRef,
-} from '@/lib/expo-push'
+  COLUMNAS_FILA,
+  aperturas,
+  faltaLaTabla,
+  revisarRecibos,
+  usuariosConEnvioApagado,
+  type FilaEnvio,
+} from '@/lib/push-envios'
 
 /**
  * /api/admin/recomendaciones/notificar — "Ferlage te recomienda ver".
@@ -18,7 +21,8 @@ import {
  *   POST { recomendacionId, prueba }     manda una recomendación
  *
  * Un envío va a todos los tokens de `user_devices`: los de la app con el
- * permiso de notificaciones aceptado. Con `prueba: true` va sólo a los
+ * permiso de notificaciones aceptado, menos los de quien apagó "Recomendaciones
+ * de Ferlage" en los ajustes de la app. Con `prueba: true` va sólo a los
  * aparatos de quien está logueado en el panel (Ferlageok), y no cuenta para el
  * límite.
  *
@@ -50,10 +54,6 @@ export const maxDuration = 60
 const TITULO = 'Ferlage te recomienda ver'
 const LIMITE_SEMANAL = 3
 const SEMANA_MS = 7 * 24 * 60 * 60 * 1000
-
-/** Antes de esto Expo puede no tener los recibos. Después de 24 h los borra. */
-const RECIBOS_DESDE_MS = 15 * 60 * 1000
-const RECIBOS_HASTA_MS = 24 * 60 * 60 * 1000
 
 const HISTORIAL = 30
 
@@ -103,7 +103,7 @@ export interface EnvioPush {
 export interface NotificarEstado {
   /** `false` si falta correr `supabase-push-envios-2026-10.sql`. */
   disponible: boolean
-  /** Tokens en `user_devices`: a cuántos aparatos llegaría. */
+  /** Tokens en `user_devices` de quien no apagó el envío: a cuántos aparatos llegaría. */
   aparatos: number
   /** Los de quien está en el panel, para la prueba. */
   aparatosPrueba: number
@@ -114,35 +114,14 @@ export interface NotificarEstado {
   historial: EnvioPush[]
 }
 
-interface FilaEnvio {
-  id: number
-  prueba: boolean
-  cuerpo: string
-  media_type: 'movie' | 'tv'
-  tmdb_id: number
-  creado_en: string
-  destinatarios: number
-  enviados: number | null
-  fallidos: number | null
-  tokens_borrados: number
-  tickets: ExpoTicketRef[] | null
-  recibos_revisados_en: string | null
-}
-
 // ── Ayudas ─────────────────────────────────────────────────────────────────
-
-function faltaLaTabla(error: { code?: string; message?: string } | null): boolean {
-  if (!error) return false
-  if (error.code === '42P01' || error.code === 'PGRST205') return true
-  const msg = (error.message ?? '').toLowerCase()
-  return msg.includes('does not exist') || msg.includes('could not find the table')
-}
 
 /** Los envíos reales de los últimos 7 días, del más viejo al más nuevo. */
 async function enviosDeLaSemana(admin: SupabaseClient) {
   return admin
     .from('push_envios')
     .select('id, creado_en')
+    .eq('tipo', 'recomendacion')
     .eq('prueba', false)
     .gte('creado_en', new Date(Date.now() - SEMANA_MS).toISOString())
     .order('creado_en', { ascending: true })
@@ -155,16 +134,21 @@ function proximoLibre(semana: { creado_en: string }[]): string | null {
   return new Date(new Date(masViejo.creado_en).getTime() + SEMANA_MS).toISOString()
 }
 
-/** Todos los tokens, sin repetir. */
+/**
+ * Los tokens a los que va un envío, sin repetir. Sin `userId` son todos menos
+ * los de quien apagó "Recomendaciones de Ferlage"; con `userId` (la prueba),
+ * los de esa persona, haya apagado o no.
+ */
 async function todosLosTokens(admin: SupabaseClient, userId?: string): Promise<string[]> {
+  const apagados = userId ? new Set<string>() : await usuariosConEnvioApagado(admin, 'recomendacion')
   const tokens = new Set<string>()
   for (let desde = 0; ; desde += 1000) {
-    let q = admin.from('user_devices').select('push_token').range(desde, desde + 999)
+    let q = admin.from('user_devices').select('user_id, push_token').range(desde, desde + 999)
     if (userId) q = q.eq('user_id', userId)
     const { data, error } = await q
     if (error) throw new Error(error.message)
-    for (const row of (data ?? []) as { push_token: string | null }[]) {
-      if (row.push_token) tokens.add(row.push_token)
+    for (const row of (data ?? []) as { user_id: string; push_token: string | null }[]) {
+      if (row.push_token && !apagados.has(row.user_id)) tokens.add(row.push_token)
     }
     if (!data || data.length < 1000) break
   }
@@ -172,10 +156,11 @@ async function todosLosTokens(admin: SupabaseClient, userId?: string): Promise<s
 }
 
 async function contarAparatos(admin: SupabaseClient, userId?: string): Promise<number> {
-  let q = admin.from('user_devices').select('push_token', { count: 'exact', head: true })
-  if (userId) q = q.eq('user_id', userId)
-  const { count } = await q
-  return count ?? 0
+  try {
+    return (await todosLosTokens(admin, userId)).length
+  } catch {
+    return 0
+  }
 }
 
 /** El nombre en castellano, como en la ficha. */
@@ -195,67 +180,6 @@ async function nombreDe(mediaType: 'movie' | 'tv', tmdbId: number): Promise<stri
   }
 }
 
-/**
- * Revisa los recibos de los envíos que ya los tienen listos. Nunca tira: si
- * Expo no contesta, se reintenta en la próxima carga del panel.
- */
-async function revisarRecibos(admin: SupabaseClient, filas: FilaEnvio[]): Promise<void> {
-  const ahora = Date.now()
-  for (const fila of filas) {
-    if (fila.recibos_revisados_en || !fila.tickets) continue
-    const edad = ahora - new Date(fila.creado_en).getTime()
-    if (edad < RECIBOS_DESDE_MS) continue
-
-    const recibos = edad < RECIBOS_HASTA_MS ? await getExpoReceipts(fila.tickets) : null
-    // Pasadas las 24 h Expo ya no los tiene: se cierra con lo que había.
-    if (!recibos && edad < RECIBOS_HASTA_MS) continue
-
-    const borrados = recibos ? await deleteDeadTokens(admin, recibos.muertos) : 0
-    const fallidosRecibo = recibos?.fallidos ?? 0
-    const cambios = {
-      enviados: Math.max(0, (fila.enviados ?? 0) - fallidosRecibo),
-      fallidos: (fila.fallidos ?? 0) + fallidosRecibo,
-      tokens_borrados: fila.tokens_borrados + borrados,
-      recibos_revisados_en: new Date().toISOString(),
-      // Los tokens ya no hacen falta: no se guardan más de lo necesario.
-      tickets: null,
-    }
-    const { error } = await admin.from('push_envios').update(cambios).eq('id', fila.id)
-    if (error) {
-      console.error('[notificar] no se pudo guardar la revisión de recibos:', error.message)
-      continue
-    }
-    Object.assign(fila, cambios)
-  }
-}
-
-/** Instalaciones distintas que abrieron cada envío. */
-async function aperturas(admin: SupabaseClient, filas: FilaEnvio[]): Promise<Map<number, number>> {
-  const porEnvio = new Map<number, Set<string>>()
-  if (filas.length === 0) return new Map()
-  const desde = filas.reduce((min, f) => (f.creado_en < min ? f.creado_en : min), filas[0].creado_en)
-
-  const { data, error } = await admin
-    .from('analytics_events')
-    .select('anon_id, props')
-    .eq('name', 'push_abierta')
-    .eq('props->>tipo', 'recomendacion')
-    .gte('created_at', desde)
-    .limit(10000)
-  if (error) {
-    console.error('[notificar] aperturas:', error.message)
-    return new Map()
-  }
-  for (const row of (data ?? []) as { anon_id: string; props: Record<string, unknown> | null }[]) {
-    const envio = Number(row.props?.envio)
-    if (!Number.isFinite(envio)) continue
-    const set = porEnvio.get(envio) ?? new Set<string>()
-    set.add(row.anon_id)
-    porEnvio.set(envio, set)
-  }
-  return new Map([...porEnvio].map(([id, set]) => [id, set.size]))
-}
-
 // ── GET ────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -268,7 +192,8 @@ export async function GET() {
   const [historialRes, semanaRes, aparatos, aparatosPrueba] = await Promise.all([
     admin
       .from('push_envios')
-      .select('id, prueba, cuerpo, media_type, tmdb_id, creado_en, destinatarios, enviados, fallidos, tokens_borrados, tickets, recibos_revisados_en')
+      .select(COLUMNAS_FILA)
+      .eq('tipo', 'recomendacion')
       .order('creado_en', { ascending: false })
       .limit(HISTORIAL),
     enviosDeLaSemana(admin),
@@ -287,9 +212,9 @@ export async function GET() {
     return NextResponse.json({ message: historialRes.error.message }, { status: 500 })
   }
 
-  const filas = (historialRes.data ?? []) as FilaEnvio[]
+  const filas = (historialRes.data ?? []) as unknown as FilaEnvio[]
   await revisarRecibos(admin, filas)
-  const abiertas = await aperturas(admin, filas)
+  const abiertas = await aperturas(admin, 'recomendacion', filas)
   const semana = (semanaRes.data ?? []) as { creado_en: string }[]
 
   const estado: NotificarEstado = {
@@ -303,8 +228,8 @@ export async function GET() {
       id: f.id,
       prueba: f.prueba,
       cuerpo: f.cuerpo,
-      mediaType: f.media_type,
-      tmdbId: f.tmdb_id,
+      mediaType: f.media_type ?? 'movie',
+      tmdbId: f.tmdb_id ?? 0,
       creadoEn: f.creado_en,
       destinatarios: f.destinatarios,
       enviados: f.enviados,
@@ -381,6 +306,7 @@ export async function POST(req: NextRequest) {
   const { data: fila, error: insertError } = await admin
     .from('push_envios')
     .insert({
+      tipo: 'recomendacion',
       prueba,
       recomendacion_id: rec.id,
       media_type: mediaType,

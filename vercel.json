@@ -9,6 +9,10 @@
       "schedule": "30 9 * * *"
     },
     {
+      "path": "/api/cron/resumen-semanal",
+      "schedule": "0 21 * * 5"
+    },
+    {
       "path": "/api/cron/search-index",
       "schedule": "0 7 * * 1"
     }

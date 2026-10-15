@@ -13,9 +13,10 @@ import type { PushPayload } from './send-push-notification'
  * comparten es el texto, que arma `buildNotificationContent`
  * (`lib/notification-content.ts`) una sola vez para los dos.
  *
- * Dos usos: `sendExpoPushToUser`, una notificación a los aparatos de una
- * persona, y `sendExpoPushToTokens`, el envío masivo del panel de
- * recomendaciones. Los dos mandan por el mismo camino.
+ * Tres usos: `sendExpoPushToUser`, una notificación a los aparatos de una
+ * persona; `sendExpoPushToTokens`, el envío masivo del panel de
+ * recomendaciones; y `sendExpoPushMessages`, un mensaje distinto por token
+ * (la semanal). Los tres mandan por el mismo camino.
  */
 
 const EXPO_PUSH_URL = 'https://exp.host/--/api/v2/push/send'
@@ -64,6 +65,14 @@ export type ExpoSendResult = {
   muertos: string[]
 }
 
+/** Un mensaje para un token. */
+export type ExpoMessage = {
+  token: string
+  title: string
+  body: string
+  data: ExpoPushData
+}
+
 /**
  * Manda el mismo mensaje a una lista de tokens, de a 100.
  *
@@ -75,16 +84,26 @@ export async function sendExpoPushToTokens(
   content: { title: string; body: string },
   data: ExpoPushData
 ): Promise<ExpoSendResult> {
+  return sendExpoPushMessages(tokens.map((token) => ({ token, ...content, data })))
+}
+
+/**
+ * Manda mensajes distintos, uno por token, de a 100: la semanal, que es
+ * distinta para cada persona, sale en los mismos lotes que un envío masivo.
+ *
+ * Nunca tira, igual que `sendExpoPushToTokens`.
+ */
+export async function sendExpoPushMessages(all: ExpoMessage[]): Promise<ExpoSendResult> {
   const result: ExpoSendResult = { aceptados: [], fallidos: 0, muertos: [] }
 
-  for (let from = 0; from < tokens.length; from += BATCH_SIZE) {
-    const batch = tokens.slice(from, from + BATCH_SIZE)
+  for (let from = 0; from < all.length; from += BATCH_SIZE) {
+    const batch = all.slice(from, from + BATCH_SIZE)
 
-    const messages = batch.map((token) => ({
-      to: token,
-      title: content.title,
-      body: content.body,
-      data,
+    const messages = batch.map((m) => ({
+      to: m.token,
+      title: m.title,
+      body: m.body,
+      data: m.data,
       sound: 'default' as const,
       // Agrupa en la bandeja igual que el `tag` del push web.
       channelId: 'default',
@@ -110,7 +129,7 @@ export async function sendExpoPushToTokens(
       const tickets = json.data ?? []
 
       // Los tickets vuelven en el mismo orden que los mensajes.
-      batch.forEach((token, i) => {
+      batch.forEach(({ token }, i) => {
         const ticket = tickets[i]
         if (ticket?.status === 'ok' && ticket.id) {
           result.aceptados.push({ id: ticket.id, token })
