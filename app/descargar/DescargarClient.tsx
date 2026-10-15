@@ -205,10 +205,13 @@ export default function DescargarClient({
    * Sin guard de "una sola vez" a diferencia de la visita: `marcarOrigen` ya es
    * idempotente y, si la sesión se renovó por inactividad con la pestaña
    * abierta en esta pantalla, volver a marcar es justamente lo correcto.
+   *
+   * El aparato va refinado por lo mismo que en la visita de abajo: queda en la
+   * cookie de 7 días con la que se atribuye el registro.
    */
   useEffect(() => {
-    marcarOrigen('descargar')
-  }, [])
+    marcarOrigen('descargar', refinarDispositivo(dispositivoInicial))
+  }, [dispositivoInicial])
 
   useEffect(() => {
     if (visitaRegistrada) return

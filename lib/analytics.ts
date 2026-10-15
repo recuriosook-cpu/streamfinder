@@ -194,10 +194,12 @@ export type Origen = 'descargar'
  * para marcarse de nuevo — que es exactamente lo que significa "durante toda su
  * sesión".
  *
- * Lo que sí sobrevive, y tiene que sobrevivir, es la ida y vuelta al login de
- * Google: es la misma pestaña, así que sessionStorage sigue ahí cuando el
- * usuario vuelve a `/auth/callback`. Si el login abriera una pestaña nueva la
- * marca se perdería, y ese registro quedaría sin atribuir.
+ * Esta marca de sesión mide VISITAS. Para atribuir el REGISTRO no alcanza: se
+ * pierde con una pestaña nueva (el link de confirmación del email), con media
+ * hora sin actividad, o en algunas idas y vueltas del login social. De los 16
+ * que se registraron en la web después de pasar por la landing entre el 20/9 y
+ * el 15/10, 5 llegaron al onboarding ya sin ella. El registro usa la cookie de
+ * `marcarOrigenDelRegistro`, que dura 7 días y no depende de la pestaña.
  */
 let memoryOrigen: string | null = null
 
@@ -208,9 +210,11 @@ let memoryOrigen: string | null = null
  * entró por una campaña y más tarde pasa por otra landing sigue siendo de la
  * primera, que es la que lo trajo.
  */
-export function marcarOrigen(origen: Origen): void {
+export function marcarOrigen(origen: Origen, dispositivo?: string): void {
   try {
     if (typeof window === 'undefined') return
+
+    marcarOrigenDelRegistro(origen, dispositivo)
 
     const sessionId = getSessionId()
     const actual = leerOrigen(sessionId)
@@ -243,6 +247,101 @@ function leerOrigen(sessionId: string): Origen | null {
 
   if (deSesion !== sessionId) return null
   return origen === 'descargar' ? origen : null
+}
+
+// ── Origen del registro ────────────────────────────────────────────────────
+
+/**
+ * Cookie propia, 7 días, con el origen y el aparato: `descargar.android`.
+ *
+ * Cookie y no localStorage ni sessionStorage porque tiene que sobrevivir a
+ * todo lo que pasa entre la landing y el registro en el mismo navegador:
+ * pestañas nuevas, la vuelta del login con Google, Apple o Facebook (que sale
+ * del sitio y entra por `/auth/callback`) y el link de confirmación del email,
+ * que el cliente de correo abre donde quiere.
+ *
+ * La primera gana, igual que la marca de sesión: quien volvió a pasar por la
+ * landing al tercer día sigue contando desde la primera vez. No lleva datos de
+ * la persona.
+ */
+const ORIGEN_COOKIE = 'glynbox_origen_registro'
+const ORIGEN_COOKIE_DIAS = 7
+
+function leerCookie(nombre: string): string | null {
+  try {
+    for (const parte of document.cookie.split('; ')) {
+      const i = parte.indexOf('=')
+      if (i > 0 && parte.slice(0, i) === nombre) return decodeURIComponent(parte.slice(i + 1))
+    }
+  } catch { /* cookies bloqueadas */ }
+  return null
+}
+
+function marcarOrigenDelRegistro(origen: Origen, dispositivo?: string): void {
+  try {
+    if (leerCookie(ORIGEN_COOKIE)) return
+    const aparato = dispositivo && /^[a-z]+$/.test(dispositivo) ? dispositivo : 'desconocido'
+    const segura = window.location.protocol === 'https:' ? '; Secure' : ''
+    document.cookie =
+      `${ORIGEN_COOKIE}=${origen}.${aparato}; Max-Age=${ORIGEN_COOKIE_DIAS * 86400}; Path=/; SameSite=Lax${segura}`
+  } catch { /* nunca romper por medición */ }
+}
+
+/** Las props de origen para el `signup_completed`, o nada. */
+function origenDelRegistro(): EventProps {
+  const valor = leerCookie(ORIGEN_COOKIE)
+  if (!valor) return {}
+  const [origen, aparato] = valor.split('.')
+  if (origen !== 'descargar') return {}
+  return { origen_registro: origen, origen_dispositivo: aparato || 'desconocido' }
+}
+
+/** Hasta cuánto después de crear (o confirmar) la cuenta se la cuenta como alta. */
+const ALTA_RECIENTE_MS = 48 * 3600_000
+
+const ALTA_KEY = 'glynbox_altas_enviadas'
+
+/**
+ * Manda `signup_completed` una sola vez por cuenta y navegador.
+ *
+ * Lo llama `/onboarding`, adonde llega toda cuenta nueva por cualquier camino.
+ * Antes dependía de que `/auth/callback` mandara `?nuevo=1`, y eso sólo pasaba
+ * si el perfil no existía todavía; pero lo crea antes el trigger
+ * `handle_new_user` de la base, así que en la web el evento no salió nunca
+ * (cero entre el 20/9 y el 15/10, con 38 altas que usaron la web).
+ *
+ * Se decide por la fecha de la cuenta: creada o con el email confirmado hace
+ * menos de 48 horas. `pistaNuevo` (`?nuevo=1`) se sigue aceptando por si el
+ * callback vuelve a poder mandarlo. Si dos navegadores lo mandan, el panel
+ * cuenta usuarios distintos y no eventos.
+ */
+export function registrarAlta(
+  user: {
+    id: string
+    created_at?: string
+    email_confirmed_at?: string | null
+    app_metadata?: { provider?: string }
+  },
+  pistaNuevo = false,
+): void {
+  try {
+    if (typeof window === 'undefined') return
+
+    const ahora = Date.now()
+    const reciente = (iso?: string | null) => {
+      const t = iso ? Date.parse(iso) : NaN
+      return Number.isFinite(t) && ahora - t < ALTA_RECIENTE_MS
+    }
+    if (!pistaNuevo && !reciente(user.created_at) && !reciente(user.email_confirmed_at)) return
+
+    const enviadas = (readStore('local', ALTA_KEY) ?? '').split(',').filter(Boolean)
+    if (enviadas.includes(user.id)) return
+    writeStore('local', ALTA_KEY, [...enviadas.slice(-9), user.id].join(','))
+
+    const p = user.app_metadata?.provider
+    const metodo = p === 'email' || p === 'google' || p === 'facebook' || p === 'apple' ? p : 'desconocido'
+    track('signup_completed', { metodo, ...origenDelRegistro() })
+  } catch { /* nunca romper por medición */ }
 }
 
 // ── Usuario ────────────────────────────────────────────────────────────────

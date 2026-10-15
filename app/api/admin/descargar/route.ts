@@ -1,6 +1,7 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 import { DISPOSITIVOS, esDispositivo, type Dispositivo } from '@/lib/device'
 import {
@@ -50,6 +51,16 @@ import {
  * olvidárselo desde acá. En una página que se promociona con links públicos no
  * es un detalle: los previsualizadores de WhatsApp, Twitter y Facebook la
  * visitan cada vez que alguien comparte el link.
+ *
+ * ── Los registros no salen del SQL ─────────────────────────────────────────
+ *
+ * La columna `registros` de las funciones cuenta sesiones marcadas con un
+ * `signup_completed` adentro, y dio siempre 0: en la web ese evento no salía
+ * nunca, y además la marca de sesión se pierde entre la landing y el registro
+ * (pestaña nueva, confirmación por email). Desde 2026-10 el evento lleva
+ * `origen_registro` y `origen_dispositivo` de una cookie de 7 días (ver
+ * `registrarAlta` en `lib/analytics.ts`) y acá se cuentan usuarios distintos
+ * con esa marca, creados dentro de la ventana. Son pocas filas: una por alta.
  *
  * ── Si el SQL todavía no se corrió ─────────────────────────────────────────
  *
@@ -197,6 +208,41 @@ interface FilaDispositivoSql {
 
 // ── Ayudas ─────────────────────────────────────────────────────────────────
 
+/**
+ * Altas atribuidas a la landing en la ventana: usuarios distintos, en total y
+ * por el aparato con el que vieron la landing. Ver el encabezado.
+ */
+async function contarRegistros(
+  admin: SupabaseClient,
+  dias: Ventana,
+): Promise<{ total: number; porDispositivo: Map<string, number> } | null> {
+  const desde = new Date(Date.now() - dias * 86400_000).toISOString()
+  const { data, error } = await admin
+    .from('analytics_events')
+    .select('user_id, anon_id, props')
+    .eq('name', 'signup_completed')
+    .eq('is_bot', false)
+    .eq('props->>origen_registro', 'descargar')
+    .gte('created_at', desde)
+    .limit(5000)
+
+  if (error) {
+    console.error('[admin/descargar] conteo de registros falló:', error.message)
+    return null
+  }
+
+  const vistos = new Set<string>()
+  const porDispositivo = new Map<string, number>()
+  for (const f of (data ?? []) as { user_id: string | null; anon_id: string; props: Record<string, unknown> | null }[]) {
+    const quien = f.user_id ?? f.anon_id
+    if (vistos.has(quien)) continue
+    vistos.add(quien)
+    const aparato = String(f.props?.origen_dispositivo ?? 'desconocido')
+    porDispositivo.set(aparato, (porDispositivo.get(aparato) ?? 0) + 1)
+  }
+  return { total: vistos.size, porDispositivo }
+}
+
 function porcentaje(parte: number, total: number): number | null {
   if (total <= 0) return null
   return Math.round((parte / total) * 1000) / 10
@@ -242,9 +288,10 @@ export async function GET(req: NextRequest) {
 
   const dias = leerVentana(req)
 
-  const [resumenRes, dispositivosRes] = await Promise.all([
+  const [resumenRes, dispositivosRes, altas] = await Promise.all([
     admin.rpc('analytics_descargar_resumen', { p_dias: dias }),
     admin.rpc('analytics_descargar_dispositivos', { p_dias: dias }),
+    contarRegistros(admin, dias),
   ])
 
   if (faltaLaMigracion(resumenRes.error) || faltaLaMigracion(dispositivosRes.error)) {
@@ -277,7 +324,8 @@ export async function GET(req: NextRequest) {
   const aPlay     = Number(fila.con_click_play)
   const aApp      = Number(fila.con_click_app_store ?? 0)
   const aWeb      = Number(fila.con_click_web)
-  const registros = Number(fila.registros)
+  // Si el conteo nuevo falló se cae al del SQL, que es el de antes.
+  const registros = altas ? altas.total : Number(fila.registros)
 
   const pasos: PasoEmbudo[] = [
     {
@@ -328,7 +376,7 @@ export async function GET(req: NextRequest) {
       aAppStore: appD,
       aWeb: webD,
       clicks: clicksD,
-      registros: Number(f?.registros ?? 0),
+      registros: altas ? (altas.porDispositivo.get(dispositivo) ?? 0) : Number(f?.registros ?? 0),
       conversionPct: porcentaje(clicksD, visitasD),
     }
   })

@@ -5,7 +5,7 @@ import Image from 'next/image'
 import { useRouter } from 'next/navigation'
 import { Camera, Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
-import { track } from '@/lib/analytics'
+import { track, registrarAlta } from '@/lib/analytics'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { getLevelInfo } from '@/lib/points'
 import { sendNotification } from '@/lib/notify'
@@ -509,22 +509,20 @@ export default function OnboardingPage() {
     return () => clearTimeout(t)
   }, [step])
 
-  // signup_completed. El registro se concreta en /auth/callback, que es una
-  // ruta de servidor y no puede llamar a track(); nos manda acá con ?nuevo=1 y
-  // el método. Se limpia la URL después para que un refresh no lo cuente dos
-  // veces.
+  // signup_completed sale de `registrarAlta`, en el init de abajo, cuando ya se
+  // sabe quién es. Acá sólo se limpia el `?nuevo=1` que puede mandar
+  // /auth/callback, para que no quede en la URL.
+  const [nuevoEnUrl] = useState(
+    () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('nuevo') === '1'
+  )
   useEffect(() => {
-    if (typeof window === 'undefined') return
+    if (!nuevoEnUrl) return
     const params = new URLSearchParams(window.location.search)
-    if (params.get('nuevo') !== '1') return
-
-    track('signup_completed', { metodo: params.get('metodo') ?? 'desconocido' })
-
     params.delete('nuevo')
     params.delete('metodo')
     const qs = params.toString()
     window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
-  }, [])
+  }, [nuevoEnUrl])
 
   // onboarding_step_viewed: uno por paso mostrado. El paso 5 vive en otro
   // componente pero sigue siendo el mismo `step`, así que entra igual.
@@ -542,6 +540,10 @@ export default function OnboardingPage() {
       const { data: { session } } = await supabase.auth.getSession()
       const u = session?.user ?? null
       if (!u) { router.replace('/auth'); return }
+
+      // Antes de cualquier redirección: el alta es de la cuenta, no de que
+      // haga el onboarding. Ver `registrarAlta` en lib/analytics.ts.
+      registrarAlta(u, nuevoEnUrl)
 
       const { data: profile } = await supabase
         .from('profiles')
