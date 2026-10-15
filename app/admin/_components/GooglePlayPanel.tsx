@@ -353,7 +353,7 @@ export function GooglePlayPanel({
 
 /**
  * De la base instalada de un día a la de otro, con los flujos en el medio:
- * la cuenta que tiene que cerrar. "Otras bajas" es lo que falta para cerrarla
+ * la cuenta que tiene que cerrar. La "diferencia por uso" es lo que falta para cerrarla
  * (ver `Cuadre` en el endpoint): aparatos que pasaron 30 días sin abrir la app,
  * que salen de la base sin desinstalar, y reinstalaciones en el mismo aparato.
  */
@@ -382,7 +382,8 @@ function TablaCuadre({
       valor: c => (bajasInformadas ? firmado('−', c.desinstalaciones) : 'sin dato'),
     },
     {
-      label: bajasInformadas ? 'Otras bajas (30 días sin usarla)' : 'Bajas de cualquier tipo',
+      // Puede salir con cualquier signo: "+" son aparatos que volvieron a usarla.
+      label: bajasInformadas ? 'Diferencia por uso (30 días)' : 'Bajas de cualquier tipo',
       valor: c => otras(c.otras),
     },
     { label: 'Base al terminar', valor: c => `${numero(c.baseFin)} (${etiquetaFecha(c.hasta)})`, total: true },
@@ -427,7 +428,7 @@ function TablaCuadre({
       </div>
       <p className="text-[10px] text-[#A0A0B0] mt-2 leading-relaxed">
         {bajasInformadas
-          ? 'La base instalada son los aparatos que usaron la app en los últimos 30 días: también baja cuando alguien deja de abrirla sin desinstalarla, y una reinstalación suma una instalación sin sumar base. "Otras bajas" es lo que queda para que la cuenta cierre; no lo informa Play.'
+          ? 'La base instalada son los aparatos que usaron la app en los últimos 30 días: también baja cuando alguien deja de abrirla sin desinstalarla, y una reinstalación suma una instalación sin sumar base. La diferencia por uso es lo que queda para que la cuenta cierre; no lo informa Play. Las desinstalaciones son eventos: si el mismo aparato la desinstala dos veces, cuenta dos.'
           : 'Play no está informando desinstalaciones para esta app, así que no se pueden separar de los aparatos que dejaron de usarla: la última fila de bajas es todo lo que falta para que la cuenta cierre.'}
       </p>
     </div>
