@@ -209,6 +209,22 @@ export const EVENT_NAMES = [
    * id de `push_envios`, que el historial de `/admin/recomendaciones` cuenta.
    */
   'push_abierta',
+
+  // ── Modo deslizar (sólo la app) ─────────────────────────────────────────
+  // Cuánto se usa: entradas y tarjetas por persona. Ver `lib/useSwipeDeck.ts`
+  // de glynbox-mobile.
+
+  /** Entró al modo deslizar. props: { origen } */
+  'deslizar_abierto',
+  /**
+   * Una tarjeta. props: { accion: 'me_gusto' | 'no_me_gusto' | 'quiero_verla' |
+   * 'pasar', gesto: 'deslizar' | 'boton', media_type, media_id, tarjeta,
+   * parecida }. `tarjeta` cuenta las de esa entrada (el máximo por sesión es
+   * cuántas pasó); `parecida` = llegó por un "Me gustó" anterior.
+   */
+  'deslizar_accion',
+  /** Deshizo la última. props: { accion, media_type, media_id } */
+  'deslizar_deshacer',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
