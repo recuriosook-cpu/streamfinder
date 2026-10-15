@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
@@ -43,6 +44,7 @@ export async function generateMetadata(
       description: guide.description,
       ...(ogImage && { images: [ogImage] }),
     },
+    itunes: itunesPara(`/guias/${encodeURIComponent(slug)}`),
   }
 }
 

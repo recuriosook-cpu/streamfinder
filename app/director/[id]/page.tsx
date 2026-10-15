@@ -21,6 +21,7 @@ import { createServerClient } from '@/lib/supabase-server'
 
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star, Film, Tv2, BarChart2 } from 'lucide-react'
@@ -77,6 +78,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       openGraph:   { title: person.name, description, images: [{ url: photoUrl, width: 500, height: 750, alt: person.name }], siteName: 'Glynbox' },
       twitter:     { card: 'summary_large_image', title: `${person.name} — Glynbox`, description, images: [photoUrl] },
       alternates:  { canonical: `https://glynbox.com/director/${id}` },
+      itunes: itunesPara(`/director/${id}`),
     }
   } catch { return {} }
 }

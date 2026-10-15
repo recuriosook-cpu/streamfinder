@@ -2,6 +2,7 @@ import { notFound } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import { Calendar, ChevronLeft, ChevronRight, Tv, Star } from 'lucide-react'
 import { getTVDetails, getTVSeason, getPosterUrl } from '@/lib/tmdb'
 import {
@@ -104,6 +105,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     description,
     openGraph: { title, description, images: poster ? [{ url: poster, width: 500, height: 750 }] : [] },
     alternates: { canonical: `https://glynbox.com/tv/${datos.show.id}/temporada/${datos.temporada.season_number}` },
+    itunes: itunesPara(`/tv/${datos.show.id}/temporada/${datos.temporada.season_number}`),
   }
 }
 

@@ -1,5 +1,5 @@
 import Link from 'next/link'
-import { GooglePlayBadge } from './GooglePlayBadge'
+import { BadgesTiendas } from './BadgesTiendas'
 
 function XIcon() {
   return (
@@ -65,19 +65,20 @@ export default function Footer() {
             </div>
 
             {/*
-              Badge de Google Play. En todas las páginas y en todos los
-              dispositivos, a diferencia de la barra inferior, que es solo de
-              celular y de una sola vez.
+              Badges de las tiendas: App Store en iPhone y iPad, Google Play en
+              Android, los dos en la computadora (ver `BadgesTiendas`). En
+              todas las páginas, a diferencia de la barra inferior, que es solo
+              de celular y de una sola vez.
 
-              Queda visualmente un poco metido hacia adentro respecto del logo
-              de arriba, y está bien así: el PNG oficial trae el espacio libre
-              obligatorio adentro del archivo como área transparente. Corregir
-              esa sangría con un margen negativo sería meter el layout dentro
-              de ese espacio, que es justo lo que las condiciones de uso del
-              badge piden no hacer.
+              Quedan visualmente un poco metidos hacia adentro respecto del
+              logo de arriba, y está bien así: es el espacio libre obligatorio
+              de cada badge (el de Google lo trae adentro del PNG, el de Apple
+              lo pone su padding). Corregir esa sangría con un margen negativo
+              sería meter el layout dentro de ese espacio, que es justo lo que
+              las condiciones de uso de los dos piden no hacer.
             */}
             <div className="mt-6">
-              <GooglePlayBadge />
+              <BadgesTiendas alinear="inicio" />
             </div>
           </div>
 

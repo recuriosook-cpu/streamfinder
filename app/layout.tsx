@@ -9,6 +9,7 @@ import { AnalyticsBoot } from '@/components/AnalyticsBoot'
 import { PageViewTracker } from '@/components/PageViewTracker'
 import { AppDownloadBarGate } from '@/components/AppDownloadBarGate'
 import { Toaster } from 'sonner'
+import { itunesPara } from '@/lib/tiendas'
 
 export const viewport: Viewport = {
   themeColor: '#FFFD02',
@@ -56,7 +57,8 @@ export const metadata: Metadata = {
   manifest: '/manifest.json',
   // El aviso nativo de Safari en iPhone ("Abrir" / "Obtener"), con el Apple ID
   // de la app en App Store Connect. Los demás navegadores ignoran la etiqueta.
-  itunes: { appId: '6817536332' },
+  // Acá sin ruta: "Abrir" lleva al inicio. Las fichas lo piden con la suya.
+  itunes: itunesPara(),
 }
 
 export default function RootLayout({ children }: { children: React.ReactNode }) {

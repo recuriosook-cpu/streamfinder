@@ -1,8 +1,10 @@
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 
 export const metadata: Metadata = {
   title: 'Comunidad de cine y series — Glynbox',
   description: 'Reseñas, debates, actividad de cinéfilos. La comunidad de cine y series más activa de habla hispana.',
+  itunes: itunesPara('C:/Program Files/Git/comunidad'),
   openGraph: {
     title: 'Comunidad de cine y series — Glynbox',
     description: 'Reseñas, debates, actividad de cinéfilos. La comunidad de cine y series más activa de habla hispana.',

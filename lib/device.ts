@@ -1,9 +1,9 @@
 /**
  * Clasificación del dispositivo del visitante.
  *
- * Existe para `/descargar`, que muestra un botón distinto según dónde esté
- * parada la persona: en Android la app se puede instalar, en iPhone todavía no,
- * y en escritorio no hay nada que instalar.
+ * Existe para elegir la tienda según dónde esté parada la persona: en iPhone y
+ * iPad la app se instala desde el App Store, en Android desde Google Play, y en
+ * escritorio no hay nada que instalar (ver `lib/tiendas.ts`).
  *
  * No se importa desde `lib/app-mode.ts` ni lo reemplaza: ese módulo contesta
  * otra pregunta —"¿esta pestaña ya está corriendo adentro de la app?"— y lo

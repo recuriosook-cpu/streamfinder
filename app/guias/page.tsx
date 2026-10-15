@@ -1,10 +1,12 @@
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import Link from 'next/link'
 import { getAllGuides } from '@/lib/guides'
 
 export const metadata: Metadata = {
   title: 'Guías de cine y series — Glynbox',
   description: 'Guías editoriales curadas: las mejores películas argentinas, cine coreano, Studio Ghibli, Marvel y más recomendaciones por @Ferlageok.',
+  itunes: itunesPara('C:/Program Files/Git/guias'),
   openGraph: {
     title: 'Guías de cine y series — Glynbox',
     description: 'Guías editoriales curadas: las mejores películas argentinas, cine coreano, Studio Ghibli, Marvel y más recomendaciones por @Ferlageok.',

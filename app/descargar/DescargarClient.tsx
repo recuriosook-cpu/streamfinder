@@ -3,7 +3,7 @@
 import { useEffect, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { track, flushAnalytics, marcarOrigen } from '@/lib/analytics'
-import { GooglePlayBadge } from '@/components/GooglePlayBadge'
+import { BadgesTiendas } from '@/components/BadgesTiendas'
 import { MosaicoPosters } from './MosaicoPosters'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
 
@@ -57,15 +57,14 @@ import { refinarDispositivo, type Dispositivo } from '@/lib/device'
  * En 320×568 —el piso que nos pusimos— eso deja la banda en algo más de 100px:
  * un renglón de posters desvaneciéndose, con el botón intacto en su lugar.
  *
- * ── El link a Play Store es el badge oficial ───────────────────────────────
+ * ── Los links a las tiendas son los badges oficiales ───────────────────────
  *
- * Los dos lugares donde esta pantalla manda a Play Store —el botón principal en
- * Android y el link de abajo en escritorio— usan `GooglePlayBadge`, que sirve
- * el asset oficial sin modificar. Las condiciones de marca de Google piden eso
- * y prohíben armar un botón propio que lo imite, que es lo que había acá antes.
- *
- * De yapa, el URL de la tienda ahora vive en un solo archivo. Antes estaba
- * copiado en tres.
+ * Todo lo que manda a una tienda —el botón principal en iPhone y en Android, y
+ * los dos de abajo en escritorio— pasa por `BadgesTiendas`, que sirve los
+ * assets oficiales sin modificar y elige la tienda según el aparato: App Store
+ * en iPhone y iPad, Google Play en Android, las dos en la computadora. Las
+ * condiciones de marca de Apple y de Google piden el badge oficial y prohíben
+ * armar un botón propio que lo imite.
  */
 
 /**
@@ -74,17 +73,8 @@ import { refinarDispositivo, type Dispositivo } from '@/lib/device'
  * `glynbox_web` y no `'/'`: lo que se guarda en `analytics_events` tiene que
  * seguir significando lo mismo si mañana la ruta cambia.
  */
-type Destino = 'play_store' | 'glynbox_web'
+type Destino = 'app_store' | 'play_store' | 'glynbox_web'
 
-/**
- * Anchos del badge.
- *
- * El piso de marca son 40px de badge dibujado, que a esta proporción son ~135px
- * de ancho; los dos valores están bien por encima. El detalle está en
- * `components/GooglePlayBadge.tsx`.
- */
-const ANCHO_BADGE_PRINCIPAL  = '260px'  // en Android es EL botón de la pantalla
-const ANCHO_BADGE_SECUNDARIO = '180px'  // en escritorio es el link de abajo; igual que en el pie
 
 /**
  * Una de las dos cosas que puede haber en cada ranura de la pantalla.
@@ -94,13 +84,15 @@ const ANCHO_BADGE_SECUNDARIO = '180px'  // en escritorio es el link de abajo; ig
  * tiene destino. Con campos opcionales habría que acordarse de cuáles van
  * juntos; así el `switch` de abajo no compila si falta un caso.
  *
- * `badge` no lleva `destino` ni `externo`: el badge siempre va a Play Store y
+ * `badges` no lleva `destino` ni `externo`: un badge siempre va a su tienda y
  * siempre es externo. Ponerlos sería dejar abierta la puerta a que alguien los
- * escriba mal y la métrica diga que un click al badge fue al sitio.
+ * escriba mal y la métrica diga que un click al badge fue al sitio. El tamaño
+ * es el de `BadgesTiendas`: `grande` cuando es EL botón de la pantalla,
+ * `normal` —el del pie— cuando es el de abajo.
  */
 type Accion =
   | { tipo: 'boton'; texto: string; href: string; externo: boolean; destino: Destino }
-  | { tipo: 'badge'; ancho: string }
+  | { tipo: 'badges'; tamano: 'normal' | 'grande' }
   | { tipo: 'link';  texto: string; href: string; externo: boolean; destino: Destino }
   | { tipo: 'nota';  texto: string }
 
@@ -114,30 +106,28 @@ interface Variante {
  *
  * En una tabla y no en un `if` desparramado por el JSX porque son tres casos
  * con la misma forma: lo único que cambia entre ellos son textos y destinos.
- * Así se leen los tres de un vistazo, y agregar el cuarto —el día que exista la
- * app de iPhone— es cambiar una entrada, no buscar condicionales.
+ * Así se leen los tres de un vistazo, y cambiar uno es cambiar una entrada, no
+ * buscar condicionales.
  */
 const VARIANTES: Record<Dispositivo, Variante> = {
-  // Android es el único caso donde hay algo para instalar, así que el badge de
-  // la tienda es EL botón de la pantalla y el sitio queda como alternativa.
+  // En el teléfono hay algo para instalar, así que el badge de su tienda es EL
+  // botón de la pantalla y el sitio queda como alternativa. `BadgesTiendas`
+  // pone App Store en iPhone y Google Play en Android.
   android: {
-    principal:  { tipo: 'badge', ancho: ANCHO_BADGE_PRINCIPAL },
+    principal:  { tipo: 'badges', tamano: 'grande' },
     secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/', externo: false, destino: 'glynbox_web' },
   },
 
-  // En iPhone no hay app todavía. El botón grande lleva al sitio, que funciona
-  // perfecto, y abajo se avisa en chico para que nadie se vaya pensando que
-  // Glynbox no existe para iOS.
   ios: {
-    principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
-    secundario: { tipo: 'nota', texto: 'La app para iPhone está en camino' },
+    principal:  { tipo: 'badges', tamano: 'grande' },
+    secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/', externo: false, destino: 'glynbox_web' },
   },
 
-  // En escritorio no se puede instalar nada, pero el badge igual sirve: es
-  // gente que después agarra el teléfono.
+  // En escritorio no se puede instalar nada, pero los badges igual sirven: es
+  // gente que después agarra el teléfono, y no sabemos cuál tiene.
   desktop: {
     principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
-    secundario: { tipo: 'badge', ancho: ANCHO_BADGE_SECUNDARIO },
+    secundario: { tipo: 'badges', tamano: 'normal' },
   },
 }
 
@@ -276,7 +266,7 @@ export default function DescargarClient({
    * internos no hace falta —es navegación del cliente, la cola sigue viva— y
    * forzarlo sería un request de más por cada click.
    *
-   * El caso del badge es el único que no pasa por el `if`: `GooglePlayBadge`
+   * El caso de los badges es el único que no pasa por el `if`: cada badge
    * hace el flush por su cuenta, siempre, porque su destino es externo por
    * definición.
    */
@@ -304,11 +294,12 @@ export default function DescargarClient({
    */
   const renderAccion = (accion: Accion, ranura: 'principal' | 'secundario') => {
     switch (accion.tipo) {
-      case 'badge':
+      case 'badges':
         return (
-          <GooglePlayBadge
-            ancho={accion.ancho}
-            onClick={() => registrarClick('play_store', ranura, true)}
+          <BadgesTiendas
+            dispositivo={dispositivo}
+            tamano={accion.tamano}
+            onClick={(tienda) => registrarClick(tienda, ranura, false)}
           />
         )
 
@@ -432,14 +423,15 @@ export default function DescargarClient({
 
               Mientras las tres variantes tenían texto ahí, un `min-h` alcanzaba
               para que el botón quedara siempre a la misma altura. Ahora en
-              escritorio hay un badge de ~70px y en iOS una línea de ~20px, así
-              que igualarlas significaría dejar 50px de aire muerto en Android e
-              iOS — en la pantalla que no puede scrollear y en el aparato que es
-              el objetivo de la campaña.
+              escritorio hay badges de ~70px y en el teléfono un link de ~20px,
+              así que igualarlas significaría dejar 50px de aire muerto en
+              Android e iOS — en la pantalla que no puede scrollear y en el
+              aparato que es el objetivo de la campaña.
 
               La consecuencia: en un iPad, cuando el refinamiento corrige
-              `desktop` → `ios` justo después de hidratar, el badge se
-              reemplaza por la línea de texto y el bloque se acomoda. Es un
+              `desktop` → `ios` justo después de hidratar, el botón amarillo
+              pasa a ser el badge del App Store, los badges de abajo pasan a ser
+              el link al sitio, y el bloque se acomoda. Es un
               salto de una vez, en un solo tipo de aparato, en el instante
               anterior a que nadie haya leído nada. Se prefiere eso antes que
               el aire permanente.

@@ -17,6 +17,7 @@ import { notFound } from 'next/navigation'
  */
 
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Calendar, MapPin, Star } from 'lucide-react'
@@ -90,6 +91,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         images:      [photoUrl],
       },
       alternates: { canonical: `https://glynbox.com/actor/${id}` },
+      itunes: itunesPara(`/actor/${id}`),
     }
   } catch { return {} }
 }

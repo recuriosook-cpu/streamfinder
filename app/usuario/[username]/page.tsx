@@ -1,5 +1,6 @@
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import { createServerClient } from '@/lib/supabase-server'
 import UserProfileClient from '@/components/UserProfileClient'
 import Breadcrumb from '@/components/Breadcrumb'
@@ -40,6 +41,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images:      [imageUrl],
     },
     alternates: { canonical: `https://glynbox.com/usuario/${username}` },
+    itunes: itunesPara(`/usuario/${encodeURIComponent(username)}`),
   }
 }
 

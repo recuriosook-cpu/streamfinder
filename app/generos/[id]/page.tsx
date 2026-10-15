@@ -1,4 +1,5 @@
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import GenreClient from './client'
 import { GENRE_NAMES } from './genre-constants'
 
@@ -50,6 +51,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       url: `https://glynbox.com/generos/${id}`,
     },
     alternates: { canonical: `https://glynbox.com/generos/${id}` },
+    itunes: itunesPara(`/generos/${id}`),
   }
 }
 

@@ -42,6 +42,7 @@ import MediaShareButton from '@/components/MediaShareButton'
 import AddToListButton from '@/components/AddToListButton'
 import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -120,6 +121,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         images:      [mediaImageUrl('tv', id, 'link')],
       },
       alternates: { canonical: `https://glynbox.com/tv/${id}` },
+      itunes: itunesPara(`/tv/${id}`),
     }
   } catch { return {} }
 }

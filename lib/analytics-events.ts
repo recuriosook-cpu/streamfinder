@@ -73,7 +73,7 @@ export const EVENT_NAMES = [
   /** Permiso de notificaciones. props: { estado: 'pedido' | 'aceptado' | 'rechazado' } */
   'notif_permission',
 
-  // ── Captación de instalaciones de la app de Android ─────────────────
+  // ── Captación de instalaciones de la app (iPhone y Android) ─────────
   //
   // Los tres primeros son el embudo de la barra inferior: se muestra, se toca,
   // se cierra. Van juntos a propósito, porque por separado no dicen nada. Un
@@ -87,12 +87,20 @@ export const EVENT_NAMES = [
 
   /** Apareció la barra de descarga. Una vez por navegador. props: {} */
   'app_banner_shown',
-  /** Tocó el botón de la barra y se fue a Play Store. props: {} */
+  /**
+   * Tocó el botón de la barra y se fue a la tienda. props: { tienda }
+   *
+   * `tienda` es 'app_store' en iPhone y iPad, 'play_store' en el resto. Los
+   * eventos de antes de la app de iPhone no la traen: eran todos de Play.
+   */
   'app_banner_clicked',
   /** Cerró la barra con la X. props: {} */
   'app_banner_dismissed',
   /**
-   * Click en el badge de Google Play del pie de página. props: { path }
+   * Click en un badge de tienda del pie de página. props: { path, tienda }
+   *
+   * `tienda` es 'app_store' o 'play_store'; los de antes de la app de
+   * iPhone no la traen y son todos de Google Play.
    *
    * Este va aparte del embudo de la barra y no comparte prefijo por casualidad:
    * el badge está en todas las páginas y en todos los dispositivos, sin límite
@@ -126,7 +134,7 @@ export const EVENT_NAMES = [
   /**
    * Se tocó uno de los dos botones. props: { dispositivo, destino, boton }
    *
-   * `destino` es a dónde se fue ('play_store' | 'glynbox_web') y `boton` es
+   * `destino` es a dónde se fue ('app_store' | 'play_store' | 'glynbox_web') y `boton` es
    * cuál de los dos tocó ('principal' | 'secundario'). Van separados porque no
    * son lo mismo: en Android el principal lleva a Play Store y en escritorio el
    * secundario lleva al mismo lado. Con una sola prop no se podría distinguir

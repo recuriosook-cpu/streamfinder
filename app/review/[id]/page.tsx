@@ -3,6 +3,7 @@ import { reviewImageUrl } from '@/lib/share-urls'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 import ReviewPageClient from './ReviewPageClient'
 
 interface Props {
@@ -57,6 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type:        'article',
       siteName:    'Glynbox',
     },
+    itunes: itunesPara(`/review/${id}`),
     twitter: {
       card:        'summary_large_image',
       title,

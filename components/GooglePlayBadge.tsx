@@ -2,6 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { track, flushAnalytics } from '@/lib/analytics'
+import { PLAY_URL } from '@/lib/tiendas'
 
 /**
  * El badge oficial de Google Play.
@@ -49,8 +50,6 @@ import { track, flushAnalytics } from '@/lib/analytics'
  * alternativo y el destino. Todo eso es la parte que las condiciones de marca
  * fijan, y dejarlo abierto sería invitar a que un caller la rompa sin enterarse.
  */
-
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.glynbox.app'
 
 /** Las del archivo oficial. No tocar sin reemplazar el archivo. */
 const BADGE_W = 646
@@ -102,7 +101,7 @@ export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick }: GooglePl
         } else {
           // `path` porque el pie es idéntico en todo el sitio: sin eso no se sabe
           // desde qué pantalla salió el click.
-          track('app_footer_clicked', { path: pathname ?? null })
+          track('app_footer_clicked', { path: pathname ?? null, tienda: 'play_store' })
         }
         // El click se lleva la página a Play Store, y la cola de analytics
         // manda de a lotes cada 5 segundos. Sin el flush el evento se pierde.

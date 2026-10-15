@@ -41,6 +41,7 @@ import AddToListButton from '@/components/AddToListButton'
 import CollectionSection, { type CollectionData } from '@/components/CollectionSection'
 import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
+import { itunesPara } from '@/lib/tiendas'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -129,6 +130,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         images:      [mediaImageUrl('movie', id, 'link')],
       },
       alternates: { canonical: `https://glynbox.com/movie/${id}` },
+      itunes: itunesPara(`/movie/${id}`),
     }
   } catch { return {} }
 }

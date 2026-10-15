@@ -2,6 +2,8 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import { track, flushAnalytics } from '@/lib/analytics'
+import { detectarDispositivo, refinarDispositivo } from '@/lib/device'
+import { urlDeTienda, type Tienda } from '@/lib/tiendas'
 
 /**
  * La barra de descarga propiamente dicha.
@@ -35,7 +37,21 @@ import { track, flushAnalytics } from '@/lib/analytics'
  *     puede cortar en dos líneas en pantallas angostas.
  */
 
-const PLAY_URL = 'https://play.google.com/store/apps/details?id=com.glynbox.app'
+/**
+ * A qué tienda lleva "Bajar": App Store en iPhone y iPad, Google Play en el
+ * resto. La barra sólo aparece en pantallas de celular, así que el resto es
+ * Android; una ventana de computadora angosta sigue yendo a Play, como antes.
+ *
+ * En iPhone, con Safari puede estar además el aviso nativo de arriba (ver
+ * `itunesPara`). Los dos a la vez está bien: llevan al mismo lado.
+ */
+function tiendaDeLaBarra(): Tienda {
+  try {
+    return refinarDispositivo(detectarDispositivo(navigator.userAgent)) === 'ios' ? 'app_store' : 'play_store'
+  } catch {
+    return 'play_store'
+  }
+}
 
 /** Cuánto tarda en subir. Suave, sin rebote: no tiene que sobresaltar a nadie. */
 const SLIDE_MS = 320
@@ -73,6 +89,9 @@ export default function AppDownloadBar({ onClose }: AppDownloadBarProps) {
   // Un solo aviso de salida, pase lo que pase. Sin esto, tocar el botón y la X
   // casi al mismo tiempo dispararía dos eventos y dos `onClose`.
   const closedRef = useRef(false)
+
+  // Se monta sólo en el navegador (ver el gate), así que se puede leer acá.
+  const [tienda] = useState(tiendaDeLaBarra)
 
   /**
    * Se lee una vez, al inicializar el estado, y no en un efecto.
@@ -135,8 +154,8 @@ export default function AppDownloadBar({ onClose }: AppDownloadBarProps) {
     if (motivo === 'cerrar') {
       track('app_banner_dismissed')
     } else {
-      track('app_banner_clicked')
-      // El click se lleva la página a Play Store. `track()` encola y manda de a
+      track('app_banner_clicked', { tienda })
+      // El click se lleva la página a la tienda. `track()` encola y manda de a
       // lotes cada 5 segundos, así que sin esto el evento más importante de los
       // tres es justo el que se pierde. `flushAnalytics` usa `sendBeacon`, que
       // es lo único que el navegador garantiza que sale con la página muriendo.
@@ -146,7 +165,7 @@ export default function AppDownloadBar({ onClose }: AppDownloadBarProps) {
     setLeaving(true)
 
     setTimeout(() => onClose(motivo), reducedMotion ? 0 : SLIDE_MS)
-  }, [onClose, reducedMotion])
+  }, [onClose, reducedMotion, tienda])
 
   const escondida = !visible || leaving
 
@@ -189,7 +208,7 @@ export default function AppDownloadBar({ onClose }: AppDownloadBarProps) {
         </div>
 
         <a
-          href={PLAY_URL}
+          href={urlDeTienda(tienda)}
           target="_blank"
           rel="noopener noreferrer"
           onClick={() => cerrar('click')}
