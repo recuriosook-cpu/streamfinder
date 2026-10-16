@@ -459,7 +459,7 @@ function ensureListeners(): void {
  * nombre que no exista no compila. El endpoint igual revalida: el cliente es
  * público y no se le cree nada.
  */
-export function track(name: EventName, props: EventProps = {}): void {
+export function track(name: EventName, props: EventProps = {}, options: { path?: string } = {}): void {
   try {
     if (typeof window === 'undefined') return  // no-op en SSR
 
@@ -467,7 +467,10 @@ export function track(name: EventName, props: EventProps = {}): void {
 
     const anonId = getAnonId()
     const sessionId = getSessionId()
-    const path = window.location?.pathname ?? null
+    // `options.path` es para las pantallas que no son una ruta: el cierre del
+    // onboarding vive en /onboarding pero se mide como
+    // '/onboarding/recomendaciones', igual que en la app.
+    const path = options.path ?? window.location?.pathname ?? null
 
     // La marca de origen viaja en las props de cada evento, y no en una
     // columna propia, por una razón de costos: una columna obligaría a migrar

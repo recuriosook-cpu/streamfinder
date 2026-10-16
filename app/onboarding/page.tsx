@@ -1,86 +1,137 @@
 'use client'
 
-import { useState, useEffect, useRef, useCallback } from 'react'
-import Image from 'next/image'
+import { useState, useEffect, useRef, useCallback, useMemo } from 'react'
+import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { Camera, Eye, Heart, Bookmark, Check, X, ChevronRight } from 'lucide-react'
+import { Check, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { track, registrarAlta } from '@/lib/analytics'
-import { ALL_PLATFORMS } from '@/lib/providers'
-import { getLevelInfo } from '@/lib/points'
-import { sendNotification } from '@/lib/notify'
-import { StarIcon } from '@/components/StarDisplay'
+import { ALL_PLATFORMS, type PlatformConfig } from '@/lib/providers'
+import { useCountry } from '@/context/CountryContext'
+import {
+  ONBOARDING_GENRES,
+  MIN_GENRES,
+  TASTE_TO_CONTINUE,
+  TASTE_RATING,
+  LIKED_FROM,
+  keyOf,
+  normalizeSavedPlatforms,
+  getTasteGrid,
+  getFirstRecommendations,
+  type TasteItem,
+  type FirstRecommendation,
+} from '@/lib/onboarding'
 import type { User } from '@supabase/supabase-js'
 
-const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
-const TMDB = 'https://api.themoviedb.org/3'
+/**
+ * Onboarding de cuenta nueva: tres pasos y una pantalla de cierre, igual que
+ * el de la app (`src/screens/OnboardingScreen.tsx` de glynbox-mobile).
+ *
+ *   1. Plataformas  → `profiles.favorite_platforms`
+ *   2. Géneros      → `profiles.favorite_genres`
+ *   3. Gusto        → cada póster tocado es una calificación de
+ *                     `TASTE_RATING` estrellas en `ratings` (y "la vi" en
+ *                     `watched`)
+ *   → Tus primeras recomendaciones, con el onboarding ya guardado
+ *
+ * Salteable desde cualquier paso. Cada paso guarda al avanzar: quien cierra la
+ * pestaña en el paso 2 no pierde las plataformas.
+ */
 
-const GENRES = [
-  'Acción', 'Comedia', 'Drama', 'Terror', 'Ciencia ficción', 'Thriller',
-  'Animación', 'Romance', 'Documental', 'Aventura', 'Fantasía', 'Misterio',
-  'Historia', 'Crimen', 'Musical', 'Western', 'Guerra', 'Familia',
+const TOTAL_STEPS = 3
+
+/**
+ * Va en todos los eventos del flujo, junto a `paso`. Es lo que separa en el
+ * panel este flujo del de cinco pasos que mandaba la web hasta ahora.
+ */
+const FLUJO = 'corto'
+
+const RECS_PATH = '/onboarding/recomendaciones'
+
+const COPY: { title: string; subtitle: string }[] = [
+  {
+    title: '¿Dónde ves series y películas?',
+    subtitle: 'Marcá tus plataformas y te decimos dónde está cada título.',
+  },
+  {
+    title: '¿Qué te gusta ver?',
+    subtitle: 'Elegí tus géneros. Podés cambiarlos cuando quieras.',
+  },
+  {
+    title: 'Tocá las que viste y te gustaron',
+    subtitle: `Con ${TASTE_TO_CONTINUE} ya podemos recomendarte. Cuantas más, mejor.`,
+  },
 ]
 
-interface SuggestedUser {
-  id: string; username: string | null; display_name: string | null
-  avatar_url: string | null; points: number | null; level: number | null
-}
+const poster = (path: string | null, size = 'w342') => (path ? `https://image.tmdb.org/t/p/${size}${path}` : null)
 
-interface OnboardingMovie {
-  id: number; title: string; year: string
-  posterPath: string | null; backdropPath: string | null
-  voteAverage: number; genreIds: number[]
-}
+/** Lo que ya tenía de cada título de la grilla. */
+type Mark = { rating: number | null; watched: boolean }
 
-interface MovieAction {
-  watched: boolean; liked: boolean; rating: number | null; inWatchlist: boolean
-}
-
-// ── Progress bar ───────────────────────────────────────────────────────────────
-
-function ProgressBar({ step }: { step: number }) {
-  const TOTAL = 5
+function Spinner({ dark = false, size = 20 }: { dark?: boolean; size?: number }) {
   return (
-    <div className="w-full max-w-xs mx-auto">
-      <div className="flex justify-between text-xs text-[#A0A0B0] mb-2">
-        <span>Paso {step} de {TOTAL}</span>
-        <span className="tabular-nums">{Math.round((step / TOTAL) * 100)}%</span>
-      </div>
-      <div className="h-1.5 bg-[#1C1C27] rounded-full overflow-hidden">
-        <div
-          className="h-full rounded-full transition-all duration-500 ease-out"
-          style={{ width: `${(step / TOTAL) * 100}%`, backgroundColor: '#FFFD02' }}
-        />
-      </div>
+    <span
+      className={`inline-block rounded-full border-2 animate-spin ${dark ? 'border-black/30 border-t-black' : 'border-[#FFFD02] border-t-transparent'}`}
+      style={{ width: size, height: size }}
+    />
+  )
+}
+
+// ── Paso 1: plataformas ───────────────────────────────────────────────────────
+
+function PlatformLogo({ platform, size }: { platform: PlatformConfig; size: number }) {
+  const [failed, setFailed] = useState(false)
+  if (platform.fallbackLogoPath && !failed) {
+    return (
+      // eslint-disable-next-line @next/next/no-img-element
+      <img
+        src={`https://image.tmdb.org/t/p/w154${platform.fallbackLogoPath}`}
+        alt=""
+        width={size}
+        height={size}
+        className="rounded-xl object-cover"
+        style={{ width: size, height: size }}
+        onError={() => setFailed(true)}
+      />
+    )
+  }
+  return (
+    <div
+      className="rounded-xl flex items-center justify-center text-white font-bold text-center leading-tight p-1"
+      style={{ width: size, height: size, backgroundColor: platform.color, fontSize: Math.max(8, size / 6) }}
+    >
+      {platform.name}
     </div>
   )
 }
 
-// ── Inline star rater ─────────────────────────────────────────────────────────
-
-function InlineStarRater({ current, onRate }: { current: number | null; onRate: (v: number) => void }) {
-  const [hover, setHover] = useState(0)
-  const display = hover || current || 0
+function PlatformsStep({ selected, onToggle }: { selected: number[]; onToggle: (id: number) => void }) {
   return (
-    <div className="flex gap-0.5">
-      {[1, 2, 3, 4, 5].map(n => {
-        const fill: 'full' | 'half' | 'empty' =
-          display >= n ? 'full' : display >= n - 0.5 ? 'half' : 'empty'
+    <div className="grid grid-cols-4 sm:grid-cols-5 gap-x-3 gap-y-4">
+      {ALL_PLATFORMS.map(p => {
+        const active = selected.includes(p.id)
         return (
           <button
-            key={n} type="button"
-            className="transition-transform hover:scale-110"
-            onMouseMove={e => {
-              const rect = e.currentTarget.getBoundingClientRect()
-              setHover(e.clientX - rect.left < rect.width / 2 ? n - 0.5 : n)
-            }}
-            onMouseLeave={() => setHover(0)}
-            onClick={e => {
-              const rect = e.currentTarget.getBoundingClientRect()
-              onRate(e.clientX - rect.left < rect.width / 2 ? n - 0.5 : n)
-            }}
+            key={p.id}
+            type="button"
+            role="checkbox"
+            aria-checked={active}
+            aria-label={p.name}
+            onClick={() => onToggle(p.id)}
+            className="flex flex-col items-center gap-1.5 transition-transform active:scale-95"
           >
-            <StarIcon fill={fill} size={28} color="text-[#F5A623]" />
+            <span
+              className="relative rounded-[14px] border-2 transition-all"
+              style={{ borderColor: active ? '#FFFD02' : 'transparent', opacity: active ? 1 : 0.55 }}
+            >
+              <PlatformLogo platform={p} size={58} />
+              {active && (
+                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FFFD02] flex items-center justify-center">
+                  <Check size={12} className="text-black" strokeWidth={3} />
+                </span>
+              )}
+            </span>
+            <span className="text-[11px] text-center leading-tight text-[#A0A0B0] line-clamp-2">{p.name}</span>
           </button>
         )
       })}
@@ -88,430 +139,247 @@ function InlineStarRater({ current, onRate }: { current: number | null; onRate: 
   )
 }
 
-// ── Step 1 — Profile (Avatar / Name / Bio) ────────────────────────────────────
+// ── Paso 2: géneros ───────────────────────────────────────────────────────────
 
-function ProfileStep({
-  displayName, setDisplayName, bio, setBio, avatarUrl,
-  onAvatarChange, uploading,
-}: {
-  displayName: string; setDisplayName: (v: string) => void
-  bio: string; setBio: (v: string) => void
-  avatarUrl: string | null
-  onAvatarChange: (file: File) => void
-  uploading: boolean
-}) {
-  return (
-    <div className="flex flex-col items-center gap-6 w-full max-w-sm mx-auto">
-
-      {/* Avatar */}
-      <div className="relative">
-        <div className="w-24 h-24 rounded-full overflow-hidden bg-[#1C1C27] ring-4 ring-[#2A2A3A] flex items-center justify-center">
-          {avatarUrl ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img src={avatarUrl} alt="Avatar" className="w-full h-full object-cover" />
-          ) : (
-            <span className="text-4xl select-none">🙂</span>
-          )}
-          {uploading && (
-            <div className="absolute inset-0 rounded-full bg-black/60 flex items-center justify-center">
-              <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
-            </div>
-          )}
-        </div>
-        <label className="absolute bottom-0.5 right-0.5 w-8 h-8 rounded-full bg-[#FFFD02] flex items-center justify-center cursor-pointer shadow-lg hover:bg-[#E5EB00] transition-colors">
-          <Camera size={14} className="text-black" />
-          <input
-            type="file"
-            accept="image/jpeg,image/png,image/webp"
-            className="hidden"
-            onChange={e => { const f = e.target.files?.[0]; if (f) onAvatarChange(f) }}
-          />
-        </label>
-      </div>
-      <p className="text-xs text-[#A0A0B0] -mt-4">Foto de perfil (opcional)</p>
-
-      {/* Display name */}
-      <div className="w-full">
-        <label className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider mb-1.5 block">
-          Nombre
-        </label>
-        <input
-          value={displayName}
-          onChange={e => setDisplayName(e.target.value)}
-          placeholder="¿Cómo te llamás?"
-          maxLength={50}
-          className="w-full bg-[#13131A] border border-[#2A2A3A] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors placeholder-[#A0A0B0]"
-        />
-      </div>
-
-      {/* Bio */}
-      <div className="w-full">
-        <div className="flex items-center justify-between mb-1.5">
-          <label className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-wider">
-            Bio <span className="font-normal normal-case text-zinc-600">(opcional)</span>
-          </label>
-          <span className="text-[10px] text-zinc-600 tabular-nums">{bio.length}/160</span>
-        </div>
-        <textarea
-          value={bio}
-          onChange={e => setBio(e.target.value)}
-          placeholder="Contanos algo sobre vos..."
-          maxLength={160}
-          rows={3}
-          className="w-full bg-[#13131A] border border-[#2A2A3A] rounded-xl px-4 py-3 text-white text-sm outline-none focus:border-[#FFFD02] transition-colors placeholder-[#A0A0B0] resize-none"
-        />
-      </div>
-    </div>
-  )
-}
-
-// ── Step 2 — Genres ───────────────────────────────────────────────────────────
-
-function GenresStep({ selected, onToggle }: { selected: string[]; onToggle: (g: string) => void }) {
+function GenresStep({ selected, onToggle }: { selected: string[]; onToggle: (name: string) => void }) {
+  const ok = selected.length >= MIN_GENRES
   return (
     <div>
-      <div className="flex flex-wrap gap-2 justify-center max-w-lg mx-auto">
-        {GENRES.map(g => {
-          const active = selected.includes(g)
+      <div className="flex flex-wrap gap-2">
+        {ONBOARDING_GENRES.map(g => {
+          const active = selected.includes(g.name)
           return (
             <button
-              key={g}
-              onClick={() => onToggle(g)}
-              className="px-4 py-2 rounded-full text-sm font-medium border transition-all duration-150"
+              key={g.id}
+              type="button"
+              role="checkbox"
+              aria-checked={active}
+              onClick={() => onToggle(g.name)}
+              className="flex items-center gap-1 px-3.5 py-2 rounded-full text-sm border transition-colors"
               style={{
                 borderColor: active ? '#FFFD02' : '#2A2A3A',
                 backgroundColor: active ? 'rgba(255,253,2,0.15)' : 'transparent',
                 color: active ? '#fff' : '#A0A0B0',
-                transform: active ? 'scale(1.05)' : 'scale(1)',
+                fontWeight: active ? 600 : 400,
               }}
             >
-              {active && <Check size={12} className="inline mr-1" />}
-              {g}
+              {active && <Check size={13} className="text-[#FFFD02]" />}
+              {g.name}
             </button>
           )
         })}
       </div>
-      <p className="text-xs text-[#A0A0B0] mt-4 text-center">
-        {selected.length < 3 ? (
-          <>Elegí al menos <span className="text-white font-semibold">3 géneros</span>{' '}
-            · <span className="text-white tabular-nums">{selected.length}/3</span></>
-        ) : (
-          <><span style={{ color: '#22C55E' }}>✓</span>{' '}
-            Elegiste <span className="text-white font-semibold">{selected.length}</span> géneros</>
-        )}
+      <p className="text-xs text-center mt-5" style={{ color: ok ? '#22C55E' : '#A0A0B0' }}>
+        {ok
+          ? `✓ Elegiste ${selected.length} ${selected.length === 1 ? 'género' : 'géneros'}`
+          : 'Elegí al menos uno'}
       </p>
     </div>
   )
 }
 
-// ── Step 3 — Platforms ────────────────────────────────────────────────────────
+// ── Paso 3: la grilla de gusto ────────────────────────────────────────────────
 
-function PlatformsStep({ selected, onToggle }: { selected: string[]; onToggle: (id: string) => void }) {
-  const [imgErrors, setImgErrors] = useState<Set<number>>(new Set())
-  const platforms = ALL_PLATFORMS.filter(p => p.fallbackLogoPath)
-  return (
-    <div>
-      <div className="grid grid-cols-3 sm:grid-cols-4 gap-3 max-w-lg mx-auto w-full">
-        {platforms.map(p => {
-          const active = selected.includes(String(p.id))
-          const logoUrl = `https://image.tmdb.org/t/p/w154${p.fallbackLogoPath}`
-          return (
-            <button
-              key={p.id}
-              onClick={() => onToggle(String(p.id))}
-              className="relative flex flex-col items-center gap-2 p-3 rounded-xl border transition-all"
-              style={{
-                borderColor: active ? '#FFFD02' : '#2A2A3A',
-                backgroundColor: active ? 'rgba(255,253,2,0.1)' : '#13131A',
-              }}
-            >
-              {active && (
-                <div className="absolute top-1.5 right-1.5 w-5 h-5 rounded-full flex items-center justify-center" style={{ backgroundColor: '#FFFD02' }}>
-                  <Check size={11} className="text-black" />
-                </div>
-              )}
-              <div className="relative w-12 h-12 rounded-lg overflow-hidden shrink-0">
-                {!imgErrors.has(p.id) ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img
-                    src={logoUrl} alt={p.name}
-                    className="w-full h-full object-cover"
-                    onError={() => setImgErrors(prev => new Set(prev).add(p.id))}
-                  />
-                ) : (
-                  <div
-                    className="w-full h-full flex items-center justify-center text-white text-[9px] font-bold text-center p-1"
-                    style={{ backgroundColor: p.color }}
-                  >
-                    {p.name}
-                  </div>
-                )}
-              </div>
-              <span className="text-[11px] text-center leading-tight" style={{ color: active ? '#fff' : '#A0A0B0' }}>
-                {p.name}
-              </span>
-            </button>
-          )
-        })}
-      </div>
-      {selected.length > 0 && (
-        <p className="text-xs text-[#A0A0B0] mt-4 text-center">
-          Elegiste <span className="text-white font-semibold">{selected.length}</span>{' '}
-          {selected.length === 1 ? 'plataforma' : 'plataformas'}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ── Step 4 — Suggested users ──────────────────────────────────────────────────
-
-function SuggestedUsersStep({
-  users, followed, onFollow,
-}: { users: SuggestedUser[]; followed: Set<string>; onFollow: (id: string) => void }) {
-  return (
-    <div>
-      <div className="space-y-3 max-w-lg mx-auto w-full">
-        {users.map(u => {
-          const name = u.display_name ?? u.username ?? 'Usuario'
-          const initials = name[0]?.toUpperCase() ?? '?'
-          const info = getLevelInfo(u.level ?? 1, u.points ?? 0)
-          const isFollowing = followed.has(u.id)
-          const isVerified = u.username === 'Ferlageok' || u.username === 'ferlageok'
-          return (
-            <div key={u.id} className="flex items-center gap-3 p-3 rounded-xl border border-[#2A2A3A] bg-[#13131A]">
-              <div className="w-11 h-11 rounded-full overflow-hidden bg-[#1C1C27] shrink-0">
-                {u.avatar_url ? (
-                  // eslint-disable-next-line @next/next/no-img-element
-                  <img src={u.avatar_url} alt={name} className="w-full h-full object-cover" />
-                ) : (
-                  <div className="w-full h-full flex items-center justify-center text-base font-bold bg-[#2A2A3A] text-[#FFFD02]">
-                    {initials}
-                  </div>
-                )}
-              </div>
-              <div className="flex-1 min-w-0">
-                <div className="flex items-center gap-1 min-w-0">
-                  <p className="text-sm font-semibold text-white truncate min-w-0 flex-1">{name}</p>
-                  {isVerified && (
-                    <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                  )}
-                </div>
-                <p className="text-xs text-[#A0A0B0]">{info.emoji} {info.name}</p>
-              </div>
-              <button
-                onClick={() => onFollow(u.id)}
-                className="shrink-0 px-3 py-1.5 rounded-full text-xs font-semibold transition-all duration-200 flex items-center gap-1"
-                style={{
-                  backgroundColor: isFollowing ? 'rgba(239,68,68,0.1)' : '#2563EB',
-                  color: isFollowing ? 'rgb(248,113,113)' : '#fff',
-                  border: isFollowing ? '1px solid rgba(239,68,68,0.4)' : 'none',
-                }}
-              >
-                {isFollowing ? <><Check size={11} /> Siguiendo</> : 'Seguir'}
-              </button>
-            </div>
-          )
-        })}
-      </div>
-      {followed.size > 0 && (
-        <p className="text-xs text-[#A0A0B0] mt-4 text-center">
-          Siguiendo a <span className="text-white font-semibold">{followed.size}</span>{' '}
-          {followed.size === 1 ? 'persona' : 'personas'}
-        </p>
-      )}
-    </div>
-  )
-}
-
-// ── Step 5 — Rate movies (full-screen) ────────────────────────────────────────
-
-function RateMoviesStep({
-  movies, actions, onAction, onLoadMore, onFinish,
+function TasteGridStep({
+  items, loading, selected, blocked, onToggle,
 }: {
-  movies: OnboardingMovie[]
-  actions: Map<number, MovieAction>
-  onAction: (id: number, type: 'watched' | 'liked' | 'watchlist' | 'rating', value?: number) => void
-  onLoadMore: () => void
-  onFinish: () => void
+  items: TasteItem[]
+  loading: boolean
+  selected: Set<string>
+  /** Todavía se lee lo que ya tenía calificado: el primer toque escribiría sin saberlo. */
+  blocked: boolean
+  onToggle: (item: TasteItem) => void
 }) {
-  const [idx, setIdx] = useState(0)
-  const [ratingOpen, setRatingOpen] = useState(false)
-  const [finishing, setFinishing] = useState(false)
-  const touchStartX = useRef<number | null>(null)
-
-  const movie = movies[idx]
-  const act = movie ? (actions.get(movie.id) ?? { watched: false, liked: false, rating: null, inWatchlist: false }) : null
-
-  useEffect(() => {
-    if (movies.length > 0 && idx >= movies.length - 3) onLoadMore()
-  }, [idx, movies.length, onLoadMore])
-
-  const next = useCallback(() => {
-    setRatingOpen(false)
-    setIdx(i => Math.min(i + 1, movies.length - 1))
-  }, [movies.length])
-
-  const handleTouchStart = (e: React.TouchEvent) => { touchStartX.current = e.touches[0].clientX }
-  const handleTouchEnd = (e: React.TouchEvent) => {
-    if (touchStartX.current === null) return
-    const dx = touchStartX.current - e.changedTouches[0].clientX
-    if (dx > 50) next()
-    touchStartX.current = null
+  if (loading && items.length === 0) {
+    return <div className="flex justify-center py-12"><Spinner /></div>
+  }
+  if (items.length === 0) {
+    return <p className="text-sm text-[#A0A0B0] text-center py-8">No pudimos cargar títulos. Podés seguir sin marcar nada.</p>
   }
 
-  const handleFinish = async () => { setFinishing(true); await onFinish() }
-
-  if (!movie || !act) return null
-
-  const backdropUrl = movie.backdropPath ? `https://image.tmdb.org/t/p/w1280${movie.backdropPath}` : null
-  const totalLabel = movies.length >= 50 ? 50 : movies.length
-
+  const done = selected.size >= TASTE_TO_CONTINUE
   return (
-    <div
-      className="relative flex flex-col items-center justify-center overflow-hidden"
-      style={{ height: '100dvh', backgroundColor: '#0A0A0F' }}
-      onTouchStart={handleTouchStart}
-      onTouchEnd={handleTouchEnd}
-    >
-      {backdropUrl && (
-        <div className="absolute inset-0" style={{ backgroundImage: `url(${backdropUrl})`, backgroundSize: 'cover', backgroundPosition: 'center' }} />
-      )}
-      <div className="absolute inset-0" style={{ background: 'linear-gradient(to bottom, rgba(10,10,15,0.2) 0%, rgba(10,10,15,0.4) 35%, rgba(10,10,15,0.85) 65%, rgba(10,10,15,1) 100%)' }} />
-
-      {/* Top bar */}
-      <div className="absolute top-0 left-0 right-0 z-20 flex items-center justify-between px-4 pt-4">
-        <p className="text-xs text-white/60 tabular-nums">Película {idx + 1} de {totalLabel}</p>
-        <button
-          onClick={handleFinish}
-          disabled={finishing}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-full text-sm font-semibold text-black transition-all"
-          style={{ backgroundColor: 'rgba(255,253,2,0.9)' }}
-        >
-          {finishing
-            ? <span className="w-3.5 h-3.5 border-2 border-black/30 border-t-black rounded-full animate-spin" />
-            : <X size={14} />
-          }
-          Terminar
-        </button>
-      </div>
-
-      {/* Content */}
-      <div className="relative z-10 flex flex-col items-center pt-20 pb-6 sm:pb-10 px-4 w-full max-w-sm mx-auto">
-
-        <div className="relative w-[280px] sm:w-[320px] aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl mb-5">
-          {movie.posterPath ? (
-            <Image
-              src={`https://image.tmdb.org/t/p/w500${movie.posterPath}`}
-              alt={movie.title} fill
-              className="object-cover"
-              sizes="(max-width: 640px) 280px, 320px"
-            />
-          ) : (
-            <div className="w-full h-full flex items-center justify-center bg-[#2A2A3A] text-[#FFFD02] text-xs text-center px-2">
-              {movie.title}
-            </div>
-          )}
-        </div>
-
-        <h2 className="text-xl sm:text-2xl font-bold text-white text-center mb-1 leading-tight">{movie.title}</h2>
-        <p className="text-sm text-white/60 mb-4">
-          {movie.year}{movie.voteAverage > 0 && ` · ★ ${movie.voteAverage.toFixed(1)}`}
-        </p>
-
-        {ratingOpen && (
-          <div className="flex flex-col items-center gap-2 mb-4 p-4 rounded-2xl bg-[#13131A]/90 border border-[#2A2A3A]">
-            <p className="text-xs text-[#A0A0B0]">¿Cuántas estrellas le das?</p>
-            <InlineStarRater
-              current={act.rating}
-              onRate={v => { onAction(movie.id, 'rating', v); setRatingOpen(false) }}
-            />
-          </div>
-        )}
-
-        <div className="flex gap-3 mb-5 flex-wrap justify-center">
-          {[
-            { type: 'watched' as const, icon: <Eye size={20} />, label: 'Ya la vi', active: act.watched, activeColor: '#22c55e' },
-            { type: 'liked' as const, icon: <Heart size={20} fill={act.liked ? 'currentColor' : 'none'} />, label: 'Me gusta', active: act.liked, activeColor: '#ef4444' },
-            { type: 'rating' as const, icon: act.rating ? <span className="text-base font-bold">{act.rating}★</span> : <span className="text-lg">★</span>, label: 'Calificar', active: act.rating !== null, activeColor: '#F5A623' },
-            { type: 'watchlist' as const, icon: <Bookmark size={20} fill={act.inWatchlist ? 'currentColor' : 'none'} />, label: 'Ver después', active: act.inWatchlist, activeColor: '#3b82f6' },
-          ].map(btn => (
+    <div>
+      <p
+        className="text-sm font-semibold mb-3 tabular-nums"
+        style={{ color: done ? '#22C55E' : '#fff' }}
+        aria-live="polite"
+      >
+        {done ? `✓ ${selected.size} marcadas` : `${Math.min(selected.size, TASTE_TO_CONTINUE)} de ${TASTE_TO_CONTINUE}`}
+      </p>
+      <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 gap-2">
+        {items.map(item => {
+          const key = keyOf(item)
+          const active = selected.has(key)
+          const src = poster(item.posterPath)
+          return (
             <button
-              key={btn.type}
-              onClick={() => btn.type === 'rating' ? setRatingOpen(r => !r) : onAction(movie.id, btn.type)}
-              className="flex flex-col items-center gap-1 px-4 py-2.5 rounded-xl transition-all min-w-[64px]"
-              style={{
-                backgroundColor: btn.active ? `${btn.activeColor}22` : 'rgba(28,28,39,0.9)',
-                color: btn.active ? btn.activeColor : 'rgba(255,255,255,0.6)',
-                border: `1px solid ${btn.active ? btn.activeColor + '60' : '#2A2A3A'}`,
-              }}
+              key={key}
+              type="button"
+              role="checkbox"
+              aria-checked={active}
+              aria-label={`${item.title}${item.type === 'tv' ? ', serie' : ''}`}
+              disabled={blocked}
+              onClick={() => onToggle(item)}
+              className="relative aspect-[2/3] rounded-[10px] overflow-hidden border-2 bg-[#1C1C27] transition-transform active:scale-95 disabled:opacity-50"
+              style={{ borderColor: active ? '#FFFD02' : 'transparent' }}
             >
-              {btn.icon}
-              <span className="text-[10px] font-medium">{btn.label}</span>
+              {src && (
+                // eslint-disable-next-line @next/next/no-img-element
+                <img
+                  src={src}
+                  alt=""
+                  loading="lazy"
+                  className="w-full h-full object-cover transition-opacity"
+                  style={{ opacity: active ? 0.55 : 1 }}
+                />
+              )}
+              {active && (
+                <span className="absolute top-1.5 right-1.5 w-[26px] h-[26px] rounded-full bg-[#FFFD02] flex items-center justify-center">
+                  <Heart size={14} className="text-[#0A0A0F]" fill="currentColor" />
+                </span>
+              )}
             </button>
-          ))}
-        </div>
-
-        <button
-          onClick={next}
-          disabled={idx >= movies.length - 1}
-          className="flex items-center gap-2 px-6 py-2.5 rounded-full text-sm font-semibold transition-all disabled:opacity-30"
-          style={{ backgroundColor: 'rgba(255,253,2,0.15)', color: '#FFFD02', border: '1px solid rgba(255,253,2,0.3)' }}
-        >
-          Siguiente película
-          <ChevronRight size={16} className="animate-bounce" style={{ animationDuration: '1.2s' }} />
-        </button>
-
-        <p className="text-xs text-white/30 mt-3">Deslizá para ir al siguiente</p>
+          )
+        })}
       </div>
     </div>
   )
 }
 
-// ── Main component ────────────────────────────────────────────────────────────
+// ── Cierre: tus primeras recomendaciones ──────────────────────────────────────
+
+function FirstRecommendations({
+  items, loading, hasPlatforms, finishing, onOpen, onFinish,
+}: {
+  items: FirstRecommendation[]
+  loading: boolean
+  hasPlatforms: boolean
+  finishing: boolean
+  onOpen: () => void
+  onFinish: () => void
+}) {
+  const subtitle = hasPlatforms
+    ? 'Parecidas a las que marcaste, y están en tus plataformas.'
+    : 'Parecidas a las que marcaste. Elegí tus plataformas en Ajustes y te decimos dónde verlas.'
+
+  return (
+    <>
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 pb-6">
+        <h1 className="text-2xl font-black text-white mt-6">Tus primeras recomendaciones</h1>
+        <p className="text-sm text-[#A0A0B0] leading-5 mt-1.5">{subtitle}</p>
+        <div className="h-5" />
+
+        {loading ? (
+          <div className="flex flex-col items-center gap-3 py-12">
+            <Spinner />
+            <p className="text-xs text-[#A0A0B0]">Buscando títulos para vos…</p>
+          </div>
+        ) : items.length === 0 ? (
+          <p className="text-sm text-[#A0A0B0] text-center py-8">
+            {hasPlatforms
+              ? 'No encontramos títulos parecidos en tus plataformas todavía. En el inicio vas a tener más.'
+              : 'No pudimos armar recomendaciones ahora. En el inicio vas a tener más.'}
+          </p>
+        ) : (
+          <div className="grid grid-cols-3 sm:grid-cols-4 gap-x-2.5 gap-y-3">
+            {items.map(item => {
+              const src = poster(item.posterPath)
+              return (
+                <Link
+                  key={keyOf(item)}
+                  href={`/${item.type}/${item.id}`}
+                  onClick={e => { if (finishing) e.preventDefault(); else onOpen() }}
+                  aria-label={item.platform ? `${item.title}, en ${item.platform.name}` : item.title}
+                  className="block transition-transform active:scale-95"
+                >
+                  <div className="relative aspect-[2/3] rounded-[10px] overflow-hidden bg-[#1C1C27]">
+                    {src && (
+                      // eslint-disable-next-line @next/next/no-img-element
+                      <img src={src} alt="" loading="lazy" className="w-full h-full object-cover" />
+                    )}
+                    {item.platform && (
+                      <span className="absolute left-1.5 bottom-1.5 shadow-lg">
+                        <PlatformLogo platform={item.platform} size={22} />
+                      </span>
+                    )}
+                  </div>
+                  <p className="text-xs text-white leading-4 mt-1.5 line-clamp-2 h-8">{item.title}</p>
+                </Link>
+              )
+            })}
+          </div>
+        )}
+      </main>
+
+      <BottomBar>
+        <button
+          type="button"
+          onClick={onFinish}
+          disabled={finishing}
+          className="w-full py-3.5 rounded-full bg-[#FFFD02] hover:bg-[#E5EB00] text-[#0A0A0F] font-bold text-[15px] transition-colors disabled:opacity-40 flex items-center justify-center"
+        >
+          {finishing ? <Spinner dark /> : 'Ir al inicio'}
+        </button>
+      </BottomBar>
+    </>
+  )
+}
+
+/** El botón principal, pegado abajo: en el celular queda siempre a mano del pulgar. */
+function BottomBar({ children }: { children: React.ReactNode }) {
+  return (
+    <div
+      className="sticky bottom-0 z-20 w-full border-t border-[#2A2A3A] bg-[#0A0A0F]/95 backdrop-blur"
+      style={{ paddingBottom: 'max(16px, env(safe-area-inset-bottom))' }}
+    >
+      <div className="max-w-2xl mx-auto px-4 pt-3">{children}</div>
+    </div>
+  )
+}
+
+// ── Página ────────────────────────────────────────────────────────────────────
 
 export default function OnboardingPage() {
   const router = useRouter()
   const supabase = useRef(createClient()).current
+  const { country } = useCountry()
 
-  const [user,    setUser]    = useState<User | null>(null)
+  const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
-  const [step,    setStep]    = useState(1)
-  const [saving,  setSaving]  = useState(false)
-  const [visible, setVisible] = useState(true)
+  const [step, setStep] = useState(1)
+  const [saving, setSaving] = useState(false)
+  const [error, setError] = useState<string | null>(null)
 
-  // Step 1: Profile
-  const [displayName,     setDisplayName]     = useState('')
-  const [bio,             setBio]             = useState('')
-  const [avatarUrl,       setAvatarUrl]       = useState<string | null>(null)
-  const [avatarUploading, setAvatarUploading] = useState(false)
+  const [platforms, setPlatforms] = useState<number[]>([])
+  const [genres, setGenres] = useState<string[]>([])
 
-  // Skip
+  // Paso 3. `itemsFor` dice con qué géneros se pidió la grilla.
+  const [items, setItems] = useState<TasteItem[]>([])
+  const [itemsFor, setItemsFor] = useState<string | null>(null)
+  const [loadingItems, setLoadingItems] = useState(false)
+  const [marks, setMarks] = useState<Map<string, Mark>>(new Map())
+  const [marksFor, setMarksFor] = useState<string | null>(null)
+
+  // Saltar
   const [showSkipConfirm, setShowSkipConfirm] = useState(false)
-  const [skipping,        setSkipping]        = useState(false)
+  const [skipping, setSkipping] = useState(false)
 
-  // Steps 2-4
-  const [selectedGenres,    setSelectedGenres]    = useState<string[]>([])
-  const [selectedPlatforms, setSelectedPlatforms] = useState<string[]>([])
-  const [suggestedUsers,    setSuggestedUsers]    = useState<SuggestedUser[]>([])
-  const [followed,          setFollowed]          = useState<Set<string>>(new Set())
+  // Cierre
+  const [showingRecs, setShowingRecs] = useState(false)
+  const [recs, setRecs] = useState<FirstRecommendation[]>([])
+  const [loadingRecs, setLoadingRecs] = useState(false)
+  const [leaving, setLeaving] = useState(false)
 
-  // Step 5
-  const [movies,       setMovies]       = useState<OnboardingMovie[]>([])
-  const [moviePage,    setMoviePage]    = useState(1)
-  const [loadingMore,  setLoadingMore]  = useState(false)
-  const [movieActions, setMovieActions] = useState<Map<number, MovieAction>>(new Map())
+  /**
+   * Los que marcó en esta pasada, en orden, y si "la vi" lo prendió el toque.
+   * Sacar el toque borra la nota y, si la vio recién acá, también el "la vi".
+   * Lo que ya tenía calificado de antes no se toca nunca desde esta pantalla.
+   */
+  const tappedHere = useRef(new Map<string, { item: TasteItem; watchedByTap: boolean }>())
 
-  // Fade transition between steps
-  useEffect(() => {
-    setVisible(false)
-    const t = setTimeout(() => setVisible(true), 150)
-    return () => clearTimeout(t)
-  }, [step])
-
-  // signup_completed sale de `registrarAlta`, en el init de abajo, cuando ya se
-  // sabe quién es. Acá sólo se limpia el `?nuevo=1` que puede mandar
-  // /auth/callback, para que no quede en la URL.
+  // signup_completed sale de `registrarAlta`, en el init de abajo. Acá sólo se
+  // limpia el `?nuevo=1` que puede mandar /auth/callback.
   const [nuevoEnUrl] = useState(
     () => typeof window !== 'undefined' && new URLSearchParams(window.location.search).get('nuevo') === '1'
   )
@@ -524,14 +392,7 @@ export default function OnboardingPage() {
     window.history.replaceState({}, '', window.location.pathname + (qs ? `?${qs}` : ''))
   }, [nuevoEnUrl])
 
-  // onboarding_step_viewed: uno por paso mostrado. El paso 5 vive en otro
-  // componente pero sigue siendo el mismo `step`, así que entra igual.
-  useEffect(() => {
-    if (loading) return   // todavía no se sabe si el usuario puede estar acá
-    track('onboarding_step_viewed', { paso: step })
-  }, [step, loading])
-
-  // Auth guard + pre-fill
+  // Auth guard + precarga
   useEffect(() => {
     async function init() {
       const force = typeof window !== 'undefined'
@@ -547,7 +408,7 @@ export default function OnboardingPage() {
 
       const { data: profile } = await supabase
         .from('profiles')
-        .select('onboarding_completed_at, onboarding_skipped, username, display_name, avatar_url')
+        .select('onboarding_completed_at, onboarding_skipped, favorite_genres, favorite_platforms')
         .eq('id', u.id)
         .maybeSingle()
 
@@ -558,9 +419,10 @@ export default function OnboardingPage() {
         }
       }
 
-      // Pre-fill step 1
-      setDisplayName(profile?.display_name ?? profile?.username ?? '')
-      setAvatarUrl(profile?.avatar_url ?? null)
+      // Los que rehacen el onboarding desde Ajustes arrancan con lo de antes.
+      // Max puede venir con el id viejo (384): pasa al de hoy.
+      setGenres((profile?.favorite_genres as string[] | null) ?? [])
+      setPlatforms(normalizeSavedPlatforms(profile?.favorite_platforms as string[] | null))
 
       setUser(u)
       setLoading(false)
@@ -568,313 +430,352 @@ export default function OnboardingPage() {
     init()
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  // Avatar upload
-  const handleAvatarChange = async (file: File) => {
-    if (!user) return
-    setAvatarUploading(true)
-    try {
-      const ext  = file.name.split('.').pop() ?? 'jpg'
-      const path = `${user.id}/${Date.now()}.${ext}`
-      const { error } = await supabase.storage.from('avatars').upload(path, file, { upsert: true })
-      if (!error) {
-        const { data } = supabase.storage.from('avatars').getPublicUrl(path)
-        setAvatarUrl(data.publicUrl)
-        await supabase.from('profiles').update({ avatar_url: data.publicUrl }).eq('id', user.id)
-      }
-    } catch { /* ignore */ }
-    setAvatarUploading(false)
-  }
-
-  // Load suggested users (step 4)
+  // Un `onboarding_step_viewed` por paso mostrado.
   useEffect(() => {
-    if (step !== 4 || suggestedUsers.length > 0) return
-    async function loadUsers() {
-      const [topRes, ferlageokRes] = await Promise.all([
-        supabase.from('profiles').select('id, username, display_name, avatar_url, points, level').order('points', { ascending: false, nullsFirst: false }).limit(10),
-        supabase.from('profiles').select('id, username, display_name, avatar_url, points, level').ilike('username', 'ferlageok').maybeSingle(),
-      ])
-      const topUsers: SuggestedUser[] = (topRes.data ?? []).filter(u => u.id !== user?.id)
-      const ferlageok = ferlageokRes.data
-      if (ferlageok && ferlageok.id !== user?.id && !topUsers.find(u => u.id === ferlageok.id)) topUsers.push(ferlageok)
-      setSuggestedUsers(topUsers.slice(0, 6))
-    }
-    loadUsers()
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (loading || showingRecs) return
+    track('onboarding_step_viewed', { paso: step, flujo: FLUJO })
+  }, [step, loading, showingRecs])
 
-  // Load movies (step 5)
-  const loadMovies = useCallback(async (page: number) => {
-    if (!TMDB_KEY || loadingMore) return
-    setLoadingMore(true)
-    try {
-      const [popRes, topRes] = await Promise.all([
-        fetch(`${TMDB}/movie/popular?api_key=${TMDB_KEY}&language=es-AR&page=${page}`).then(r => r.ok ? r.json() : { results: [] }),
-        fetch(`${TMDB}/movie/top_rated?api_key=${TMDB_KEY}&language=es-AR&page=${page}`).then(r => r.ok ? r.json() : { results: [] }),
-      ])
-      type RawMovie = { id: number; title: string; poster_path: string | null; backdrop_path: string | null; release_date?: string; vote_average: number; genre_ids: number[] }
-      const combined: RawMovie[] = [...(popRes.results ?? []), ...(topRes.results ?? [])]
-      const seen = new Set<number>()
-      const unique: OnboardingMovie[] = []
-      for (const m of combined) {
-        if (!seen.has(m.id) && m.backdrop_path) {
-          seen.add(m.id)
-          unique.push({ id: m.id, title: m.title, year: (m.release_date ?? '').slice(0, 4), posterPath: m.poster_path, backdropPath: m.backdrop_path, voteAverage: m.vote_average, genreIds: m.genre_ids ?? [] })
-        }
-      }
-      setMovies(prev => { const existingIds = new Set(prev.map(m => m.id)); return [...prev, ...unique.filter(m => !existingIds.has(m.id))] })
-      setMoviePage(page)
-    } catch { /* ignore */ }
-    setLoadingMore(false)
-  }, [loadingMore]) // eslint-disable-line react-hooks/exhaustive-deps
-
+  // La pantalla de cierre no es una ruta, pero se mide como una, igual que en la app.
   useEffect(() => {
-    if (step === 5 && movies.length === 0) loadMovies(1)
-  }, [step]) // eslint-disable-line react-hooks/exhaustive-deps
+    if (showingRecs) track('page_view', { path: RECS_PATH }, { path: RECS_PATH })
+  }, [showingRecs])
 
-  // Handlers
-  const toggleGenre    = (g: string)  => setSelectedGenres(prev => prev.includes(g) ? prev.filter(x => x !== g) : [...prev, g])
-  const togglePlatform = (id: string) => setSelectedPlatforms(prev => prev.includes(id) ? prev.filter(x => x !== id) : [...prev, id])
+  // Cada paso arranca arriba.
+  useEffect(() => { window.scrollTo(0, 0) }, [step, showingRecs])
 
-  const handleFollow = async (targetId: string) => {
+  // La grilla se pide al llegar al paso 3, con los géneros de ese momento. Si
+  // vuelve atrás y los cambia, se pide de nuevo.
+  const genresKey = genres.join('|')
+  useEffect(() => {
+    if (step !== 3 || itemsFor === genresKey) return
+    let alive = true
+    setLoadingItems(true)
+    getTasteGrid(genres)
+      .then(list => { if (alive) { setItems(list); setItemsFor(genresKey) } })
+      .catch(err => {
+        console.warn('[onboarding] grilla:', err)
+        // Se da por pedida igual: la grilla vacía deja seguir.
+        if (alive) setItemsFor(genresKey)
+      })
+      .finally(() => { if (alive) setLoadingItems(false) })
+    return () => { alive = false }
+  }, [genres, genresKey, itemsFor, step])
+
+  // Lo que ya tenía calificado o visto de los títulos de la grilla.
+  const itemsKey = items.map(keyOf).join(',')
+  useEffect(() => {
+    if (!user || items.length === 0 || marksFor === itemsKey) return
+    let alive = true
+    const ids = [...new Set(items.map(i => i.id))]
+    Promise.all([
+      supabase.from('ratings').select('media_id, media_type, rating').eq('user_id', user.id).in('media_id', ids),
+      supabase.from('watched').select('media_id, media_type').eq('user_id', user.id).in('media_id', ids),
+    ]).then(([ratingsRes, watchedRes]) => {
+      if (!alive) return
+      const next = new Map<string, Mark>()
+      for (const r of ratingsRes.data ?? []) {
+        const k = `${r.media_type}:${r.media_id}`
+        next.set(k, { rating: Number(r.rating), watched: next.get(k)?.watched ?? false })
+      }
+      for (const w of watchedRes.data ?? []) {
+        const k = `${w.media_type}:${w.media_id}`
+        next.set(k, { rating: next.get(k)?.rating ?? null, watched: true })
+      }
+      setMarks(next)
+      setMarksFor(itemsKey)
+    })
+    return () => { alive = false }
+  }, [items, itemsKey, marksFor, supabase, user])
+
+  const ratingOf = useCallback((item: TasteItem) => marks.get(keyOf(item))?.rating ?? null, [marks])
+
+  /**
+   * Lo que ya tenía calificado con nota baja no se ofrece: un toque le pisaría
+   * la nota con un 4, y tampoco se puede mostrar como "le gustó".
+   */
+  const visibleItems = useMemo(
+    () => items.filter(item => {
+      const rating = ratingOf(item)
+      return rating === null || rating >= LIKED_FROM
+    }),
+    [items, ratingOf]
+  )
+
+  /** Las que cuentan como marcadas: con nota positiva, de ahora o de antes. */
+  const selected = useMemo(
+    () => new Set(visibleItems.filter(item => ratingOf(item) !== null).map(keyOf)),
+    [ratingOf, visibleItems]
+  )
+
+  const setMark = (key: string, mark: Mark) => setMarks(prev => new Map(prev).set(key, mark))
+
+  const toggleItem = useCallback(async (item: TasteItem) => {
     if (!user) return
-    const nowFollowing = followed.has(targetId)
-    setFollowed(prev => { const next = new Set(prev); nowFollowing ? next.delete(targetId) : next.add(targetId); return next })
-    if (!nowFollowing) {
-      await supabase.from('follows').insert({ follower_id: user.id, following_id: targetId })
-      sendNotification(supabase as Parameters<typeof sendNotification>[0], { user_id: targetId, actor_id: user.id, type: 'follow' })
-    } else {
-      await supabase.from('follows').delete().eq('follower_id', user.id).eq('following_id', targetId)
-    }
-  }
+    const key = keyOf(item)
+    const filter = { user_id: user.id, media_id: item.id, media_type: item.type }
+    const current = marks.get(key) ?? { rating: null, watched: false }
+    const tapped = tappedHere.current.get(key)
 
-  const handleMovieAction = async (movieId: number, type: 'watched' | 'liked' | 'watchlist' | 'rating', ratingValue?: number) => {
-    if (!user) return
-    const movie = movies.find(m => m.id === movieId)
-    if (!movie) return
-    const prev = movieActions.get(movieId) ?? { watched: false, liked: false, rating: null, inWatchlist: false }
+    if (tapped) {
+      tappedHere.current.delete(key)
+      const after = { rating: null, watched: tapped.watchedByTap ? false : current.watched }
+      setMark(key, after)
+      const writes = [supabase.from('ratings').delete().match(filter)]
+      if (tapped.watchedByTap) writes.push(supabase.from('watched').delete().match(filter))
+      const results = await Promise.all(writes)
+      if (results.some(r => r.error)) {
+        tappedHere.current.set(key, tapped)
+        setMark(key, current)
+        setError('No pudimos guardar. Probá de nuevo.')
+      }
+      return
+    }
 
-    if (type === 'watched') {
-      const v = !prev.watched
-      setMovieActions(m => new Map(m).set(movieId, { ...prev, watched: v }))
-      if (v) await supabase.from('watched').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath, watched_at: new Date().toISOString() }, { onConflict: 'user_id,media_id,media_type' })
-      else   await supabase.from('watched').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
-    }
-    if (type === 'liked') {
-      const v = !prev.liked
-      setMovieActions(m => new Map(m).set(movieId, { ...prev, liked: v }))
-      if (v) await supabase.from('favorites').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath, genre_ids: movie.genreIds }, { onConflict: 'user_id,media_id,media_type' })
-      else   await supabase.from('favorites').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
-    }
-    if (type === 'rating' && ratingValue !== undefined) {
-      setMovieActions(m => new Map(m).set(movieId, { ...prev, rating: ratingValue }))
-      await supabase.from('ratings').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath, rating: ratingValue, rated_at: new Date().toISOString() }, { onConflict: 'user_id,media_id,media_type' })
-    }
-    if (type === 'watchlist') {
-      const v = !prev.inWatchlist
-      setMovieActions(m => new Map(m).set(movieId, { ...prev, inWatchlist: v }))
-      if (v) await supabase.from('watchlist').upsert({ user_id: user.id, media_id: movieId, media_type: 'movie', title: movie.title, poster_path: movie.posterPath }, { onConflict: 'user_id,media_id,media_type' })
-      else   await supabase.from('watchlist').delete().eq('user_id', user.id).eq('media_id', movieId).eq('media_type', 'movie')
-    }
-  }
+    // Calificado de antes: queda como está.
+    if (current.rating !== null) return
 
-  const handleNext = async () => {
+    const watchedByTap = !current.watched
+    tappedHere.current.set(key, { item, watchedByTap })
+    setMark(key, { rating: TASTE_RATING, watched: true })
+
+    const now = new Date().toISOString()
+    const base = { ...filter, title: item.title, poster_path: item.posterPath }
+    const writes = [
+      supabase.from('ratings').upsert({ ...base, rating: TASTE_RATING, rated_at: now }, { onConflict: 'user_id,media_id,media_type' }),
+    ]
+    if (watchedByTap) {
+      writes.push(supabase.from('watched').upsert({ ...base, watched_at: now }, { onConflict: 'user_id,media_id,media_type' }))
+    }
+    const results = await Promise.all(writes)
+    if (results[0].error) {
+      tappedHere.current.delete(key)
+      setMark(key, current)
+      setError('No pudimos guardar. Probá de nuevo.')
+      return
+    }
+    // Después del guardado: una calificación que falló no es una calificación.
+    track('media_rated', { media_type: item.type, media_id: item.id, valor: TASTE_RATING })
+  }, [marks, supabase, user])
+
+  /** Las recomendaciones salen de lo marcado: lo de antes primero, lo de ahora al final. */
+  const loadRecs = useCallback(() => {
+    const before = visibleItems.filter(item => selected.has(keyOf(item)) && !tappedHere.current.has(keyOf(item)))
+    const now = [...tappedHere.current.values()].map(entry => entry.item)
+    setLoadingRecs(true)
+    getFirstRecommendations({ liked: [...before, ...now], platformIds: platforms, genreNames: genres, country })
+      .then(setRecs)
+      .catch(err => console.warn('[onboarding] recomendaciones:', err))
+      .finally(() => setLoadingRecs(false))
+  }, [country, genres, platforms, selected, visibleItems])
+
+  const handleContinue = async () => {
     if (!user) return
     setSaving(true)
-    // Se registra el paso que se está dejando, no el que viene.
-    track('onboarding_step_completed', { paso: step })
-    if (step === 1) {
-      const updates: Record<string, unknown> = {}
-      if (displayName.trim()) updates.display_name = displayName.trim()
-      if (Object.keys(updates).length > 0) {
-        await supabase.from('profiles').update(updates).eq('id', user.id)
+    setError(null)
+    try {
+      let res
+      if (step === 1) {
+        res = await supabase.from('profiles').update({ favorite_platforms: platforms.map(String) }).eq('id', user.id)
+      } else if (step === 2) {
+        res = await supabase.from('profiles').update({ favorite_genres: genres }).eq('id', user.id)
+      } else {
+        // El 3 ya guardó cada póster al tocarlo. El cierre se guarda antes de
+        // mostrar las recomendaciones: si cierra la pestaña ahí, ya está hecho.
+        res = await supabase.from('profiles').update({
+          onboarding_completed: true,
+          onboarding_skipped: false,
+          onboarding_completed_at: new Date().toISOString(),
+        }).eq('id', user.id)
       }
-      // Try to save bio (column may need migration if not present)
-      if (bio.trim()) {
-        await supabase.from('profiles').update({ bio: bio.trim() } as Record<string, unknown>).eq('id', user.id)
+      if (res.error) throw new Error(res.error.message)
+
+      // Después de guardar: un paso "completado" es uno cuyo guardado salió bien.
+      track('onboarding_step_completed', { paso: step, flujo: FLUJO })
+
+      if (step === TOTAL_STEPS) {
+        document.cookie = 'new_user=; max-age=0; path=/'
+        loadRecs()
+        setShowingRecs(true)
+      } else {
+        setStep(s => s + 1)
       }
-      setStep(2)
-    } else if (step === 2) {
-      await supabase.from('profiles').update({ favorite_genres: selectedGenres }).eq('id', user.id)
-      setStep(3)
-    } else if (step === 3) {
-      await supabase.from('profiles').update({ favorite_platforms: selectedPlatforms }).eq('id', user.id)
-      setStep(4)
-    } else if (step === 4) {
-      setStep(5)
+    } catch (err) {
+      console.warn('[onboarding] guardar paso:', err)
+      setError('No pudimos guardar este paso. Probá de nuevo.')
+    } finally {
+      setSaving(false)
     }
-    setSaving(false)
   }
 
   const handleSkip = async () => {
     if (!user || skipping) return
     setSkipping(true)
-    track('onboarding_skipped', { paso: step, tipo: 'boton_saltar' })
-    await supabase.from('profiles').update({ onboarding_skipped: true, onboarding_completed: true }).eq('id', user.id)
-    localStorage.setItem('glynbox_welcome', '1')
-    router.replace('/')
-  }
-
-  /**
-   * Cierre del onboarding.
-   *
-   * Llega por dos caminos distintos y hay que poder separarlos: terminar el
-   * paso 5 después de calificar, o tocar "Saltar calificación" en el paso 4.
-   * Los dos marcan onboarding_completed_at, así que sin el evento quedarían
-   * indistinguibles en la base — que es exactamente el problema que ya tenemos
-   * con onboarding_completed.
-   */
-  const handleFinish = async () => {
-    if (!user) return
-    if (step === 5) {
-      track('onboarding_step_completed', { paso: 5 })
-    } else {
-      track('onboarding_skipped', { paso: step, tipo: 'saltar_calificacion' })
+    // El paso en el que estaba parado es el dato: dice dónde se cansó.
+    track('onboarding_skipped', { paso: step, tipo: 'boton_saltar', flujo: FLUJO })
+    // Las dos columnas: sin `skipped`, el inicio lo vuelve a mandar acá.
+    const { error: err } = await supabase
+      .from('profiles')
+      .update({ onboarding_completed: true, onboarding_skipped: true })
+      .eq('id', user.id)
+    if (err) {
+      setSkipping(false)
+      setShowSkipConfirm(false)
+      setError('No pudimos guardar. Probá de nuevo.')
+      return
     }
     document.cookie = 'new_user=; max-age=0; path=/'
-    await supabase.from('profiles').update({
-      onboarding_completed: true,
-      onboarding_completed_at: new Date().toISOString(),
-    }).eq('id', user.id)
     localStorage.setItem('glynbox_welcome', '1')
     router.replace('/')
   }
 
-  // ── Render ────────────────────────────────────────────────────────────────
+  /** Sale al inicio. El onboarding ya quedó guardado al mostrar el cierre. */
+  const leave = () => {
+    setLeaving(true)
+    localStorage.setItem('glynbox_welcome', '1')
+    router.replace('/')
+  }
+
+  // ── Render ──────────────────────────────────────────────────────────────────
 
   if (loading) {
     return (
-      <div className="flex items-center justify-center min-h-screen" style={{ backgroundColor: '#0A0A0F' }}>
-        <div className="w-8 h-8 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+      <div className="flex items-center justify-center min-h-dvh bg-[#0A0A0F]">
+        <Spinner size={32} />
       </div>
     )
   }
 
-  // Step 5: full-screen movie rating
-  if (step === 5) {
+  if (showingRecs) {
     return (
-      <RateMoviesStep
-        movies={movies} actions={movieActions}
-        onAction={handleMovieAction}
-        onLoadMore={() => loadMovies(moviePage + 1)}
-        onFinish={handleFinish}
-      />
+      <div className="min-h-dvh flex flex-col bg-[#0A0A0F]">
+        <FirstRecommendations
+          items={recs}
+          loading={loadingRecs}
+          hasPlatforms={platforms.length > 0}
+          finishing={leaving}
+          onOpen={() => setLeaving(true)}
+          onFinish={leave}
+        />
+      </div>
     )
   }
 
-  const STEP_ICONS = ['', '👤', '🎬', '📺', '👥']
-  const stepConfig = [
-    null,
-    { title: '¿Cómo te llamás?',        sub: 'Tu perfil es lo primero que ven los demás',  canNext: true                        },
-    { title: '¿Qué te gusta ver?',       sub: 'Elegí al menos 3 géneros favoritos',          canNext: selectedGenres.length >= 3  },
-    { title: '¿Qué plataformas tenés?',  sub: 'Te mostramos el contenido disponible',         canNext: selectedPlatforms.length > 0 },
-    { title: 'Seguí a otros usuarios',   sub: 'Conectate con la comunidad de Glynbox',        canNext: true                        },
-  ]
-  const cfg = stepConfig[step]!
+  const gridLoading = loadingItems || itemsFor !== genresKey
+  const tasteReady =
+    selected.size >= TASTE_TO_CONTINUE ||
+    // Sin títulos para marcar, o con todos marcados, no se lo deja encerrado.
+    (!gridLoading && visibleItems.length === 0) ||
+    (visibleItems.length > 0 && selected.size >= visibleItems.length)
+
+  const canContinue = step === 1 ? true : step === 2 ? genres.length >= MIN_GENRES : tasteReady
+
+  const continueLabel =
+    step === TOTAL_STEPS ? 'Ver mis recomendaciones'
+    : step === 1 && platforms.length === 0 ? 'No tengo ninguna'
+    : 'Siguiente'
+
+  const copy = COPY[step - 1]
+  const toggle = <T,>(list: T[], value: T) => (list.includes(value) ? list.filter(v => v !== value) : [...list, value])
 
   return (
-    <div className="min-h-screen flex flex-col items-center py-8 px-4" style={{ backgroundColor: '#0A0A0F' }}>
+    <div className="min-h-dvh flex flex-col bg-[#0A0A0F]">
 
-      {/* Skip confirmation modal */}
       {showSkipConfirm && (
-        <div className="fixed inset-0 z-50 bg-black/70 flex items-center justify-center p-4">
-          <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
-            <h3 className="text-white font-bold text-lg mb-2">¿Saltar el onboarding?</h3>
+        <div className="fixed inset-0 z-50 bg-black/70 flex items-end sm:items-center justify-center p-4">
+          <div role="dialog" aria-modal="true" className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 max-w-sm w-full shadow-2xl">
+            <h3 className="text-white font-bold text-lg mb-2">¿Saltear la configuración?</h3>
             <p className="text-[#A0A0B0] text-sm mb-6">
-              Podés completarlo después desde tu perfil. Mientras tanto, algunas recomendaciones serán menos personalizadas.
+              Podés hacerla después desde Ajustes. Las recomendaciones van a ser más genéricas hasta entonces.
             </p>
             <div className="flex gap-3">
               <button
+                type="button"
                 onClick={() => setShowSkipConfirm(false)}
-                className="flex-1 py-2.5 rounded-xl border border-[#2A2A3A] text-zinc-400 hover:text-white transition-colors text-sm"
+                className="flex-1 py-2.5 rounded-xl border border-[#2A2A3A] text-zinc-300 hover:text-white transition-colors text-sm"
               >
-                Cancelar
+                Seguir configurando
               </button>
               <button
+                type="button"
                 onClick={handleSkip}
                 disabled={skipping}
-                className="flex-1 py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed flex items-center justify-center gap-2"
+                className="flex-1 py-2.5 rounded-xl bg-zinc-700 hover:bg-zinc-600 text-white text-sm font-semibold transition-colors disabled:opacity-40 flex items-center justify-center gap-2"
               >
-                {skipping && <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin" />}
-                Saltar →
+                {skipping && <Spinner size={14} />}
+                Saltear
               </button>
             </div>
           </div>
         </div>
       )}
 
-      {/* Header: logo + skip */}
-      <div className="w-full max-w-xl flex items-center justify-between mb-6">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Glynbox" style={{ height: '28px', width: 'auto', objectFit: 'contain' }} />
-        <button
-          onClick={() => setShowSkipConfirm(true)}
-          className="text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors"
-        >
-          Saltar onboarding
-        </button>
-      </div>
-
-      {/* Progress bar */}
-      <ProgressBar step={step} />
-
-      {/* Step content */}
-      <div
-        className="w-full flex flex-col items-center"
-        style={{
-          opacity: visible ? 1 : 0,
-          transform: `translateY(${visible ? 0 : 10}px)`,
-          transition: 'opacity 0.2s ease, transform 0.2s ease',
-        }}
-      >
-        <div className="text-center mt-8 mb-8">
-          <div className="text-5xl mb-4" role="img" aria-label={cfg.title}>{STEP_ICONS[step]}</div>
-          <h1 className="font-bold text-white mb-2" style={{ fontSize: '28px' }}>{cfg.title}</h1>
-          <p className="text-sm text-[#A0A0B0] max-w-sm mx-auto">{cfg.sub}</p>
+      {/* Progreso, atrás y saltar */}
+      <header className="w-full max-w-2xl mx-auto px-4 pt-4">
+        <div className="flex items-center gap-3">
+          <div className="w-14">
+            {step > 1 && (
+              <button
+                type="button"
+                onClick={() => { setError(null); setStep(s => s - 1) }}
+                className="text-sm text-[#A0A0B0] hover:text-white transition-colors"
+                aria-label="Volver al paso anterior"
+              >
+                Atrás
+              </button>
+            )}
+          </div>
+          <p className="flex-1 text-center text-xs text-[#A0A0B0]">Paso {step} de {TOTAL_STEPS}</p>
+          {/* Saltar está desde el primer paso. Chico y sin color a propósito:
+              tiene que encontrarse, no invitar. */}
+          <div className="w-14 text-right">
+            <button
+              type="button"
+              onClick={() => setShowSkipConfirm(true)}
+              className="text-xs text-[#A0A0B0] hover:text-zinc-300 transition-colors"
+              aria-label="Saltar el onboarding"
+            >
+              Saltar
+            </button>
+          </div>
         </div>
-
-        <div className="w-full max-w-xl">
-          {step === 1 && (
-            <ProfileStep
-              displayName={displayName} setDisplayName={setDisplayName}
-              bio={bio} setBio={setBio}
-              avatarUrl={avatarUrl}
-              onAvatarChange={handleAvatarChange}
-              uploading={avatarUploading}
-            />
-          )}
-          {step === 2 && <GenresStep selected={selectedGenres} onToggle={toggleGenre} />}
-          {step === 3 && <PlatformsStep selected={selectedPlatforms} onToggle={togglePlatform} />}
-          {step === 4 && (
-            suggestedUsers.length === 0
-              ? <div className="flex justify-center py-10"><div className="w-6 h-6 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" /></div>
-              : <SuggestedUsersStep users={suggestedUsers} followed={followed} onFollow={handleFollow} />
-          )}
+        <div className="h-1 mt-3 rounded-full overflow-hidden bg-[#1C1C27]">
+          <div
+            className="h-full rounded-full bg-[#FFFD02] transition-all duration-500 ease-out"
+            style={{ width: `${(step / TOTAL_STEPS) * 100}%` }}
+          />
         </div>
+      </header>
 
-        {/* Next button */}
-        <button
-          onClick={handleNext}
-          disabled={!cfg.canNext || saving}
-          className="mt-10 px-10 py-4 text-black font-bold text-base transition-all disabled:opacity-40"
-          style={{ backgroundColor: '#FFFD02', borderRadius: '50px' }}
-          onMouseEnter={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#E5EB00' }}
-          onMouseLeave={e => { (e.currentTarget as HTMLElement).style.backgroundColor = '#FFFD02' }}
-        >
-          {saving
-            ? <span className="w-5 h-5 border-2 border-black/30 border-t-black rounded-full animate-spin inline-block" />
-            : step === 4 ? 'Calificar películas →' : 'Siguiente →'
-          }
-        </button>
+      <main className="flex-1 w-full max-w-2xl mx-auto px-4 pb-6">
+        <h1 className="text-2xl font-black text-white mt-6">{copy.title}</h1>
+        <p className="text-sm text-[#A0A0B0] leading-5 mt-1.5">{copy.subtitle}</p>
+        <div className="h-5" />
 
-        {/* Step 4: option to go directly to finish */}
-        {step === 4 && (
-          <button
-            onClick={handleFinish}
-            className="mt-4 text-xs text-zinc-600 hover:text-[#A0A0B0] transition-colors"
-          >
-            Saltar calificación de películas →
-          </button>
+        {step === 1 && <PlatformsStep selected={platforms} onToggle={id => setPlatforms(prev => toggle(prev, id))} />}
+        {step === 2 && <GenresStep selected={genres} onToggle={name => setGenres(prev => toggle(prev, name))} />}
+        {step === 3 && (
+          <TasteGridStep
+            items={visibleItems}
+            loading={gridLoading}
+            selected={selected}
+            blocked={marksFor !== itemsKey}
+            onToggle={item => { setError(null); void toggleItem(item) }}
+          />
         )}
-      </div>
+      </main>
+
+      <BottomBar>
+        {error && <p className="text-xs text-red-400 text-center mb-2" role="alert">{error}</p>}
+        <button
+          type="button"
+          onClick={handleContinue}
+          disabled={!canContinue || saving}
+          className="w-full py-3.5 rounded-full bg-[#FFFD02] hover:bg-[#E5EB00] text-[#0A0A0F] font-bold text-[15px] transition-colors disabled:opacity-40 disabled:hover:bg-[#FFFD02] flex items-center justify-center"
+        >
+          {saving ? <Spinner dark /> : continueLabel}
+        </button>
+      </BottomBar>
     </div>
   )
 }

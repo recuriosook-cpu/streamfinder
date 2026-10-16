@@ -7,8 +7,8 @@ import { requireAdminClient } from '@/lib/service-role'
 /**
  * GET /api/admin/app-medicion — lo nuevo de la app en `/admin/metricas`.
  *
- *   · Embudo de onboarding por flujo: el corto de la app (props.flujo =
- *     'corto'), el viejo de la app (sin flujo) y el de la web.
+ *   · Embudo de onboarding por flujo: el corto (props.flujo = 'corto') y el
+ *     viejo (sin flujo), de la app y de la web por separado.
  *   · Notificaciones: el pedido de permiso por origen, cuántos tienen token y
  *     cuántos apagaron cada interruptor.
  *   · Modo deslizar: aperturas por origen, tarjetas por persona y acciones.
@@ -58,7 +58,7 @@ export interface PasoEmbudo {
 }
 
 export interface EmbudoOnboarding {
-  clave: 'app_corto' | 'app_viejo' | 'web'
+  clave: 'app_corto' | 'app_viejo' | 'web_corto' | 'web'
   titulo: string
   desde: string | null
   ultimo: string | null
@@ -170,15 +170,20 @@ const FLUJOS: { clave: EmbudoOnboarding['clave']; titulo: string; pasos: string[
     titulo: 'App — flujo anterior (6 pasos)',
     pasos: ['Nombre', 'Géneros', 'Plataformas', 'Seguir usuarios', 'Calificar', 'Notificaciones'],
   },
-  { clave: 'web', titulo: 'Web (5 pasos)', pasos: ['Nombre', 'Géneros', 'Plataformas', 'Seguir usuarios', 'Calificar'] },
+  { clave: 'web_corto', titulo: 'Web — flujo nuevo (3 pasos)', pasos: ['Plataformas', 'Géneros', 'Gusto'] },
+  { clave: 'web', titulo: 'Web — flujo anterior (5 pasos)', pasos: ['Nombre', 'Géneros', 'Plataformas', 'Seguir usuarios', 'Calificar'] },
 ]
+
+/** Los flujos nuevos, que se muestran siempre y terminan en "Tus primeras recomendaciones". */
+const CORTOS: EmbudoOnboarding['clave'][] = ['app_corto', 'web_corto']
 
 /** Los flujos viejos se muestran mientras sigan llegando datos: algo en los últimos 30 días. */
 const VIGENCIA_MS = 30 * 24 * 60 * 60 * 1000
 
 function flujoDe(e: Evento): EmbudoOnboarding['clave'] {
-  if (e.platform !== 'mobile') return 'web'
-  return prop(e, 'flujo') === 'corto' ? 'app_corto' : 'app_viejo'
+  const corto = prop(e, 'flujo') === 'corto'
+  if (e.platform !== 'mobile') return corto ? 'web_corto' : 'web'
+  return corto ? 'app_corto' : 'app_viejo'
 }
 
 function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
@@ -187,12 +192,15 @@ function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
     const propios = evs.filter(e => flujoDe(e) === flujo.clave)
     const vistos = propios.filter(e => e.name === 'onboarding_step_viewed')
     const saltos = propios.filter(e => e.name === 'onboarding_skipped')
-    const recos = flujo.clave === 'app_corto' ? recomendaciones.filter(e => e.platform === 'mobile') : []
+    const recos =
+      flujo.clave === 'app_corto' ? recomendaciones.filter(e => e.platform === 'mobile')
+      : flujo.clave === 'web_corto' ? recomendaciones.filter(e => e.platform !== 'mobile')
+      : []
 
     const { desde, ultimo } = rango([...propios, ...recos])
     const vigente = ultimo !== null && Date.now() - new Date(ultimo).getTime() < VIGENCIA_MS
-    // El flujo nuevo va siempre, aunque esté vacío: es el que hay que mirar.
-    if (flujo.clave !== 'app_corto' && !vigente) continue
+    // Los flujos nuevos van siempre, aunque estén vacíos: son los que hay que mirar.
+    if (!CORTOS.includes(flujo.clave) && !vigente) continue
 
     const pasos: PasoEmbudo[] = flujo.pasos.map((nombre, i) => {
       const paso = i + 1
@@ -203,7 +211,7 @@ function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
         saltearon: personas(saltos.filter(e => Number(prop(e, 'paso')) === paso)),
       }
     })
-    if (flujo.clave === 'app_corto') {
+    if (CORTOS.includes(flujo.clave)) {
       pasos.push({ nombre: 'Vio sus recomendaciones', personas: personas(recos), pct: null, saltearon: 0 })
     }
     const base = pasos[0]?.personas ?? 0

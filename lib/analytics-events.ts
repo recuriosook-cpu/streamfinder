@@ -29,11 +29,18 @@ export const EVENT_NAMES = [
   'signup_started',
   /** El registro se concretó. props: { metodo } */
   'signup_completed',
-  /** Se mostró un paso del onboarding. props: { paso: 1-5 } */
+  /**
+   * Se mostró un paso del onboarding. props: { paso, flujo }
+   *
+   * `flujo: 'corto'` es el de tres pasos (plataformas, géneros, gusto), el de
+   * la app y el de la web desde 2026-10. Sin `flujo` son los viejos: el de
+   * cinco de la web y el de seis de la app. El panel los separa por eso y por
+   * `platform`.
+   */
   'onboarding_step_viewed',
-  /** Avanzó de paso. props: { paso: 1-5 } */
+  /** Avanzó de paso. props: { paso, flujo } */
   'onboarding_step_completed',
-  /** Salteó el onboarding. props: { paso, tipo: 'boton_saltar' | 'saltar_calificacion' } */
+  /** Salteó el onboarding. props: { paso, flujo, tipo: 'boton_saltar' | 'saltar_calificacion' (sólo el flujo viejo) } */
   'onboarding_skipped',
   /** Búsqueda con cero resultados. props: { query, tipo } */
   'search_no_results',

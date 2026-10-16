@@ -67,7 +67,9 @@ function Embudo({ flujo }: { flujo: EmbudoOnboarding }) {
       </div>
       {vacio ? (
         <p className="text-xs text-[#A0A0B0] py-3">
-          Sin datos todavía: llegan con la versión de la app que trae este flujo.
+          {flujo.clave === 'web_corto'
+            ? 'Sin datos todavía: llegan con el primer registro en la web.'
+            : 'Sin datos todavía: llegan con la versión de la app que trae este flujo.'}
         </p>
       ) : (
         <table className="w-full text-sm">
