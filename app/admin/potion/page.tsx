@@ -3,12 +3,13 @@
 import { useEffect, useRef, useState } from 'react'
 import {
   Users, UserPlus, Activity, PlayCircle, Clock, AlertCircle, AlertTriangle,
-  Loader2, TrendingDown, Coins, Heart, Swords, Ticket,
+  Loader2, TrendingDown, Coins, Heart, Swords, Ticket, Radio, CalendarCheck, UserCheck,
 } from 'lucide-react'
 import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis, Tooltip, CartesianGrid, Cell,
 } from 'recharts'
 import type { PotionPanel, PotionCohorte, PotionDuelos } from '@/app/api/admin/potion/route'
+import type { PotionVivo } from '@/app/api/admin/potion/vivo/route'
 import { RANGOS, RANGO_POR_DEFECTO, ETIQUETA_RANGO, LANZAMIENTO, type Rango } from '@/lib/potion-panel'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
@@ -196,6 +197,73 @@ function Vacio({ motivo }: { motivo: PotionPanel['motivo'] }) {
   )
 }
 
+/**
+ * Las cuatro tarjetas grandes de arriba. Cuentan siempre desde el lanzamiento
+ * y no miran el rango ni la casilla: piden su propia ruta, cada 60 segundos
+ * mientras la pestaña está a la vista y apenas vuelve a estarlo.
+ */
+const VIVO_MS = 60_000
+
+function ResumenVivo() {
+  const [vivo, setVivo] = useState<PotionVivo | null>(null)
+  const [fallo, setFallo] = useState(false)
+
+  useEffect(() => {
+    let cancelado = false
+    async function cargar() {
+      if (document.visibilityState !== 'visible') return
+      try {
+        const res = await fetch('/api/admin/potion/vivo', { cache: 'no-store' })
+        if (!res.ok) throw new Error(String(res.status))
+        const json: PotionVivo = await res.json()
+        if (cancelado) return
+        setVivo(json)
+        setFallo(!json.disponible)
+      } catch {
+        if (!cancelado) setFallo(true)
+      }
+    }
+    void cargar()
+    const id = setInterval(cargar, VIVO_MS)
+    document.addEventListener('visibilitychange', cargar)
+    return () => {
+      cancelado = true
+      clearInterval(id)
+      document.removeEventListener('visibilitychange', cargar)
+    }
+  }, [])
+
+  const v = (x: number | undefined) => (vivo?.disponible && x !== undefined ? numero(x) : '—')
+  const tarjetas = [
+    { label: 'Jugando ahora', value: v(vivo?.jugandoAhora), sub: 'Últimos 15 minutos', icon: <Radio size={22} />, tono: 'text-emerald-400 bg-emerald-500/10' },
+    { label: 'Jugaron hoy', value: v(vivo?.jugaronHoy), sub: 'Desde las 0 h de Argentina', icon: <CalendarCheck size={22} />, tono: 'text-blue-400 bg-blue-500/10' },
+    { label: 'Usuarios reales', value: v(vivo?.reales), sub: 'Empezaron en el nivel 1', icon: <UserCheck size={22} />, tono: 'text-[#FFFD02] bg-[#FFFD02]/10' },
+    { label: 'Total con testers', value: v(vivo?.total), sub: 'Todas las instalaciones', icon: <Users size={22} />, tono: 'text-purple-400 bg-purple-500/10' },
+  ]
+
+  return (
+    <div>
+      <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        {tarjetas.map(t => (
+          <div key={t.label} className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6">
+            <div className="flex items-center gap-3 mb-4">
+              <div className={`w-11 h-11 rounded-xl flex items-center justify-center shrink-0 ${t.tono}`}>{t.icon}</div>
+              <p className="text-sm text-white font-semibold">{t.label}</p>
+            </div>
+            <p className="text-5xl font-black text-white tabular-nums">{t.value}</p>
+            <p className="text-xs text-[#A0A0B0] mt-2">{t.sub}</p>
+          </div>
+        ))}
+      </div>
+      <p className="text-[11px] text-zinc-500 mt-2">
+        Desde el lanzamiento (13/10/2026) · se actualiza solo cada minuto
+        {vivo?.disponible && <> · {new Date(vivo.generadoEn).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}</>}
+        {fallo && <span className="text-red-400"> · no se pudo actualizar</span>}
+      </p>
+    </div>
+  )
+}
+
 // ── Página ─────────────────────────────────────────────────────────────────
 
 export default function PotionPage() {
@@ -259,6 +327,9 @@ export default function PotionPage() {
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
+
+        {/* Resumen en vivo: no depende de los filtros de abajo. */}
+        <ResumenVivo />
 
         {/* Filtros */}
         <div className="flex flex-wrap items-center gap-4">
