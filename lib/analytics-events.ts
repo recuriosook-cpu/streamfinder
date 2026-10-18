@@ -201,7 +201,8 @@ export const EVENT_NAMES = [
   // 'recordatorio' (desde la 1.0.16: hasta 3 veces, cada 8 días o más, a
   // quien no tiene las notificaciones activas). Los dos primeros llevan
   // `flujo: 'corto'`; el recordatorio lleva { momento: 'watchlist' | 'regreso',
-  // vez: 1..3, estado: 'sin_preguntar' | 'bloqueado' }.
+  // vez: 1..3, estado: 'sin_preguntar' | 'bloqueado' }. `sin_preguntar` = el sistema todavía
+  // puede mostrar su aviso (nunca lo vio, o en Android 13+ lo negó una vez).
   // Aceptados sobre ofrecidos es la tasa; `resultado` dice qué contestó
   // después el sistema, porque tocar "Sí" y negar en el diálogo no es aceptar.
 

@@ -275,7 +275,12 @@ function permiso(evs: Evento[]): PermisoOrigen[] {
 }
 
 const MOMENTOS: Record<string, string> = { watchlist: 'Al guardar en Ver después', regreso: 'Al volver después de días' }
-const ESTADOS: Record<string, string> = { sin_preguntar: 'Nunca vio el aviso del sistema', bloqueado: 'Bloqueado en el sistema' }
+// `sin_preguntar` incluye al que en Android 13+ negó una sola vez: el sistema
+// todavía muestra su aviso una vez más.
+const ESTADOS: Record<string, string> = {
+  sin_preguntar: 'El sistema todavía puede preguntar',
+  bloqueado: 'Bloqueado: va a los ajustes',
+}
 
 function filaRecordatorio(clave: string, nombre: string, evs: Evento[]): RecordatorioFila {
   return {
