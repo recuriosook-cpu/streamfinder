@@ -2,7 +2,7 @@
 
 import { useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import type { EmbudoOnboarding, MedicionApp } from '@/app/api/admin/app-medicion/route'
+import type { EmbudoOnboarding, MedicionApp, Recordatorio, RecordatorioFila } from '@/app/api/admin/app-medicion/route'
 
 /**
  * Lo nuevo de la app: embudo de onboarding por flujo, notificaciones y modo
@@ -44,6 +44,66 @@ function Cifra({ label, valor, detalle }: { label: string; valor: ReactNode; det
       <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0]">{label}</p>
       <p className="text-2xl font-bold text-white tabular-nums mt-1">{valor}</p>
       {detalle && <p className="text-[11px] text-zinc-500 mt-1">{detalle}</p>}
+    </div>
+  )
+}
+
+/** Un porcentaje sobre los que vieron el cartel, con la cantidad al lado. */
+function Sobre({ n, de, tono }: { n: number; de: number; tono: string }) {
+  return (
+    <>
+      <span className={`font-semibold ${tono}`}>{pct(de ? Math.round(n / de * 1000) / 10 : null)}</span>
+      <span className="text-zinc-600 text-[11px] ml-1">({numero(n)})</span>
+    </>
+  )
+}
+
+/**
+ * El recordatorio de la app 1.0.16: vieron → tocaron → activaron, en total y
+ * partido por momento y por estado del permiso.
+ */
+function TablaRecordatorio({ r }: { r: Recordatorio }) {
+  const fila = (f: RecordatorioFila, sangria: boolean) => (
+    <tr key={`${sangria ? 's' : 't'}-${f.clave}`} className="border-b border-[#2A2A3A]/60 last:border-0">
+      <td className={`py-2 pr-3 ${sangria ? 'pl-3 text-zinc-300' : 'text-white font-semibold'}`}>{f.nombre}</td>
+      <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{numero(f.vieron)}</td>
+      <td className="py-2 px-2 text-right tabular-nums"><Sobre n={f.tocaron} de={f.vieron} tono="text-white" /></td>
+      <td className="py-2 px-2 text-right tabular-nums"><Sobre n={f.activaron} de={f.vieron} tono="text-emerald-400" /></td>
+      <td className="py-2 pl-2 text-right tabular-nums"><Sobre n={f.ahoraNo} de={f.vieron} tono="text-amber-300" /></td>
+    </tr>
+  )
+  const titulo = (t: string) => (
+    <tr key={t}><td colSpan={5} className="pt-3 pb-1 text-[11px] uppercase tracking-wide text-[#A0A0B0]">{t}</td></tr>
+  )
+  return (
+    <div className="overflow-x-auto mb-5">
+      <p className="text-xs font-semibold text-white mb-1">Recordatorio para activarlas</p>
+      <p className="text-[11px] text-[#A0A0B0] mb-2">
+        <Desde desde={r.desde} /> · desde la app 1.0.16, hasta 3 veces y cada 8 días o más
+      </p>
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+            <th className="text-left font-medium py-2 pr-3" />
+            <th className="text-right font-medium py-2 px-2">Lo vieron</th>
+            <th className="text-right font-medium py-2 px-2">Tocaron el botón</th>
+            <th className="text-right font-medium py-2 px-2">Activaron</th>
+            <th className="text-right font-medium py-2 pl-2">“Ahora no”</th>
+          </tr>
+        </thead>
+        <tbody>
+          {fila(r.total, false)}
+          {titulo('Cuándo apareció')}
+          {r.porMomento.map(f => fila(f, true))}
+          {titulo('Cómo estaba el permiso')}
+          {r.porEstado.map(f => fila(f, true))}
+        </tbody>
+      </table>
+      <p className="text-[10px] text-[#A0A0B0] mt-2 leading-relaxed">
+        Tocaron = “Activar” (abre el aviso del sistema) o “Abrir ajustes” (si estaba bloqueado). Activaron = terminaron
+        con el permiso y el token guardado, por el aviso o volviendo de los ajustes. Sobre instalaciones distintas; una
+        misma instalación puede verlo hasta 3 veces.
+      </p>
     </div>
   )
 }
@@ -190,6 +250,8 @@ export function AppMedicionPanel({ recarga }: { recarga: number }) {
             negaron en el diálogo del teléfono (o falló). Sobre instalaciones distintas.
           </p>
         </div>
+
+        <TablaRecordatorio r={n.recordatorio} />
 
         <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
           <Cifra

@@ -195,19 +195,33 @@ export const EVENT_NAMES = [
 
   // ── Permiso de notificaciones, sólo de la app ───────────────────────
   //
-  // El pedido propio que va antes del diálogo del sistema. Los tres llevan
-  // `origen`: 'onboarding' (la tarjeta de "Tus primeras recomendaciones") o
-  // 'watchlist' (el segundo ofrecimiento, una sola vez, al guardar algo en la
-  // watchlist por primera vez después de un "Ahora no"), y `flujo: 'corto'`.
+  // El pedido propio que va antes del diálogo del sistema. Llevan `origen`:
+  // 'onboarding' (la tarjeta de "Tus primeras recomendaciones"),
+  // 'watchlist' (el segundo ofrecimiento de una sola vez, hasta la 1.0.15) o
+  // 'recordatorio' (desde la 1.0.16: hasta 3 veces, cada 8 días o más, a
+  // quien no tiene las notificaciones activas). Los dos primeros llevan
+  // `flujo: 'corto'`; el recordatorio lleva { momento: 'watchlist' | 'regreso',
+  // vez: 1..3, estado: 'sin_preguntar' | 'bloqueado' }.
   // Aceptados sobre ofrecidos es la tasa; `resultado` dice qué contestó
   // después el sistema, porque tocar "Sí" y negar en el diálogo no es aceptar.
 
   /** Se mostró el pedido. props: { origen, flujo } */
   'push_ofrecido',
-  /** Tocó "Sí, avisame". props: { origen, flujo, resultado: 'granted' | 'denied' | 'error' | ... } */
+  /** Tocó "Sí, avisame" / "Activar". props: { origen, flujo, resultado: 'granted' | 'denied' | 'error' | ... } */
   'push_aceptado',
   /** Tocó "Ahora no". props: { origen, flujo } */
   'push_ahora_no',
+  /**
+   * Tocó "Abrir ajustes" en el recordatorio: el permiso estaba bloqueado en
+   * el sistema y no se puede volver a preguntar. props: las del recordatorio.
+   */
+  'push_ajustes_abiertos',
+  /**
+   * Terminó con el permiso dado y el token guardado después de un
+   * recordatorio, por el diálogo o volviendo de los ajustes. props: las del
+   * recordatorio + { via: 'dialogo' | 'ajustes' }.
+   */
+  'push_activado',
   /**
    * Abrió la app tocando una notificación push. Sólo de la app.
    * props: { tipo, envio, arranque: 'frio' | 'abierta' }. `tipo` es el `data.type`

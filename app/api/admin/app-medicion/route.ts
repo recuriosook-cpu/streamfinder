@@ -76,11 +76,30 @@ export interface PermisoOrigen {
   ahoraNo: number
 }
 
+/** Una tajada del recordatorio de notificaciones (1.0.16 en adelante). */
+export interface RecordatorioFila {
+  clave: string
+  nombre: string
+  vieron: number
+  /** Tocaron "Activar" o "Abrir ajustes". */
+  tocaron: number
+  activaron: number
+  ahoraNo: number
+}
+
+export interface Recordatorio {
+  desde: string | null
+  total: RecordatorioFila
+  porMomento: RecordatorioFila[]
+  porEstado: RecordatorioFila[]
+}
+
 export interface MedicionApp {
   onboarding: EmbudoOnboarding[]
   notificaciones: {
     permisoDesde: string | null
     permiso: PermisoOrigen[]
+    recordatorio: Recordatorio
     usuariosConToken: number
     aparatosConToken: number
     /** Instalaciones activas en 30 días, la definición de `admin_app_uso`. `null` si no está la función. */
@@ -232,10 +251,16 @@ function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
 
 // ── Notificaciones ─────────────────────────────────────────────────────────
 
-const ORIGENES = ['onboarding', 'watchlist']
+// 'watchlist' sigue apareciendo mientras haya eventos: es el ofrecimiento de
+// una vez que reemplazó el recordatorio en la 1.0.16.
+const ORIGENES = ['onboarding']
+const RECORDATORIO = 'recordatorio'
 
 function permiso(evs: Evento[]): PermisoOrigen[] {
   const origenes = [...new Set([...ORIGENES, ...evs.map(e => String(prop(e, 'origen') ?? 'sin origen'))])]
+    // El recordatorio tiene su propio embudo: "aceptaron" no cuenta a los que
+    // fueron por los ajustes.
+    .filter(o => o !== RECORDATORIO)
   return origenes.map(origen => {
     const de = evs.filter(e => String(prop(e, 'origen') ?? 'sin origen') === origen)
     const aceptados = de.filter(e => e.name === 'push_aceptado')
@@ -247,6 +272,37 @@ function permiso(evs: Evento[]): PermisoOrigen[] {
       ahoraNo: personas(de.filter(e => e.name === 'push_ahora_no')),
     }
   })
+}
+
+const MOMENTOS: Record<string, string> = { watchlist: 'Al guardar en Ver después', regreso: 'Al volver después de días' }
+const ESTADOS: Record<string, string> = { sin_preguntar: 'Nunca vio el aviso del sistema', bloqueado: 'Bloqueado en el sistema' }
+
+function filaRecordatorio(clave: string, nombre: string, evs: Evento[]): RecordatorioFila {
+  return {
+    clave,
+    nombre,
+    vieron: personas(evs.filter(e => e.name === 'push_ofrecido')),
+    tocaron: personas(evs.filter(e => e.name === 'push_aceptado' || e.name === 'push_ajustes_abiertos')),
+    activaron: personas(evs.filter(e => e.name === 'push_activado')),
+    ahoraNo: personas(evs.filter(e => e.name === 'push_ahora_no')),
+  }
+}
+
+/** Una fila por valor de `clave`: los conocidos siempre, los otros si aparecen. */
+function tajadas(evs: Evento[], clave: string, nombres: Record<string, string>): RecordatorioFila[] {
+  const valores = [...new Set([...Object.keys(nombres), ...evs.map(e => String(prop(e, clave) ?? '?'))])]
+  return valores.map(v =>
+    filaRecordatorio(v, nombres[v] ?? v, evs.filter(e => String(prop(e, clave) ?? '?') === v)))
+}
+
+function recordatorio(evs: Evento[]): Recordatorio {
+  const de = evs.filter(e => prop(e, 'origen') === RECORDATORIO)
+  return {
+    desde: rango(de).desde,
+    total: filaRecordatorio('total', 'Total', de),
+    porMomento: tajadas(de, 'momento', MOMENTOS),
+    porEstado: tajadas(de, 'estado', ESTADOS),
+  }
 }
 
 const INTERRUPTORES = [
@@ -341,7 +397,7 @@ export async function GET() {
     const [onb, recos, push, desl, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
       eventos(admin, ['onboarding_step_viewed', 'onboarding_skipped']),
       pantallasRecomendaciones(admin),
-      eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no']),
+      eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no', 'push_ajustes_abiertos', 'push_activado']),
       eventos(admin, ['deslizar_abierto', 'deslizar_accion', 'deslizar_deshacer']),
       tokens(admin),
       admin.rpc('admin_app_uso'),
@@ -357,6 +413,7 @@ export async function GET() {
       notificaciones: {
         permisoDesde: rango(push).desde,
         permiso: permiso(push),
+        recordatorio: recordatorio(push),
         usuariosConToken: porUsuario.size,
         aparatosConToken: [...porUsuario.values()].reduce((s, n) => s + n, 0),
         instalacionesActivas: fila ? Number(fila.activas) : null,
