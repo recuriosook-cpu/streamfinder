@@ -9,7 +9,7 @@ import {
   Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   X, ExternalLink, Ban, CheckCircle, Shield, Loader2,
   FileText, List, AlertCircle, MoreHorizontal, UserCheck,
-  Smartphone, Clock, Info,
+  Smartphone, Clock, Info, Bell, BellOff,
 } from 'lucide-react'
 
 // ── Types ─────────────────────────────────────────────────────────────────
@@ -34,12 +34,20 @@ interface AdminUser {
   list_count: number
   follow_count: number
 
-  /** Tiene al menos un dispositivo registrado en `user_devices`. */
-  tiene_app: boolean
-  /** Las plataformas distintas de sus dispositivos: 'android', 'ios'. */
+  /** Usó la app: tiene eventos de la app o un dispositivo en `user_devices`. */
+  usa_app: boolean
+  /** En qué sistema usa la app: 'android', 'ios'. Vacío si sólo hay eventos de versiones sin `os`. */
+  sistemas_app: string[]
+  /** Último evento de la app o último registro del token. */
+  ultima_app: string | null
+  /** Tiene notificaciones activas: al menos un token en `user_devices`. */
+  notificaciones: boolean
+  /** Las plataformas distintas de sus dispositivos con token: 'android', 'ios'. */
   plataformas: string[]
   /** El `last_seen_at` más reciente de todos sus dispositivos. */
   ultimo_dispositivo: string | null
+  /** Lo más reciente entre la web, los eventos de la app y `user_devices`. */
+  ultimo_acceso: string | null
 
   /**
    * Tiempo de actividad medido, en segundos.
@@ -75,9 +83,9 @@ interface Review { id: string; title: string; rating: number | null; body: strin
 interface UserList { id: string; title: string; is_public: boolean; created_at: string }
 
 type SortKey =
-  | 'username' | 'auth_created_at' | 'last_active'
+  | 'username' | 'auth_created_at' | 'ultimo_acceso'
   | 'review_count' | 'list_count' | 'follow_count' | 'points'
-  | 'tiene_app' | 'segundos_totales' | 'sesiones'
+  | 'usa_app' | 'segundos_totales' | 'sesiones'
 type SortDir = 'asc' | 'desc'
 
 // ── Constants ─────────────────────────────────────────────────────────────
@@ -97,6 +105,20 @@ function timeAgo(iso: string | null | undefined): string {
   const days = Math.floor(hrs / 24)
   if (days < 30) return `hace ${days}d`
   return new Date(iso).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: '2-digit' })
+}
+
+const NOMBRE_SISTEMA: Record<string, string> = { ios: 'iOS', android: 'Android' }
+
+/** "iOS", "Android", "Android/iOS", o "App" si sólo hay eventos sin sistema. */
+function sistemasApp(user: { sistemas_app: string[] }, sep = '/'): string {
+  return user.sistemas_app.length ? user.sistemas_app.map(s => NOMBRE_SISTEMA[s] ?? s).join(sep) : 'App'
+}
+
+/** Para el tooltip y el panel: si tiene las notificaciones activas y desde cuándo se vio el token. */
+function estadoNotificaciones(user: { notificaciones: boolean; ultimo_dispositivo: string | null }): string {
+  return user.notificaciones
+    ? `Notificaciones activas · token visto ${timeAgo(user.ultimo_dispositivo)}`
+    : 'Notificaciones no activadas'
 }
 
 function fmtDate(iso: string | null | undefined): string {
@@ -485,9 +507,9 @@ export default function UsuariosPage() {
                   {/* Registro */}
                   <SortTh label="Registro"      sortKey="auth_created_at" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden md:table-cell" />
                   {/* Última actividad */}
-                  <SortTh label="Últ. acceso"   sortKey="last_active"  currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden lg:table-cell" />
+                  <SortTh label="Últ. acceso"   sortKey="ultimo_acceso" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-left hidden lg:table-cell" />
                   {/* App móvil */}
-                  <SortTh label="App"           sortKey="tiene_app"        currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center" />
+                  <SortTh label="App"           sortKey="usa_app"          currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center" />
                   {/* Tiempo de actividad medido */}
                   <SortTh label="Tiempo total"  sortKey="segundos_totales" currentKey={sortKey} currentDir={sortDir} onSort={toggleSort} className="text-center hidden md:table-cell" />
                   {/* Sesiones */}
@@ -569,24 +591,27 @@ export default function UsuariosPage() {
 
                       {/* Última actividad */}
                       <td className="px-4 py-3 hidden lg:table-cell">
-                        <span className="text-xs text-[#A0A0B0]">{timeAgo(user.last_active)}</span>
+                        <span className="text-xs text-[#A0A0B0]">{timeAgo(user.ultimo_acceso)}</span>
                       </td>
 
-                      {/* App móvil */}
+                      {/* App móvil: el sistema, y la campanita dice si tiene notificaciones */}
                       <td className="px-4 py-3 text-center">
-                        {user.tiene_app ? (
+                        {user.usa_app ? (
                           <span
-                            className="inline-flex items-center gap-1 text-[10px] bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded-full font-medium"
+                            className="inline-flex items-center gap-1.5 text-[10px] bg-emerald-900/40 text-emerald-400 px-2 py-0.5 rounded-full font-medium whitespace-nowrap"
                             title={
-                              `${user.plataformas.length ? user.plataformas.join(', ') : 'plataforma desconocida'}` +
-                              ` · visto ${timeAgo(user.ultimo_dispositivo)}`
+                              `Usa la app${user.sistemas_app.length ? ` en ${sistemasApp(user, ' y ')}` : ' (sistema desconocido)'}` +
+                              ` · último uso ${timeAgo(user.ultima_app)}\n${estadoNotificaciones(user)}`
                             }
                           >
                             <Smartphone size={9} />
-                            {user.plataformas.length ? user.plataformas.join('/') : 'sí'}
+                            {sistemasApp(user)}
+                            {user.notificaciones
+                              ? <Bell size={9} className="text-emerald-300" aria-label="Notificaciones activas" />
+                              : <BellOff size={9} className="text-zinc-500" aria-label="Notificaciones no activadas" />}
                           </span>
                         ) : (
-                          <span className="text-xs text-zinc-700" title="Sin dispositivos registrados">—</span>
+                          <span className="text-xs text-zinc-700" title="Sin eventos de la app ni dispositivos registrados">—</span>
                         )}
                       </td>
 
@@ -812,12 +837,15 @@ export default function UsuariosPage() {
                     ['Email',         selected.email ?? '—'],
                     ['País',          selected.country ?? '—'],
                     ['Registro',      fmtDate(selected.auth_created_at)],
-                    ['Últ. acceso',   timeAgo(selected.last_active)],
+                    ['Últ. acceso',   timeAgo(selected.ultimo_acceso)],
                     ['Nivel',         `Nv.${selected.level ?? '—'} · ${(selected.points ?? 0).toLocaleString()} pts`],
                     ['Actividad',     `${selected.review_count} reseñas · ${selected.list_count} listas`],
-                    ['App móvil',     selected.tiene_app
-                                        ? `${selected.plataformas.join(', ') || 'sí'} · visto ${timeAgo(selected.ultimo_dispositivo)}`
-                                        : 'No instalada'],
+                    ['App móvil',     selected.usa_app
+                                        ? `${sistemasApp(selected, ', ')} · último uso ${timeAgo(selected.ultima_app)}`
+                                        : 'No la usó'],
+                    ['Notificaciones', selected.notificaciones
+                                        ? `Activas · ${selected.plataformas.map(s => NOMBRE_SISTEMA[s] ?? s).join(', ')} · token visto ${timeAgo(selected.ultimo_dispositivo)}`
+                                        : 'No activadas'],
                     ['Tiempo medido', selected.segundos_totales === null
                                         ? 'sin datos aún'
                                         : `${fmtDuracion(selected.segundos_totales)} · ${selected.sesiones} ${selected.sesiones === 1 ? 'sesión' : 'sesiones'}`],

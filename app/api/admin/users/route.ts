@@ -230,7 +230,9 @@ export async function GET(req: Request) {
   // Column sorts supported natively by PostgREST.
   // `auth_created_at` no está acá a propósito: vive en auth.users, no en
   // profiles, así que PostgREST no lo puede ordenar y cae en el sort en JS.
-  const DB_SORT_COLS = ['username', 'display_name', 'updated_at', 'last_active', 'points', 'level']
+  // `last_active` ya no está: "Últ. acceso" es `ultimo_acceso`, que se calcula
+  // con la web, la app y los dispositivos, y se ordena en JS.
+  const DB_SORT_COLS = ['username', 'display_name', 'updated_at', 'points', 'level']
   const useDbSort = DB_SORT_COLS.includes(sortBy)
 
   // 1. Get auth map (cached): email + fecha de alta real
@@ -327,7 +329,7 @@ export async function GET(req: Request) {
     const av = a[sortBy as keyof typeof a]
     const bv = b[sortBy as keyof typeof b]
 
-    // `tiene_app` es booleano. Sin este caso caía en la rama numérica, donde
+    // `usa_app` es booleano. Sin este caso caía en la rama numérica, donde
     // `true - false` es NaN y el sort queda en el orden que estaba.
     if (typeof av === 'boolean' || typeof bv === 'boolean') {
       const ab = av ? 1 : 0
@@ -383,6 +385,28 @@ interface ActivityRow {
   ultima_actividad: string | null
 }
 
+/**
+ * Una fila de la vista `user_app_usage` (supabase-uso-app-2026-10.sql): quién
+ * usa la app según sus eventos, haya aceptado las notificaciones o no.
+ */
+interface AppUsageRow {
+  user_id: string
+  sistemas: string[] | null
+  ultima_app: string | null
+}
+
+/** La más reciente de varias fechas ISO, o `null` si no hay ninguna. */
+function masReciente(...fechas: (string | null | undefined)[]): string | null {
+  let max: string | null = null
+  let maxMs = -Infinity
+  for (const f of fechas) {
+    if (!f) continue
+    const ms = new Date(f).getTime()
+    if (ms > maxMs) { maxMs = ms; max = f }
+  }
+  return max
+}
+
 async function enrichProfiles(
   admin: SupabaseClient,
   authMap: Record<string, AuthInfo>,
@@ -392,7 +416,7 @@ async function enrichProfiles(
 
   const ids = profiles.map(p => p.id)
 
-  const [reviewRows, listRows, followRows, deviceRows, activityRows] = await Promise.all([
+  const [reviewRows, listRows, followRows, deviceRows, activityRows, appRows] = await Promise.all([
     admin.from('reviews').select('user_id').in('user_id', ids),
     admin.from('lists').select('user_id').in('user_id', ids),
     admin.from('follows').select('following_id').in('following_id', ids),
@@ -407,6 +431,12 @@ async function enrichProfiles(
     // fila por usuario, o ninguna si nunca generó un evento).
     fetchForUsers<ActivityRow>(
       admin, 'user_activity_time', 'user_id, segundos_totales, sesiones, ultima_actividad', ids
+    ),
+
+    // Uso de la app por eventos. Si la vista no está creada todavía,
+    // `fetchForUsers` devuelve [] y la columna sale sólo de `user_devices`.
+    fetchForUsers<AppUsageRow>(
+      admin, 'user_app_usage', 'user_id, sistemas, ultima_app', ids
     ),
   ])
 
@@ -445,9 +475,17 @@ async function enrichProfiles(
   const activity: Record<string, ActivityRow> = {}
   for (const a of activityRows) activity[a.user_id] = a
 
+  const appUsage: Record<string, AppUsageRow> = {}
+  for (const a of appRows) appUsage[a.user_id] = a
+
   return profiles.map(p => {
     const dev = devices[p.id]
     const act = activity[p.id]
+    const app = appUsage[p.id]
+
+    // El sistema sale de los eventos; si son de una versión vieja que no
+    // mandaba `os`, del dispositivo registrado para push.
+    const sistemas = [...new Set([...(app?.sistemas ?? []), ...(dev?.plataformas ?? [])])].sort()
 
     return {
       ...p,
@@ -458,10 +496,25 @@ async function enrichProfiles(
       list_count:      lstCounts[p.id] ?? 0,
       follow_count:    flwCounts[p.id] ?? 0,
 
-      // App móvil
-      tiene_app:          !!dev,
+      // App móvil: usarla y tener las notificaciones activas son cosas
+      // distintas. Lo primero sale de los eventos (y de `user_devices`, que
+      // implica haberla usado); lo segundo, sólo de `user_devices`.
+      usa_app:            !!app || !!dev,
+      sistemas_app:       sistemas,
+      ultima_app:         masReciente(app?.ultima_app, dev?.ultimo),
+      notificaciones:     !!dev,
       plataformas:        dev?.plataformas ?? [],
       ultimo_dispositivo: dev?.ultimo ?? null,
+
+      // "Últ. acceso": lo más reciente entre la web (`last_active`, que escribe
+      // /api/ping-active), los eventos de la web y de la app, y el último
+      // registro del token de push.
+      ultimo_acceso: masReciente(
+        p.last_active as string | null,
+        act?.ultima_actividad,
+        app?.ultima_app,
+        dev?.ultimo,
+      ),
 
       // Actividad. `null` y no `0` a propósito: son cosas distintas y la UI las
       // muestra distinto. `null` es "de esta persona no tenemos ni un evento",
