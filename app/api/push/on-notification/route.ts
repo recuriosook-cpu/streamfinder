@@ -110,6 +110,9 @@ const PREF_KEY_BY_TYPE: Record<string, string> = {
   list_comment:   'comments',
   actor_birthday: 'actor_birthday',
   new_release:    'new_release',
+  famoso_proyecto:      'famosos_proyectos',
+  famoso_disponible:    'disponibilidad',
+  watchlist_disponible: 'disponibilidad',
 }
 
 /**
@@ -119,7 +122,9 @@ const PREF_KEY_BY_TYPE: Record<string, string> = {
  * usuario el que subió de nivel). Sin esta excepción, el filtro de
  * "no notificarse a uno mismo" se comería todos los level_up.
  */
-const SELF_ADDRESSED_TYPES = new Set(['level_up', 'actor_birthday', 'new_release'])
+const SELF_ADDRESSED_TYPES = new Set([
+  'level_up', 'actor_birthday', 'new_release', 'famoso_proyecto', 'famoso_disponible', 'watchlist_disponible',
+])
 
 // ── Handler ────────────────────────────────────────────────────────────────
 
@@ -131,13 +136,18 @@ function ok(reason: string, extra: Record<string, unknown> = {}) {
 export async function POST(req: Request) {
   // ── 1. Autenticar ────────────────────────────────────────────────────────
   const expected = process.env.PUSH_NOTIFY_SECRET
+  // Sólo mientras se rota el secreto: el que todavía tiene el webhook de
+  // Supabase. Con los dos aceptados, cambiar primero Vercel y después el
+  // webhook no corta ninguna push. Se borra al terminar la rotación.
+  const anterior = process.env.PUSH_NOTIFY_SECRET_ANTERIOR
   if (!expected) {
     // Sin secreto configurado no se puede distinguir a Supabase de cualquiera.
     // Se rechaza en vez de quedar abierto.
     console.error('[on-notification] falta PUSH_NOTIFY_SECRET en el entorno')
     return NextResponse.json({ error: 'not_configured' }, { status: 401 })
   }
-  if (!secretMatches(req.headers.get(SECRET_HEADER), expected)) {
+  const recibido = req.headers.get(SECRET_HEADER)
+  if (!secretMatches(recibido, expected) && !(anterior && secretMatches(recibido, anterior))) {
     return NextResponse.json({ error: 'unauthorized' }, { status: 401 })
   }
 
@@ -153,6 +163,10 @@ export async function POST(req: Request) {
 
   // ── Idempotencia ─────────────────────────────────────────────────────────
   if (row.id && alreadyHandled(row.id)) return ok('duplicado', { id: row.id })
+
+  // Las del cron de famosos y disponibilidad: la push la manda el cron, una
+  // por día como mucho y resumiendo (`lib/avisos-push.ts`). Acá no.
+  if ((row as { sin_push?: unknown }).sin_push === true) return ok('la manda el cron', { id: row.id })
 
   // Normalizado porque en la base puede haber variantes de mayúsculas
   // ('Follow'), y son datos históricos que no se tocan.

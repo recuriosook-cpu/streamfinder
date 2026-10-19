@@ -45,6 +45,9 @@ const PREF_KEY: Partial<Record<NotifType, string>> = {
   list_comment:   'list_comment',
   actor_birthday: 'actor_birthday',
   new_release:    'new_release',
+  famoso_proyecto:      'famosos_proyectos',
+  famoso_disponible:    'disponibilidad',
+  watchlist_disponible: 'disponibilidad',
 }
 
 export interface PushPayload {

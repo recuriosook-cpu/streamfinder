@@ -33,6 +33,7 @@ interface NotifItem {
   id: string
   type: 'follow' | 'review_like' | 'review_comment' | 'comment_reply' | 'mention' | 'level_up'
       | 'list_like' | 'list_comment' | 'actor_birthday' | 'new_release'
+      | 'famoso_proyecto' | 'famoso_disponible' | 'watchlist_disponible'
   read: boolean
   created_at: string
   actor_id: string | null
@@ -716,7 +717,7 @@ export default function Navbar() {
                               <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
                                 {n.type === 'actor_birthday' ? (
                                   <div className="w-full h-full flex items-center justify-center text-base bg-[#2A2A3A]">🎂</div>
-                                ) : n.type === 'new_release' ? (
+                                ) : n.type === 'new_release' || n.type === 'famoso_proyecto' || n.type === 'famoso_disponible' || n.type === 'watchlist_disponible' ? (
                                   <div className="w-full h-full flex items-center justify-center text-base bg-[#2A2A3A]">🎬</div>
                                 ) : n.actor?.avatar_url ? (
                                   <img src={n.actor.avatar_url} alt={actor} className="w-full h-full object-cover" />
@@ -755,7 +756,8 @@ export default function Navbar() {
                                   {n.type === 'actor_birthday' && (
                                     <>🎂 <span className="text-[#FFFD02]">{n.entity_title}</span> cumple años hoy</>
                                   )}
-                                  {n.type === 'new_release' && (
+                                  {(n.type === 'new_release' || n.type === 'famoso_proyecto' || n.type === 'famoso_disponible' || n.type === 'watchlist_disponible') && (
+                                    // Desde 2026-10 el cron deja en `entity_title` la frase entera en castellano.
                                     <>🎬 <span className="text-[#FFFD02]">{n.entity_title}</span></>
                                   )}
                                 </p>

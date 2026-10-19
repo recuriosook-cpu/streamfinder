@@ -19,11 +19,14 @@ interface NotifPrefs {
   level_up:       boolean
   actor_birthday: boolean
   new_release:    boolean
+  famosos_proyectos: boolean
+  disponibilidad:    boolean
 }
 
 const DEFAULT_PREFS: NotifPrefs = {
   likes: true, follows: true, comments: true, replies: true,
   mentions: true, level_up: true, actor_birthday: true, new_release: true,
+  famosos_proyectos: true, disponibilidad: true,
 }
 
 const TOGGLES: { key: keyof NotifPrefs; label: string; description: string }[] = [
@@ -33,8 +36,10 @@ const TOGGLES: { key: keyof NotifPrefs; label: string; description: string }[] =
   { key: 'replies',        label: 'Respuestas a mis comentarios',    description: 'Cuando alguien responde uno de tus comentarios' },
   { key: 'mentions',       label: 'Menciones con @',                 description: 'Cuando alguien te menciona en una reseña o comentario' },
   { key: 'level_up',       label: 'Subida de nivel',                 description: 'Cuando acumulás suficientes puntos para subir de nivel' },
-  { key: 'actor_birthday', label: 'Cumpleaños de actores que sigo',  description: 'Recordatorio cuando cumple años un actor que seguís' },
-  { key: 'new_release',    label: 'Estrenos de actores que sigo',    description: 'Cuando se estrena algo nuevo de un actor que seguís' },
+  { key: 'actor_birthday', label: 'Cumpleaños de famosos que sigo',  description: 'Cuando cumple años un actor o director que seguís' },
+  { key: 'new_release',    label: 'Estrenos de famosos que sigo',    description: 'Cuando se estrena una película o serie de alguien que seguís' },
+  { key: 'famosos_proyectos', label: 'Proyectos nuevos de famosos que sigo', description: 'Cuando se anuncia una película o serie de alguien que seguís' },
+  { key: 'disponibilidad',    label: 'Llega a tus plataformas',          description: 'Cuando algo de tu "Ver después" o de alguien que seguís llega a una de tus plataformas' },
 ]
 
 function Toggle({ on, onChange }: { on: boolean; onChange: (v: boolean) => void }) {

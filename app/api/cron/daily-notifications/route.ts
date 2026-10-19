@@ -1,83 +1,39 @@
 import { NextResponse } from 'next/server'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { novedadesDeFamosos, type ResumenFamosos } from '@/lib/avisos-famosos'
+import { novedadesDeDisponibilidad, type ResumenDisponibilidad } from '@/lib/disponibilidad'
+import { insertarYAvisar } from '@/lib/avisos-push'
 
-// El push de cada notificación no se manda desde acá: lo manda
-// `/api/push/on-notification`, que Supabase llama con cada fila nueva de
-// `notifications`. Hasta el 2026-09-24 este cron además mandaba el push por su
-// cuenta, y cada cumpleaños y estreno sonaba dos veces.
+/**
+ * GET /api/cron/daily-notifications — todos los días a las 9 de Argentina
+ * (12 UTC, `vercel.json`).
+ *
+ * Desde la 1.0.16 (2026-10):
+ *
+ *   1. Famosos que cada uno sigue (`lib/avisos-famosos.ts`): cumpleaños,
+ *      proyecto nuevo anunciado y estreno, de cine y de series, como actor o
+ *      como director, guionista o creador.
+ *   2. Disponibilidad (`lib/disponibilidad.ts`): algo de su "Ver después" o
+ *      de un famoso que sigue llegó a una de sus plataformas, en su país.
+ *   3. Todo junto a la bandeja, y una sola push por persona con el tope de 1
+ *      por día y 4 por semana (`lib/avisos-push.ts`).
+ *
+ * Necesita supabase-famosos-disponibilidad-2026-10.sql. Hasta 2026-10 sólo
+ * mandaba cumpleaños (de la fecha guardada al seguir, que la app no
+ * guardaba) y estrenos de películas como actor.
+ *
+ * Una sola invocación por día: en Vercel es un par de minutos de función como
+ * mucho. Los pedidos a TMDB (unos 400 por día en octubre de 2026) no cuestan.
+ */
 
-const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
-const TMDB_BASE = 'https://api.themoviedb.org/3'
-
-function sleep(ms: number) { return new Promise(r => setTimeout(r, ms)) }
-
-function todayMMDD(): string {
-  const d = new Date()
-  const mm = String(d.getUTCMonth() + 1).padStart(2, '0')
-  const dd = String(d.getUTCDate()).padStart(2, '0')
-  return `${mm}-${dd}`
-}
-
-function todayStart(): string {
-  const d = new Date()
-  d.setUTCHours(0, 0, 0, 0)
-  return d.toISOString()
-}
-
-function thirtyDaysAgo(): string {
-  const d = new Date()
-  d.setUTCDate(d.getUTCDate() - 30)
-  return d.toISOString().split('T')[0]  // YYYY-MM-DD
-}
-
-// ── Auth guard ─────────────────────────────────────────────────────────────
+export const runtime = 'nodejs'
+export const maxDuration = 300
 
 function authorized(req: Request): boolean {
   const secret = process.env.CRON_SECRET
   if (!secret) return false
-  const auth = req.headers.get('authorization') ?? ''
-  return auth === `Bearer ${secret}`
+  return (req.headers.get('authorization') ?? '') === `Bearer ${secret}`
 }
-
-// ── TMDB helpers ───────────────────────────────────────────────────────────
-
-interface TmdbMovie {
-  id: number
-  title: string
-  release_date: string
-  poster_path: string | null
-}
-
-async function fetchActorMovies(actorId: number): Promise<TmdbMovie[]> {
-  try {
-    const url = `${TMDB_BASE}/person/${actorId}/movie_credits?api_key=${TMDB_KEY}&language=es-AR`
-    const res = await fetch(url, { cache: 'no-store' })
-    if (!res.ok) return []
-    const data = await res.json()
-    return (data.cast ?? []) as TmdbMovie[]
-  } catch { return [] }
-}
-
-// ── Notification helpers ───────────────────────────────────────────────────
-
-async function checkPref(
-  admin: SupabaseClient,
-  userId: string,
-  prefKey: string
-): Promise<boolean> {
-  const { data } = await admin
-    .from('profiles')
-    .select('notification_preferences')
-    .eq('id', userId)
-    .maybeSingle()
-  if (!data) return true
-  const prefs = (data as { notification_preferences: Record<string, boolean> | null })
-    .notification_preferences ?? {}
-  return prefs[prefKey] !== false
-}
-
-// ── Route handler ──────────────────────────────────────────────────────────
 
 export async function GET(req: Request) {
   if (!authorized(req)) {
@@ -87,124 +43,40 @@ export async function GET(req: Request) {
   const { admin, failure } = requireAdminClient('cron/daily-notifications')
   if (failure) return failure
 
-  const mmdd  = todayMMDD()
-  const today = todayStart()
-  const cutoff = thirtyDaysAgo()
+  const inicio = Date.now()
+  const famosos: ResumenFamosos = { famosos: 0, sembrados: 0, sinRespuesta: 0, creditosNuevos: 0, cumpleanosCompletados: 0, errores: 0 }
+  const disponibilidad: ResumenDisponibilidad = { titulos: 0, pedidos: 0, sinRespuesta: 0, sembrados: 0, llegadas: 0 }
+  const errores: string[] = []
 
-  const summary = { birthday: 0, new_release: 0, errors: [] as string[] }
-
-  // ══════════════════════════════════════════════════════════════
-  // A) ACTOR_BIRTHDAY
-  // ══════════════════════════════════════════════════════════════
-
-  // Find all followed_actors whose birthday matches today's MM-DD
-  const { data: birthdayRows, error: bdErr } = await admin
-    .from('followed_actors')
-    .select('user_id, actor_id, actor_name')
-    // birthday stored as 'YYYY-MM-DD'; extract MM-DD using LIKE '%MM-DD'
-    .like('birthday', `%-${mmdd}`)
-
-  if (bdErr) {
-    summary.errors.push(`birthday fetch: ${bdErr.message}`)
-  } else {
-    for (const row of birthdayRows ?? []) {
-      const { user_id, actor_id, actor_name } = row as {
-        user_id: string; actor_id: number; actor_name: string
-      }
-
-      // Dedup: skip if already notified today for this actor
-      const { data: existing } = await admin
-        .from('notifications')
-        .select('id')
-        .eq('user_id', user_id)
-        .eq('type', 'actor_birthday')
-        .eq('entity_id', String(actor_id))
-        .gte('created_at', today)
-        .maybeSingle()
-      if (existing) continue
-
-      // Check preference
-      if (!(await checkPref(admin, user_id, 'actor_birthday'))) continue
-
-      const { error } = await admin.from('notifications').insert({
-        user_id,
-        type:         'actor_birthday',
-        entity_id:    String(actor_id),
-        entity_type:  'person',
-        entity_title: actor_name,
-        read:         false,
-      })
-      if (error) { summary.errors.push(`birthday insert ${actor_id}: ${error.message}`); continue }
-      summary.birthday++
-    }
+  // Cada parte por separado: si la disponibilidad falla, los cumpleaños igual salen.
+  const novedades = []
+  try {
+    novedades.push(...(await novedadesDeFamosos(admin, famosos)))
+  } catch (err) {
+    errores.push(`famosos: ${(err as Error).message}`)
+  }
+  try {
+    novedades.push(...(await novedadesDeDisponibilidad(admin, disponibilidad)))
+  } catch (err) {
+    errores.push(`disponibilidad: ${(err as Error).message}`)
   }
 
-  // ══════════════════════════════════════════════════════════════
-  // B) NEW_RELEASE
-  // ══════════════════════════════════════════════════════════════
-
-  // Get all unique actor_ids across all users
-  const { data: allFollows, error: followErr } = await admin
-    .from('followed_actors')
-    .select('user_id, actor_id, actor_name')
-
-  if (followErr) {
-    summary.errors.push(`follows fetch: ${followErr.message}`)
-  } else {
-    // Group by actor_id → [user_ids]
-    type FollowRow = { user_id: string; actor_id: number; actor_name: string }
-    const actorMap = new Map<number, { actorName: string; userIds: string[] }>()
-    for (const f of (allFollows ?? []) as FollowRow[]) {
-      if (!actorMap.has(f.actor_id)) {
-        actorMap.set(f.actor_id, { actorName: f.actor_name, userIds: [] })
-      }
-      actorMap.get(f.actor_id)!.userIds.push(f.user_id)
-    }
-
-    for (const [actorId, { actorName, userIds }] of actorMap) {
-      await sleep(250) // throttle TMDB calls
-
-      const movies = await fetchActorMovies(actorId)
-      // Movies released in the last 30 days
-      const recent = movies.filter(
-        m => m.release_date && m.release_date >= cutoff && m.release_date <= new Date().toISOString().split('T')[0]
-      )
-      if (recent.length === 0) continue
-
-      for (const movie of recent) {
-        for (const userId of userIds) {
-          // Dedup: one notification per user per movie (ever)
-          const { data: existing } = await admin
-            .from('notifications')
-            .select('id')
-            .eq('user_id', userId)
-            .eq('type', 'new_release')
-            .eq('entity_id', String(movie.id))
-            .maybeSingle()
-          if (existing) continue
-
-          // Check preference
-          if (!(await checkPref(admin, userId, 'new_release'))) continue
-
-          const entityTitle = `Nueva de ${actorName}: ${movie.title}`
-          const { error } = await admin.from('notifications').insert({
-            user_id:      userId,
-            type:         'new_release',
-            entity_id:    String(movie.id),
-            entity_type:  'movie',
-            entity_title: entityTitle,
-            read:         false,
-          })
-          if (error) { summary.errors.push(`new_release ${movie.id}: ${error.message}`); continue }
-          summary.new_release++
-        }
-      }
-    }
+  let avisos = null
+  try {
+    avisos = await insertarYAvisar(admin, novedades)
+  } catch (err) {
+    errores.push(`avisos: ${(err as Error).message}`)
   }
+
+  for (const e of errores) console.error('[daily-notifications]', e)
 
   return NextResponse.json({
-    ok: true,
-    date: new Date().toISOString(),
-    ...summary,
+    ok: errores.length === 0,
+    segundos: Math.round((Date.now() - inicio) / 1000),
+    famosos,
+    disponibilidad,
+    novedades: novedades.length,
+    avisos,
+    errores,
   })
 }

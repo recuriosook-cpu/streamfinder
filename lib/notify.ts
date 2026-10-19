@@ -23,6 +23,9 @@ export type NotifType =
   | 'list_comment'
   | 'actor_birthday'
   | 'new_release'
+  | 'famoso_proyecto'
+  | 'famoso_disponible'
+  | 'watchlist_disponible'
 
 export interface NotifPayload {
   user_id:       string

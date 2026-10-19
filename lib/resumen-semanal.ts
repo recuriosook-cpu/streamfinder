@@ -114,7 +114,7 @@ function generosComoPelicula(ids: number[]): number[] {
  * Cada plataforma grande es una familia de ids (`PLATAFORMAS_GRANDES`): quien
  * eligió el 384, el id viejo de Max, también tiene el 1899 de hoy.
  */
-function plataformasDe(favoritas: string[] | null): Map<number, string> {
+export function plataformasDe(favoritas: string[] | null): Map<number, string> {
   const mapa = new Map<number, string>()
   for (const fav of favoritas ?? []) {
     const id = Number(fav)
@@ -373,17 +373,20 @@ async function elegir(
   const plataformas = plataformasDe(perfil.favorite_platforms)
   if (plataformas.size === 0) return 'sin_plataformas'
 
-  const [watchlist, vistas, notas, resenas, enviadas] = await Promise.all([
+  const [watchlist, vistas, notas, resenas, enviadas, avisadas] = await Promise.all([
     filasDe<Fila>(admin, 'watchlist', 'media_id, media_type', perfil.id, 'added_at'),
     filasDe<Fila>(admin, 'watched', 'media_id, media_type', perfil.id),
     filasDe<Fila & { rating: number | null }>(admin, 'ratings', 'media_id, media_type, rating', perfil.id, 'rated_at'),
     filasDe<Fila & { rating: number | null }>(admin, 'reviews', 'media_id, media_type, rating', perfil.id, 'created_at'),
     filasDe<{ media_type: string; tmdb_id: number }>(admin, 'push_semanal_enviados', 'media_type, tmdb_id', perfil.id),
+    // Lo que ya le avisó "Ya está en…" del cron diario (`lib/disponibilidad.ts`).
+    filasDe<Fila>(admin, 'avisos_disponibilidad', 'media_id, media_type', perfil.id),
   ])
 
   const excluidos = new Set<string>(yaRecomendados)
   for (const f of [...vistas, ...notas, ...resenas]) excluidos.add(clave(f.media_type, f.media_id))
   for (const f of enviadas) excluidos.add(clave(f.media_type, f.tmdb_id))
+  for (const f of avisadas) excluidos.add(clave(f.media_type, f.media_id))
 
   const esTipo = (t: string): t is MediaType => t === 'movie' || t === 'tv'
 
@@ -508,11 +511,14 @@ async function notificacionesDeLaSemana(
   for (let i = 0; i < ids.length; i += 100) {
     const tanda = ids.slice(i, i + 100)
     for (let desdeFila = 0; ; desdeFila += 1000) {
+      // Las filas del cron diario con `sin_push` sólo cuentan si salieron como
+      // push (`push_enviado_en`): las otras quedaron en la bandeja, sin sonar.
       const { data, error: e } = await admin
         .from('notifications')
         .select('user_id')
         .in('user_id', tanda)
         .gte('created_at', desde)
+        .or('sin_push.eq.false,push_enviado_en.not.is.null')
         .range(desdeFila, desdeFila + 999)
       if (e) throw new Error(`notifications: ${e.message}`)
       for (const row of (data ?? []) as { user_id: string }[]) {

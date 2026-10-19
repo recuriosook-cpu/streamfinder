@@ -42,6 +42,34 @@ export interface NotificationRow {
   entity_title?: string | null
   actor_username?: string | null
   created_at?: string | null
+  /** Los avisos del cron de famosos y disponibilidad (desde 2026-10): ver `DatosAviso`. */
+  datos?: unknown
+}
+
+/**
+ * Lo que guarda el cron en `notifications.datos` para redactar en cada
+ * idioma. `entity_title` igual lleva la frase en castellano, para la
+ * campanita de la web, que arma su propio texto.
+ */
+export interface DatosAviso {
+  /** El famoso. */
+  persona?: string
+  /** 'cast' = actúa; 'crew' = dirige, escribe o creó la serie. */
+  rol?: 'cast' | 'crew'
+  titulo_es?: string
+  titulo_en?: string | null
+  /** El nombre de la plataforma, para la disponibilidad. */
+  plataforma?: string
+}
+
+function datosDe(row: NotificationRow): DatosAviso {
+  return row.datos && typeof row.datos === 'object' ? (row.datos as DatosAviso) : {}
+}
+
+/** La ficha de un aviso de película o serie. */
+function fichaUrl(row: NotificationRow): string {
+  if (!row.entity_id) return '/'
+  return `/${row.entity_type === 'tv' ? 'tv' : 'movie'}/${row.entity_id}`
 }
 
 /**
@@ -83,7 +111,10 @@ export function notificationUrl(
     case 'actor_birthday':
       return row.entity_id ? `/actor/${row.entity_id}` : '/comunidad'
     case 'new_release':
-      return row.entity_id ? `/movie/${row.entity_id}` : '/'
+    case 'famoso_proyecto':
+    case 'famoso_disponible':
+    case 'watchlist_disponible':
+      return fichaUrl(row)
     default:
       return '/comunidad'
   }
@@ -93,6 +124,7 @@ export function notificationUrl(
 export const KNOWN_TYPES = new Set([
   'follow', 'review_like', 'review_comment', 'comment_reply', 'mention',
   'level_up', 'list_like', 'list_comment', 'actor_birthday', 'new_release',
+  'famoso_proyecto', 'famoso_disponible', 'watchlist_disponible',
 ])
 
 export interface NotificationContent {
@@ -262,6 +294,13 @@ function nivelEn(nivel: string): string {
   return nivel.replace(/Espectador|Cinéfilo|Crítico|Experto|Maestro/, (n) => NIVELES_EN[n] ?? n)
 }
 
+/** "Con Ricardo Darín" si actúa, "De Lucrecia Martel" si dirige o escribe. */
+function conQuien(d: DatosAviso, en: boolean): string {
+  if (!d.persona) return ''
+  if (d.rol === 'crew') return en ? `From ${d.persona}` : `De ${d.persona}`
+  return en ? `With ${d.persona}` : `Con ${d.persona}`
+}
+
 /**
  * Tipo + fila → { title, body, url }.
  *
@@ -377,10 +416,36 @@ export async function buildNotificationContent(
     }
 
     case 'new_release': {
-      const title = row.entity_title?.trim() || ''
+      const d = datosDe(row)
+      // Las filas de antes de 2026-10 no tienen `datos`: traen la frase
+      // armada en castellano en `entity_title` ("Nueva de X: título").
+      if (!d.titulo_es) {
+        return { title: en ? 'New release' : 'Nuevo estreno', body: row.entity_title?.trim() || '', url }
+      }
+      const titulo = (en && d.titulo_en) || d.titulo_es
+      return { title: en ? `Out now: ${titulo}` : `Estreno: ${titulo}`, body: conQuien(d, en), url }
+    }
+
+    case 'famoso_proyecto': {
+      const d = datosDe(row)
+      const persona = d.persona || (en ? 'Someone you follow' : 'Alguien que seguís')
       return {
-        title: en ? 'New release' : 'Nuevo estreno',
-        body:  title,
+        title: en ? `New project from ${persona}` : `Proyecto nuevo de ${persona}`,
+        body:  (en && d.titulo_en) || d.titulo_es || row.entity_title?.trim() || '',
+        url,
+      }
+    }
+
+    case 'famoso_disponible':
+    case 'watchlist_disponible': {
+      const d = datosDe(row)
+      const titulo = (en && d.titulo_en) || d.titulo_es || ''
+      const plataforma = d.plataforma || (en ? 'your platforms' : 'tus plataformas')
+      return {
+        title: en ? `Now on ${plataforma}: ${titulo}` : `Ya está en ${plataforma}: ${titulo}`,
+        body:  type === 'watchlist_disponible'
+          ? (en ? 'From your watchlist' : 'Lo tenías en "Ver después"')
+          : conQuien(d, en),
         url,
       }
     }

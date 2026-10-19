@@ -96,7 +96,7 @@ export interface NotificationsResponse {
 
 /** Lo que se pide de la tabla. */
 const COLUMNS =
-  'id, user_id, type, read, created_at, actor_id, review_id, review_title, comment_id, entity_id, entity_type, entity_title'
+  'id, user_id, type, read, created_at, actor_id, review_id, review_title, comment_id, entity_id, entity_type, entity_title, datos'
 
 /** Una fila tal como vuelve de la tabla: `NotificationRow` más `read`. */
 type Row = NotificationRow & { read?: boolean | null }

@@ -33,7 +33,9 @@ const OK: Verificacion = { ok: true }
 const no = (motivo: string): Verificacion => ({ ok: false, motivo })
 
 /** Tipos que se crean sin actor de usuario, sólo desde la base o el cron. */
-const TIPOS_DE_SISTEMA = new Set(['level_up', 'actor_birthday', 'new_release'])
+const TIPOS_DE_SISTEMA = new Set([
+  'level_up', 'actor_birthday', 'new_release', 'famoso_proyecto', 'famoso_disponible', 'watchlist_disponible',
+])
 
 async function existe(
   consulta: PromiseLike<{ count: number | null; error: { message: string } | null }>
