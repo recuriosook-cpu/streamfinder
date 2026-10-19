@@ -413,7 +413,8 @@ const VENTANA_ANUNCIOS_MS = 30 * 24 * 60 * 60 * 1000
 const LUGARES: Record<string, string> = {
   ficha: 'Ficha de película o serie',
   busqueda: 'Búsqueda',
-  inicio: 'Inicio',
+  inicio_arriba: 'Inicio, arriba (entre plataformas y Recomendado)',
+  inicio: 'Inicio, abajo (después de las series)',
   persona: 'Ficha de un famoso',
   lista: 'Detalle de una lista',
   guia: 'Guías',
