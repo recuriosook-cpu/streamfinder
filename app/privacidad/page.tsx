@@ -3,6 +3,10 @@
 export const metadata: Metadata = {
   title: "Política de Privacidad — Glynbox",
   description: "Conocé cómo Glynbox recopila, usa y protege tus datos personales.",
+  alternates: {
+    canonical: "/privacidad",
+    languages: { es: "/privacidad", en: "/en/privacy" },
+  },
 };
 
 export default function PrivacidadPage() {
@@ -10,7 +14,7 @@ export default function PrivacidadPage() {
     <div className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-4xl font-bold mb-2 text-white">Política de Privacidad</h1>
-        <p className="text-[#A0A0B0] mb-12">Última actualización: septiembre de 2026</p>
+        <p className="text-[#A0A0B0] mb-12">Última actualización: octubre de 2026</p>
 
         <div className="space-y-12">
           <section>
@@ -102,7 +106,7 @@ export default function PrivacidadPage() {
                 <span className="text-white font-medium">Preferencias de país</span> — recordar el país que seleccionaste para filtrar plataformas de streaming disponibles en tu región.
               </li>
               <li>
-                <span className="text-white font-medium">Preferencias de interfaz</span> — configuraciones personales de visualización.
+                <span className="text-white font-medium">Preferencias de interfaz</span> — configuraciones personales de visualización, como el idioma de la app.
               </li>
             </ul>
             <p className="text-zinc-300 leading-relaxed mt-3">
@@ -293,7 +297,8 @@ export default function PrivacidadPage() {
                 <span className="text-white font-medium">Rectificación</span> — podés actualizar tu nombre, foto de perfil y otros datos desde la configuración de tu cuenta.
               </li>
               <li>
-                <span className="text-white font-medium">Eliminación</span> — podés solicitar la eliminación completa de tu cuenta y todos los datos asociados contactándonos directamente.
+                <span className="text-white font-medium">Eliminación</span> — podés eliminar tu cuenta y todos los datos asociados desde la app o el sitio (ver{" "}
+                <a href="/eliminar-cuenta" className="text-[#FFFD02] hover:text-[#FFF84D] transition-colors">Eliminar cuenta</a>), o contactándonos.
               </li>
               <li>
                 <span className="text-white font-medium">Exportación</span> — podés solicitar una copia de tus datos (historial, reseñas, listas) contactando al equipo de soporte.

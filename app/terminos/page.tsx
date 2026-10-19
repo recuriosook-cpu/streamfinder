@@ -3,6 +3,10 @@
 export const metadata: Metadata = {
   title: "Términos y Condiciones — Glynbox",
   description: "Lee los términos y condiciones de uso de Glynbox.",
+  alternates: {
+    canonical: "/terminos",
+    languages: { es: "/terminos", en: "/en/terms" },
+  },
 };
 
 export default function TerminosPage() {
@@ -10,7 +14,7 @@ export default function TerminosPage() {
     <div className="min-h-screen bg-[#0A0A0F] text-white">
       <div className="max-w-3xl mx-auto px-4 py-16">
         <h1 className="text-4xl font-bold mb-2 text-white">Términos y Condiciones</h1>
-        <p className="text-[#A0A0B0] mb-12">Última actualización: abril de 2026</p>
+        <p className="text-[#A0A0B0] mb-12">Última actualización: octubre de 2026</p>
 
         <div className="space-y-12">
           <section>
@@ -18,7 +22,7 @@ export default function TerminosPage() {
               1. Descripción del servicio
             </h2>
             <p className="text-zinc-300 leading-relaxed mb-3">
-              Glynbox es una plataforma web que permite a los usuarios descubrir películas y series, consultar en qué servicios de streaming están disponibles según su país, llevar un registro de lo que han visto, escribir reseñas y seguir la actividad de otros usuarios.
+              Glynbox es una plataforma web y una aplicación móvil que permite a los usuarios descubrir películas y series, consultar en qué servicios de streaming están disponibles según su país, llevar un registro de lo que han visto, escribir reseñas y seguir la actividad de otros usuarios.
             </p>
             <p className="text-zinc-300 leading-relaxed">
               La información sobre contenido audiovisual es proporcionada por{" "}

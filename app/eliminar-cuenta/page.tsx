@@ -4,6 +4,10 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Eliminar cuenta - Glynbox',
   description: 'Instrucciones para eliminar tu cuenta de Glynbox y todos tus datos personales.',
+  alternates: {
+    canonical: '/eliminar-cuenta',
+    languages: { es: '/eliminar-cuenta', en: '/en/delete-account' },
+  },
 }
 
 export default function EliminarCuentaPage() {
@@ -20,9 +24,28 @@ export default function EliminarCuentaPage() {
           </p>
         </div>
 
+        {/* Desde la app */}
+        <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 space-y-4">
+          <h2 className="text-lg font-semibold text-white">Desde la app</h2>
+          <ol className="space-y-3 text-sm text-zinc-300">
+            <li className="flex gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#FFFD02] text-black text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>
+              <span>Abrí Glynbox y entrá en <strong className="text-white">Ajustes</strong>.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#FFFD02] text-black text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">2</span>
+              <span>Bajá hasta <strong className="text-white">Zona de peligro</strong> y tocá <strong className="text-white">Eliminar cuenta</strong>.</span>
+            </li>
+            <li className="flex gap-3">
+              <span className="w-6 h-6 rounded-full bg-[#FFFD02] text-black text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">3</span>
+              <span>Confirmá dos veces. La cuenta se elimina en ese momento.</span>
+            </li>
+          </ol>
+        </section>
+
         {/* Cómo eliminar la cuenta */}
         <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 space-y-4">
-          <h2 className="text-lg font-semibold text-white">Cómo eliminar tu cuenta</h2>
+          <h2 className="text-lg font-semibold text-white">Desde el sitio</h2>
           <ol className="space-y-3 text-sm text-zinc-300">
             <li className="flex gap-3">
               <span className="w-6 h-6 rounded-full bg-[#FFFD02] text-black text-xs font-bold flex items-center justify-center shrink-0 mt-0.5">1</span>

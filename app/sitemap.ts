@@ -19,6 +19,11 @@ const staticPages: MetadataRoute.Sitemap = [
   { url: `${BASE}/soporte`,           changeFrequency: 'monthly', priority: 0.3 },
   { url: `${BASE}/anunciantes`,       changeFrequency: 'monthly', priority: 0.3 },
   { url: `${BASE}/eliminar-cuenta`,   changeFrequency: 'monthly', priority: 0.2 },
+  // Las legales en inglés, para la app en inglés y las fichas de las tiendas (1.0.16).
+  { url: `${BASE}/en/privacy`,        changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/en/terms`,          changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/en/support`,        changeFrequency: 'monthly', priority: 0.3 },
+  { url: `${BASE}/en/delete-account`, changeFrequency: 'monthly', priority: 0.2 },
 ]
 
 function getGuidePages(): MetadataRoute.Sitemap {
