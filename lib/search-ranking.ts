@@ -250,7 +250,13 @@ export interface ResultadoBusqueda {
  */
 const PISO_TMDB = 0.5
 
-function desdeIndice(f: FilaIndice): FilaBusqueda {
+/**
+ * Una fila del índice con la forma de TMDB. El índice guarda el título y la
+ * sinopsis en castellano: en inglés va el título original (en el cine y las
+ * series que se buscan, casi siempre el inglés) y sin sinopsis.
+ */
+function desdeIndice(f: FilaIndice, idioma: 'es' | 'en'): FilaBusqueda {
+  const titulo = idioma === 'en' ? (f.original_title || f.title) : f.title
   const comun = {
     id: f.tmdb_id,
     media_type: f.media_type,
@@ -258,11 +264,11 @@ function desdeIndice(f: FilaIndice): FilaBusqueda {
     vote_average: f.vote_average ?? 0,
     vote_count: f.vote_count,
     popularity: f.popularity ?? 0,
-    overview: f.overview ?? '',
+    overview: idioma === 'en' ? '' : (f.overview ?? ''),
   }
   return f.media_type === 'movie'
-    ? { ...comun, title: f.title, original_title: f.original_title, release_date: f.release_date ?? '' }
-    : { ...comun, name: f.title, original_name: f.original_title, first_air_date: f.release_date ?? '' }
+    ? { ...comun, title: titulo, original_title: f.original_title, release_date: f.release_date ?? '' }
+    : { ...comun, name: titulo, original_name: f.original_title, first_air_date: f.release_date ?? '' }
 }
 
 function nombresDe(f: FilaBusqueda): string[] {
@@ -282,6 +288,7 @@ export function combinarResultados(
   page: number,
   tmdb: PaginaTmdb,
   indice: FilaIndice[],
+  idioma: 'es' | 'en' = 'es',
 ): ResultadoBusqueda {
   const nombresIndice = new Map(indice.map(f => [`${f.media_type}:${f.tmdb_id}`, f.names]))
   const candidatos = new Map<string, { fila: FilaBusqueda; texto: number; puntaje: number }>()
@@ -309,7 +316,7 @@ export function combinarResultados(
     const t = puntajeTexto(qn, f.names)
     if (t < TEXTO_MINIMO) continue
     soloIndice++
-    candidatos.set(clave, { fila: desdeIndice(f), texto: t, puntaje: puntaje(t, pesoTitulo(f.vote_count, f.popularity ?? 0)) })
+    candidatos.set(clave, { fila: desdeIndice(f, idioma), texto: t, puntaje: puntaje(t, pesoTitulo(f.vote_count, f.popularity ?? 0)) })
   }
 
   const ordenados = [...candidatos.values()].sort((a, b) => b.puntaje - a.puntaje)

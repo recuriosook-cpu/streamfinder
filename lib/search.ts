@@ -1,4 +1,5 @@
 import { createServerClient } from '@/lib/supabase-server'
+import type { Idioma } from '@/lib/idioma'
 import {
   normalizar,
   combinarResultados,
@@ -39,11 +40,11 @@ const LARGO_MINIMO_INDICE = 3
 /** Candidatos que se le piden al índice. */
 const CANDIDATOS_INDICE = 40
 
-async function buscarEnTmdb(q: string, tipo: TipoBusqueda, page: number): Promise<PaginaTmdb> {
+async function buscarEnTmdb(q: string, tipo: TipoBusqueda, page: number, idioma: Idioma): Promise<PaginaTmdb> {
   const vacio = { page, total_pages: 0, total_results: 0, results: [] }
   const params = new URLSearchParams({
     api_key: TMDB_KEY ?? '',
-    language: 'es-AR',
+    language: idioma === 'en' ? 'en-US' : 'es-AR',
     include_adult: 'false',
     query: q,
     page: String(page),
@@ -80,11 +81,12 @@ async function buscarEnIndice(qn: string, tipo: TipoBusqueda): Promise<FilaIndic
   }
 }
 
-export async function buscar(q: string, tipo: TipoBusqueda = 'all', page = 1): Promise<ResultadoBusqueda> {
+/** `idioma`: en inglés para la app en inglés (desde la 1.0.16); la web es en castellano. */
+export async function buscar(q: string, tipo: TipoBusqueda = 'all', page = 1, idioma: Idioma = 'es'): Promise<ResultadoBusqueda> {
   const texto = q.trim()
   const qn = normalizar(texto)
   if (!qn) return { page, total_pages: 0, total_results: 0, results: [], correction: null }
 
-  const [tmdb, indice] = await Promise.all([buscarEnTmdb(texto, tipo, page), buscarEnIndice(qn, tipo)])
-  return combinarResultados(qn, page, tmdb, indice)
+  const [tmdb, indice] = await Promise.all([buscarEnTmdb(texto, tipo, page, idioma), buscarEnIndice(qn, tipo)])
+  return combinarResultados(qn, page, tmdb, indice, idioma)
 }

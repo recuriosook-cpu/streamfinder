@@ -1,8 +1,9 @@
 import { NextResponse, type NextRequest } from 'next/server'
 import { buscar, type TipoBusqueda } from '@/lib/search'
+import { normalizarIdioma } from '@/lib/idioma'
 
 /**
- * GET /api/search?q=<texto>&type=all|movie|tv|person&page=1
+ * GET /api/search?q=<texto>&type=all|movie|tv|person&page=1&lang=es|en
  *
  * El buscador de películas, series y personas; ver `lib/search.ts`. Lo usan
  * las sugerencias del Navbar y la app. Devuelve la forma de `/search/multi`
@@ -23,6 +24,9 @@ export async function GET(req: NextRequest) {
   const q = (params.get('q') ?? '').trim().slice(0, LARGO_MAXIMO)
   const tipo = (params.get('type') ?? 'all') as TipoBusqueda
   const page = Number(params.get('page') ?? '1')
+  // La app en inglés (1.0.16) manda `lang=en`. Va en la URL, así que el CDN
+  // cachea cada idioma por separado.
+  const idioma = normalizarIdioma(params.get('lang'))
 
   if (!TIPOS.includes(tipo)) {
     return NextResponse.json({ error: 'type tiene que ser all, movie, tv o person' }, { status: 400 })
@@ -32,7 +36,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'page tiene que ser un entero entre 1 y 500' }, { status: 400 })
   }
 
-  const resultado = await buscar(q, tipo, page)
+  const resultado = await buscar(q, tipo, page, idioma)
 
   return NextResponse.json(resultado, {
     headers: { 'Cache-Control': 'public, s-maxage=3600, stale-while-revalidate=86400' },

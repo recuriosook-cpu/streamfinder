@@ -14,6 +14,7 @@ import {
   type CommunityProfile,
 } from '@/lib/community-api'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { idiomaTmdb, normalizarIdioma, type Idioma } from '@/lib/idioma'
 
 /**
  * Feed de comunidad para la app nativa.
@@ -531,7 +532,8 @@ async function loadLevelUps(
  */
 async function loadRecommendations(
   supabase: SupabaseClient,
-  userId: string
+  userId: string,
+  idioma: Idioma
 ): Promise<RecommendationItem[]> {
   if (!TMDB_KEY) return []
 
@@ -555,7 +557,7 @@ async function loadRecommendations(
   try {
     const res = await fetch(
       `https://api.themoviedb.org/3/discover/movie?api_key=${TMDB_KEY}` +
-        `&language=es-AR&sort_by=vote_average.desc` +
+        `&language=${idiomaTmdb(idioma)}&sort_by=vote_average.desc` +
         `&vote_count.gte=${RECOMMENDATION_MIN_VOTES}&page=1${genreParam}`,
       { next: { revalidate: 3600 } }
     )
@@ -634,6 +636,8 @@ export async function GET(req: NextRequest) {
   const db = getSupabaseAsUser(token) ?? supabase
 
   const rawMode = req.nextUrl.searchParams.get('mode') ?? 'all'
+  // La app en inglés (1.0.16) manda `lang=en`: los títulos recomendados de TMDB.
+  const idioma = normalizarIdioma(req.nextUrl.searchParams.get('lang'))
   const mode: FeedMode = (MODES as string[]).includes(rawMode)
     ? (rawMode as FeedMode)
     : 'all'
@@ -693,7 +697,7 @@ export async function GET(req: NextRequest) {
     getProfilesById(db, profileIds),
     // Sólo en el modo completo: filtrando por "reseñas" o por "listas", meter
     // sugerencias de TMDB rompería el filtro que el usuario acaba de elegir.
-    mode === 'all' ? loadRecommendations(db, userId) : [],
+    mode === 'all' ? loadRecommendations(db, userId, idioma) : [],
   ])
 
   const body: CommunityFeedResponse = {

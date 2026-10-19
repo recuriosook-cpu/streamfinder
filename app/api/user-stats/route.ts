@@ -1,6 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { normalizarIdioma } from '@/lib/idioma'
 
 const KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -14,6 +15,18 @@ const GENRE_MAP: Record<number, string> = {
   10759: 'Acción y aventura', 10762: 'Infantil', 10763: 'Noticias',
   10764: 'Reality', 10765: 'Sci-Fi y fantasía', 10766: 'Telenovela',
   10767: 'Talk show', 10768: 'Guerra y política',
+}
+
+// ── Genre id → English name (la app en inglés, desde la 1.0.16) ──────────────
+const GENRE_MAP_EN: Record<number, string> = {
+  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
+  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
+  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
+  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
+  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
+  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News',
+  10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap',
+  10767: 'Talk', 10768: 'War & Politics',
 }
 
 
@@ -41,6 +54,9 @@ export async function GET(req: NextRequest) {
   if (limited) return limited
 
   const userId = req.nextUrl.searchParams.get('userId')
+  // `lang=en`: nombres de géneros e idiomas en inglés. Va en la URL, así que la
+  // caché privada de una hora guarda cada idioma por separado.
+  const en = normalizarIdioma(req.nextUrl.searchParams.get('lang')) === 'en'
   if (!userId) return NextResponse.json({ error: 'missing userId' }, { status: 400 })
 
   const supabase = createServerClient()
@@ -108,11 +124,17 @@ export async function GET(req: NextRequest) {
   const actressCount:  Record<string, { name: string; profilePath: string | null; count: number }> = {}
   const directorCount: Record<string, { name: string; profilePath: string | null; count: number }> = {}
 
-  const LANG_MAP: Record<string, string> = {
-    en: 'Inglés', es: 'Español', fr: 'Francés', ko: 'Coreano',
-    ja: 'Japonés', it: 'Italiano', de: 'Alemán', pt: 'Portugués',
-    zh: 'Chino', hi: 'Hindi',
-  }
+  const LANG_MAP: Record<string, string> = en
+    ? {
+        en: 'English', es: 'Spanish', fr: 'French', ko: 'Korean',
+        ja: 'Japanese', it: 'Italian', de: 'German', pt: 'Portuguese',
+        zh: 'Chinese', hi: 'Hindi',
+      }
+    : {
+        en: 'Inglés', es: 'Español', fr: 'Francés', ko: 'Coreano',
+        ja: 'Japonés', it: 'Italiano', de: 'Alemán', pt: 'Portugués',
+        zh: 'Chino', hi: 'Hindi',
+      }
 
   for (const { row, details, credits } of items) {
     if (!details) continue
@@ -136,7 +158,7 @@ export async function GET(req: NextRequest) {
     // ── Genres ───────────────────────────────────────────────────
     const genres = (details.genres as { id: number; name: string }[]) ?? []
     for (const g of genres) {
-      const name = GENRE_MAP[g.id] ?? g.name
+      const name = (en ? GENRE_MAP_EN : GENRE_MAP)[g.id] ?? g.name
       genreCount[name] = (genreCount[name] ?? 0) + 1
     }
 
@@ -153,7 +175,7 @@ export async function GET(req: NextRequest) {
     // ── Language ──────────────────────────────────────────────────
     const lang = (details.original_language as string) ?? ''
     if (lang) {
-      const langName = LANG_MAP[lang] ?? 'Otro'
+      const langName = LANG_MAP[lang] ?? (en ? 'Other' : 'Otro')
       langCount[langName] = (langCount[langName] ?? 0) + 1
     }
 
@@ -208,7 +230,7 @@ export async function GET(req: NextRequest) {
 
   const top5 = sortedLangs.slice(0, 5)
   const othersCount = sortedLangs.slice(5).reduce((s, l) => s + l.count, 0)
-  if (othersCount > 0) top5.push({ name: 'Otros', count: othersCount })
+  if (othersCount > 0) top5.push({ name: en ? 'Others' : 'Otros', count: othersCount })
 
   const topLanguages = top5.map(l => ({
     name: l.name,
