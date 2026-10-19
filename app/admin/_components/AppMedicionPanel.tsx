@@ -199,7 +199,7 @@ export function AppMedicionPanel({ recarga }: { recarga: number }) {
     )
   }
 
-  const { onboarding, notificaciones: n, deslizar: d } = datos
+  const { onboarding, notificaciones: n, deslizar: d, anuncios: an } = datos
 
   return (
     <>
@@ -330,6 +330,41 @@ export function AppMedicionPanel({ recarga }: { recarga: number }) {
             </p>
           </>
         )}
+      </Bloque>
+
+      <Bloque
+        titulo="Anuncios por lugar"
+        subtitulo={<>Últimos 30 días · <Desde desde={an.desde} /></>}
+      >
+        <table className="w-full text-sm">
+          <thead>
+            <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+              <th className="text-left font-medium py-2 pr-3">Lugar</th>
+              <th className="text-right font-medium py-2 px-2">Cargados</th>
+              <th className="text-right font-medium py-2 px-2">Android / iOS</th>
+              <th className="text-right font-medium py-2 px-2">Sin relleno</th>
+              <th className="text-right font-medium py-2 px-2">Errores</th>
+              <th className="text-right font-medium py-2 pl-2">% cargados</th>
+            </tr>
+          </thead>
+          <tbody>
+            {an.lugares.map(l => (
+              <tr key={l.ubicacion} className="border-b border-[#2A2A3A]/60 last:border-0">
+                <td className="py-2 pr-3 text-white">{l.nombre}</td>
+                <td className="py-2 px-2 text-right tabular-nums text-white font-semibold">{numero(l.cargados)}</td>
+                <td className="py-2 px-2 text-right tabular-nums text-zinc-400">{numero(l.android)} / {numero(l.ios)}</td>
+                <td className="py-2 px-2 text-right tabular-nums text-zinc-400">{numero(l.sinRelleno)}</td>
+                <td className="py-2 px-2 text-right tabular-nums text-zinc-400">{numero(l.errores)}</td>
+                <td className="py-2 pl-2 text-right tabular-nums text-emerald-400 font-semibold">{pct(l.pct)}</td>
+              </tr>
+            ))}
+          </tbody>
+        </table>
+        <p className="text-[10px] text-[#A0A0B0] mt-3 leading-relaxed">
+          Cargados = anuncios que llegaron para ese lugar (en la ficha o al pie de una pantalla, puede que no se haya llegado a verlos). Sin relleno = AdMob no tenía uno para mostrar;
+          errores = el pedido falló (red, tiempo agotado). El lugar viaja desde la app 1.0.16
+          {an.sinLugar > 0 && <>; {numero(an.sinLugar)} cargados de versiones anteriores no lo dicen y no están en la tabla</>}.
+        </p>
       </Bloque>
     </>
   )

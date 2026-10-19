@@ -12,6 +12,9 @@ import { requireAdminClient } from '@/lib/service-role'
  *   · Notificaciones: el pedido de permiso por origen, cuántos tienen token y
  *     cuántos apagaron cada interruptor.
  *   · Modo deslizar: aperturas por origen, tarjetas por persona y acciones.
+ *   · Anuncios por lugar (desde la 1.0.16): cargados (`ad_cargado` con
+ *     `ubicacion`) contra los pedidos que fallaron (`client_errors`
+ *     `ads.load`, con la ubicación en el contexto), en los últimos 30 días.
  *
  * Todo sale de `analytics_events` sin bots, salvo los tokens (`user_devices`),
  * las instalaciones (`admin_app_uso`, la misma definición que el resumen) y
@@ -119,6 +122,26 @@ export interface MedicionApp {
     acciones: { accion: string; nombre: string; veces: number; pct: number | null }[]
     deshechas: number
   }
+  anuncios: {
+    /** El primer `ad_cargado` con ubicación de la ventana. */
+    desde: string | null
+    lugares: AnuncioLugar[]
+    /** Cargados sin ubicación: versiones de la app anteriores a la 1.0.16. */
+    sinLugar: number
+  }
+}
+
+export interface AnuncioLugar {
+  ubicacion: string
+  nombre: string
+  cargados: number
+  android: number
+  ios: number
+  sinRelleno: number
+  /** Otros fallos: timeout, error de red, pedido inválido. */
+  errores: number
+  /** Cargados sobre pedidos (cargados + sin relleno + errores). */
+  pct: number | null
 }
 
 // ── Lectura ────────────────────────────────────────────────────────────────
@@ -389,6 +412,79 @@ function deslizar(evs: Evento[]): MedicionApp['deslizar'] {
   }
 }
 
+// ── Anuncios ───────────────────────────────────────────────────────────────
+
+const VENTANA_ANUNCIOS_MS = 30 * 24 * 60 * 60 * 1000
+
+/** En el orden en que se muestran. Las que no están acá salen al final con su clave. */
+const LUGARES: Record<string, string> = {
+  ficha: 'Ficha de película o serie',
+  busqueda: 'Búsqueda',
+  inicio: 'Inicio',
+  persona: 'Ficha de un famoso',
+  lista: 'Detalle de una lista',
+  guia: 'Guías',
+  comunidad: 'Comunidad',
+  perfil: 'Perfil',
+}
+
+async function fallosDeAnuncios(admin: SupabaseClient): Promise<{ ubicacion: string; code: string }[]> {
+  const desde = new Date(Date.now() - VENTANA_ANUNCIOS_MS).toISOString()
+  const filas: { context: Record<string, unknown> | null }[] = []
+  for (let d = 0; ; d += 1000) {
+    const { data, error } = await admin
+      .from('client_errors')
+      .select('context')
+      .eq('scope', 'ads.load')
+      .gte('created_at', desde)
+      .range(d, d + 999)
+    if (error) throw new Error(error.message)
+    filas.push(...((data ?? []) as typeof filas))
+    if (!data || data.length < 1000) break
+  }
+  return filas.map(f => ({
+    ubicacion: String(f.context?.ubicacion ?? ''),
+    code: String(f.context?.code ?? ''),
+  }))
+}
+
+function anuncios(cargados: Evento[], fallos: { ubicacion: string; code: string }[]): MedicionApp['anuncios'] {
+  const corte = new Date(Date.now() - VENTANA_ANUNCIOS_MS).toISOString()
+  const enVentana = cargados.filter(e => e.created_at >= corte)
+  const conLugar = enVentana.filter(e => prop(e, 'ubicacion'))
+  // El diagnóstico de Ajustes no es un lugar de la app: no se cuenta.
+  const lugar = (u: string) => u && u !== 'diagnostico'
+
+  const claves = [...new Set([
+    ...Object.keys(LUGARES),
+    ...conLugar.map(e => String(prop(e, 'ubicacion'))),
+    ...fallos.map(f => f.ubicacion),
+  ])].filter(lugar)
+
+  const lugares = claves.map(ubicacion => {
+    const de = conLugar.filter(e => prop(e, 'ubicacion') === ubicacion)
+    const falla = fallos.filter(f => f.ubicacion === ubicacion)
+    const sinRelleno = falla.filter(f => f.code.includes('no-fill')).length
+    const errores = falla.length - sinRelleno
+    return {
+      ubicacion,
+      nombre: LUGARES[ubicacion] ?? ubicacion,
+      cargados: de.length,
+      android: de.filter(e => prop(e, 'plataforma') === 'android').length,
+      ios: de.filter(e => prop(e, 'plataforma') === 'ios').length,
+      sinRelleno,
+      errores,
+      pct: pct(de.length, de.length + falla.length),
+    }
+  })
+
+  return {
+    desde: rango(conLugar).desde,
+    lugares,
+    sinLugar: enVentana.length - conLugar.length,
+  }
+}
+
 // ── GET ────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -399,11 +495,13 @@ export async function GET() {
   if (failure) return failure
 
   try {
-    const [onb, recos, push, desl, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
+    const [onb, recos, push, desl, cargados, fallos, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
       eventos(admin, ['onboarding_step_viewed', 'onboarding_skipped']),
       pantallasRecomendaciones(admin),
       eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no', 'push_ajustes_abiertos', 'push_activado']),
       eventos(admin, ['deslizar_abierto', 'deslizar_accion', 'deslizar_deshacer']),
+      eventos(admin, ['ad_cargado']),
+      fallosDeAnuncios(admin),
       tokens(admin),
       admin.rpc('admin_app_uso'),
       admin.from('profiles').select('id', { count: 'exact', head: true }),
@@ -433,6 +531,7 @@ export async function GET() {
         })),
       },
       deslizar: deslizar(desl),
+      anuncios: anuncios(cargados, fallos),
     }
     return NextResponse.json(medicion)
   } catch (err) {
