@@ -50,7 +50,7 @@ export const TITULO_SEMANAL = 'Tu resumen semanal'
 
 const TITULO_POR_IDIOMA: Record<Idioma, string> = {
   es: TITULO_SEMANAL,
-  en: 'Your weekly picks',
+  en: 'Your weekly recap',
 }
 
 const LIMITE_NOTIFICACIONES = 3

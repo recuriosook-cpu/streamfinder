@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from 'next/server'
 import { createServerClient } from '@/lib/supabase-server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { normalizarIdioma } from '@/lib/idioma'
+import { GENEROS_EN } from '@/lib/generos-en'
 
 const KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -17,17 +18,6 @@ const GENRE_MAP: Record<number, string> = {
   10767: 'Talk show', 10768: 'Guerra y política',
 }
 
-// ── Genre id → English name (la app en inglés, desde la 1.0.16) ──────────────
-const GENRE_MAP_EN: Record<number, string> = {
-  28: 'Action', 12: 'Adventure', 16: 'Animation', 35: 'Comedy',
-  80: 'Crime', 99: 'Documentary', 18: 'Drama', 10751: 'Family',
-  14: 'Fantasy', 36: 'History', 27: 'Horror', 10402: 'Music',
-  9648: 'Mystery', 10749: 'Romance', 878: 'Science Fiction',
-  10770: 'TV Movie', 53: 'Thriller', 10752: 'War', 37: 'Western',
-  10759: 'Action & Adventure', 10762: 'Kids', 10763: 'News',
-  10764: 'Reality', 10765: 'Sci-Fi & Fantasy', 10766: 'Soap',
-  10767: 'Talk', 10768: 'War & Politics',
-}
 
 
 // ── Safe TMDB fetch (returns null on error) ────────────────────────────────
@@ -158,7 +148,7 @@ export async function GET(req: NextRequest) {
     // ── Genres ───────────────────────────────────────────────────
     const genres = (details.genres as { id: number; name: string }[]) ?? []
     for (const g of genres) {
-      const name = (en ? GENRE_MAP_EN : GENRE_MAP)[g.id] ?? g.name
+      const name = (en ? GENEROS_EN : GENRE_MAP)[g.id] ?? g.name
       genreCount[name] = (genreCount[name] ?? 0) + 1
     }
 
