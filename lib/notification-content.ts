@@ -1,4 +1,5 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
+import type { Idioma } from './idioma'
 
 /**
  * Tipo de notificación → a dónde lleva y qué dice.
@@ -122,9 +123,10 @@ function excerpt(text: string | null | undefined, max = 90): string {
  */
 async function resolveActor(
   admin: SupabaseClient,
-  row: NotificationRow
+  row: NotificationRow,
+  alguien: string
 ): Promise<{ name: string; username: string | null }> {
-  if (!row.actor_id) return { name: 'Alguien', username: row.actor_username ?? null }
+  if (!row.actor_id) return { name: alguien, username: row.actor_username ?? null }
 
   const { data, error } = await admin
     .from('profiles')
@@ -139,7 +141,7 @@ async function resolveActor(
     profile?.display_name?.trim() ||
     profile?.username?.trim() ||
     row.actor_username?.trim() ||
-    'Alguien'
+    alguien
 
   return { name, username: profile?.username ?? row.actor_username ?? null }
 }
@@ -245,11 +247,28 @@ async function resolveListCommentText(
 }
 
 /**
+ * Los nombres de los niveles, como los escribe `add_points` en la fila
+ * ("🎬 Cinéfilo"). En inglés se cambia sólo el nombre y queda el emoji.
+ */
+const NIVELES_EN: Record<string, string> = {
+  Espectador: 'Viewer',
+  Cinéfilo: 'Film Buff',
+  Crítico: 'Critic',
+  Experto: 'Expert',
+  Maestro: 'Master',
+}
+
+function nivelEn(nivel: string): string {
+  return nivel.replace(/Espectador|Cinéfilo|Crítico|Experto|Maestro/, (n) => NIVELES_EN[n] ?? n)
+}
+
+/**
  * Tipo + fila → { title, body, url }.
  *
- * Los textos van en rioplatense, cortos y con el nombre adelante: en la bandeja
- * del teléfono se ven ~40 caracteres del título, así que lo primero tiene que
- * ser quién lo hizo.
+ * Los textos van cortos y con el nombre adelante: en la bandeja del teléfono
+ * se ven ~40 caracteres del título, así que lo primero tiene que ser quién lo
+ * hizo. En rioplatense, o en inglés para quien tiene la app en inglés (ver
+ * `lib/idioma.ts`). Sin `idioma`, español: la web es sólo en castellano.
  *
  * Las URLs son rutas reales de glynbox.com. El assetlinks.json declara
  * `handle_all_urls` para com.glynbox.app, así que en Android el link abre la app
@@ -260,9 +279,11 @@ async function resolveListCommentText(
 export async function buildNotificationContent(
   admin: SupabaseClient,
   type: string,
-  row: NotificationRow
+  row: NotificationRow,
+  idioma: Idioma = 'es'
 ): Promise<NotificationContent | null> {
-  const { name: actor, username } = await resolveActor(admin, row)
+  const en = idioma === 'en'
+  const { name: actor, username } = await resolveActor(admin, row, en ? 'Someone' : 'Alguien')
 
   // El destino sale de `notificationUrl()`, que es la única tabla tipo → ruta
   // del proyecto. Acá sólo se redacta el texto.
@@ -271,13 +292,13 @@ export async function buildNotificationContent(
   switch (type) {
     case 'follow':
       // Sin cuerpo: el título ya lo dice todo y una segunda línea vacía se ve mal.
-      return { title: `${actor} te empezó a seguir`, body: '', url }
+      return { title: en ? `${actor} started following you` : `${actor} te empezó a seguir`, body: '', url }
 
     case 'review_like': {
       const title = await resolveReviewTitle(admin, row)
       return {
-        title: `A ${actor} le gustó tu reseña`,
-        body:  title ? `Tu reseña de ${title}` : '',
+        title: en ? `${actor} liked your review` : `A ${actor} le gustó tu reseña`,
+        body:  title ? (en ? `Your review of ${title}` : `Tu reseña de ${title}`) : '',
         url,
       }
     }
@@ -288,8 +309,8 @@ export async function buildNotificationContent(
         resolveReviewTitle(admin, row),
       ])
       return {
-        title: `${actor} comentó tu reseña`,
-        body:  comment || (reviewTitle ? `Tu reseña de ${reviewTitle}` : ''),
+        title: en ? `${actor} commented on your review` : `${actor} comentó tu reseña`,
+        body:  comment || (reviewTitle ? (en ? `Your review of ${reviewTitle}` : `Tu reseña de ${reviewTitle}`) : ''),
         url,
       }
     }
@@ -297,7 +318,7 @@ export async function buildNotificationContent(
     case 'comment_reply': {
       const comment = await resolveCommentText(admin, row)
       return {
-        title: `${actor} respondió tu comentario`,
+        title: en ? `${actor} replied to your comment` : `${actor} respondió tu comentario`,
         body:  comment,
         url,
       }
@@ -309,8 +330,8 @@ export async function buildNotificationContent(
         resolveReviewTitle(admin, row),
       ])
       return {
-        title: `${actor} te mencionó`,
-        body:  comment || (reviewTitle ? `En su reseña de ${reviewTitle}` : ''),
+        title: en ? `${actor} mentioned you` : `${actor} te mencionó`,
+        body:  comment || (reviewTitle ? (en ? `In their review of ${reviewTitle}` : `En su reseña de ${reviewTitle}`) : ''),
         url,
       }
     }
@@ -319,15 +340,15 @@ export async function buildNotificationContent(
       // El nivel viaja en review_title (así lo inserta add_points) o en entity_title.
       const level = row.entity_title?.trim() || row.review_title?.trim() || ''
       return {
-        title: '¡Subiste de nivel!',
-        body:  level ? `Ahora sos ${level}` : '',
+        title: en ? 'You leveled up!' : '¡Subiste de nivel!',
+        body:  level ? (en ? `You're now ${nivelEn(level)}` : `Ahora sos ${level}`) : '',
         url,
       }
     }
 
     case 'list_like':
       return {
-        title: `A ${actor} le gustó tu lista`,
+        title: en ? `${actor} liked your list` : `A ${actor} le gustó tu lista`,
         body:  await resolveListTitle(admin, row),
         url,
       }
@@ -340,16 +361,16 @@ export async function buildNotificationContent(
         resolveListTitle(admin, row),
       ])
       return {
-        title: `${actor} comentó tu lista`,
+        title: en ? `${actor} commented on your list` : `${actor} comentó tu lista`,
         body:  comment || listTitle,
         url,
       }
     }
 
     case 'actor_birthday': {
-      const who = row.entity_title?.trim() || 'Alguien que seguís'
+      const who = row.entity_title?.trim() || (en ? 'Someone you follow' : 'Alguien que seguís')
       return {
-        title: `🎂 ${who} cumple años`,
+        title: en ? `🎂 It's ${who}'s birthday` : `🎂 ${who} cumple años`,
         body:  '',
         url,
       }
@@ -358,7 +379,7 @@ export async function buildNotificationContent(
     case 'new_release': {
       const title = row.entity_title?.trim() || ''
       return {
-        title: 'Nuevo estreno',
+        title: en ? 'New release' : 'Nuevo estreno',
         body:  title,
         url,
       }

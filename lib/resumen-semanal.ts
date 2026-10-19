@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { ALL_PLATFORMS, PLATAFORMAS_GRANDES } from './providers'
 import { deleteDeadTokens, sendExpoPushMessages, type ExpoMessage } from './expo-push'
 import { envioApagado, faltaLaTabla } from './push-envios'
+import { idiomaDe, idiomaTmdb, idiomasDe, type Idioma } from './idioma'
 
 /**
  * "Tu resumen semanal": los viernes a las 18 de Argentina, una push por
@@ -36,9 +37,21 @@ import { envioApagado, faltaLaTabla } from './push-envios'
  * 7 días ya recibió 3 notificaciones o más: las filas de `notifications` (cada
  * una sale como push) más los envíos de "Ferlage te recomienda ver", si no
  * los tiene apagados.
+ *
+ * ── El idioma ──────────────────────────────────────────────────────────────
+ *
+ * Se elige igual para todos; después, a quien tiene la app en inglés
+ * (`profiles.idioma`, ver `lib/idioma.ts`) se le cambian el título de la push,
+ * el texto y el nombre de la película o serie. El panel y
+ * `push_semanal_enviados` guardan lo que de verdad se mandó.
  */
 
 export const TITULO_SEMANAL = 'Tu resumen semanal'
+
+const TITULO_POR_IDIOMA: Record<Idioma, string> = {
+  es: TITULO_SEMANAL,
+  en: 'Your weekly picks',
+}
 
 const LIMITE_NOTIFICACIONES = 3
 const DIA_MS = 24 * 60 * 60 * 1000
@@ -208,6 +221,12 @@ class Tmdb {
     }))
   }
 
+  /** Sólo el nombre, en otro idioma que el de la ficha. */
+  async nombreEn(mediaType: MediaType, id: number, idioma: Idioma): Promise<string | null> {
+    const json = await this.get<{ title?: string; name?: string }>(`/${mediaType}/${id}`, { language: idiomaTmdb(idioma) })
+    return (mediaType === 'movie' ? json?.title : json?.name)?.trim() || null
+  }
+
   async recomendaciones(mediaType: MediaType, id: number): Promise<string[]> {
     const json = await this.get<{ results?: { id: number; media_type?: string }[] }>(
       `/${mediaType}/${id}/recommendations`
@@ -286,6 +305,27 @@ async function filasDe<T>(
   return (data ?? []) as T[]
 }
 
+function cuerpoDe(motivo: Motivo, plataforma: string, nombre: string, idioma: Idioma): string {
+  if (idioma === 'en') {
+    return motivo === 'watchlist'
+      ? `Now on ${plataforma}: ${nombre}, from your watchlist`
+      : `For this weekend on ${plataforma}: ${nombre}`
+  }
+  return motivo === 'watchlist'
+    ? `Ya está en ${plataforma}: ${nombre}, que tenías guardada`
+    : `Para este finde en ${plataforma}: ${nombre}`
+}
+
+/**
+ * La elección, en el idioma de la persona. En castellano queda igual; si TMDB
+ * no da el nombre en inglés, va el de castellano con el resto en inglés.
+ */
+async function enSuIdioma(tmdb: Tmdb, e: Eleccion, idioma: Idioma): Promise<Eleccion> {
+  if (idioma === 'es') return e
+  const nombre = (await tmdb.nombreEn(e.mediaType, e.tmdbId, idioma)) ?? e.nombre
+  return { ...e, nombre, cuerpo: cuerpoDe(e.motivo, e.plataforma, nombre, idioma) }
+}
+
 /** Primer título de la lista que esté en alguna de sus plataformas. */
 async function primeroDisponible(
   tmdb: Tmdb,
@@ -310,9 +350,7 @@ async function primeroDisponible(
         tmdbId: id,
         nombre: ficha.nombre,
         plataforma,
-        cuerpo: motivo === 'watchlist'
-          ? `Ya está en ${plataforma}: ${ficha.nombre}, que tenías guardada`
-          : `Para este finde en ${plataforma}: ${ficha.nombre}`,
+        cuerpo: cuerpoDe(motivo, plataforma, ficha.nombre, 'es'),
         url: `/${mediaType}/${id}`,
       }
     }
@@ -582,7 +620,7 @@ export async function correrSemanal(admin: SupabaseClient): Promise<ResumenCorri
     await admin.from('push_envios').delete().eq('id', fila.id)
     throw err
   }
-  const { tokens, elegidos, reservados } = armado
+  const { tokens, elegidos, reservados, idiomas } = armado
 
   const mensajes: ExpoMessage[] = []
   for (const { userId, eleccion: e } of elegidos) {
@@ -592,7 +630,7 @@ export async function correrSemanal(admin: SupabaseClient): Promise<ResumenCorri
     for (const token of tokens.get(userId) ?? []) {
       mensajes.push({
         token,
-        title: TITULO_SEMANAL,
+        title: TITULO_POR_IDIOMA[idiomas.get(userId) ?? 'es'],
         body: e.cuerpo,
         // `entityId` es el envío: la app lo devuelve en `push_abierta`.
         data: { url: e.url, type: 'semanal', entityId: String(fila.id) },
@@ -644,9 +682,14 @@ async function armarCorrida(admin: SupabaseClient, envioId: number, resumen: Res
 
   const tmdb = nuevoTmdb()
   const yaRecomendados = await titulosRecomendados(admin)
+  const idiomas = await idiomasDe(admin, candidatos.map(p => p.id))
   const elecciones = await enParalelo(candidatos, 4, async p => {
     try {
-      return { perfil: p, eleccion: await elegir(admin, tmdb, p, yaRecomendados) }
+      const eleccion = await elegir(admin, tmdb, p, yaRecomendados)
+      return {
+        perfil: p,
+        eleccion: typeof eleccion === 'string' ? eleccion : await enSuIdioma(tmdb, eleccion, idiomas.get(p.id) ?? 'es'),
+      }
     } catch (err) {
       console.error(`[semanal] ${p.id}:`, (err as Error).message)
       return { perfil: p, eleccion: null }
@@ -685,7 +728,7 @@ async function armarCorrida(admin: SupabaseClient, envioId: number, resumen: Res
     reservados = new Set(((data ?? []) as { user_id: string }[]).map(r => r.user_id))
   }
 
-  return { tokens, elegidos, reservados }
+  return { tokens, elegidos, reservados, idiomas }
 }
 
 // ── La prueba del panel ────────────────────────────────────────────────────
@@ -721,7 +764,10 @@ export async function probarSemanal(admin: SupabaseClient, userId: string): Prom
   }
 
   const vacio = { avisos, envioId: null, destinatarios: 0, enviados: 0, fallidos: 0 }
-  const eleccion = await elegir(admin, nuevoTmdb(), perfil, await titulosRecomendados(admin))
+  const tmdb = nuevoTmdb()
+  const idioma = await idiomaDe(admin, userId)
+  const elegida = await elegir(admin, tmdb, perfil, await titulosRecomendados(admin))
+  const eleccion = typeof elegida === 'string' ? elegida : await enSuIdioma(tmdb, elegida, idioma)
   if (eleccion === 'sin_plataformas') {
     return { ...vacio, eleccion: null, sinEleccion: 'No elegiste plataformas en tu perfil: no te tocaría ninguna.' }
   }
@@ -743,7 +789,7 @@ export async function probarSemanal(admin: SupabaseClient, userId: string): Prom
       prueba: true,
       media_type: eleccion.mediaType,
       tmdb_id: eleccion.tmdbId,
-      titulo: TITULO_SEMANAL,
+      titulo: TITULO_POR_IDIOMA[idioma],
       cuerpo: eleccion.cuerpo,
       url: eleccion.url,
       destinatarios: tokens.length,
@@ -756,7 +802,7 @@ export async function probarSemanal(admin: SupabaseClient, userId: string): Prom
 
   const resultado = await sendExpoPushMessages(tokens.map(token => ({
     token,
-    title: TITULO_SEMANAL,
+    title: TITULO_POR_IDIOMA[idioma],
     body: eleccion.cuerpo,
     data: { url: eleccion.url, type: 'semanal', entityId: String(fila.id) },
   })))

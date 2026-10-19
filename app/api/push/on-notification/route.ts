@@ -5,6 +5,7 @@ import {
   buildNotificationContent,
   type NotificationRow,
 } from '@/lib/notification-content'
+import { idiomaDe } from '@/lib/idioma'
 import { sendPushToUser } from '@/lib/send-push-notification'
 import { verificarNotificacion } from '@/lib/notification-verification'
 import type { NotifType } from '@/lib/notify'
@@ -196,8 +197,12 @@ export async function POST(req: Request) {
       if (prefs[prefKey] === false) return ok('preferencia apagada', { type, prefKey })
     }
 
-    // ── 5. Armar el texto ──────────────────────────────────────────────────
-    const text = await buildNotificationContent(admin, type, row)
+    // ── 5. Armar el texto, en el idioma del destinatario ───────────────────
+    // Aparte de la lectura de preferencias: si todavía no se corrió
+    // supabase-idioma-2026-10.sql, pedir la columna ahí haría fallar esa
+    // consulta y se dejarían de respetar las preferencias.
+    const idioma = await idiomaDe(admin, row.user_id)
+    const text = await buildNotificationContent(admin, type, row, idioma)
     if (!text) {
       console.warn('[on-notification] tipo de notificación desconocido:', JSON.stringify(rawType))
       return ok('tipo desconocido', { type: rawType })

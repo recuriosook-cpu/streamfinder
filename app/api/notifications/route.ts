@@ -18,6 +18,7 @@ import {
   notificationUrl,
   type NotificationRow,
 } from '@/lib/notification-content'
+import { normalizarIdioma } from '@/lib/idioma'
 
 /**
  * GET /api/notifications — la campanita de la app nativa.
@@ -46,6 +47,12 @@ import {
  *
  * La service role se usa sólo para *redactar*: resolver el nombre del actor, el
  * texto del comentario, el título de la reseña. Nunca para elegir qué filas.
+ *
+ * ── El idioma ──────────────────────────────────────────────────────────────
+ *
+ * `?lang=en` redacta en inglés; sin parámetro, en castellano. Lo manda la app
+ * desde la 1.0.16 con el idioma que está mostrando, que es el que tiene que
+ * ver la campanita aunque `profiles.idioma` todavía no se haya actualizado.
  */
 
 export const runtime = 'nodejs'
@@ -107,6 +114,8 @@ export async function GET(req: NextRequest) {
   const token = readBearer(req)
   const asUser = token ? getSupabaseAsUser(token) : null
   if (!asUser) return jsonError('Unauthorized', 401)
+
+  const idioma = normalizarIdioma(req.nextUrl.searchParams.get('lang'))
 
   const rawLimit = Number.parseInt(req.nextUrl.searchParams.get('limit') ?? '', 10)
   const limit =
@@ -170,7 +179,7 @@ export async function GET(req: NextRequest) {
       type,
       read: row.read === true,
       createdAt: String(row.created_at ?? ''),
-      title: 'Tenés una novedad',
+      title: idioma === 'en' ? 'You have something new' : 'Tenés una novedad',
       body: '',
       url: notificationUrl(type, row, null),
       actorId: row.actor_id ?? null,
@@ -191,7 +200,7 @@ export async function GET(req: NextRequest) {
         const type = String(row.type ?? '').trim().toLowerCase()
 
         try {
-          const content = await buildNotificationContent(admin, type, row)
+          const content = await buildNotificationContent(admin, type, row, idioma)
 
           // Un tipo desconocido no descarta la fila: se muestra con texto
           // neutro. Descartarla dejaría un hueco silencioso justo cuando

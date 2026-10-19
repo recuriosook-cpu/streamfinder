@@ -3,7 +3,8 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
-import { deleteDeadTokens, sendExpoPushToTokens } from '@/lib/expo-push'
+import { deleteDeadTokens, sendExpoPushMessages, type ExpoMessage } from '@/lib/expo-push'
+import { idiomaTmdb, idiomasDe, type Idioma } from '@/lib/idioma'
 import {
   COLUMNAS_FILA,
   aperturas,
@@ -19,6 +20,10 @@ import {
  *   GET                                  cuántos aparatos, cuántos envíos van
  *                                        esta semana y el historial
  *   POST { recomendacionId, prueba }     manda una recomendación
+ *
+ * Cada aparato la recibe en el idioma de su dueño (`profiles.idioma`, ver
+ * `lib/idioma.ts`): el título y el nombre de la película o serie. El historial
+ * del panel muestra el de castellano.
  *
  * Un envío va a todos los tokens de `user_devices`: los de la app con el
  * permiso de notificaciones aceptado, menos los de quien apagó "Recomendaciones
@@ -52,6 +57,10 @@ export const runtime = 'nodejs'
 export const maxDuration = 60
 
 const TITULO = 'Ferlage te recomienda ver'
+const TITULO_POR_IDIOMA: Record<Idioma, string> = {
+  es: TITULO,
+  en: 'Ferlage recommends',
+}
 const LIMITE_SEMANAL = 3
 const SEMANA_MS = 7 * 24 * 60 * 60 * 1000
 
@@ -139,20 +148,20 @@ function proximoLibre(semana: { creado_en: string }[]): string | null {
  * los de quien apagó "Recomendaciones de Ferlage"; con `userId` (la prueba),
  * los de esa persona, haya apagado o no.
  */
-async function todosLosTokens(admin: SupabaseClient, userId?: string): Promise<string[]> {
+async function todosLosTokens(admin: SupabaseClient, userId?: string): Promise<{ token: string; userId: string }[]> {
   const apagados = userId ? new Set<string>() : await usuariosConEnvioApagado(admin, 'recomendacion')
-  const tokens = new Set<string>()
+  const tokens = new Map<string, string>()
   for (let desde = 0; ; desde += 1000) {
     let q = admin.from('user_devices').select('user_id, push_token').range(desde, desde + 999)
     if (userId) q = q.eq('user_id', userId)
     const { data, error } = await q
     if (error) throw new Error(error.message)
     for (const row of (data ?? []) as { user_id: string; push_token: string | null }[]) {
-      if (row.push_token && !apagados.has(row.user_id)) tokens.add(row.push_token)
+      if (row.push_token && !apagados.has(row.user_id)) tokens.set(row.push_token, row.user_id)
     }
     if (!data || data.length < 1000) break
   }
-  return [...tokens]
+  return [...tokens].map(([token, userId]) => ({ token, userId }))
 }
 
 async function contarAparatos(admin: SupabaseClient, userId?: string): Promise<number> {
@@ -163,13 +172,13 @@ async function contarAparatos(admin: SupabaseClient, userId?: string): Promise<n
   }
 }
 
-/** El nombre en castellano, como en la ficha. */
-async function nombreDe(mediaType: 'movie' | 'tv', tmdbId: number): Promise<string | null> {
+/** El nombre como en la ficha, en castellano o en inglés. */
+async function nombreDe(mediaType: 'movie' | 'tv', tmdbId: number, idioma: Idioma = 'es'): Promise<string | null> {
   const key = process.env.NEXT_PUBLIC_TMDB_API_KEY
   if (!key) return null
   try {
     const res = await fetch(
-      `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${key}&language=es-AR`,
+      `https://api.themoviedb.org/3/${mediaType}/${tmdbId}?api_key=${key}&language=${idiomaTmdb(idioma)}`,
       { cache: 'no-store' }
     )
     if (!res.ok) return null
@@ -286,7 +295,7 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  let tokens: string[]
+  let tokens: { token: string; userId: string }[]
   try {
     tokens = await todosLosTokens(admin, prueba ? user.id : undefined)
   } catch (err) {
@@ -340,12 +349,19 @@ export async function POST(req: NextRequest) {
     }
   }
 
-  const resultado = await sendExpoPushToTokens(
-    tokens,
-    { title: TITULO, body: cuerpo },
-    // `entityId` es el envío: la app lo devuelve en `push_abierta`.
-    { url, type: 'recomendacion', entityId: String(fila.id) }
-  )
+  // En inglés para quien tiene la app en inglés. Si TMDB no da el nombre en
+  // inglés, va el de castellano: mejor eso que no mandar.
+  const idiomas = await idiomasDe(admin, [...new Set(tokens.map(t => t.userId))])
+  const hayIngles = tokens.some(t => idiomas.get(t.userId) === 'en')
+  const cuerpoEn = hayIngles ? ((await nombreDe(mediaType, tmdbId, 'en')) ?? cuerpo) : cuerpo
+
+  // `entityId` es el envío: la app lo devuelve en `push_abierta`.
+  const data = { url, type: 'recomendacion', entityId: String(fila.id) }
+  const mensajes: ExpoMessage[] = tokens.map(({ token, userId }) => {
+    const idioma = idiomas.get(userId) ?? 'es'
+    return { token, title: TITULO_POR_IDIOMA[idioma], body: idioma === 'en' ? cuerpoEn : cuerpo, data }
+  })
+  const resultado = await sendExpoPushMessages(mensajes)
   const borrados = await deleteDeadTokens(admin, resultado.muertos)
 
   const { error: updateError } = await admin
