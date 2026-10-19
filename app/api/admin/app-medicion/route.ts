@@ -70,39 +70,36 @@ export interface EmbudoOnboarding {
   saltosSinPaso: number
 }
 
-export interface PermisoOrigen {
-  origen: string
-  ofrecidos: number
-  aceptaron: number
-  /** Tocaron "Sí" y el sistema no dio el permiso (lo negaron en el diálogo o falló). */
-  negadoPorSistema: number
-  ahoraNo: number
-}
-
-/** Una tajada del recordatorio de notificaciones (1.0.16 en adelante). */
-export interface RecordatorioFila {
+/**
+ * Un camino por el que se pide el permiso de notificaciones (`origen` de los
+ * eventos push_*): el onboarding y, desde la 1.0.16, los momentos en contexto.
+ */
+export interface CaminoPermiso {
   clave: string
   nombre: string
   vieron: number
-  /** Tocaron "Activar" o "Abrir ajustes". */
+  /** Tocaron "Activar" (o "Que suenen", o "Abrir ajustes" si estaba bloqueado). */
   tocaron: number
+  /** Terminaron con el permiso dado (y el token guardado, desde la 1.0.16). */
   activaron: number
   ahoraNo: number
+  /** Lo vieron y no tocaron nada: ni activar ni "Ahora no". */
+  sinResponder: number
 }
 
-export interface Recordatorio {
-  desde: string | null
-  total: RecordatorioFila
-  porMomento: RecordatorioFila[]
-  porEstado: RecordatorioFila[]
+/** iPhone: el permiso provisional (llegan calladas, sin preguntar). */
+export interface Provisional {
+  loTienen: number
+  normales: number
+  desactivadas: number
 }
 
 export interface MedicionApp {
   onboarding: EmbudoOnboarding[]
   notificaciones: {
     permisoDesde: string | null
-    permiso: PermisoOrigen[]
-    recordatorio: Recordatorio
+    caminos: CaminoPermiso[]
+    provisional: Provisional
     usuariosConToken: number
     aparatosConToken: number
     /** Instalaciones activas en 30 días, la definición de `admin_app_uso`. `null` si no está la función. */
@@ -274,62 +271,58 @@ function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
 
 // ── Notificaciones ─────────────────────────────────────────────────────────
 
-// 'watchlist' sigue apareciendo mientras haya eventos: es el ofrecimiento de
-// una vez que reemplazó el recordatorio en la 1.0.16.
-const ORIGENES = ['onboarding']
-const RECORDATORIO = 'recordatorio'
+/** En el orden en que se muestran. Los que no están acá salen al final. */
+const CAMINOS: Record<string, string> = {
+  onboarding: 'Onboarding',
+  watchlist: 'Al guardar en Ver después',
+  famoso: 'Al seguir a un famoso',
+  calificaciones: 'En la 3.ª calificación',
+  regreso: 'Al volver después de días',
+  follow: 'Al seguir a un usuario',
+}
 
-function permiso(evs: Evento[]): PermisoOrigen[] {
-  const origenes = [...new Set([...ORIGENES, ...evs.map(e => String(prop(e, 'origen') ?? 'sin origen'))])]
-    // El recordatorio tiene su propio embudo: "aceptaron" no cuenta a los que
-    // fueron por los ajustes.
-    .filter(o => o !== RECORDATORIO)
-  return origenes.map(origen => {
-    const de = evs.filter(e => String(prop(e, 'origen') ?? 'sin origen') === origen)
-    const aceptados = de.filter(e => e.name === 'push_aceptado')
+/**
+ * El camino de un evento. Los builds de prueba de la 1.0.16 mandaban
+ * `origen: 'recordatorio'` con el camino en `momento`; desde los caminos, el
+ * camino es el `origen`.
+ */
+function caminoDe(e: Evento): string {
+  const origen = String(prop(e, 'origen') ?? 'sin origen')
+  return origen === 'recordatorio' ? String(prop(e, 'momento') ?? 'recordatorio') : origen
+}
+
+function caminos(evs: Evento[]): CaminoPermiso[] {
+  const claves = [...new Set([...Object.keys(CAMINOS), ...evs.map(caminoDe)])]
+  return claves.map(clave => {
+    const de = evs.filter(e => caminoDe(e) === clave)
+    const quien = (pred: (e: Evento) => boolean) => new Set(de.filter(pred).map(e => e.anon_id))
+    const vieron = quien(e => e.name === 'push_ofrecido')
+    const tocaron = quien(e => e.name === 'push_aceptado' || e.name === 'push_ajustes_abiertos')
+    // Antes de la 1.0.16 no existía push_activado: el onboarding contaba el
+    // permiso con push_aceptado resultado 'granted'.
+    const activaron = quien(e => e.name === 'push_activado' ||
+      (e.name === 'push_aceptado' && prop(e, 'resultado') === 'granted'))
+    const ahoraNo = quien(e => e.name === 'push_ahora_no')
+    let sinResponder = 0
+    for (const id of vieron) if (!tocaron.has(id) && !ahoraNo.has(id)) sinResponder++
     return {
-      origen,
-      ofrecidos: personas(de.filter(e => e.name === 'push_ofrecido')),
-      aceptaron: personas(aceptados.filter(e => prop(e, 'resultado') === 'granted')),
-      negadoPorSistema: personas(aceptados.filter(e => prop(e, 'resultado') !== 'granted')),
-      ahoraNo: personas(de.filter(e => e.name === 'push_ahora_no')),
+      clave,
+      nombre: CAMINOS[clave] ?? clave,
+      vieron: vieron.size,
+      tocaron: tocaron.size,
+      activaron: activaron.size,
+      ahoraNo: ahoraNo.size,
+      sinResponder,
     }
   })
 }
 
-const MOMENTOS: Record<string, string> = { watchlist: 'Al guardar en Ver después', regreso: 'Al volver después de días' }
-// `sin_preguntar` incluye al que en Android 13+ negó una sola vez: el sistema
-// todavía muestra su aviso una vez más.
-const ESTADOS: Record<string, string> = {
-  sin_preguntar: 'El sistema todavía puede preguntar',
-  bloqueado: 'Bloqueado: va a los ajustes',
-}
-
-function filaRecordatorio(clave: string, nombre: string, evs: Evento[]): RecordatorioFila {
+function provisional(evs: Evento[]): Provisional {
+  const quien = (pred: (e: Evento) => boolean) => new Set(evs.filter(pred).map(e => e.anon_id)).size
   return {
-    clave,
-    nombre,
-    vieron: personas(evs.filter(e => e.name === 'push_ofrecido')),
-    tocaron: personas(evs.filter(e => e.name === 'push_aceptado' || e.name === 'push_ajustes_abiertos')),
-    activaron: personas(evs.filter(e => e.name === 'push_activado')),
-    ahoraNo: personas(evs.filter(e => e.name === 'push_ahora_no')),
-  }
-}
-
-/** Una fila por valor de `clave`: los conocidos siempre, los otros si aparecen. */
-function tajadas(evs: Evento[], clave: string, nombres: Record<string, string>): RecordatorioFila[] {
-  const valores = [...new Set([...Object.keys(nombres), ...evs.map(e => String(prop(e, clave) ?? '?'))])]
-  return valores.map(v =>
-    filaRecordatorio(v, nombres[v] ?? v, evs.filter(e => String(prop(e, clave) ?? '?') === v)))
-}
-
-function recordatorio(evs: Evento[]): Recordatorio {
-  const de = evs.filter(e => prop(e, 'origen') === RECORDATORIO)
-  return {
-    desde: rango(de).desde,
-    total: filaRecordatorio('total', 'Total', de),
-    porMomento: tajadas(de, 'momento', MOMENTOS),
-    porEstado: tajadas(de, 'estado', ESTADOS),
+    loTienen: quien(e => e.name === 'push_provisional'),
+    normales: quien(e => e.name === 'push_provisional_resultado' && prop(e, 'resultado') === 'normales'),
+    desactivadas: quien(e => e.name === 'push_provisional_resultado' && prop(e, 'resultado') === 'desactivadas'),
   }
 }
 
@@ -498,7 +491,7 @@ export async function GET() {
     const [onb, recos, push, desl, cargados, fallos, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
       eventos(admin, ['onboarding_step_viewed', 'onboarding_skipped']),
       pantallasRecomendaciones(admin),
-      eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no', 'push_ajustes_abiertos', 'push_activado']),
+      eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no', 'push_ajustes_abiertos', 'push_activado', 'push_provisional', 'push_provisional_resultado']),
       eventos(admin, ['deslizar_abierto', 'deslizar_accion', 'deslizar_deshacer']),
       eventos(admin, ['ad_cargado']),
       fallosDeAnuncios(admin),
@@ -515,8 +508,8 @@ export async function GET() {
       onboarding: embudos(onb, recos),
       notificaciones: {
         permisoDesde: rango(push).desde,
-        permiso: permiso(push),
-        recordatorio: recordatorio(push),
+        caminos: caminos(push),
+        provisional: provisional(push),
         usuariosConToken: porUsuario.size,
         aparatosConToken: [...porUsuario.values()].reduce((s, n) => s + n, 0),
         instalacionesActivas: fila ? Number(fila.activas) : null,

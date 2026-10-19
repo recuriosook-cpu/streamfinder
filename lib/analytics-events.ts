@@ -195,14 +195,22 @@ export const EVENT_NAMES = [
 
   // ── Permiso de notificaciones, sólo de la app ───────────────────────
   //
-  // El pedido propio que va antes del diálogo del sistema. Llevan `origen`:
-  // 'onboarding' (la tarjeta de "Tus primeras recomendaciones"),
-  // 'watchlist' (el segundo ofrecimiento de una sola vez, hasta la 1.0.15) o
-  // 'recordatorio' (desde la 1.0.16: hasta 3 veces, cada 8 días o más, a
-  // quien no tiene las notificaciones activas). Los dos primeros llevan
-  // `flujo: 'corto'`; el recordatorio lleva { momento: 'watchlist' | 'regreso',
-  // vez: 1..3, estado: 'sin_preguntar' | 'bloqueado' }. `sin_preguntar` = el sistema todavía
-  // puede mostrar su aviso (nunca lo vio, o en Android 13+ lo negó una vez).
+  // El pedido propio que va antes del diálogo del sistema. Llevan `origen`,
+  // que es el camino por el que llegó el pedido:
+  //   'onboarding'     la tarjeta de "Tus primeras recomendaciones".
+  //   'watchlist'      al guardar en "Ver después" (hasta la 1.0.15, una
+  //                    segunda vuelta de una sola vez).
+  //   'famoso'         al seguir a un famoso (1.0.16).
+  //   'calificaciones' en la 3.ª calificación (1.0.16).
+  //   'regreso'        al volver a la app después de 3 días o más (1.0.16).
+  //   'follow'         al seguir a un usuario por primera vez (1.0.16).
+  //   'recordatorio'   sólo en builds de prueba de la 1.0.16 anteriores a los
+  //                    caminos: el camino va en `momento` ('watchlist' |
+  //                    'regreso').
+  // Desde la 1.0.16 los de contexto llevan además { vez, estado:
+  // 'sin_preguntar' | 'bloqueado' | 'provisional' }. `sin_preguntar` = el
+  // sistema todavía puede mostrar su aviso; `provisional` = iPhone con el
+  // permiso provisional, que puede pasar a normal.
   // Aceptados sobre ofrecidos es la tasa; `resultado` dice qué contestó
   // después el sistema, porque tocar "Sí" y negar en el diálogo no es aceptar.
 
@@ -223,6 +231,17 @@ export const EVENT_NAMES = [
    * recordatorio + { via: 'dialogo' | 'ajustes' }.
    */
   'push_activado',
+  /**
+   * iPhone: iOS dio el permiso provisional (las notificaciones llegan calladas
+   * al Centro de Notificaciones, sin preguntar). Una vez por instalación.
+   * Sólo de la app, desde la 1.0.16.
+   */
+  'push_provisional',
+  /**
+   * iPhone: quien tenía el provisional decidió. Se detecta al abrir la app.
+   * props: { resultado: 'normales' | 'desactivadas' }.
+   */
+  'push_provisional_resultado',
   /**
    * Abrió la app tocando una notificación push. Sólo de la app.
    * props: { tipo, envio, arranque: 'frio' | 'abierta' }. `tipo` es el `data.type`
