@@ -15,6 +15,17 @@ import {
 } from '@/lib/community-api'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { idiomaTmdb, normalizarIdioma, type Idioma } from '@/lib/idioma'
+import {
+  POCOS_SEGUIDOS,
+  cuentasDestacadas,
+  cumpleanosDeFamosos,
+  estrenosDeFamosos,
+  ordenarFeed,
+  recomendacionesFerlage,
+  type FamosoCumpleItem,
+  type FamosoEstrenoItem,
+  type FerlageItem,
+} from '@/lib/feed-extras'
 
 /**
  * Feed de comunidad para la app nativa.
@@ -31,6 +42,21 @@ import { idiomaTmdb, normalizarIdioma, type Idioma } from '@/lib/idioma'
  *
  * Los `level_up` siguen viniendo vacíos: `notifications` sólo la lee su dueño,
  * y esto pide las de otros.
+ *
+ * ── `v=2` (la app 1.0.16) ──────────────────────────────────────────────────
+ *
+ * La app que manda `v=2` sabe dibujar tarjetas nuevas, y sólo a ella se le
+ * mandan (la 1.0.15 dibujaría cualquier tipo desconocido como una vista, mal):
+ *
+ *   · `ferlage`: las recomendaciones de Ferlage.
+ *   · `famoso_cumple` y `famoso_estreno`: de los famosos que seguís.
+ *   · Si seguís a poca gente (menos de 5, o menos de 10 cosas en 2 semanas),
+ *     actividad de cuentas verificadas y populares, con `sugerido: true`.
+ *     Si no seguís a nadie, el feed ya no queda vacío.
+ *
+ * Para todos: entran todas las calificaciones (antes, sólo de 3,5 para
+ * arriba), y el orden pone primero lo de quien seguís y no deja que una misma
+ * persona ocupe más de 2 lugares seguidos (`ordenarFeed`).
  */
 
 export const OPTIONS = corsPreflight
@@ -110,6 +136,8 @@ interface BaseItem {
   userId: string
   /** ISO por el que se ordena todo el stream. */
   sortTime: string
+  /** De una cuenta que no sigue, para completar (sólo con `v=2`). */
+  sugerido?: boolean
 }
 
 export interface ReviewItem extends BaseItem {
@@ -196,7 +224,12 @@ export type AuthoredItem =
   | ListItem
   | LevelUpItem
 
-export type FeedItem = AuthoredItem | RecommendationItem
+export type { FerlageItem, FamosoCumpleItem, FamosoEstrenoItem }
+
+/** Las tarjetas que sólo recibe la app con `v=2`. */
+export type ExtraItem = FerlageItem | FamosoCumpleItem | FamosoEstrenoItem
+
+export type FeedItem = AuthoredItem | RecommendationItem | ExtraItem
 
 export interface CommunityFeedResponse {
   items: FeedItem[]
@@ -279,9 +312,8 @@ async function loadRatings(
   const { data, error } = await supabase
     .from('ratings')
     .select('id, user_id, media_id, media_type, title, poster_path, rating, rated_at')
-    // Sólo lo que le gustó: un 2 de 5 en el feed de un amigo no es una
-    // recomendación, es ruido. Mismo corte que usa la web.
-    .gte('rating', 3.5)
+    // Todas, desde 2026-10 (antes, sólo de 3,5 para arriba): lo que no le
+    // gustó a un amigo también dice algo.
     .in('user_id', followIds)
     .order('rated_at', { ascending: false })
     .limit(SOURCE_LIMIT)
@@ -595,7 +627,7 @@ async function loadRecommendations(
  * inventarles una.
  */
 function interleave(
-  items: AuthoredItem[],
+  items: (AuthoredItem | ExtraItem)[],
   recommendations: RecommendationItem[]
 ): FeedItem[] {
   if (recommendations.length === 0) return items
@@ -644,9 +676,12 @@ export async function GET(req: NextRequest) {
 
   const { page, limit } = readPaging(req, DEFAULT_LIMIT, MAX_LIMIT)
 
+  // La app 1.0.16 manda `v=2`: entiende las tarjetas nuevas y el relleno.
+  const v2 = req.nextUrl.searchParams.get('v') === '2'
+
   const followIds = await getFollowingIds(db, userId)
 
-  if (followIds.length === 0) {
+  if (followIds.length === 0 && !v2) {
     const empty: CommunityFeedResponse = {
       items: [],
       profiles: [],
@@ -662,35 +697,58 @@ export async function GET(req: NextRequest) {
 
   const want = sourcesFor(mode)
 
-  const [reviews, ratings, watchlist, watched, follows, lists, levelUps] =
-    await Promise.all([
-      want.reviews ? loadReviews(db, followIds, userId) : [],
-      want.ratings ? loadRatings(db, followIds) : [],
-      want.watchlist ? loadWatchlist(db, followIds) : [],
-      want.watched ? loadWatched(db, followIds) : [],
-      want.follows ? loadFollows(db, followIds, userId) : [],
-      want.lists ? loadLists(db, followIds) : [],
-      want.levelUps ? loadLevelUps(db, followIds) : [],
+  /** Todo lo de un grupo de cuentas. `sugerido` marca a las que no sigue. */
+  const yo: string = userId
+  async function actividadDe(ids: string[], sugerido: boolean): Promise<AuthoredItem[]> {
+    if (ids.length === 0) return []
+    const partes = await Promise.all([
+      want.reviews ? loadReviews(db, ids, yo) : [],
+      want.ratings ? loadRatings(db, ids) : [],
+      want.watchlist ? loadWatchlist(db, ids) : [],
+      want.watched ? loadWatched(db, ids) : [],
+      // Los follows y los niveles de cuentas que no sigue no le dicen nada.
+      want.follows && !sugerido ? loadFollows(db, ids, yo) : [],
+      want.lists ? loadLists(db, ids) : [],
+      want.levelUps && !sugerido ? loadLevelUps(db, ids) : [],
     ])
+    const todos: AuthoredItem[] = partes.flat()
+    return sugerido ? todos.map(i => ({ ...i, sugerido: true })) : todos
+  }
 
-  const merged: AuthoredItem[] = [
-    ...reviews,
-    ...ratings,
-    ...watchlist,
-    ...watched,
-    ...follows,
-    ...lists,
-    ...levelUps,
-  ].sort((a, b) => b.sortTime.localeCompare(a.sortTime))
+  const propios = await actividadDe(followIds, false)
+
+  // Poca gente, o poca actividad en 2 semanas: se completa con cuentas
+  // verificadas y populares.
+  const hace14 = new Date(Date.now() - 14 * 86_400_000).toISOString()
+  const recientes = propios.filter(i => i.sortTime >= hace14).length
+  const completar = v2 && (followIds.length < POCOS_SEGUIDOS || recientes < 10)
+  const [sugeridos, extras] = await Promise.all([
+    completar ? cuentasDestacadas(db, userId, followIds).then(ids => actividadDe(ids, true)) : [],
+    v2 && mode === 'all'
+      ? Promise.all([
+          recomendacionesFerlage(db, idioma),
+          cumpleanosDeFamosos(db, userId),
+          estrenosDeFamosos(db, userId, idioma),
+        ]).then(p => p.flat())
+      : ([] as ExtraItem[]),
+  ])
+
+  const merged: (AuthoredItem | ExtraItem)[] = ordenarFeed<AuthoredItem | ExtraItem>([
+    ...propios,
+    ...sugeridos,
+    ...extras,
+  ])
 
   const from = page * limit
   const pageItems = merged.slice(from, from + limit)
 
   // Los perfiles se piden sólo para los ítems de esta página; las
-  // recomendaciones no tienen autor, así que no entran en la consulta. Los
-  // items de follow aportan dos ids: quien sigue y a quién.
+  // recomendaciones y los famosos no tienen autor. Los items de follow aportan
+  // dos ids: quien sigue y a quién.
   const profileIds = pageItems.flatMap((item) =>
-    item.type === 'follow' ? [item.userId, item.targetUserId] : [item.userId]
+    item.type === 'follow'
+      ? [item.userId, item.targetUserId]
+      : 'userId' in item ? [item.userId] : []
   )
 
   const [profiles, recommendations] = await Promise.all([
@@ -706,7 +764,7 @@ export async function GET(req: NextRequest) {
     page,
     limit,
     hasMore: from + limit < merged.length,
-    followsNobody: false,
+    followsNobody: followIds.length === 0,
   }
 
   return NextResponse.json(body, {

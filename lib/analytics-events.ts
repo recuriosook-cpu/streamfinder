@@ -266,6 +266,14 @@ export const EVENT_NAMES = [
   'deslizar_accion',
   /** Deshizo la última. props: { accion, media_type, media_id } */
   'deslizar_deshacer',
+
+  // ── Recomendaciones (sólo la app, 1.0.16) ───────────────────────────────
+
+  /**
+   * Tocó "Otras opciones" (Qué ver) o ↻ ("Recomendado para vos"): pidió una
+   * tanda nueva. props: { lugar: 'que_ver' | 'inicio' }
+   */
+  'recomendaciones_regeneradas',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
