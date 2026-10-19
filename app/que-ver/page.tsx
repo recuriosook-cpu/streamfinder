@@ -9,16 +9,16 @@ export const metadata: Metadata = {
   openGraph: {
     title:       'Qué ver hoy — Glynbox',
     description: 'Descubrí películas y series según tu estado de ánimo. Filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
-    url:         'https://glynbox.com/que-ver',
-    images:      [{ url: 'https://glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
+    url:         'https://www.glynbox.com/que-ver',
+    images:      [{ url: 'https://www.glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
   },
   twitter: {
     card:        'summary_large_image',
     title:       'Qué ver hoy — Glynbox',
     description: 'Descubrí películas y series según tu estado de ánimo.',
-    images:      ['https://glynbox.com/logo.png'],
+    images:      ['https://www.glynbox.com/logo.png'],
   },
-  alternates: { canonical: 'https://glynbox.com/que-ver' },
+  alternates: { canonical: 'https://www.glynbox.com/que-ver' },
 }
 
 interface Props {

@@ -51,14 +51,14 @@ export const metadata: Metadata = {
   title: 'Descargá Glynbox — Encontrá dónde ver cualquier peli o serie',
   description:
     'Encontrá dónde ver cualquier película o serie en tu país. Gratis. Descargá la app de Glynbox o entrá desde el navegador.',
-  alternates: { canonical: 'https://glynbox.com/descargar' },
+  alternates: { canonical: 'https://www.glynbox.com/descargar' },
   openGraph: {
     type: 'website',
-    url: 'https://glynbox.com/descargar',
+    url: 'https://www.glynbox.com/descargar',
     siteName: 'Glynbox',
     title: '¿No sabés qué ver hoy?',
     description: 'Encontrá dónde ver cualquier peli o serie en tu país. Gratis.',
-    images: [{ url: 'https://glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
+    images: [{ url: 'https://www.glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
   },
 }
 

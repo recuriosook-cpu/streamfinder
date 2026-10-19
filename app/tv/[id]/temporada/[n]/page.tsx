@@ -104,7 +104,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     title,
     description,
     openGraph: { title, description, images: poster ? [{ url: poster, width: 500, height: 750 }] : [] },
-    alternates: { canonical: `https://glynbox.com/tv/${datos.show.id}/temporada/${datos.temporada.season_number}` },
+    alternates: { canonical: `https://www.glynbox.com/tv/${datos.show.id}/temporada/${datos.temporada.season_number}` },
     itunes: itunesPara(`/tv/${datos.show.id}/temporada/${datos.temporada.season_number}`),
   }
 }

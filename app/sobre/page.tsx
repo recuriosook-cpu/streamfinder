@@ -4,7 +4,7 @@ import Link from 'next/link'
 export const metadata: Metadata = {
   title: 'Sobre Glynbox — La comunidad de cine y series en español',
   description: 'Conocé Glynbox, la comunidad de cine y series más activa de habla hispana. Descubrí quiénes somos, para qué sirve y cómo se financia.',
-  alternates: { canonical: 'https://glynbox.com/sobre' },
+  alternates: { canonical: 'https://www.glynbox.com/sobre' },
 }
 
 export default function SobrePage() {

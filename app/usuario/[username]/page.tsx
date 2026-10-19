@@ -22,7 +22,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const description = profile?.bio
     ? profile.bio.slice(0, 160)
     : `Perfil de ${displayName} en Glynbox — reseñas, listas y recomendaciones de películas y series.`
-  const imageUrl = profile?.avatar_url ?? 'https://glynbox.com/logo.png'
+  const imageUrl = profile?.avatar_url ?? 'https://www.glynbox.com/logo.png'
   const title = `${displayName} (@${username}) — Glynbox`
 
   return {
@@ -31,7 +31,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title,
       description,
-      url:    `https://glynbox.com/usuario/${username}`,
+      url:    `https://www.glynbox.com/usuario/${username}`,
       images: [{ url: imageUrl, width: 400, height: 400, alt: displayName }],
     },
     twitter: {
@@ -40,7 +40,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       description,
       images:      [imageUrl],
     },
-    alternates: { canonical: `https://glynbox.com/usuario/${username}` },
+    alternates: { canonical: `https://www.glynbox.com/usuario/${username}` },
     itunes: itunesPara(`/usuario/${encodeURIComponent(username)}`),
   }
 }

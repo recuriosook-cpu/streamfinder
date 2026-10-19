@@ -104,7 +104,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const year = movie.release_date?.slice(0, 4)
     const posterUrl = movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
-      : 'https://glynbox.com/logo.png'
+      : 'https://www.glynbox.com/logo.png'
     const description = movie.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${movie.title} en Glynbox`
     const fullTitle = year ? `${movie.title} (${year}) — Glynbox` : `${movie.title} — Glynbox`
     return {
@@ -119,7 +119,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           { url: mediaImageUrl('movie', id, 'link'), width: 1200, height: 630, alt: movie.title },
           { url: posterUrl, width: 500, height: 750, alt: movie.title },
         ],
-        url:         `https://glynbox.com/movie/${id}`,
+        url:         `https://www.glynbox.com/movie/${id}`,
         type:        'video.movie',
         siteName:    'Glynbox',
       },
@@ -129,7 +129,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         images:      [mediaImageUrl('movie', id, 'link')],
       },
-      alternates: { canonical: `https://glynbox.com/movie/${id}` },
+      alternates: { canonical: `https://www.glynbox.com/movie/${id}` },
       itunes: itunesPara(`/movie/${id}`),
     }
   } catch { return {} }

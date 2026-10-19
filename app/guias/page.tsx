@@ -10,15 +10,15 @@ export const metadata: Metadata = {
   openGraph: {
     title: 'Guías de cine y series — Glynbox',
     description: 'Guías editoriales curadas: las mejores películas argentinas, cine coreano, Studio Ghibli, Marvel y más recomendaciones por @Ferlageok.',
-    url: 'https://glynbox.com/guias',
-    images: [{ url: 'https://glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox Guías' }],
+    url: 'https://www.glynbox.com/guias',
+    images: [{ url: 'https://www.glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox Guías' }],
   },
   twitter: {
     card: 'summary_large_image',
     title: 'Guías de cine y series — Glynbox',
     description: 'Guías editoriales curadas: las mejores películas argentinas, cine coreano, Studio Ghibli, Marvel y más recomendaciones por @Ferlageok.',
   },
-  alternates: { canonical: 'https://glynbox.com/guias' },
+  alternates: { canonical: 'https://www.glynbox.com/guias' },
 }
 
 const CATEGORY_COLORS: Record<string, string> = {

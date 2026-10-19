@@ -16,7 +16,7 @@ export const viewport: Viewport = {
 }
 
 export const metadata: Metadata = {
-  metadataBase: new URL('https://glynbox.com'),
+  metadataBase: new URL('https://www.glynbox.com'),
   // Versiones chicas de `favicon.jpg`, que es de 1000×1000 y pesa 64 KB para
   // mostrarse a 16–32 px: el favicon pasa a 1,2 KB y el de iOS a 2 KB.
   icons: {
@@ -32,11 +32,11 @@ export const metadata: Metadata = {
   openGraph: {
     type:        'website',
     locale:      'es_AR',
-    url:         'https://glynbox.com',
+    url:         'https://www.glynbox.com',
     siteName:    'Glynbox',
     title:       'Glynbox — Descubrí qué ver hoy',
     description: 'Encontrá películas y series según tu estado de ánimo. Reseñas y recomendaciones personalizadas.',
-    images: [{ url: 'https://glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
+    images: [{ url: 'https://www.glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
   },
   twitter: {
     card:        'summary_large_image',
@@ -44,7 +44,7 @@ export const metadata: Metadata = {
     creator:     '@glynboxapp',
     title:       'Glynbox — Descubrí qué ver hoy',
     description: 'Encontrá películas y series según tu estado de ánimo. Reseñas y recomendaciones personalizadas.',
-    images:      ['https://glynbox.com/logo.png'],
+    images:      ['https://www.glynbox.com/logo.png'],
   },
   robots: {
     index:     true,
@@ -52,7 +52,7 @@ export const metadata: Metadata = {
     googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
   },
   alternates: {
-    canonical: 'https://glynbox.com',
+    canonical: 'https://www.glynbox.com',
   },
   manifest: '/manifest.json',
   // El aviso nativo de Safari en iPhone ("Abrir" / "Obtener"), con el Apple ID

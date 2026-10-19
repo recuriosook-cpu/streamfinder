@@ -93,7 +93,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const show = await getTVDetails(Number(id))
     const posterUrl = show.poster_path
       ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
-      : 'https://glynbox.com/logo.png'
+      : 'https://www.glynbox.com/logo.png'
     const title       = show.name ?? show.title ?? 'Serie'
     const year        = (show.first_air_date ?? '').slice(0, 4)
     const description = show.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${title} en Glynbox`
@@ -110,7 +110,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
           { url: mediaImageUrl('tv', id, 'link'), width: 1200, height: 630, alt: title },
           { url: posterUrl, width: 500, height: 750, alt: title },
         ],
-        url:         `https://glynbox.com/tv/${id}`,
+        url:         `https://www.glynbox.com/tv/${id}`,
         type:        'video.tv_show',
         siteName:    'Glynbox',
       },
@@ -120,7 +120,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
         description,
         images:      [mediaImageUrl('tv', id, 'link')],
       },
-      alternates: { canonical: `https://glynbox.com/tv/${id}` },
+      alternates: { canonical: `https://www.glynbox.com/tv/${id}` },
       itunes: itunesPara(`/tv/${id}`),
     }
   } catch { return {} }

@@ -23,7 +23,7 @@ export async function generateMetadata(
   const guide = getGuideBySlug(slug)
   if (!guide) return {}
   const ogImage = guide.heroImage
-    ? `https://glynbox.com${guide.heroImage}`
+    ? `https://www.glynbox.com${guide.heroImage}`
     : undefined
   return {
     title:       `${guide.title} — Glynbox`,
@@ -87,7 +87,7 @@ export default async function GuideSlugPage(
     publisher: {
       '@type': 'Organization',
       name:    'Glynbox',
-      url:     'https://glynbox.com',
+      url:     'https://www.glynbox.com',
     },
   }
 

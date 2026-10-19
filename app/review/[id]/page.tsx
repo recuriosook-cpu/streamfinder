@@ -24,7 +24,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
 
   const posterUrl = review.poster_path
     ? `https://image.tmdb.org/t/p/w500${review.poster_path}`
-    : 'https://glynbox.com/logo.png'
+    : 'https://www.glynbox.com/logo.png'
 
   // La vista previa con la reseña (póster, estrellas, autor) sólo si el autor
   // no oculta su actividad: con "Ocultar actividad" /api/share no la dibuja
@@ -54,7 +54,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       images:      previewUrl
         ? [{ url: previewUrl, width: 1200, height: 630, alt: review.title }]
         : [{ url: posterUrl, width: 500, height: 750, alt: review.title }],
-      url:         `https://glynbox.com/review/${id}`,
+      url:         `https://www.glynbox.com/review/${id}`,
       type:        'article',
       siteName:    'Glynbox',
     },

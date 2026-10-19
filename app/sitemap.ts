@@ -6,7 +6,7 @@ export const revalidate = 86400 // regenerar una vez por día
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
-const BASE = 'https://glynbox.com'
+const BASE = 'https://www.glynbox.com'
 
 const staticPages: MetadataRoute.Sitemap = [
   { url: BASE,                        changeFrequency: 'daily',   priority: 1   },

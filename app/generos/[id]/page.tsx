@@ -48,9 +48,9 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     openGraph: {
       title: `${name} — Películas y Series | Glynbox`,
       description: `Las mejores películas y series de ${name} en Glynbox.`,
-      url: `https://glynbox.com/generos/${id}`,
+      url: `https://www.glynbox.com/generos/${id}`,
     },
-    alternates: { canonical: `https://glynbox.com/generos/${id}` },
+    alternates: { canonical: `https://www.glynbox.com/generos/${id}` },
     itunes: itunesPara(`/generos/${id}`),
   }
 }

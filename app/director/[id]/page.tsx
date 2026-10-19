@@ -70,14 +70,14 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     if (!person?.name) return {}
     const photoUrl = person.profile_path
       ? `https://image.tmdb.org/t/p/w500${person.profile_path}`
-      : 'https://glynbox.com/logo.png'
+      : 'https://www.glynbox.com/logo.png'
     const description = person.biography?.slice(0, 160) ?? `Filmografía del director ${person.name} en Glynbox`
     return {
       title:       `${person.name} — Director — Glynbox`,
       description,
       openGraph:   { title: person.name, description, images: [{ url: photoUrl, width: 500, height: 750, alt: person.name }], siteName: 'Glynbox' },
       twitter:     { card: 'summary_large_image', title: `${person.name} — Glynbox`, description, images: [photoUrl] },
-      alternates:  { canonical: `https://glynbox.com/director/${id}` },
+      alternates:  { canonical: `https://www.glynbox.com/director/${id}` },
       itunes: itunesPara(`/director/${id}`),
     }
   } catch { return {} }

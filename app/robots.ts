@@ -56,6 +56,6 @@ export default function robots(): MetadataRoute.Robots {
       { userAgent: 'serpstatbot',     disallow: '/' },
       { userAgent: 'Barkrowler',      disallow: '/' },
     ],
-    sitemap: 'https://glynbox.com/sitemap.xml',
+    sitemap: 'https://www.glynbox.com/sitemap.xml',
   }
 }
