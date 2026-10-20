@@ -227,7 +227,10 @@ export async function informeAdMob(
     const pais = (d.COUNTRY?.value ?? '').toUpperCase()
     filas.push({
       fecha,
-      formato: d.FORMAT?.value || 'DESCONOCIDO',
+      // La API los manda en minúscula (`rewarded`) aunque la documentación
+      // los escriba en mayúscula. Se guardan en mayúscula, como los nombra
+      // el panel.
+      formato: (d.FORMAT?.value || 'desconocido').toUpperCase(),
       pais: /^[A-Z]{2}$/.test(pais) ? pais : 'ZZ',
       gananciaMicros: entero(m.ESTIMATED_EARNINGS?.microsValue),
       impresiones: entero(m.IMPRESSIONS?.integerValue),
