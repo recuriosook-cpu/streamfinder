@@ -198,9 +198,9 @@ function Vacio({ motivo }: { motivo: PotionPanel['motivo'] }) {
 }
 
 /**
- * Las cuatro tarjetas grandes de arriba. Cuentan sólo usuarios reales
- * (`lib/potion-reales.ts`) y no miran el rango ni la casilla: piden su propia ruta, cada 60 segundos
- * mientras la pestaña está a la vista y apenas vuelve a estarlo.
+ * Las cuatro tarjetas grandes de arriba. Cuentan desde el lanzamiento
+ * (`lib/potion-usuarios.ts`) y no miran el rango ni la casilla: piden su
+ * propia ruta, cada 60 segundos mientras la pestaña está a la vista y apenas vuelve a estarlo.
  */
 const VIVO_MS = 60_000
 
@@ -256,7 +256,7 @@ function ResumenVivo() {
         ))}
       </div>
       <p className="text-[11px] text-zinc-500 mt-2">
-        Sólo usuarios reales (empezaron en el nivel 1 desde el 13/10/2026) · se actualiza solo cada minuto
+        Desde el lanzamiento (13/10/2026) · se actualiza solo cada minuto
         {vivo?.disponible && <> · {new Date(vivo.generadoEn).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}</>}
         {fallo && <span className="text-red-400"> · no se pudo actualizar</span>}
       </p>
@@ -393,8 +393,8 @@ export default function PotionPage() {
             {/* 1. Resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Tarjeta icon={<Users size={20} />} label="Jugadores" value={numero(r.jugadores)}
-                sub={`Usuarios reales · ${ETIQUETA_RANGO[datos.rango]}`} color="yellow" />
-              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos en 7 días" value={numero(r.nuevos7d)} sub="Usuarios reales" color="teal" />
+                sub={ETIQUETA_RANGO[datos.rango]} color="yellow" />
+              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos en 7 días" value={numero(r.nuevos7d)} color="teal" />
               <Tarjeta icon={<PlayCircle size={20} />} label="Sesiones hoy" value={numero(r.sesionesHoy)} color="purple" />
               <Tarjeta icon={<Clock size={20} />} label="Duración media de sesión"
                 value={fmtDuracion(r.duracionMediaSeg)}

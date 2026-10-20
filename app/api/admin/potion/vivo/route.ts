@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getPotionClient } from '@/lib/potion-supabase'
-import { contarReales } from '@/lib/potion-reales'
+import { contarUsuarios } from '@/lib/potion-usuarios'
 
 /**
  * GET /api/admin/potion/vivo
@@ -11,8 +11,7 @@ import { contarReales } from '@/lib/potion-reales'
  * dependen del rango ni de la casilla del lanzamiento, siempre cuentan desde
  * el lanzamiento. La página la pide cada 60 segundos.
  *
- * Todas cuentan sólo usuarios reales; el criterio y el cálculo están en
- * `lib/potion-reales.ts`.
+ * El criterio de usuario y el cálculo están en `lib/potion-usuarios.ts`.
  */
 
 export const runtime = 'nodejs'
@@ -42,13 +41,13 @@ async function requireAdmin() {
 
 export interface PotionVivo {
   disponible: boolean
-  /** Usuarios reales desde el lanzamiento. */
+  /** Usuarios desde el lanzamiento. */
   total: number
-  /** Usuarios reales cuyo primer evento llegó hoy (días de Argentina). */
+  /** Usuarios cuyo primer evento llegó hoy (días de Argentina). */
   nuevosHoy: number
-  /** Usuarios reales con algún evento desde las 0 de hoy en Argentina. */
+  /** Usuarios con algún evento desde las 0 de hoy en Argentina. */
   jugaronHoy: number
-  /** Usuarios reales con algún evento en los últimos 15 minutos. */
+  /** Usuarios con algún evento en los últimos 15 minutos. */
   jugandoAhora: number
   generadoEn: string
 }
@@ -64,7 +63,7 @@ export async function GET() {
   const potion = getPotionClient()
   if (!potion) return NextResponse.json(vacio)
 
-  const r = await contarReales(potion, 'todo', 'admin/potion/vivo')
+  const r = await contarUsuarios(potion, 'todo', 'admin/potion/vivo')
   if (!r) return NextResponse.json(vacio)
 
   const vivo: PotionVivo = {

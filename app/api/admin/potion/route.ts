@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getPotionClient } from '@/lib/potion-supabase'
-import { contarReales } from '@/lib/potion-reales'
+import { contarUsuarios } from '@/lib/potion-usuarios'
 import { esRango, LANZAMIENTO, RANGO_POR_DEFECTO, ZONA, type Rango } from '@/lib/potion-panel'
 
 /**
@@ -27,9 +27,11 @@ import { esRango, LANZAMIENTO, RANGO_POR_DEFECTO, ZONA, type Rango } from '@/lib
  * teléfono (`cuando`). Es una decisión con costo; el porqué y la consulta para
  * revisarla están en el encabezado de `potion-panel.sql`.
  *
- * La excepción son los conteos de jugadores del resumen (jugadores y nuevos
- * en 7 días): cuentan sólo usuarios reales, con el mismo cálculo que las
- * tarjetas de arriba (`lib/potion-reales.ts`), y pisan los del SQL.
+ * La excepción son los conteos de jugadores: las tarjetas de jugadores y
+ * nuevos en 7 días, la retención y el embudo de niveles salen del mismo
+ * cálculo que las tarjetas de arriba (`lib/potion-usuarios.ts`) y pisan los
+ * del SQL. Cuentan siempre desde el lanzamiento, aunque la casilla esté
+ * apagada.
  *
  * Acá sólo se pasan a número los conteos y se calculan los porcentajes, con
  * el mismo criterio que `/api/admin/retencion`: un porcentaje sin
@@ -66,7 +68,7 @@ async function requireAdmin() {
 // ── Tipos de la respuesta ──────────────────────────────────────────────────
 
 export interface PotionResumen {
-  /** Usuarios reales con algún evento en el rango. Ver `lib/potion-reales.ts`. */
+  /** Usuarios con algún evento en el rango. Ver `lib/potion-usuarios.ts`. */
   jugadores: number
   nuevos7d: number
   sesionesHoy: number
@@ -311,13 +313,13 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vacio(rango, desdeLanzamiento, 'sin_configurar'))
   }
 
-  const [{ data, error }, reales] = await Promise.all([
+  const [{ data, error }, usuarios] = await Promise.all([
     potion.rpc('potion_panel', {
       p_rango: rango,
       p_lanzamiento: desdeLanzamiento ? LANZAMIENTO : null,
       p_zona: ZONA,
     }),
-    contarReales(potion, rango, 'admin/potion'),
+    contarUsuarios(potion, rango, 'admin/potion'),
   ])
 
   if (error) {
@@ -329,41 +331,32 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vacio(rango, desdeLanzamiento, 'error'))
   }
 
-  if (!reales) return NextResponse.json(vacio(rango, desdeLanzamiento, 'error'))
+  if (!usuarios) return NextResponse.json(vacio(rango, desdeLanzamiento, 'error'))
 
   const f = (data ?? {}) as FilaPanel
   const r = f.resumen ?? {}
 
   const resumen: PotionResumen = {
-    // Sólo usuarios reales, siempre desde el lanzamiento: no miran la casilla.
-    jugadores: reales.enRango,
-    nuevos7d: reales.nuevos7d,
+    // Siempre desde el lanzamiento: no miran la casilla.
+    jugadores: usuarios.enRango,
+    nuevos7d: usuarios.nuevos7d,
     sesionesHoy: n(r.sesionesHoy),
     duracionMediaSeg: nONull(r.duracionMediaSeg),
     sesionesMedidas: n(r.sesionesMedidas),
     eventos: n(r.eventos),
   }
 
-  const retencion: PotionCohorte[] = (f.retencion ?? []).map(c => {
-    const llegaron = n(c.llegaron)
-    const d1 = n(c.d1), d3 = n(c.d3), d7 = n(c.d7), d30 = n(c.d30)
-    return {
-      dia: String(c.dia ?? ''),
-      llegaron, d1, d3, d7, d30,
-      // La bandera de madurez manda sobre el número: ver el SQL.
-      d1Pct:  c.d1Maduro  === true ? porcentaje(d1,  llegaron) : null,
-      d3Pct:  c.d3Maduro  === true ? porcentaje(d3,  llegaron) : null,
-      d7Pct:  c.d7Maduro  === true ? porcentaje(d7,  llegaron) : null,
-      d30Pct: c.d30Maduro === true ? porcentaje(d30, llegaron) : null,
-    }
-  })
-
-  const embudo: PotionNivelEmbudo[] = (f.embudo ?? []).map(e => ({
-    nivel: n(e.nivel),
-    jugadores: n(e.jugadores),
-    quedaron: n(e.quedaron),
-    seFueron: n(e.seFueron),
+  const retencion: PotionCohorte[] = usuarios.retencion.map(c => ({
+    dia: c.dia,
+    llegaron: c.llegaron, d1: c.d1, d3: c.d3, d7: c.d7, d30: c.d30,
+    // La bandera de madurez manda sobre el número.
+    d1Pct:  c.d1Maduro  ? porcentaje(c.d1,  c.llegaron) : null,
+    d3Pct:  c.d3Maduro  ? porcentaje(c.d3,  c.llegaron) : null,
+    d7Pct:  c.d7Maduro  ? porcentaje(c.d7,  c.llegaron) : null,
+    d30Pct: c.d30Maduro ? porcentaje(c.d30, c.llegaron) : null,
   }))
+
+  const embudo: PotionNivelEmbudo[] = usuarios.embudo
 
   const niveles: PotionNivel[] = (f.niveles ?? []).map(l => {
     const intentos = n(l.intentos)
