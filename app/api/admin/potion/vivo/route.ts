@@ -2,7 +2,7 @@ import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getPotionClient } from '@/lib/potion-supabase'
-import { LANZAMIENTO } from '@/lib/potion-panel'
+import { contarReales } from '@/lib/potion-reales'
 
 /**
  * GET /api/admin/potion/vivo
@@ -11,16 +11,8 @@ import { LANZAMIENTO } from '@/lib/potion-panel'
  * dependen del rango ni de la casilla del lanzamiento, siempre cuentan desde
  * el lanzamiento. La página la pide cada 60 segundos.
  *
- * ── Por qué se agrupa acá y no en SQL ─────────────────────────────────────
- *
- * El resto del panel vive en la RPC `potion_panel`, que hay que correr a mano
- * en el proyecto del juego. Esto se resolvió sin tocar esa base: se bajan
- * sólo tres columnas de los eventos desde el lanzamiento, paginando. Con unos
- * pocos miles de eventos es un pedido; si la tabla crece a cientos de miles,
- * conviene pasarlo a una función SQL como `potion_panel`.
- *
- * Igual que `potion-panel.sql`: las fechas son `recibido` (llegada al
- * servidor) y los eventos de `version = 'prueba'` no cuentan.
+ * Todas cuentan sólo usuarios reales; el criterio y el cálculo están en
+ * `lib/potion-reales.ts`.
  */
 
 export const runtime = 'nodejs'
@@ -50,93 +42,38 @@ async function requireAdmin() {
 
 export interface PotionVivo {
   disponible: boolean
-  /** Instalaciones con algún evento recibido en los últimos 15 minutos. */
-  jugandoAhora: number
-  /** Instalaciones con algún evento recibido desde las 0 de hoy en Argentina. */
-  jugaronHoy: number
-  /** Instalaciones cuyo primer `app_abre` desde el lanzamiento fue en el nivel 1. */
-  reales: number
-  /** Todas las instalaciones con algún evento desde el lanzamiento. */
+  /** Usuarios reales desde el lanzamiento. */
   total: number
+  /** Usuarios reales cuyo primer evento llegó hoy (días de Argentina). */
+  nuevosHoy: number
+  /** Usuarios reales con algún evento desde las 0 de hoy en Argentina. */
+  jugaronHoy: number
+  /** Usuarios reales con algún evento en los últimos 15 minutos. */
+  jugandoAhora: number
   generadoEn: string
 }
-
-const AHORA_MS = 15 * 60_000
-const PAGINA = 1000
-
-/**
- * Las 0 de hoy en Buenos Aires. Argentina no tiene horario de verano, así que
- * el `-03:00` fijo es exacto.
- */
-function inicioDeHoyAR(ahora: Date): Date {
-  const dia = new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(ahora)
-  return new Date(`${dia}T00:00:00-03:00`)
-}
-
-type Fila = { instalacion: string | null; nombre: string; recibido: string; props: Record<string, unknown> | null }
 
 export async function GET() {
   const user = await requireAdmin()
   if (!user) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
   const vacio: PotionVivo = {
-    disponible: false, jugandoAhora: 0, jugaronHoy: 0, reales: 0, total: 0, generadoEn: new Date().toISOString(),
+    disponible: false, total: 0, nuevosHoy: 0, jugaronHoy: 0, jugandoAhora: 0, generadoEn: new Date().toISOString(),
   }
 
   const potion = getPotionClient()
   if (!potion) return NextResponse.json(vacio)
 
-  // Ordenados por llegada: el primer `app_abre` de cada instalación es el
-  // primero que aparece. `id` desempata para que la paginación no saltee filas.
-  const filas: Fila[] = []
-  for (let desde = 0; ; desde += PAGINA) {
-    const { data, error } = await potion
-      .from('potion_eventos')
-      .select('instalacion, nombre, recibido, props')
-      .gte('recibido', LANZAMIENTO)
-      .or('version.is.null,version.neq.prueba')
-      .order('recibido', { ascending: true })
-      .order('id', { ascending: true })
-      .range(desde, desde + PAGINA - 1)
-    if (error) {
-      console.error('[admin/potion/vivo] la consulta falló:', error.message)
-      return NextResponse.json(vacio)
-    }
-    filas.push(...((data ?? []) as Fila[]))
-    if (!data || data.length < PAGINA) break
-  }
-
-  const ahora = new Date()
-  const corteAhora = ahora.getTime() - AHORA_MS
-  const corteHoy = inicioDeHoyAR(ahora).getTime()
-
-  const total = new Set<string>()
-  const hoy = new Set<string>()
-  const enJuego = new Set<string>()
-  /** Instalación → si su primer `app_abre` fue en el nivel 1. */
-  const primerAbre = new Map<string, boolean>()
-
-  for (const f of filas) {
-    if (!f.instalacion) continue
-    total.add(f.instalacion)
-    const t = new Date(f.recibido).getTime()
-    if (t >= corteHoy) hoy.add(f.instalacion)
-    if (t >= corteAhora) enJuego.add(f.instalacion)
-    if (f.nombre === 'app_abre' && !primerAbre.has(f.instalacion)) {
-      primerAbre.set(f.instalacion, Number(f.props?.nivel) === 1)
-    }
-  }
-
-  let reales = 0
-  for (const esReal of primerAbre.values()) if (esReal) reales++
+  const r = await contarReales(potion, 'todo', 'admin/potion/vivo')
+  if (!r) return NextResponse.json(vacio)
 
   const vivo: PotionVivo = {
     disponible: true,
-    jugandoAhora: enJuego.size,
-    jugaronHoy: hoy.size,
-    reales,
-    total: total.size,
-    generadoEn: ahora.toISOString(),
+    total: r.total,
+    nuevosHoy: r.nuevosHoy,
+    jugaronHoy: r.jugaronHoy,
+    jugandoAhora: r.jugandoAhora,
+    generadoEn: new Date().toISOString(),
   }
   return NextResponse.json(vivo, { headers: { 'Cache-Control': 'no-store' } })
 }

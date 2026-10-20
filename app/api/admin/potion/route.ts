@@ -2,6 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import { getPotionClient } from '@/lib/potion-supabase'
+import { contarReales } from '@/lib/potion-reales'
 import { esRango, LANZAMIENTO, RANGO_POR_DEFECTO, ZONA, type Rango } from '@/lib/potion-panel'
 
 /**
@@ -25,6 +26,10 @@ import { esRango, LANZAMIENTO, RANGO_POR_DEFECTO, ZONA, type Rango } from '@/lib
  * Las fechas son las de llegada al servidor (`recibido`) y no las del
  * teléfono (`cuando`). Es una decisión con costo; el porqué y la consulta para
  * revisarla están en el encabezado de `potion-panel.sql`.
+ *
+ * La excepción son los conteos de jugadores del resumen (jugadores, nuevos y
+ * activos): cuentan sólo usuarios reales, con el mismo cálculo que las
+ * tarjetas de arriba (`lib/potion-reales.ts`), y pisan los del SQL.
  *
  * Acá sólo se pasan a número los conteos y se calculan los porcentajes, con
  * el mismo criterio que `/api/admin/retencion`: un porcentaje sin
@@ -61,6 +66,7 @@ async function requireAdmin() {
 // ── Tipos de la respuesta ──────────────────────────────────────────────────
 
 export interface PotionResumen {
+  /** Usuarios reales con algún evento en el rango. Ver `lib/potion-reales.ts`. */
   jugadores: number
   nuevosHoy: number
   nuevos7d: number
@@ -307,11 +313,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vacio(rango, desdeLanzamiento, 'sin_configurar'))
   }
 
-  const { data, error } = await potion.rpc('potion_panel', {
-    p_rango: rango,
-    p_lanzamiento: desdeLanzamiento ? LANZAMIENTO : null,
-    p_zona: ZONA,
-  })
+  const [{ data, error }, reales] = await Promise.all([
+    potion.rpc('potion_panel', {
+      p_rango: rango,
+      p_lanzamiento: desdeLanzamiento ? LANZAMIENTO : null,
+      p_zona: ZONA,
+    }),
+    contarReales(potion, rango, 'admin/potion'),
+  ])
 
   if (error) {
     if (faltaLaMigracion(error)) {
@@ -322,14 +331,17 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vacio(rango, desdeLanzamiento, 'error'))
   }
 
+  if (!reales) return NextResponse.json(vacio(rango, desdeLanzamiento, 'error'))
+
   const f = (data ?? {}) as FilaPanel
   const r = f.resumen ?? {}
 
   const resumen: PotionResumen = {
-    jugadores: n(r.jugadores),
-    nuevosHoy: n(r.nuevosHoy),
-    nuevos7d: n(r.nuevos7d),
-    activosHoy: n(r.activosHoy),
+    // Sólo usuarios reales, siempre desde el lanzamiento: no miran la casilla.
+    jugadores: reales.enRango,
+    nuevosHoy: reales.nuevosHoy,
+    nuevos7d: reales.nuevos7d,
+    activosHoy: reales.jugaronHoy,
     sesionesHoy: n(r.sesionesHoy),
     duracionMediaSeg: nONull(r.duracionMediaSeg),
     sesionesMedidas: n(r.sesionesMedidas),

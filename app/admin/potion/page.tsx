@@ -198,8 +198,8 @@ function Vacio({ motivo }: { motivo: PotionPanel['motivo'] }) {
 }
 
 /**
- * Las cuatro tarjetas grandes de arriba. Cuentan siempre desde el lanzamiento
- * y no miran el rango ni la casilla: piden su propia ruta, cada 60 segundos
+ * Las cuatro tarjetas grandes de arriba. Cuentan sólo usuarios reales
+ * (`lib/potion-reales.ts`) y no miran el rango ni la casilla: piden su propia ruta, cada 60 segundos
  * mientras la pestaña está a la vista y apenas vuelve a estarlo.
  */
 const VIVO_MS = 60_000
@@ -235,10 +235,10 @@ function ResumenVivo() {
 
   const v = (x: number | undefined) => (vivo?.disponible && x !== undefined ? numero(x) : '—')
   const tarjetas = [
-    { label: 'Jugando ahora', value: v(vivo?.jugandoAhora), sub: 'Últimos 15 minutos', icon: <Radio size={22} />, tono: 'text-emerald-400 bg-emerald-500/10' },
+    { label: 'Usuarios totales', value: v(vivo?.total), sub: 'Desde el lanzamiento', icon: <UserCheck size={22} />, tono: 'text-[#FFFD02] bg-[#FFFD02]/10' },
+    { label: 'Nuevos hoy', value: v(vivo?.nuevosHoy), sub: 'Primera vez hoy', icon: <UserPlus size={22} />, tono: 'text-purple-400 bg-purple-500/10' },
     { label: 'Jugaron hoy', value: v(vivo?.jugaronHoy), sub: 'Desde las 0 h de Argentina', icon: <CalendarCheck size={22} />, tono: 'text-blue-400 bg-blue-500/10' },
-    { label: 'Usuarios reales', value: v(vivo?.reales), sub: 'Empezaron en el nivel 1', icon: <UserCheck size={22} />, tono: 'text-[#FFFD02] bg-[#FFFD02]/10' },
-    { label: 'Total con testers', value: v(vivo?.total), sub: 'Todas las instalaciones', icon: <Users size={22} />, tono: 'text-purple-400 bg-purple-500/10' },
+    { label: 'Jugando ahora', value: v(vivo?.jugandoAhora), sub: 'Últimos 15 minutos', icon: <Radio size={22} />, tono: 'text-emerald-400 bg-emerald-500/10' },
   ]
 
   return (
@@ -256,7 +256,7 @@ function ResumenVivo() {
         ))}
       </div>
       <p className="text-[11px] text-zinc-500 mt-2">
-        Desde el lanzamiento (13/10/2026) · se actualiza solo cada minuto
+        Sólo usuarios reales (empezaron en el nivel 1 desde el 13/10/2026) · se actualiza solo cada minuto
         {vivo?.disponible && <> · {new Date(vivo.generadoEn).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit', hour12: false })}</>}
         {fallo && <span className="text-red-400"> · no se pudo actualizar</span>}
       </p>
@@ -393,10 +393,10 @@ export default function PotionPage() {
             {/* 1. Resumen */}
             <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
               <Tarjeta icon={<Users size={20} />} label="Jugadores" value={numero(r.jugadores)}
-                sub={`${ETIQUETA_RANGO[datos.rango]} · ${numero(r.eventos)} eventos`} color="yellow" />
-              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos hoy" value={numero(r.nuevosHoy)} color="green" />
-              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos en 7 días" value={numero(r.nuevos7d)} color="teal" />
-              <Tarjeta icon={<Activity size={20} />} label="Activos hoy" value={numero(r.activosHoy)} color="blue" />
+                sub={`Usuarios reales · ${ETIQUETA_RANGO[datos.rango]}`} color="yellow" />
+              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos hoy" value={numero(r.nuevosHoy)} sub="Usuarios reales" color="green" />
+              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos en 7 días" value={numero(r.nuevos7d)} sub="Usuarios reales" color="teal" />
+              <Tarjeta icon={<Activity size={20} />} label="Activos hoy" value={numero(r.activosHoy)} sub="Usuarios reales" color="blue" />
               <Tarjeta icon={<PlayCircle size={20} />} label="Sesiones hoy" value={numero(r.sesionesHoy)} color="purple" />
               <Tarjeta icon={<Clock size={20} />} label="Duración media de sesión"
                 value={fmtDuracion(r.duracionMediaSeg)}
