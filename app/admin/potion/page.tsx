@@ -2,7 +2,7 @@
 
 import { useEffect, useRef, useState } from 'react'
 import {
-  Users, UserPlus, Activity, PlayCircle, Clock, AlertCircle, AlertTriangle,
+  Users, UserPlus, PlayCircle, Clock, AlertCircle, AlertTriangle,
   Loader2, TrendingDown, Coins, Heart, Swords, Ticket, Radio, CalendarCheck, UserCheck,
 } from 'lucide-react'
 import {
@@ -391,12 +391,10 @@ export default function PotionPage() {
           <div className={`space-y-6 transition-opacity ${cargando ? 'opacity-60' : ''}`}>
 
             {/* 1. Resumen */}
-            <div className="grid grid-cols-2 lg:grid-cols-3 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
               <Tarjeta icon={<Users size={20} />} label="Jugadores" value={numero(r.jugadores)}
                 sub={`Usuarios reales · ${ETIQUETA_RANGO[datos.rango]}`} color="yellow" />
-              <Tarjeta icon={<UserPlus size={20} />} label="Nuevos hoy" value={numero(r.nuevosHoy)} sub="Usuarios reales" color="green" />
               <Tarjeta icon={<UserPlus size={20} />} label="Nuevos en 7 días" value={numero(r.nuevos7d)} sub="Usuarios reales" color="teal" />
-              <Tarjeta icon={<Activity size={20} />} label="Activos hoy" value={numero(r.activosHoy)} sub="Usuarios reales" color="blue" />
               <Tarjeta icon={<PlayCircle size={20} />} label="Sesiones hoy" value={numero(r.sesionesHoy)} color="purple" />
               <Tarjeta icon={<Clock size={20} />} label="Duración media de sesión"
                 value={fmtDuracion(r.duracionMediaSeg)}

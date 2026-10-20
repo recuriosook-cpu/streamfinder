@@ -27,8 +27,8 @@ import { esRango, LANZAMIENTO, RANGO_POR_DEFECTO, ZONA, type Rango } from '@/lib
  * teléfono (`cuando`). Es una decisión con costo; el porqué y la consulta para
  * revisarla están en el encabezado de `potion-panel.sql`.
  *
- * La excepción son los conteos de jugadores del resumen (jugadores, nuevos y
- * activos): cuentan sólo usuarios reales, con el mismo cálculo que las
+ * La excepción son los conteos de jugadores del resumen (jugadores y nuevos
+ * en 7 días): cuentan sólo usuarios reales, con el mismo cálculo que las
  * tarjetas de arriba (`lib/potion-reales.ts`), y pisan los del SQL.
  *
  * Acá sólo se pasan a número los conteos y se calculan los porcentajes, con
@@ -68,9 +68,7 @@ async function requireAdmin() {
 export interface PotionResumen {
   /** Usuarios reales con algún evento en el rango. Ver `lib/potion-reales.ts`. */
   jugadores: number
-  nuevosHoy: number
   nuevos7d: number
-  activosHoy: number
   sesionesHoy: number
   /** `null` si ninguna sesión del rango tiene un tramo medido. */
   duracionMediaSeg: number | null
@@ -228,7 +226,7 @@ function vacio(rango: Rango, desdeLanzamiento: boolean, motivo: PotionPanel['mot
   return {
     disponible: false, motivo, rango, desdeLanzamiento, hoy: null,
     resumen: {
-      jugadores: 0, nuevosHoy: 0, nuevos7d: 0, activosHoy: 0, sesionesHoy: 0,
+      jugadores: 0, nuevos7d: 0, sesionesHoy: 0,
       duracionMediaSeg: null, sesionesMedidas: 0, eventos: 0,
     },
     retencion: [], embudo: [], abandono: null, niveles: [], comodines: [],
@@ -339,9 +337,7 @@ export async function GET(req: NextRequest) {
   const resumen: PotionResumen = {
     // Sólo usuarios reales, siempre desde el lanzamiento: no miran la casilla.
     jugadores: reales.enRango,
-    nuevosHoy: reales.nuevosHoy,
     nuevos7d: reales.nuevos7d,
-    activosHoy: reales.jugaronHoy,
     sesionesHoy: n(r.sesionesHoy),
     duracionMediaSeg: nONull(r.duracionMediaSeg),
     sesionesMedidas: n(r.sesionesMedidas),
