@@ -47,6 +47,11 @@ export interface PotionUsuarios {
   retencion: Cohorte[]
   /** Por nivel, de menor a mayor. Sólo inicios del rango. */
   embudo: NivelEmbudo[]
+  /**
+   * `YYYY-MM-DD` → usuarios con algún evento ese día. Todos los días desde el
+   * lanzamiento, sin mirar el rango. Lo usa la ganancia por usuario de AdMob.
+   */
+  activosPorDia: Record<string, number>
 }
 
 export interface Cohorte {
@@ -163,6 +168,7 @@ export async function contarUsuarios(
 
   const r: PotionUsuarios = {
     total: 0, nuevosHoy: 0, nuevos7d: 0, jugaronHoy: 0, jugandoAhora: 0, enRango: 0, retencion: [], embudo: [],
+    activosPorDia: {},
   }
   const cohortes = new Map<string, Cohorte>()
   const porNivel = new Map<number, NivelEmbudo>()
@@ -173,6 +179,7 @@ export async function contarUsuarios(
     if (i.dias.has(hoy)) r.jugaronHoy++
     if (i.ultimaMs >= ahora - AHORA_MS) r.jugandoAhora++
     if (desdeRango === null || [...i.dias].some(d => d >= desdeRango)) r.enRango++
+    for (const d of i.dias) r.activosPorDia[d] = (r.activosPorDia[d] ?? 0) + 1
 
     if (desdeRango === null || i.primerDia >= desdeRango) {
       let c = cohortes.get(i.primerDia)

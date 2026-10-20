@@ -14,6 +14,7 @@ import { RANGOS, RANGO_POR_DEFECTO, ETIQUETA_RANGO, LANZAMIENTO, type Rango } fr
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
+import { AdMobPanel } from '@/app/admin/_components/AdMobPanel'
 
 /**
  * Las estadísticas del juego Potion Bottle: Water Sort.
@@ -378,6 +379,11 @@ export default function PotionPage() {
           tablaDiaria
           tablaPaises
         />
+
+        {/* AdMob: lo que dejan los anuncios. Mismo criterio que Play: sale del
+            Supabase de Glynbox, tiene su propio filtro de 7 y 30 días y del de
+            arriba sólo toma el del lanzamiento. */}
+        <AdMobPanel recarga={recargaPlay} desde={lanzamiento ? LANZAMIENTO.slice(0, 10) : undefined} />
 
         {!datos && cargando && (
           <div className="py-24 flex items-center justify-center">

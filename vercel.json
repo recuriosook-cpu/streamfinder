@@ -9,6 +9,10 @@
       "schedule": "30 9 * * *"
     },
     {
+      "path": "/api/cron/admob-stats",
+      "schedule": "0 10 * * *"
+    },
+    {
       "path": "/api/cron/resumen-semanal",
       "schedule": "0 21 * * 5"
     },
