@@ -304,8 +304,8 @@ export default function MetricasPage() {
         </div>
 
         {/* Por país.
-            Sólo cuenta perfiles con país real: detectado por la IP al entrar
-            (`country_source = 'auto'`) o elegido en Ajustes ('manual'). Los
+            Sólo cuenta perfiles con país real: detectado por la IP al entrar a
+            la web o al usar la app (`country_source = 'auto'`, ver lib/pais-perfil.ts) o elegido en Ajustes ('manual'). Los
             perfiles de antes de la detección tienen el 'AR' por defecto y
             quedan afuera hasta su próximo ingreso. Mientras no haya ninguno,
             sigue el cartel. */}

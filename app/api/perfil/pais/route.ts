@@ -3,6 +3,7 @@ import { enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdminClient } from '@/lib/service-role'
 import { getRequestUserId } from '@/lib/request-user'
 import { paisDelPedido } from '@/lib/geo'
+import { guardarPaisDetectado } from '@/lib/pais-perfil'
 
 /**
  * El país de quien pide, detectado por Vercel desde la IP.
@@ -15,8 +16,9 @@ import { paisDelPedido } from '@/lib/geo'
  *           ingresos: con Google, Apple o Facebook, y con contraseña, que no
  *           pasa por ningún handler del servidor.
  *
- * La regla del POST: si `country_source = 'manual'` la persona eligió el país
- * en Ajustes y no se toca. Si no, se pisa con el detectado y queda en 'auto'.
+ * La regla del POST está en `lib/pais-perfil.ts`, que también usan las rutas
+ * que pide la app: un país elegido a mano no se toca; si no, queda el detectado
+ * como 'auto'.
  *
  * Contesta siempre `{ pais }`: el país que la página tiene que usar, que con
  * un país manual es el manual y no el detectado. `null` si no se sabe.
@@ -25,8 +27,6 @@ import { paisDelPedido } from '@/lib/geo'
 export const runtime = 'nodejs'
 
 const RATE_LIMIT = 30
-
-type Origen = 'auto' | 'manual' | null
 
 export async function GET(req: NextRequest) {
   const limited = enforceRateLimit(req, {}, RATE_LIMIT)
@@ -46,43 +46,5 @@ export async function POST(req: NextRequest) {
   const { admin, failure } = requireAdminClient('perfil/pais')
   if (failure) return NextResponse.json({ pais: detectado })
 
-  const { data: perfil, error } = await admin
-    .from('profiles')
-    .select('country, country_source')
-    .eq('id', userId)
-    .maybeSingle()
-
-  if (error) {
-    // Lo más probable: falta correr supabase-pais-real-2026-10.sql. Sin la
-    // columna no hay forma de saber si el país del perfil es manual, así que
-    // no se escribe nada.
-    console.warn('[perfil/pais] no se pudo leer el perfil:', error.message)
-    return NextResponse.json({ pais: detectado })
-  }
-  if (!perfil) return NextResponse.json({ pais: detectado })
-
-  const actual = perfil as { country: string | null; country_source: Origen }
-
-  if (actual.country_source === 'manual') {
-    return NextResponse.json({ pais: actual.country, origen: 'manual' })
-  }
-
-  // Sin encabezado (local, o un pedido raro) no se pisa nada con un default.
-  if (!detectado) {
-    return NextResponse.json({ pais: actual.country, origen: actual.country_source })
-  }
-
-  if (actual.country !== detectado || actual.country_source !== 'auto') {
-    // El filtro repite la condición: si entre la lectura y esta escritura la
-    // persona eligió un país en Ajustes, esto no lo pisa.
-    const { error: errUpdate } = await admin
-      .from('profiles')
-      .update({ country: detectado, country_source: 'auto' })
-      .eq('id', userId)
-      .or('country_source.is.null,country_source.eq.auto')
-
-    if (errUpdate) console.error('[perfil/pais] update falló:', errUpdate.message)
-  }
-
-  return NextResponse.json({ pais: detectado, origen: 'auto' })
+  return NextResponse.json(await guardarPaisDetectado(admin, userId, req.headers))
 }

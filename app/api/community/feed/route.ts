@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   CORS_HEADERS,
@@ -14,6 +14,7 @@ import {
   type CommunityProfile,
 } from '@/lib/community-api'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { detectarPaisEnSegundoPlano } from '@/lib/pais-perfil'
 import { idiomaTmdb, normalizarIdioma, type Idioma } from '@/lib/idioma'
 import {
   POCOS_SEGUIDOS,
@@ -660,6 +661,10 @@ export async function GET(req: NextRequest) {
 
   const userId = await requireUserId(req, supabase)
   if (!userId) return jsonError('Unauthorized', 401)
+
+  // La app no pasa por /api/perfil/pais: el país del perfil se detecta acá,
+  // después de contestar. Ver lib/pais-perfil.ts.
+  after(() => detectarPaisEnSegundoPlano(userId, req.headers))
 
   // Las lecturas del feed van con los permisos de quien pregunta, no como
   // visitante: la RLS (`puede_ver_actividad`) decide con esos permisos.

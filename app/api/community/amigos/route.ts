@@ -1,4 +1,4 @@
-import { NextRequest, NextResponse } from 'next/server'
+import { NextRequest, NextResponse, after } from 'next/server'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import {
   CORS_HEADERS,
@@ -13,6 +13,7 @@ import {
   type CommunityProfile,
 } from '@/lib/community-api'
 import { enforceRateLimit } from '@/lib/rate-limit'
+import { detectarPaisEnSegundoPlano } from '@/lib/pais-perfil'
 import { POCOS_SEGUIDOS, cuentasDestacadas } from '@/lib/feed-extras'
 
 /**
@@ -110,6 +111,10 @@ export async function GET(req: NextRequest) {
   if (!supabase) return jsonError('Server misconfigured', 500)
   const userId = await requireUserId(req, supabase)
   if (!userId) return jsonError('Unauthorized', 401)
+
+  // La app no pasa por /api/perfil/pais: el país del perfil se detecta acá,
+  // después de contestar. Ver lib/pais-perfil.ts.
+  after(() => detectarPaisEnSegundoPlano(userId, req.headers))
   const token = req.headers.get('authorization')!.slice('Bearer '.length)
   const db = getSupabaseAsUser(token) ?? supabase
 
