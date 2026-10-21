@@ -50,6 +50,31 @@ export const ALL_PLATFORMS: PlatformConfig[] = [
   { id: 457,  slug: 'vix',            name: 'Vix',                color: '#E8500A', fallbackLogoPath: null                                },
 ]
 
+/**
+ * Los logos de TMDB que usa la app (`src/constants/platforms.ts` de
+ * glynbox-mobile), por id de ALL_PLATFORMS. Allá se verificaron uno por uno
+ * contra `/watch/providers/movie?watch_region=AR`; varios `fallbackLogoPath`
+ * de arriba quedaron viejos (Disney+ y Prime Video dan 404) y tres no tienen.
+ * Por ahora los usa el panel de admin.
+ */
+export const LOGOS_TMDB: Record<number, string> = {
+  8:    '/pbpMk2JmcoNnQwx5JGpXngfoWtp.jpg',
+  337:  '/97yvRBw1GzX7fXprcF80er19ot.jpg',
+  119:  '/pvske1MyAoymrs5bguRfVqYiM9a.jpg',
+  1899: '/jbe4gVSfRlbPTdESXhEKpornsfu.jpg',
+  531:  '/h5DcR0J2EESLitnhR8xLG1QymTE.jpg',
+  350:  '/mcbz1LgtErU9p4UdbZ0rG6RTWHX.jpg',
+  283:  '/fzN5Jok5Ig1eJ7gyNGoMhnLSCfh.jpg',
+  300:  '/dB8G41Q6tSL5NBisrIeqByfepBc.jpg',
+  467:  '/nr5UBW4IGKgBwmhpTMOfcvnX2vX.jpg',
+  2302: '/60iyHW9xKBKVBf0kxiQixuLqG1f.jpg',
+  491:  '/21uSo4VQUdEmeA6RJ6gPSRwusbt.jpg',
+  167:  '/21M5CpiOYGOhHj2sVPXqwt6yeTO.jpg',
+  339:  '/tRNA2CRgA4XHvd7Mx9dH3sFtDVb.jpg',
+  11:   '/x570VpH2C9EKDf1riP83rYc5dnL.jpg',
+  457:  '/jwRPknT20dfU1GeVqbcDXFyvtdG.jpg',
+}
+
 export type Platform = PlatformConfig & { logoPath?: string | null }
 
 // ── Per-provider search URLs ─────────────────────────────────────────────────

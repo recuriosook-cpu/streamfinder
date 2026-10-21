@@ -4,7 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
 import { fetchAllRows, mesAR } from '@/lib/admin-filas'
-import { ALL_PLATFORMS } from '@/lib/providers'
+import { ALL_PLATFORMS, LOGOS_TMDB } from '@/lib/providers'
 import { normalizeSavedPlatforms } from '@/lib/onboarding'
 
 /**
@@ -162,7 +162,8 @@ export interface AdminOverview {
    * web y app), las 15 aunque estén en cero. `pct` es sobre los perfiles que
    * eligieron alguna.
    */
-  plataformasFavoritas: { provider: string; count: number; pct: number }[]
+  /** Las 15, de mayor a menor. `logo`: URL de TMDB, `null` si no hay. */
+  plataformasFavoritas: { id: number; provider: string; logo: string | null; count: number; pct: number }[]
   plataformasCobertura: { conPlataformas: number; total: number }
   /** Sólo perfiles con país real (`country_source` 'auto' o 'manual'). */
   paises: { country: string; count: number }[]
@@ -515,7 +516,14 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
   const plataformasFavoritas = ALL_PLATFORMS
     .map(pl => {
       const count = provCounts.get(pl.id) ?? 0
-      return { provider: pl.name, count, pct: conPlataformas > 0 ? Math.round((count / conPlataformas) * 100) : 0 }
+      const path = LOGOS_TMDB[pl.id] ?? pl.fallbackLogoPath
+      return {
+        id: pl.id,
+        provider: pl.name,
+        logo: path ? `https://image.tmdb.org/t/p/w154${path}` : null,
+        count,
+        pct: conPlataformas > 0 ? Math.round((count / conPlataformas) * 100) : 0,
+      }
     })
     .sort((a, b) => b.count - a.count)
 
@@ -530,8 +538,8 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     countryCounts[p.country] = (countryCounts[p.country] ?? 0) + 1
   }
   const paises = Object.entries(countryCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 15)
+    // Todos, no un top: el panel los muestra en una grilla.
+    .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))
     .map(([country, count]) => ({ country, count }))
   const paisesCobertura = { conPais, total: profiles.length }
 

@@ -8,7 +8,7 @@ import {
   ResponsiveContainer, BarChart, Bar, XAxis, YAxis,
   Tooltip, CartesianGrid, LineChart, Line,
 } from 'recharts'
-import { COUNTRIES } from '@/lib/countries'
+import { GrillaPaises, GrillaPlataformas } from '@/app/admin/_components/GrillasMetricas'
 import type { AdminOverview } from '@/app/api/admin/overview/route'
 import type { AdminContenido } from '@/app/api/admin/contenido/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
@@ -100,12 +100,6 @@ export default function MetricasPage() {
     </div>
   )
 
-  // Usuarios por país: los conteos vienen del endpoint; acá sólo se traduce el
-  // código ISO a nombre.
-  const byCountry = (overview?.paises ?? []).map(({ country, count }) => ({
-    country: COUNTRIES.find(c => c.code === country)?.name ?? country,
-    count,
-  }))
   const byHour = (contenido?.porHora ?? []).map(h => ({
     hour: `${String(h.hora).padStart(2, '0')}h`,
     eventos: h.eventos,
@@ -238,7 +232,10 @@ export default function MetricasPage() {
             quedan afuera hasta su próximo ingreso. Mientras no haya ninguno,
             sigue el cartel. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-2">Usuarios por país (top 15)</h2>
+          <h2 className="text-sm font-semibold text-white mb-2">
+            Usuarios por país
+            {(overview?.paises.length ?? 0) > 0 && <span className="text-[#A0A0B0] font-normal"> · {overview!.paises.length} países</span>}
+          </h2>
           {(overview?.paisesCobertura.conPais ?? 0) > 0 ? (
             <p className="mb-5 text-[11px] text-[#A0A0B0]">
               País detectado en {overview!.paisesCobertura.conPais} de {overview!.paisesCobertura.total} usuarios.
@@ -254,15 +251,7 @@ export default function MetricasPage() {
               </p>
             </div>
           )}
-          <ResponsiveContainer width="100%" height={280}>
-            <BarChart data={byCountry} layout="vertical" margin={{ top: 0, right: 20, left: 60, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="country" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} width={60} />
-              <Tooltip {...tooltipStyle} />
-              <Bar dataKey="count" name="Usuarios" fill="#3B82F6" radius={[0,3,3,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <GrillaPaises paises={overview?.paises ?? []} />
         </div>
 
         {/* Actividad por hora.
@@ -307,21 +296,7 @@ export default function MetricasPage() {
                 {overview.plataformasCobertura.total.toLocaleString('es-AR')} usuarios eligieron alguna; el % es sobre ellos</>
             )}
           </p>
-          <ResponsiveContainer width="100%" height={380}>
-            <BarChart data={overview?.plataformasFavoritas ?? []} layout="vertical" margin={{ top: 0, right: 40, left: 10, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
-              <XAxis type="number" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="provider" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} width={120} interval={0} />
-              <Tooltip
-                {...tooltipStyle}
-                formatter={(v, _n, item) => [
-                  `${Number(v).toLocaleString('es-AR')} (${(item?.payload as { pct?: number } | undefined)?.pct ?? 0}%)`,
-                  'Usuarios',
-                ]}
-              />
-              <Bar dataKey="count" name="Usuarios" fill="#FFFD02" radius={[0,3,3,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <GrillaPlataformas plataformas={overview?.plataformasFavoritas ?? []} />
         </div>
 
         {/* Tables grid */}
