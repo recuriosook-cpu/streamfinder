@@ -13,6 +13,7 @@ import { reviewImagePath } from '@/lib/share-urls'
 import ReportModal from '@/components/ReportModal'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { sendNotification } from '@/lib/notify'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 // Render text with @mentions as yellow links
 function BodyWithMentions({ text }: { text: string }) {
@@ -290,12 +291,7 @@ function ReviewCard({
               >
                 {displayName}
               </Link>
-              {(authorUsername === 'Ferlageok' || authorUsername === 'ferlageok') && (
-                <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                  <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
-                  <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                </svg>
-              )}
+              <VerifiedBadge userId={authorId} size={14} />
             </div>
             <Link
               href={`/${mediaType}/${mediaId}`}
@@ -566,12 +562,7 @@ function ReviewCard({
                             >
                               {cName}
                             </Link>
-                            {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && (
-                              <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
-                                <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                              </svg>
-                            )}
+                            <VerifiedBadge userId={comment.user_id} size={12} />
                             <span className="text-[10px] text-zinc-600">{cDate}</span>
 
                             {/* Own comment: delete; Other's comment: report + block */}
@@ -646,12 +637,7 @@ function ReviewCard({
                                     >
                                       {rName}
                                     </Link>
-                                    {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && (
-                                      <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg">
-                                        <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
-                                        <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-                                      </svg>
-                                    )}
+                                    <VerifiedBadge userId={reply.user_id} size={12} />
                                     <span className="text-[10px] text-zinc-600">{rDate}</span>
 
                                     {isOwnReply ? (

@@ -9,15 +9,21 @@ import { idiomaTmdb, type Idioma } from './idioma'
  * Lo que la app 1.0.16 suma al feed de Comunidad y al inicio:
  *
  *   · Las cuentas destacadas con que se completa todo cuando alguien sigue a
- *     poca gente: las verificadas (hoy, sólo Ferlageok) y las más activas.
+ *     poca gente: las verificadas (`profiles.verified`) y las más activas.
  *   · Las tarjetas que no son actividad de alguien que seguís: las
  *     recomendaciones de Ferlage, los cumpleaños y los estrenos de los famosos
  *     que seguís.
  *   · El orden: lo de quien seguís primero, y nadie más de 2 veces seguidas.
  */
 
-/** Las cuentas verificadas. Por ahora, sólo Ferlage (decidido el 2026-10-19). */
-export const USUARIOS_VERIFICADOS = ['Ferlageok']
+/**
+ * La cuenta de Ferlage, autor de las recomendaciones del panel. Va por nombre
+ * porque las recomendaciones son suyas, no de "las verificadas".
+ */
+const USUARIO_FERLAGE = 'Ferlageok'
+
+/** Hasta cuántas verificadas se suman al relleno, antes de las populares. */
+const VERIFICADAS = 10
 
 /**
  * Cuentas que nunca van como destacadas aunque tengan puntos: la de prueba
@@ -42,7 +48,7 @@ export async function cuentasDestacadas(
 ): Promise<string[]> {
   const fuera = new Set([userId, ...yaSigue])
   const [verificadas, activas] = await Promise.all([
-    db.from('profiles').select('id').in('username', USUARIOS_VERIFICADOS),
+    db.from('profiles').select('id').eq('verified', true).limit(VERIFICADAS + fuera.size),
     db.from('profiles').select('id, username').order('points', { ascending: false })
       .limit(POPULARES + fuera.size + NUNCA_DESTACADAS.length),
   ])
@@ -51,7 +57,7 @@ export async function cuentasDestacadas(
     if (r.username && NUNCA_DESTACADAS.includes(r.username)) continue
     if (!fuera.has(r.id) && !ids.includes(r.id)) ids.push(r.id)
   }
-  return ids.slice(0, POPULARES + USUARIOS_VERIFICADOS.length)
+  return ids.slice(0, POPULARES + VERIFICADAS)
 }
 
 // ── Tarjetas que no son actividad de alguien ──────────────────────────────
@@ -111,7 +117,7 @@ export async function recomendacionesFerlage(db: SupabaseClient, idioma: Idioma)
       .gte('created_at', desde)
       .order('created_at', { ascending: false })
       .limit(RECS_FERLAGE),
-    db.from('profiles').select('id').eq('username', USUARIOS_VERIFICADOS[0]).maybeSingle(),
+    db.from('profiles').select('id').eq('username', USUARIO_FERLAGE).maybeSingle(),
   ])
   const autor = (perfil.data as { id: string } | null)?.id
   if (recs.error || !autor) return []

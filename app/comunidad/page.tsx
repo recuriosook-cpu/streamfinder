@@ -7,6 +7,7 @@ import { useRouter } from 'next/navigation'
 import { Users, LogIn, Heart, MessageCircle, Bookmark, Plus, Check, BarChart2, Sparkles, Zap, Trophy, List, Star } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
+import VerifiedBadge from '@/components/VerifiedBadge'
 import type { User } from '@supabase/supabase-js'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -96,7 +97,7 @@ interface FriendReview {
 interface CommunityListCard {
   id: string; title: string; description: string | null; tags: string[]
   created_at: string; user_id: string
-  author: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+  author: { id: string; username: string | null; display_name: string | null; avatar_url: string | null } | null
   likeCount: number; previews: (string | null)[]; itemCount: number
 }
 
@@ -213,17 +214,6 @@ function Poster({ path, title, mediaType, mediaId, large }: {
   )
 }
 
-// ── Verified badge helper ─────────────────────────────────────────────────────
-
-function VerifiedBadge() {
-  return (
-    <svg width="13" height="13" viewBox="0 0 20 20" fill="none" className="shrink-0">
-      <circle cx="10" cy="10" r="10" fill="#1D9BF0"/>
-      <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/>
-    </svg>
-  )
-}
-
 // ── Feed card components ──────────────────────────────────────────────────────
 
 function ReviewCard({ item, profiles, currentUserId, onLike }: {
@@ -231,7 +221,6 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
 }) {
   const p = profiles.get(item.userId)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   const name = p.display_name ?? p.username ?? 'Usuario'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl overflow-hidden transition-colors">
@@ -268,7 +257,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
               <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors truncate">
                 {name}
               </Link>
-              {isVerified && <VerifiedBadge />}
+              <VerifiedBadge userId={p.id} size={13} />
             </div>
             <p className="text-[11px] text-[#A0A0B0]">{timeAgo(item.sortTime)}</p>
           </div>
@@ -304,7 +293,6 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
 function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   const name = p.display_name ?? p.username ?? 'Usuario'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
@@ -327,7 +315,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {name}
             </Link>
-            {isVerified && <VerifiedBadge />}
+            <VerifiedBadge userId={p.id} size={13} />
             <span className="text-xs text-[#A0A0B0]">vio</span>
             <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
               {item.mediaTitle}
@@ -349,7 +337,6 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
   const [added, setAdded] = useState(false)
   const [adding, setAdding] = useState(false)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   const name = p.display_name ?? p.username ?? 'Usuario'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
@@ -372,7 +359,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {name}
             </Link>
-            {isVerified && <VerifiedBadge />}
+            <VerifiedBadge userId={p.id} size={13} />
             <span className="text-xs text-[#A0A0B0]">quiere ver</span>
             <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
               {item.mediaTitle}
@@ -414,7 +401,6 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
 }) {
   const p = profiles.get(item.userId)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
@@ -424,7 +410,7 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified && <VerifiedBadge />}
+            <VerifiedBadge userId={p.id} size={13} />
             <Badge label="Estadística" color="purple" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -460,7 +446,6 @@ function SharedStatCard({ item, profiles, currentUserId, onLike }: {
 function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-center gap-3">
@@ -470,7 +455,7 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified && <VerifiedBadge />}
+            <VerifiedBadge userId={p.id} size={13} />
             <Badge label="Logro" color="gold" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -487,7 +472,6 @@ function LevelUpCard({ item, profiles }: { item: LevelUpFeed; profiles: Map<stri
 function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, UserProfile> }) {
   const p = profiles.get(item.userId)
   if (!p) return null
-  const isVerified = p.username === 'Ferlageok' || p.username === 'ferlageok'
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/20 rounded-xl p-4 transition-colors">
       <div className="flex items-start gap-3">
@@ -497,7 +481,7 @@ function ListCard({ item, profiles }: { item: ListFeed; profiles: Map<string, Us
             <Link href={`/usuario/${p.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {p.display_name ?? p.username}
             </Link>
-            {isVerified && <VerifiedBadge />}
+            <VerifiedBadge userId={p.id} size={13} />
             <Badge label="Lista" color="orange" />
             <span className="text-[11px] text-[#A0A0B0] ml-auto shrink-0">{timeAgo(item.sortTime)}</span>
           </div>
@@ -643,7 +627,8 @@ function FriendReviewsCarousel({ reviews, profiles }: { reviews: FriendReview[];
 
                 {/* Avatar — top left */}
                 {p && (
-                  <div className="absolute top-2 left-2 w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shrink-0">
+                  <div className="absolute top-2 left-2 w-8 h-8">
+                  <div className="w-8 h-8 rounded-full overflow-hidden ring-2 ring-white shrink-0">
                     {p.avatar_url ? (
                       // eslint-disable-next-line @next/next/no-img-element
                       <img src={p.avatar_url} alt={p.display_name ?? p.username ?? ''} className="w-full h-full object-cover" />
@@ -652,6 +637,9 @@ function FriendReviewsCarousel({ reviews, profiles }: { reviews: FriendReview[];
                         {(p.display_name ?? p.username ?? '?')[0]?.toUpperCase()}
                       </div>
                     )}
+                  </div>
+                  {/* El tilde va en la esquina de la foto: el carrusel no muestra nombres. */}
+                  <VerifiedBadge userId={p.id} size={12} className="absolute -bottom-0.5 -right-0.5 rounded-full ring-2 ring-[#0A0A0F]" />
                   </div>
                 )}
 
@@ -714,7 +702,7 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
         <div className="flex items-center justify-between mb-1.5">
           <div className="flex items-center gap-1">
             <span className="text-sm font-semibold text-white">{username}</span>
-            {(username === 'Ferlageok' || username === 'ferlageok') && <VerifiedBadge />}
+            <VerifiedBadge userId={profile?.id} size={13} />
           </div>
           <span className="text-sm font-bold tabular-nums" style={{ color }}>{item.score}%</span>
         </div>
@@ -1587,7 +1575,7 @@ export default function ComunidadPage() {
                       <span>{l.itemCount} {l.itemCount === 1 ? 'título' : 'títulos'}</span>
                       <span className="flex items-center gap-2">
                         <span className="flex items-center gap-1"><Heart size={10} /> {l.likeCount}</span>
-                        <span>@{l.author?.username ?? 'usuario'}</span>
+                        <span className="inline-flex items-center gap-1">@{l.author?.username ?? 'usuario'}<VerifiedBadge userId={l.author?.id} size={11} /></span>
                       </span>
                     </div>
                   </Link>

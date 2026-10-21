@@ -28,7 +28,8 @@ import { enforceRateLimit } from '@/lib/rate-limit'
  *   - `profiles.created_at` NO EXISTE, así que no se puede saber quién se
  *     registró hace poco. "Recientes" es entonces "vio algo hace poco", que
  *     además es mejor señal para decidir a quién seguir.
- *   - `profiles.verified` NO EXISTE.
+ *   - `profiles.verified` existe desde el 2026-10-21, pero son un par de
+ *     cuentas: alcanza para el tilde, no para rankear.
  *   - `profiles.level` está en 1 para 112 de 113 perfiles y `points` en 0 para
  *     112 de 113 (el RPC `add_points` todavía no está instalado), así que
  *     ordenar por nivel o por puntos devuelve una lista de una persona.
@@ -268,7 +269,7 @@ export async function GET(req: NextRequest) {
     rankedIds = recency.filter((id) => !excluded.has(id))
   } else if (tab === 'cinefilos') {
     // "Cinéfilo" = el que más vio. El brief pedía verificados o de nivel alto,
-    // pero no hay columna de verificado y el nivel es 1 en 112 de 113 perfiles.
+    // pero las verificadas son un par y el nivel es 1 en 112 de 113 perfiles.
     rankedIds = [...watchedCounts.entries()]
       .filter(([id]) => !excluded.has(id))
       .sort((a, b) => b[1] - a[1] || a[0].localeCompare(b[0]))

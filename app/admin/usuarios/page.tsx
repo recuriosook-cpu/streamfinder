@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
+import { olvidarVerificados } from '@/lib/verified'
 import {
   Search, ChevronUp, ChevronDown, ChevronLeft, ChevronRight,
   X, ExternalLink, Ban, CheckCircle, Shield, Loader2,
@@ -344,11 +345,12 @@ export default function UsuariosPage() {
     })
     if (res.ok) {
       setUsers(prev => prev.map(u => u.id === userId ? { ...u, verified } : u))
+      olvidarVerificados()
       setSelected(prev => prev ? { ...prev, verified } : null)
       toast.success(verified ? 'Usuario verificado ✓' : 'Verificación removida')
     } else {
       const body = await res.json().catch(() => ({}))
-      toast.error(body.error ?? 'Error al verificar. ¿Existe la columna "verified" en profiles?')
+      toast.error(body.error ?? 'Error al verificar.')
     }
     setActioning(false)
   }

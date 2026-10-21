@@ -9,6 +9,7 @@ import Breadcrumb from '@/components/Breadcrumb'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import { sendNotification } from '@/lib/notify'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -257,6 +258,7 @@ export default function ListPage() {
               </div>
               <div>
                 <span className="text-sm font-semibold text-white group-hover:text-[#FFFD02] transition-colors">{author.display_name ?? author.username}</span>
+                <VerifiedBadge userId={author.id} size={13} className="ml-1" />
                 <span className="text-xs text-[#A0A0B0] ml-2">{timeAgo(list.created_at)}</span>
               </div>
             </Link>
@@ -427,7 +429,7 @@ export default function ListPage() {
                 <div className="flex-1 min-w-0">
                   <div className="flex items-center gap-2 mb-0.5 flex-wrap">
                     <Link href={`/usuario/${c.author?.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">{name}</Link>
-                    {(c.author?.username === 'Ferlageok' || c.author?.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    <VerifiedBadge userId={c.user_id} size={13} />
                     <span className="text-[11px] text-[#A0A0B0]">{timeAgo(c.created_at)}</span>
                     {(currentUserId === c.user_id || isOwner) && (
                       <button onClick={() => deleteComment(c.id)} className="text-zinc-700 hover:text-red-400 transition-colors ml-auto">

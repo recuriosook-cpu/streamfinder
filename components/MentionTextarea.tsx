@@ -2,8 +2,9 @@
 
 import { useState, useRef, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
-interface Suggestion { username: string; avatar_url: string | null }
+interface Suggestion { id: string; username: string; avatar_url: string | null }
 
 interface Props {
   value: string
@@ -32,7 +33,7 @@ export default function MentionTextarea({
     const t = setTimeout(async () => {
       const { data } = await supabase
         .from('profiles')
-        .select('username, avatar_url')
+        .select('id, username, avatar_url')
         .ilike('username', `${mentionQuery}%`)
         .limit(5)
       setSuggestions((data ?? []) as Suggestion[])
@@ -125,7 +126,7 @@ export default function MentionTextarea({
               </div>
               <span className="text-sm text-white font-medium flex items-center gap-1">
                 @{s.username}
-                {(s.username === 'Ferlageok' || s.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                <VerifiedBadge userId={s.id} size={13} />
               </span>
             </button>
           ))}

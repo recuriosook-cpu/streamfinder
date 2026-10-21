@@ -7,6 +7,7 @@ import { Loader2, MessageSquare, Trash2 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { StarIcon } from '@/components/StarDisplay'
 import { fechaLarga, nombreTemporada, sinEstrenar, type TmdbSeason } from '@/lib/seasons'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 /**
  * Lo de Glynbox sobre una temporada: el promedio de la comunidad, tu nota y
@@ -277,6 +278,7 @@ export default function SeasonReviewPanel({
                     ) : (
                       <span className="text-sm font-semibold text-white">{autor}</span>
                     )}
+                    <VerifiedBadge userId={r.user_id} size={13} className="-ml-1" />
                     <span className="inline-flex items-center gap-0.5">
                       {[1, 2, 3, 4, 5].map(s => (
                         <StarIcon key={s} size={12} fill={r.rating >= s ? 'full' : r.rating >= s - 0.5 ? 'half' : 'empty'} />

@@ -12,6 +12,7 @@ import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
 import { reviewImagePath } from '@/lib/share-urls'
 import { sendNotification } from '@/lib/notify'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 // ── Render @mentions as yellow links ──────────────────────────────────────
 function WithMentions({ text }: { text: string }) {
@@ -306,7 +307,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                     >
                       {displayName}
                     </Link>
-                    {(review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                    <VerifiedBadge userId={review.authorId} size={14} />
                   </div>
                   <p className="text-xs text-[#A0A0B0]">@{review.authorUsername}</p>
                 </div>
@@ -498,7 +499,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                 >
                                   {cName}
                                 </Link>
-                                {(comment.author?.username === 'Ferlageok' || comment.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                <VerifiedBadge userId={comment.user_id} size={14} />
                                 <span className="text-xs text-zinc-600">{cDate}</span>
                                 {comment.user_id === currentUserId && (
                                   <button
@@ -551,7 +552,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                         >
                                           {rName}
                                         </Link>
-                                        {(reply.author?.username === 'Ferlageok' || reply.author?.username === 'ferlageok') && <svg width="14" height="14" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                                        <VerifiedBadge userId={reply.user_id} size={14} />
                                         <span className="text-xs text-zinc-600">{rDate}</span>
                                         {reply.user_id === currentUserId && (
                                           <button

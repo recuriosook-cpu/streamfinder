@@ -13,6 +13,7 @@ import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import HeroCarousel, { type HeroSlide } from '@/components/HeroCarousel'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 const BirthdayCarousel = dynamic(() => import('@/components/BirthdayCarousel'), {
   ssr: false,
@@ -87,7 +88,7 @@ interface TrendingItem {
 interface FeaturedReview {
   id: string; mediaId: number; mediaType: 'movie' | 'tv'
   mediaTitle: string; mediaPosterPath: string | null
-  authorUsername: string; authorDisplayName: string | null; authorAvatarUrl: string | null
+  authorId: string; authorUsername: string; authorDisplayName: string | null; authorAvatarUrl: string | null
   rating: number | null; body: string | null
 }
 
@@ -444,7 +445,6 @@ function FeaturedReviewsSection({ reviews, user }: { reviews: FeaturedReview[]; 
         {reviews.map(review => {
           const name = review.authorDisplayName ?? review.authorUsername
           const initials = name[0]?.toUpperCase() ?? '?'
-          const isVerified = review.authorUsername === 'Ferlageok' || review.authorUsername === 'ferlageok'
           return (
             <div
               key={review.id}
@@ -465,9 +465,7 @@ function FeaturedReviewsSection({ reviews, user }: { reviews: FeaturedReview[]; 
                 <div className="flex-1 min-w-0">
                   <p className="text-sm font-semibold text-white truncate flex items-center gap-1">
                     {name}
-                    {isVerified && (
-                      <svg width="13" height="13" viewBox="0 0 20 20" fill="none"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                    )}
+                    <VerifiedBadge userId={review.authorId} size={13} />
                   </p>
                   <p className="text-[11px] text-[#A0A0B0]">@{review.authorUsername}</p>
                 </div>
@@ -849,6 +847,7 @@ function FriendActivitySection({ activity, hasFollowing }: { activity: FriendAct
             <div className="flex-1 min-w-0">
               <p className="text-xs text-zinc-300 line-clamp-1">
                 <span className="font-semibold text-white">{item.userName}</span>
+                <VerifiedBadge userId={item.userId} size={11} className="ml-0.5" />
                 {' reseñó '}
                 <span className="font-semibold" style={{ color: '#FFFD02' }}>{item.mediaTitle}</span>
               </p>
@@ -1232,6 +1231,7 @@ export default function HomeClient() {
         mediaType: r.media_type as 'movie' | 'tv',
         mediaTitle: r.title,
         mediaPosterPath: r.poster_path,
+        authorId: r.user_id,
         authorUsername: pMap[r.user_id]?.username ?? 'Usuario',
         authorDisplayName: pMap[r.user_id]?.display_name ?? null,
         authorAvatarUrl: pMap[r.user_id]?.avatar_url ?? null,

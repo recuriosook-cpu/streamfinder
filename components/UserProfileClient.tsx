@@ -16,6 +16,7 @@ import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
 import ReviewCard from '@/components/ReviewCard'
 import StarDisplay from '@/components/StarDisplay'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 // ── Social icons ───────────────────────────────────────────────────────────
 
@@ -900,7 +901,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Name + badge row */}
               <div className="flex flex-wrap items-center justify-center sm:justify-start gap-2 mb-1">
                 <h1 className="text-2xl sm:text-3xl font-bold text-white tracking-tight">{displayName}</h1>
-                {(localProfile.username === 'Ferlageok' || localProfile.username === 'ferlageok') && <svg width="20" height="20" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                <VerifiedBadge userId={localProfile.id} size={20} />
                 {followsMe && (
                   <span className="text-xs bg-[#1C1C27] border border-[#2A2A3A] text-[#A0A0B0] px-2.5 py-1 rounded-full">
                     Te sigue
@@ -1938,7 +1939,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-semibold text-white truncate">{u.displayName ?? u.username}</p>
+                            <p className="text-sm font-semibold text-white truncate flex items-center gap-1"><span className="truncate">{u.displayName ?? u.username}</span><VerifiedBadge userId={u.userId} size={12} /></p>
                             <p className="text-xs text-[#A0A0B0]">{u.count} interacción{u.count !== 1 ? 'es' : ''}</p>
                           </div>
                         </Link>
@@ -1997,7 +1998,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                             )}
                           </div>
                           <div className="flex-1 min-w-0">
-                            <p className="text-sm font-medium text-white truncate">{name}</p>
+                            <p className="text-sm font-medium text-white truncate flex items-center gap-1"><span className="truncate">{name}</span><VerifiedBadge userId={u.id} size={12} /></p>
                             <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>
                           </div>
                         </Link>

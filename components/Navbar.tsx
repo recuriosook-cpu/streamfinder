@@ -10,6 +10,7 @@ import { track } from '@/lib/analytics'
 import { createClient } from '@/lib/supabase'
 import { getLevelInfo } from '@/lib/points'
 import type { User } from '@supabase/supabase-js'
+import VerifiedBadge from '@/components/VerifiedBadge'
 
 
 interface SearchResult {
@@ -45,7 +46,7 @@ interface NotifItem {
   // Populated from the reviews table for review_like / review_comment / comment_reply
   media_id?: number
   media_type?: string
-  actor: { username: string | null; display_name: string | null; avatar_url: string | null } | null
+  actor: { id: string; username: string | null; display_name: string | null; avatar_url: string | null } | null
 }
 
 export default function Navbar() {
@@ -478,7 +479,7 @@ export default function Navbar() {
                       <div className="min-w-0 flex-1">
                         <div className="flex items-center gap-1">
                           <span className="text-sm text-white font-medium">{u.display_name ?? u.username}</span>
-                          {(u.username === 'Ferlageok' || u.username === 'ferlageok') && <svg width="13" height="13" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}
+                          <VerifiedBadge userId={u.id} size={13} />
                         </div>
                         {u.username && <p className="text-xs text-[#A0A0B0] truncate">@{u.username}</p>}
                       </div>
@@ -707,7 +708,12 @@ export default function Navbar() {
                           const actor    = n.actor?.display_name ?? n.actor?.username ?? 'Alguien'
                           const time     = formatNotifTime(n.created_at)
                           const initials = (n.actor?.display_name ?? n.actor?.username ?? '?')[0]?.toUpperCase()
-                          const actorVerified = n.actor?.username === 'Ferlageok' || n.actor?.username === 'ferlageok'
+                          // El nombre del que hizo algo, con su tilde si es verificado.
+                          const actorEl = (
+                            <span className="font-semibold text-white">
+                              {actor}<VerifiedBadge userId={n.actor?.id} size={12} className="ml-0.5 -mt-0.5" />
+                            </span>
+                          )
                           return (
                             <button
                               key={n.id}
@@ -730,28 +736,28 @@ export default function Navbar() {
                               <div className="flex-1 min-w-0">
                                 <p className="text-sm text-zinc-200 leading-snug">
                                   {n.type === 'follow' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> te empezó a seguir</>
+                                    <>{actorEl} te empezó a seguir</>
                                   )}
                                   {n.type === 'review_like' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <>{actorEl} le dio me gusta a tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'review_comment' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <>{actorEl} comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <>{actorEl} respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
-                                    <><span className="font-semibold text-white inline-flex items-center gap-0.5">{actor}{actorVerified && <svg width="12" height="12" viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg"><circle cx="10" cy="10" r="10" fill="#1D9BF0"/><path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round"/></svg>}</span> te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    <>{actorEl} te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'level_up' && (
                                     <>🎉 ¡Subiste de nivel! Ahora sos <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'list_like' && (
-                                    <><span className="font-semibold text-white">{actor}</span> ❤️ le dio like a tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
+                                    <>{actorEl} ❤️ le dio like a tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
                                   )}
                                   {n.type === 'list_comment' && (
-                                    <><span className="font-semibold text-white">{actor}</span> 💬 comentó en tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
+                                    <>{actorEl} 💬 comentó en tu lista <span className="text-[#FFFD02]">{n.entity_title}</span></>
                                   )}
                                   {n.type === 'actor_birthday' && (
                                     <>🎂 <span className="text-[#FFFD02]">{n.entity_title}</span> cumple años hoy</>
