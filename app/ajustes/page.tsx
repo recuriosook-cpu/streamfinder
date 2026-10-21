@@ -5,7 +5,7 @@ import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import {
   User, Lock, Shield, Globe, Bell, Download, Upload,
-  FileText, HelpCircle, LogOut, Trash2, ChevronRight, X, RotateCcw,
+  FileText, HelpCircle, LogOut, Trash2, ChevronRight, X, RotateCcw, Tv,
 } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import CountrySelector from '@/components/CountrySelector'
@@ -170,6 +170,11 @@ export default function AjustesPage() {
                 <span className="flex-1 text-sm font-medium text-zinc-300">País</span>
                 <CountrySelector variant="full" align="right" />
               </div>
+              <SettingsRow
+                icon={<Tv size={16} />}
+                label="Mis plataformas"
+                href="/ajustes/plataformas"
+              />
               <SettingsRow
                 icon={<Bell size={16} />}
                 label="Notificaciones"

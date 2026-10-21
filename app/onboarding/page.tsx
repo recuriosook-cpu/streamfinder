@@ -6,7 +6,7 @@ import { useRouter } from 'next/navigation'
 import { Check, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { track, registrarAlta } from '@/lib/analytics'
-import { ALL_PLATFORMS, type PlatformConfig } from '@/lib/providers'
+import PlatformPicker, { PlatformLogo } from '@/components/PlatformPicker'
 import { useCountry } from '@/context/CountryContext'
 import {
   ONBOARDING_GENRES,
@@ -79,65 +79,7 @@ function Spinner({ dark = false, size = 20 }: { dark?: boolean; size?: number })
 
 // ── Paso 1: plataformas ───────────────────────────────────────────────────────
 
-function PlatformLogo({ platform, size }: { platform: PlatformConfig; size: number }) {
-  const [failed, setFailed] = useState(false)
-  if (platform.fallbackLogoPath && !failed) {
-    return (
-      // eslint-disable-next-line @next/next/no-img-element
-      <img
-        src={`https://image.tmdb.org/t/p/w154${platform.fallbackLogoPath}`}
-        alt=""
-        width={size}
-        height={size}
-        className="rounded-xl object-cover"
-        style={{ width: size, height: size }}
-        onError={() => setFailed(true)}
-      />
-    )
-  }
-  return (
-    <div
-      className="rounded-xl flex items-center justify-center text-white font-bold text-center leading-tight p-1"
-      style={{ width: size, height: size, backgroundColor: platform.color, fontSize: Math.max(8, size / 6) }}
-    >
-      {platform.name}
-    </div>
-  )
-}
-
-function PlatformsStep({ selected, onToggle }: { selected: number[]; onToggle: (id: number) => void }) {
-  return (
-    <div className="grid grid-cols-4 sm:grid-cols-5 gap-x-3 gap-y-4">
-      {ALL_PLATFORMS.map(p => {
-        const active = selected.includes(p.id)
-        return (
-          <button
-            key={p.id}
-            type="button"
-            role="checkbox"
-            aria-checked={active}
-            aria-label={p.name}
-            onClick={() => onToggle(p.id)}
-            className="flex flex-col items-center gap-1.5 transition-transform active:scale-95"
-          >
-            <span
-              className="relative rounded-[14px] border-2 transition-all"
-              style={{ borderColor: active ? '#FFFD02' : 'transparent', opacity: active ? 1 : 0.55 }}
-            >
-              <PlatformLogo platform={p} size={58} />
-              {active && (
-                <span className="absolute -top-1.5 -right-1.5 w-5 h-5 rounded-full bg-[#FFFD02] flex items-center justify-center">
-                  <Check size={12} className="text-black" strokeWidth={3} />
-                </span>
-              )}
-            </span>
-            <span className="text-[11px] text-center leading-tight text-[#A0A0B0] line-clamp-2">{p.name}</span>
-          </button>
-        )
-      })}
-    </div>
-  )
-}
+// La grilla está en components/PlatformPicker.tsx: la usa también Ajustes.
 
 // ── Paso 2: géneros ───────────────────────────────────────────────────────────
 
@@ -261,7 +203,15 @@ function FirstRecommendations({
 }) {
   const subtitle = hasPlatforms
     ? 'Parecidas a las que marcaste, y están en tus plataformas.'
-    : 'Parecidas a las que marcaste. Elegí tus plataformas en Ajustes y te decimos dónde verlas.'
+    : (
+      <>
+        Parecidas a las que marcaste.{' '}
+        <Link href="/ajustes/plataformas" className="text-[#FFFD02] hover:underline">
+          Elegí tus plataformas en Ajustes
+        </Link>{' '}
+        y te decimos dónde verlas.
+      </>
+    )
 
   return (
     <>
@@ -752,7 +702,7 @@ export default function OnboardingPage() {
         <p className="text-sm text-[#A0A0B0] leading-5 mt-1.5">{copy.subtitle}</p>
         <div className="h-5" />
 
-        {step === 1 && <PlatformsStep selected={platforms} onToggle={id => setPlatforms(prev => toggle(prev, id))} />}
+        {step === 1 && <PlatformPicker selected={platforms} onToggle={id => setPlatforms(prev => toggle(prev, id))} />}
         {step === 2 && <GenresStep selected={genres} onToggle={name => setGenres(prev => toggle(prev, name))} />}
         {step === 3 && (
           <TasteGridStep
