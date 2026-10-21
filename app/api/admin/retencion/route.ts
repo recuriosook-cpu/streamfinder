@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 
 /**
@@ -10,13 +11,22 @@ import { requireAdminClient } from '@/lib/service-role'
  * alta, embudo del registro, sesiones de la primera semana y comparación
  * entre los que volvieron y los que no.
  *
- * ── Alcance: esto mide la WEB ─────────────────────────────────────────────
+ * ── Alcance: web y app ────────────────────────────────────────────────────
  *
- * La app de Android no manda un solo evento —no tiene analytics— así que nada
- * de acá explica las desinstalaciones. Lo que sabemos de la app es el conteo
- * agregado de Play, sin usuario y sin motivo, y eso ya está en su propio
- * panel. El panel de retención lo dice en pantalla, porque es la confusión
- * más fácil de cometer mirando estos números.
+ * La app manda eventos desde la 1.0.9 (20/9), con `platform = 'mobile'`, así
+ * que acá entra todo:
+ *
+ *   · La retención de la app se cuenta por instalación y se separa por
+ *     sistema (Android e iOS), con `retencion_app_instalaciones_v2`.
+ *   · La de usuarios registrados cuenta como "volvió" cualquier actividad, en
+ *     la web o en la app.
+ *   · El embudo del registro se separa por plataforma, y el onboarding por
+ *     flujo (el corto de 3 pasos y los viejos), con
+ *     `retencion_embudo_registro_v2`.
+ *
+ * Las dos `_v2` están en `supabase-metricas-2026-10.sql`. Mientras no se
+ * corran se usan las funciones viejas, que mezclan sistemas, plataformas y
+ * flujos, y la respuesta lo avisa (`separado`).
  *
  * ── Todo el cálculo vive en SQL ───────────────────────────────────────────
  *
@@ -131,6 +141,31 @@ export interface CohorteApp {
   d30Pct: number | null
 }
 
+export type SistemaApp = 'android' | 'ios' | 'sin_dato' | 'todos'
+
+/** Las cohortes de la app de un sistema. `todos` sólo sin el SQL nuevo. */
+export interface GrupoApp {
+  sistema: SistemaApp
+  cohortes: CohorteApp[]
+}
+
+export interface FlujoOnboarding {
+  flujo: 'corto' | 'viejo'
+  /** Escalones encadenados, con porcentajes sobre el primero del flujo. */
+  pasos: PasoRegistro[]
+  salteo: number
+  /** El último evento del flujo en la ventana. */
+  ultimo: string | null
+}
+
+export interface EmbudoPlataforma {
+  plataforma: 'web' | 'app'
+  /** Vio la pantalla, empezó, completó. */
+  registro: PasoRegistro[]
+  /** Sólo los flujos con algún evento en los últimos 30 días. */
+  onboarding: FlujoOnboarding[]
+}
+
 export interface RetencionResumen {
   disponible: boolean
   motivo: 'sin_migracion' | 'sin_datos' | null
@@ -146,8 +181,16 @@ export interface RetencionResumen {
    * se corrió `supabase-analytics-app.sql`. Es la única parte que puede faltar
    * sin que falte todo el resto, así que se trata aparte.
    */
-  app: CohorteApp[]
+  app: GrupoApp[]
+  /** El embudo viejo, todo mezclado. Sólo si falta el SQL nuevo. */
   registro: PasoRegistro[]
+  /** El embudo por plataforma y flujo. `null` si falta el SQL nuevo. */
+  embudos: EmbudoPlataforma[] | null
+  /**
+   * `false` si alguna de las dos `_v2` todavía no existe y se usó la vieja:
+   * el panel lo avisa para que no se lea como separado algo que no lo está.
+   */
+  separado: { app: boolean; embudo: boolean }
   sesiones: SesionesPrimeraSemana | null
   comportamiento: GrupoComportamiento[]
   generadoEn: string
@@ -164,6 +207,8 @@ interface FilaCohorteApp {
   d1_maduro: boolean; d7_maduro: boolean; d30_maduro: boolean
 }
 interface FilaPaso { orden: number; clave: string; etiqueta: string; usuarios: number }
+interface FilaCohorteAppV2 extends FilaCohorteApp { sistema?: string }
+interface FilaPasoV2 extends FilaPaso { plataforma?: string; flujo?: string; ultimo?: string | null }
 interface FilaSesiones {
   usuarios: number; sesiones_promedio: number | null; sesiones_mediana: number | null
   sin_actividad: number; una_sola: number; una_sola_y_no_volvio: number
@@ -189,7 +234,8 @@ const num = (v: number | null | undefined): number | null =>
 function vacio(motivo: 'sin_migracion' | 'sin_datos'): RetencionResumen {
   return {
     disponible: false, motivo, semanas: SEMANAS, dias: DIAS, medicionDesde: null,
-    cohortes: [], app: [], registro: [], sesiones: null, comportamiento: [],
+    cohortes: [], app: [], registro: [], embudos: null, separado: { app: false, embudo: false },
+    sesiones: null, comportamiento: [],
     generadoEn: new Date().toISOString(),
   }
 }
@@ -202,6 +248,96 @@ function faltaLaMigracion(error: { code?: string; message?: string } | null): bo
   return msg.includes('could not find the function') || msg.includes('does not exist')
 }
 
+/** Un flujo viejo sin eventos en este tiempo deja de mostrarse. */
+const VIGENCIA_MS = 30 * 86_400_000
+
+const ORDEN_SISTEMA: SistemaApp[] = ['android', 'ios', 'sin_dato', 'todos']
+
+/**
+ * Filas de una escalera → pasos con porcentajes encadenados. Las de orden 99
+ * (salidas laterales, como saltear el onboarding) van al final y sin
+ * porcentaje sobre el anterior.
+ */
+function escalera(filas: FilaPaso[]): PasoRegistro[] {
+  const ordenadas = [...filas].sort((a, b) => a.orden - b.orden)
+  const escalones = ordenadas.filter(f => f.orden < 99)
+  const laterales = ordenadas.filter(f => f.orden >= 99)
+  const primero = Number(escalones[0]?.usuarios ?? 0)
+  return [
+    ...escalones.map((f, i) => {
+      const valor = Number(f.usuarios)
+      const anterior = i === 0 ? null : Number(escalones[i - 1].usuarios)
+      return {
+        clave: f.clave,
+        etiqueta: f.etiqueta,
+        usuarios: valor,
+        pctSobrePrimero: porcentaje(valor, primero),
+        pctSobreAnterior: anterior === null ? null : porcentaje(valor, anterior),
+      }
+    }),
+    ...laterales.map(f => ({
+      clave: f.clave,
+      etiqueta: f.etiqueta,
+      usuarios: Number(f.usuarios),
+      pctSobrePrimero: porcentaje(Number(f.usuarios), primero),
+      pctSobreAnterior: null,
+    })),
+  ]
+}
+
+function cohorteApp(f: FilaCohorteApp): CohorteApp {
+  const instalaciones = Number(f.instalaciones)
+  return {
+    semana: f.semana,
+    instalaciones,
+    d1: Number(f.d1),
+    d7: Number(f.d7),
+    d30: Number(f.d30),
+    d1Pct:  f.d1_maduro  ? porcentaje(Number(f.d1),  instalaciones) : null,
+    d7Pct:  f.d7_maduro  ? porcentaje(Number(f.d7),  instalaciones) : null,
+    d30Pct: f.d30_maduro ? porcentaje(Number(f.d30), instalaciones) : null,
+  }
+}
+
+/** Las filas de `retencion_embudo_registro_v2`, agrupadas para el panel. */
+function embudosDe(filas: FilaPasoV2[]): EmbudoPlataforma[] {
+  const ahora = Date.now()
+  return (['web', 'app'] as const).map(plataforma => {
+    const propias = filas.filter(f => f.plataforma === plataforma)
+    const onboarding = (['corto', 'viejo'] as const)
+      .map(flujo => {
+        const delFlujo = propias.filter(f => f.flujo === flujo)
+        const pasos = escalera(delFlujo)
+        return {
+          flujo,
+          pasos: pasos.filter(p => p.clave !== 'salteo'),
+          salteo: pasos.find(p => p.clave === 'salteo')?.usuarios ?? 0,
+          ultimo: delFlujo.find(f => f.ultimo)?.ultimo ?? null,
+        }
+      })
+      // Como en el panel de la app: un flujo que nadie usa hace un mes ya no
+      // dice nada, y sólo empuja para abajo al que importa.
+      .filter(f => f.ultimo !== null && ahora - new Date(f.ultimo).getTime() < VIGENCIA_MS)
+    return {
+      plataforma,
+      registro: escalera(propias.filter(f => f.flujo === 'registro')),
+      onboarding,
+    }
+  })
+}
+
+/** Una RPC nueva, y si todavía no existe, la vieja con los mismos argumentos. */
+async function conCaida(
+  admin: SupabaseClient,
+  nueva: string,
+  vieja: string,
+  args: Record<string, number>,
+) {
+  const res = await admin.rpc(nueva, args)
+  if (!res.error || !faltaLaMigracion(res.error)) return { res, nueva: true }
+  return { res: await admin.rpc(vieja, args), nueva: false }
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -211,13 +347,14 @@ export async function GET() {
   const { admin, failure } = requireAdminClient('admin/retencion')
   if (failure) return failure
 
-  const [cohortesRes, appRes, registroRes, sesionesRes, comportamientoRes, medicionRes] =
+  const [cohortesRes, appV, registroV, sesionesRes, comportamientoRes, medicionRes] =
     await Promise.all([
       admin.rpc('retencion_cohortes', { p_semanas: SEMANAS }),
       // La de la app va aparte del resto: su SQL es otro archivo y puede no
       // estar corrido todavía. Su error NO tira abajo la sección entera.
-      admin.rpc('retencion_app_instalaciones', { p_semanas: SEMANAS }),
-      admin.rpc('retencion_embudo_registro', { p_dias: DIAS }),
+      // Las dos `_v2` caen a la vieja mientras no se corra el SQL nuevo.
+      conCaida(admin, 'retencion_app_instalaciones_v2', 'retencion_app_instalaciones', { p_semanas: SEMANAS }),
+      conCaida(admin, 'retencion_embudo_registro_v2', 'retencion_embudo_registro', { p_dias: DIAS }),
       admin.rpc('retencion_sesiones_primera_semana', { p_dias: DIAS }),
       admin.rpc('retencion_comportamiento', { p_dias: DIAS }),
       // Vista vieja, de `supabase-analytics-actividad.sql`: dice desde cuándo
@@ -227,6 +364,8 @@ export async function GET() {
 
   // `appRes` queda afuera: su migración es un archivo aparte y su ausencia no
   // puede dejar sin datos al resto.
+  const appRes = appV.res
+  const registroRes = registroV.res
   const errores = [cohortesRes.error, registroRes.error, sesionesRes.error, comportamientoRes.error]
   if (errores.some(faltaLaMigracion)) {
     console.warn('[admin/retencion] falta correr supabase-analytics-retencion.sql')
@@ -267,50 +406,22 @@ export async function GET() {
     console.error('[admin/retencion] la parte de app falló:', appRes.error.message)
   }
 
-  const app: CohorteApp[] = ((appRes.data as FilaCohorteApp[] | null) ?? []).map(f => {
-    const instalaciones = Number(f.instalaciones)
-    return {
-      semana: f.semana,
-      instalaciones,
-      d1: Number(f.d1),
-      d7: Number(f.d7),
-      d30: Number(f.d30),
-      d1Pct:  f.d1_maduro  ? porcentaje(Number(f.d1),  instalaciones) : null,
-      d7Pct:  f.d7_maduro  ? porcentaje(Number(f.d7),  instalaciones) : null,
-      d30Pct: f.d30_maduro ? porcentaje(Number(f.d30), instalaciones) : null,
-    }
-  })
+  const app: GrupoApp[] = []
+  for (const f of (appRes.data as FilaCohorteAppV2[] | null) ?? []) {
+    const sistema: SistemaApp = !appV.nueva
+      ? 'todos'
+      : f.sistema === 'android' || f.sistema === 'ios' ? f.sistema : 'sin_dato'
+    let grupo = app.find(g => g.sistema === sistema)
+    if (!grupo) { grupo = { sistema, cohortes: [] }; app.push(grupo) }
+    grupo.cohortes.push(cohorteApp(f))
+  }
+  app.sort((a, b) => ORDEN_SISTEMA.indexOf(a.sistema) - ORDEN_SISTEMA.indexOf(b.sistema))
+  for (const g of app) g.cohortes.sort((a, b) => (a.semana < b.semana ? 1 : -1))
 
   // ── Embudo del registro ──────────────────────────────────────────────
-  const filasPaso = ((registroRes.data as FilaPaso[] | null) ?? [])
-    .sort((a, b) => a.orden - b.orden)
-
-  // El salteo del onboarding va con orden 99: es una salida lateral y no un
-  // escalón, así que no participa de los porcentajes encadenados.
-  const escalones = filasPaso.filter(f => f.orden < 99)
-  const laterales = filasPaso.filter(f => f.orden >= 99)
-  const primero = Number(escalones[0]?.usuarios ?? 0)
-
-  const registro: PasoRegistro[] = [
-    ...escalones.map((f, i) => {
-      const valor = Number(f.usuarios)
-      const anterior = i === 0 ? null : Number(escalones[i - 1].usuarios)
-      return {
-        clave: f.clave,
-        etiqueta: f.etiqueta,
-        usuarios: valor,
-        pctSobrePrimero: porcentaje(valor, primero),
-        pctSobreAnterior: anterior === null ? null : porcentaje(valor, anterior),
-      }
-    }),
-    ...laterales.map(f => ({
-      clave: f.clave,
-      etiqueta: f.etiqueta,
-      usuarios: Number(f.usuarios),
-      pctSobrePrimero: porcentaje(Number(f.usuarios), primero),
-      pctSobreAnterior: null,
-    })),
-  ]
+  const filasPaso = (registroRes.data as FilaPasoV2[] | null) ?? []
+  const embudos = registroV.nueva ? embudosDe(filasPaso) : null
+  const registro = registroV.nueva ? [] : escalera(filasPaso)
 
   // ── Sesiones de la primera semana ────────────────────────────────────
   const fs = (sesionesRes.data as FilaSesiones[] | null)?.[0]
@@ -348,6 +459,7 @@ export async function GET() {
     cohortes.length > 0 ||
     app.length > 0 ||
     registro.some(p => p.usuarios > 0) ||
+    (embudos ?? []).some(e => e.registro.some(p => p.usuarios > 0)) ||
     (sesiones?.usuarios ?? 0) > 0 ||
     comportamiento.length > 0
 
@@ -369,6 +481,8 @@ export async function GET() {
     cohortes,
     app,
     registro,
+    embudos,
+    separado: { app: appV.nueva, embudo: registroV.nueva },
     sesiones,
     comportamiento,
     generadoEn: new Date().toISOString(),

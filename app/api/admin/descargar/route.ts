@@ -217,23 +217,30 @@ async function contarRegistros(
   dias: Ventana,
 ): Promise<{ total: number; porDispositivo: Map<string, number> } | null> {
   const desde = new Date(Date.now() - dias * 86400_000).toISOString()
-  const { data, error } = await admin
-    .from('analytics_events')
-    .select('user_id, anon_id, props')
-    .eq('name', 'signup_completed')
-    .eq('is_bot', false)
-    .eq('props->>origen_registro', 'descargar')
-    .gte('created_at', desde)
-    .limit(5000)
+  // Paginado: PostgREST corta en 1000 filas aunque se pida más con `.limit`.
+  const data: { user_id: string | null; anon_id: string; props: Record<string, unknown> | null }[] = []
+  for (let pagina = 0; ; pagina++) {
+    const { data: filas, error } = await admin
+      .from('analytics_events')
+      .select('user_id, anon_id, props')
+      .eq('name', 'signup_completed')
+      .eq('is_bot', false)
+      .eq('props->>origen_registro', 'descargar')
+      .gte('created_at', desde)
+      .order('id', { ascending: true })
+      .range(pagina * 1000, pagina * 1000 + 999)
 
-  if (error) {
-    console.error('[admin/descargar] conteo de registros falló:', error.message)
-    return null
+    if (error) {
+      console.error('[admin/descargar] conteo de registros falló:', error.message)
+      return null
+    }
+    data.push(...((filas ?? []) as typeof data))
+    if (!filas || filas.length < 1000) break
   }
 
   const vistos = new Set<string>()
   const porDispositivo = new Map<string, number>()
-  for (const f of (data ?? []) as { user_id: string | null; anon_id: string; props: Record<string, unknown> | null }[]) {
+  for (const f of data) {
     const quien = f.user_id ?? f.anon_id
     if (vistos.has(quien)) continue
     vistos.add(quien)

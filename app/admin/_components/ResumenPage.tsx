@@ -1,10 +1,10 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import type { AdminOverview, Metrica } from '@/app/api/admin/overview/route'
+import type { AdminContenido, TopMedia } from '@/app/api/admin/contenido/route'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from './Refresco'
 import {
@@ -82,6 +82,14 @@ function lineasDeLaApp(act: AdminOverview['actividad']): string[] {
   if (u.play) {
     lineas.push(`Google Play: ${u.play.activos.toLocaleString('es-AR')} dispositivos activos (al ${fecha(u.play.fecha)})`)
   }
+  if (u.sinSistema > 0) {
+    // Lo que se pudo, ya se completó con el sistema del mismo usuario (otros
+    // eventos o user_devices). Esto es lo que no tiene de dónde salir.
+    lineas.push(
+      'Sin dato: instalaciones que no abren la app desde antes del 15/10, cuando se ' +
+      'empezó a registrar el sistema. Su user-agent no se guardó; salen solas de la ventana de 30 días.',
+    )
+  }
   if (u.desde && Date.now() - new Date(u.desde).getTime() < 30 * 864e5) {
     lineas.push(`Se mide desde el ${fecha(u.desde)}: la ventana de 30 días todavía no está llena`)
   }
@@ -89,7 +97,7 @@ function lineasDeLaApp(act: AdminOverview['actividad']): string[] {
 }
 
 function MetricaCard({
-  icon, label, metrica, formato, sub, color = 'yellow',
+  icon, label, metrica, formato, sub, color = 'yellow', contra = 'el período anterior',
 }: {
   icon: React.ReactNode
   label: string
@@ -99,6 +107,8 @@ function MetricaCard({
   /** Una línea o varias, una abajo de la otra. */
   sub?: string | string[]
   color?: 'yellow' | 'blue' | 'purple' | 'green' | 'teal'
+  /** Contra qué se compara. Por defecto, "el período anterior". */
+  contra?: string
 }) {
   const styles = {
     yellow: 'text-[#FFFD02] bg-[#FFFD02]/10',
@@ -125,7 +135,7 @@ function MetricaCard({
 
       <p className="text-sm text-[#A0A0B0] mt-1 font-medium">{label}</p>
 
-      {!sinDatos && <Comparacion metrica={metrica} formato={fmt} />}
+      {!sinDatos && <Comparacion metrica={metrica} formato={fmt} contra={contra} />}
       {(Array.isArray(sub) ? sub : sub ? [sub] : []).map((linea) => (
         <p key={linea} className="text-xs text-[#A0A0B0]/70 mt-1">{linea}</p>
       ))}
@@ -133,7 +143,7 @@ function MetricaCard({
   )
 }
 
-function Comparacion({ metrica, formato }: { metrica: Metrica; formato: (n: number) => string }) {
+function Comparacion({ metrica, formato, contra }: { metrica: Metrica; formato: (n: number) => string; contra: string }) {
   const { valor, previo, deltaPct } = metrica
   if (valor === null || previo === null) return null
 
@@ -145,7 +155,7 @@ function Comparacion({ metrica, formato }: { metrica: Metrica; formato: (n: numb
     }
     return (
       <p className="text-xs text-emerald-400 mt-1.5 font-medium">
-        +{formato(valor)} · el período anterior fue cero
+        +{formato(valor)} · {contra} fue cero
       </p>
     )
   }
@@ -157,7 +167,7 @@ function Comparacion({ metrica, formato }: { metrica: Metrica; formato: (n: numb
   return (
     <p className={`text-xs mt-1.5 font-medium flex items-center gap-1 ${cls}`}>
       {!igual && (sube ? <TrendingUp size={12} /> : <TrendingDown size={12} />)}
-      {igual ? 'igual que' : `${sube ? '+' : ''}${deltaPct}% vs`} el período anterior
+      {igual ? 'igual que' : `${sube ? '+' : ''}${deltaPct}% vs`} {contra}
       <span className="text-[#A0A0B0]/60 font-normal">({formato(previo)})</span>
     </p>
   )
@@ -166,27 +176,16 @@ function Comparacion({ metrica, formato }: { metrica: Metrica; formato: (n: numb
 /** El estado "no estamos midiendo esto". Ver `MetricaCard`. */
 const SIN_DATOS: Metrica = { valor: null, previo: null, deltaPct: null }
 
-interface TopMedia {
-  media_id: number; media_type: string; title: string; poster_path: string | null; count: number
-}
-
 // ── Main ──────────────────────────────────────────────────────────────────
 
 export default function ResumenPage() {
-  const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
   const [refrescando, setRefrescando] = useState(false)
   const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
   const [error,   setError]   = useState<string | null>(null)
 
-  const [totalUsers,   setTotalUsers]   = useState(0)
-  const [totalReviews, setTotalReviews] = useState(0)
-  const [totalLists,   setTotalLists]   = useState(0)
-
-  const [overview,    setOverview]    = useState<AdminOverview | null>(null)
-  const [actByDay,    setActByDay]    = useState<{ day: string; label: string; reviews: number; ratings: number; listas: number; total: number }[]>([])
-  const [topRated,    setTopRated]    = useState<TopMedia[]>([])
-  const [topWatchlist, setTopWatchlist] = useState<TopMedia[]>([])
+  const [overview,  setOverview]  = useState<AdminOverview | null>(null)
+  const [contenido, setContenido] = useState<AdminContenido | null>(null)
 
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useRefrescoAlVolver(fetchAll, actualizadoEn)
@@ -198,92 +197,24 @@ export default function ResumenPage() {
     else setLoading(true)
     setError(null)
 
-    const weekAgo = new Date(Date.now() - 7 * 86400_000).toISOString()
+    // Todo se calcula en el servidor, con service role: desde el navegador las
+    // consultas pasan por RLS (no se ve a los usuarios privados) y PostgREST
+    // corta en 1000 filas sin avisar.
+    const pedir = <T,>(url: string) =>
+      fetch(url, { cache: 'no-store' })
+        .then(async r => (r.ok ? ((await r.json()) as T) : null))
+        .catch(() => null)
 
-    // Las métricas de usuarios (activos, registros) vienen del endpoint: se
-    // calculan con service role sobre auth.users, que es donde está la fecha
-    // real de alta. Desde el cliente sólo se puede ver profiles.updated_at.
-    const overviewPromise = fetch('/api/admin/overview', { cache: 'no-store' })
-      .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
-      .catch(() => null)
-
-    const [
-      ov,
-      profilesRes,
-      reviewsCountRes,
-      listsCountRes,
-      reviewsWeekRes,
-      ratingsWeekRes,
-      listsWeekRes,
-      topRatedRes,
-      topWatchlistRes,
-    ] = await Promise.all([
-      overviewPromise,
-      // `id` y no `*`: los usuarios logueados ya no pueden leer todas las columnas.
-      supabase.from('profiles').select('id', { count: 'exact', head: true }),
-      supabase.from('reviews').select('*', { count: 'exact', head: true }),
-      supabase.from('lists').select('*', { count: 'exact', head: true }),
-      // Activity last 7 days
-      supabase.from('reviews').select('created_at').gte('created_at', weekAgo),
-      supabase.from('ratings').select('rated_at').gte('rated_at', weekAgo),
-      supabase.from('lists').select('created_at').gte('created_at', weekAgo),
-      // Top rated this week
-      supabase.from('ratings').select('media_id, media_type, title, poster_path').gte('rated_at', weekAgo).limit(2000),
-      // Top watchlist this week
-      supabase.from('watchlist').select('media_id, media_type, title, poster_path').gte('added_at', weekAgo).limit(2000),
+    const [ov, cont] = await Promise.all([
+      pedir<AdminOverview>('/api/admin/overview'),
+      pedir<AdminContenido>('/api/admin/contenido'),
     ])
 
-    if (profilesRes.error) { setError(profilesRes.error.message); setLoading(false); setRefrescando(false); return }
-    if (!ov) setError('No se pudo leer /api/admin/overview — las métricas de usuarios no se muestran.')
+    const fallas = [!ov && '/api/admin/overview', !cont && '/api/admin/contenido'].filter(Boolean)
+    if (fallas.length > 0) setError(`No se pudo leer ${fallas.join(' y ')}: parte del resumen no se muestra.`)
 
     setOverview(ov)
-    setTotalUsers(ov?.registrosTotales ?? profilesRes.count ?? 0)
-    setTotalReviews(reviewsCountRes.count ?? 0)
-    setTotalLists(listsCountRes.count ?? 0)
-
-    // Activity by day (last 7)
-    const revMap: Record<string, number>  = {}
-    const ratMap: Record<string, number>  = {}
-    const lstMap: Record<string, number>  = {}
-    for (const r of (reviewsWeekRes.data ?? []) as { created_at: string }[]) {
-      const k = r.created_at.slice(0, 10); revMap[k] = (revMap[k] ?? 0) + 1
-    }
-    for (const r of (ratingsWeekRes.data ?? []) as { rated_at: string }[]) {
-      const k = r.rated_at.slice(0, 10); ratMap[k] = (ratMap[k] ?? 0) + 1
-    }
-    for (const r of (listsWeekRes.data ?? []) as { created_at: string }[]) {
-      const k = r.created_at.slice(0, 10); lstMap[k] = (lstMap[k] ?? 0) + 1
-    }
-    const days7: typeof actByDay = []
-    for (let i = 6; i >= 0; i--) {
-      const d   = new Date(Date.now() - i * 86400_000)
-      const key = d.toISOString().slice(0, 10)
-      const lbl = d.toLocaleDateString('es-AR', { weekday: 'short', day: 'numeric' })
-      const reviews = revMap[key] ?? 0
-      const ratings = ratMap[key] ?? 0
-      const listas  = lstMap[key] ?? 0
-      days7.push({ day: key, label: lbl, reviews, ratings, listas, total: reviews + ratings + listas })
-    }
-    setActByDay(days7)
-
-    // Top rated this week
-    const ratedCount: Record<string, TopMedia> = {}
-    for (const r of (topRatedRes.data ?? []) as TopMedia[]) {
-      const k = `${r.media_id}-${r.media_type}`
-      if (!ratedCount[k]) ratedCount[k] = { ...r, count: 0 }
-      ratedCount[k].count++
-    }
-    setTopRated(Object.values(ratedCount).sort((a, b) => b.count - a.count).slice(0, 5))
-
-    // Top watchlist this week
-    const wlCount: Record<string, TopMedia> = {}
-    for (const r of (topWatchlistRes.data ?? []) as TopMedia[]) {
-      const k = `${r.media_id}-${r.media_type}`
-      if (!wlCount[k]) wlCount[k] = { ...r, count: 0 }
-      wlCount[k].count++
-    }
-    setTopWatchlist(Object.values(wlCount).sort((a, b) => b.count - a.count).slice(0, 5))
-
+    setContenido(cont)
     setLoading(false)
     setRefrescando(false)
     setActualizadoEn(new Date())
@@ -301,6 +232,28 @@ export default function ResumenPage() {
   // respuesta vieja no trae `actividad` y las tarjetas caen en "sin datos" en
   // vez de romper el panel con un TypeError.
   const act = overview?.actividad ?? null
+
+  // "Hoy" se compara contra ayer hasta esta misma hora. Con la vista vieja
+  // (falta supabase-metricas-2026-10.sql) es contra el día entero, y lo dice.
+  const contraAyer = act?.ayerMismaHora ? 'ayer a esta hora' : 'ayer completo'
+
+  const actByDay = (contenido?.porDia ?? []).map(d => ({
+    ...d,
+    label: new Date(`${d.dia}T12:00:00-03:00`).toLocaleDateString('es-AR', {
+      weekday: 'short', day: 'numeric', timeZone: 'America/Argentina/Buenos_Aires',
+    }),
+  }))
+  const topRated: TopMedia[] = contenido?.semana.calificadas ?? []
+  const topWatchlist: TopMedia[] = contenido?.semana.agregadas ?? []
+
+  // Los anónimos, separados si la vista ya los trae.
+  const anonSub = act?.anonimosHoyWeb && act.anonimosHoyApp
+    ? [
+        `En la web: ${(act.anonimosHoyWeb.valor ?? 0).toLocaleString('es-AR')} navegadores`,
+        `En la app: ${(act.anonimosHoyApp.valor ?? 0).toLocaleString('es-AR')} instalaciones`,
+        'No se pisan con los de arriba',
+      ]
+    : 'Navegadores e instalaciones de la app sin sesión. No se pisan con los de arriba'
 
   return (
     <div className="min-h-screen pb-20">
@@ -327,19 +280,29 @@ export default function ResumenPage() {
           <StatCard
             icon={<Users size={20} />}
             label="Usuarios registrados"
-            value={totalUsers}
+            value={overview ? overview.registrosTotales : '—'}
             sub="Alta real (auth.users)"
             color="yellow"
           />
+          {/* Usuarios distintos con algún evento, en la web o en la app. Es el
+              mismo criterio que "Se conectaron esta semana", de abajo: antes
+              salía de profiles.last_active, que escribe sólo la web, y daba 22
+              contra 504. */}
           <StatCard
             icon={<Users size={20} />}
-            label="Activos esta semana"
-            value={overview ? overview.activos7d : '—'}
-            sub={overview ? `${overview.activos30d} en 30 días` : undefined}
+            label="Activos en 30 días"
+            value={overview?.activos30d ?? '—'}
+            sub={
+              overview?.activos30d == null
+                ? 'Falta correr supabase-metricas-2026-10.sql'
+                : overview.activos7d != null
+                  ? `${overview.activos7d.toLocaleString('es-AR')} en 7 días · web y app`
+                  : 'Web y app'
+            }
             color="green"
           />
-          <StatCard icon={<FileText size={20} />} label="Reseñas publicadas"   value={totalReviews} color="purple" />
-          <StatCard icon={<List size={20} />}     label="Listas creadas"       value={totalLists}   color="blue"   />
+          <StatCard icon={<FileText size={20} />} label="Reseñas publicadas" value={contenido?.totales.resenas ?? '—'} color="purple" />
+          <StatCard icon={<List size={20} />}     label="Listas creadas"     value={contenido?.totales.listas ?? '—'}  color="blue"   />
         </div>
 
         {/* ── Actividad medida ────────────────────────────────────────────
@@ -385,26 +348,31 @@ export default function ResumenPage() {
               icon={<Users size={20} />}
               label="Se conectaron hoy"
               metrica={act?.conectadosHoy ?? SIN_DATOS}
+              contra={contraAyer}
+              sub="Usuarios distintos, en la web o en la app"
               color="yellow"
             />
             <MetricaCard
               icon={<UserCheck size={20} />}
               label="Se conectaron esta semana"
               metrica={act?.conectadosSemana ?? SIN_DATOS}
-              sub="Usuarios distintos en los últimos 7 días"
+              sub="Usuarios distintos en los últimos 7 días, web y app"
+              contra="los 7 días anteriores"
               color="green"
             />
             <MetricaCard
               icon={<Eye size={20} />}
-              label="Visitantes anónimos hoy"
+              label="Sin sesión hoy"
               metrica={act?.anonimosHoy ?? SIN_DATOS}
-              sub="Navegadores sin sesión iniciada. No se pisan con los de arriba"
+              contra={contraAyer}
+              sub={anonSub}
               color="blue"
             />
             <MetricaCard
               icon={<Activity size={20} />}
               label="Sesiones hoy"
               metrica={act?.sesionesHoy ?? SIN_DATOS}
+              contra={contraAyer}
               color="teal"
             />
             <MetricaCard
@@ -412,6 +380,7 @@ export default function ResumenPage() {
               label="Duración promedio de sesión"
               metrica={act?.duracionSesion ?? SIN_DATOS}
               formato={fmtDuracion}
+              contra={contraAyer}
               sub={
                 act?.duracionSesionTotal != null
                   ? `${fmtDuracion(act.duracionSesionTotal)} promedio desde el inicio`
@@ -457,22 +426,6 @@ export default function ResumenPage() {
           </div>
         </div>
 
-        {/* last_active recién se empieza a poblar: /api/ping-active venía roto por
-            la service role key mal nombrada, así que la columna estuvo en NULL
-            para todos los perfiles. Sin este aviso el 0 se lee como "no entra
-            nadie" en vez de "todavía no hay datos". */}
-        {overview && overview.activos30d === 0 && (
-          <div className="bg-amber-900/20 border border-amber-800/60 rounded-xl px-5 py-3 flex items-start gap-3">
-            <AlertCircle size={16} className="text-amber-400 shrink-0 mt-0.5" />
-            <p className="text-xs text-amber-200/90 leading-relaxed">
-              <span className="font-semibold">Sin datos de actividad todavía.</span>{' '}
-              <code className="text-amber-300">last_active</code> se empezó a registrar recién ahora
-              (el endpoint que lo escribía estaba roto). Los números de &quot;activos&quot; se van a
-              poblar a medida que los usuarios vuelvan a entrar.
-            </p>
-          </div>
-        )}
-
         {/* Line chart: registros por mes.
             Antes este panel graficaba profiles.updated_at por día y lo llamaba
             "actividad de perfiles". updated_at no es ni la fecha de alta ni la
@@ -516,7 +469,7 @@ export default function ResumenPage() {
         {/* Bar chart: actividad últimos 7 días */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-white mb-1">Actividad por día — últimos 7 días</h2>
-          <p className="text-xs text-[#A0A0B0] mb-5">Reseñas + calificaciones + listas</p>
+          <p className="text-xs text-[#A0A0B0] mb-5">Reseñas + calificaciones + listas · días de Argentina · todos los usuarios</p>
           <ResponsiveContainer width="100%" height={200}>
             <BarChart data={actByDay} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
@@ -526,8 +479,8 @@ export default function ResumenPage() {
                 contentStyle={{ background: '#1C1C27', border: '1px solid #2A2A3A', borderRadius: 8, color: '#fff', fontSize: 12 }}
                 cursor={{ fill: 'rgba(255,253,2,0.05)' }}
               />
-              <Bar dataKey="reviews"  name="Reseñas"       fill="#A855F7" radius={[3,3,0,0]} />
-              <Bar dataKey="ratings"  name="Calificaciones" fill="#F59E0B" radius={[3,3,0,0]} />
+              <Bar dataKey="resenas"        name="Reseñas"        fill="#A855F7" radius={[3,3,0,0]} />
+              <Bar dataKey="calificaciones" name="Calificaciones" fill="#F59E0B" radius={[3,3,0,0]} />
               <Bar dataKey="listas"   name="Listas"         fill="#3B82F6" radius={[3,3,0,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -576,7 +529,7 @@ export default function ResumenPage() {
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
             <h2 className="text-sm font-semibold text-white mb-4 flex items-center gap-2">
               <List size={15} className="text-blue-400" />
-              Más agregadas a watchlist esta semana
+              Más agregadas a &quot;Ver después&quot; esta semana
             </h2>
             {topWatchlist.length === 0
               ? <p className="text-[#A0A0B0] text-sm py-6 text-center">Sin actividad esta semana</p>

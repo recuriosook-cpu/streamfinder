@@ -1,8 +1,7 @@
 'use client'
 
-import { useEffect, useState, useRef } from 'react'
+import { useEffect, useState } from 'react'
 import Link from 'next/link'
-import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import { Film, Tv, Loader2, AlertTriangle, CheckCircle2, SkipForward, LogOut } from 'lucide-react'
 import {
@@ -11,19 +10,12 @@ import {
 } from 'recharts'
 import { COUNTRIES } from '@/lib/countries'
 import type { AdminOverview } from '@/app/api/admin/overview/route'
+import type { AdminContenido } from '@/app/api/admin/contenido/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
 import { AppMedicionPanel } from '@/app/admin/_components/AppMedicionPanel'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
-
-interface TopMedia {
-  media_id: number; media_type: string; title: string; poster_path: string | null; count: number
-}
-
-interface TopUser {
-  id: string; username: string | null; avatar_url: string | null; review_count: number; list_count: number; total: number
-}
 
 // ── Tarjeta del desglose de onboarding ─────────────────────────────────────
 
@@ -59,19 +51,14 @@ function OnboardingCard({
 }
 
 export default function MetricasPage() {
-  const supabase = useRef(createClient()).current
   const [loading, setLoading] = useState(true)
   const [refrescando, setRefrescando] = useState(false)
   const [actualizadoEn, setActualizadoEn] = useState<Date | null>(null)
   /** Sube en cada refresco; los paneles lo escuchan para volver a pedir lo suyo. */
   const [recarga, setRecarga] = useState(0)
 
-  const [overview,      setOverview]      = useState<AdminOverview | null>(null)
-  const [byCountry,     setByCountry]     = useState<{ country: string; count: number }[]>([])
-  const [byHour,        setByHour]        = useState<{ hour: string; count: number }[]>([])
-  const [topWatchlist,  setTopWatchlist]  = useState<TopMedia[]>([])
-  const [topRated,      setTopRated]      = useState<TopMedia[]>([])
-  const [topUsers,      setTopUsers]      = useState<TopUser[]>([])
+  const [overview,  setOverview]  = useState<AdminOverview | null>(null)
+  const [contenido, setContenido] = useState<AdminContenido | null>(null)
 
   useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
   useRefrescoAlVolver(fetchAll, actualizadoEn)
@@ -86,96 +73,22 @@ export default function MetricasPage() {
       setLoading(true)
     }
 
-    // registros por mes, plataformas y países salen del endpoint: se calculan
-    // con service role. Desde el cliente, `favorites` tiene RLS owner-only, así
-    // que el gráfico de plataformas mostraba sólo las del propio admin.
-    const overviewPromise = fetch('/api/admin/overview', { cache: 'no-store' })
-      .then(async r => (r.ok ? ((await r.json()) as AdminOverview) : null))
-      .catch(() => null)
+    // Todo sale del servidor, con service role. Desde el navegador las
+    // consultas pasaban por RLS (sin los usuarios privados) y PostgREST
+    // devolvía 1000 filas aunque se pidieran 10000: los tops salían de una
+    // muestra cortada.
+    const pedir = <T,>(url: string) =>
+      fetch(url, { cache: 'no-store' })
+        .then(async r => (r.ok ? ((await r.json()) as T) : null))
+        .catch(() => null)
 
-    const [
-      ov,
-      profilesRes,
-      reviewsRes,
-      listsCountRes,
-      watchlistRes,
-      ratingsRes,
-    ] = await Promise.all([
-      overviewPromise,
-      supabase.from('profiles').select('id, username, avatar_url').limit(5000),
-      supabase.from('reviews').select('user_id, created_at').limit(10000),
-      supabase.from('lists').select('user_id').limit(10000),
-      supabase.from('watchlist').select('media_id, media_type, title, poster_path').limit(10000),
-      supabase.from('ratings').select('media_id, media_type, title, poster_path, rated_at').limit(10000),
+    const [ov, cont] = await Promise.all([
+      pedir<AdminOverview>('/api/admin/overview'),
+      pedir<AdminContenido>('/api/admin/contenido'),
     ])
 
     setOverview(ov)
-
-    const profiles = (profilesRes.data ?? []) as { id: string; username: string | null; avatar_url: string | null }[]
-
-    // Usuarios por país — los conteos vienen del endpoint; acá sólo se traduce
-    // el código ISO a nombre.
-    setByCountry(
-      (ov?.paises ?? []).map(({ country, count }) => ({
-        country: COUNTRIES.find(c => c.code === country)?.name ?? country,
-        count,
-      }))
-    )
-
-    // Actividad por hora del día (reviews)
-    const hourMap: Record<number, number> = {}
-    for (let h = 0; h < 24; h++) hourMap[h] = 0
-    for (const r of (reviewsRes.data ?? []) as { created_at: string }[]) {
-      const h = new Date(r.created_at).getUTCHours()
-      hourMap[h]++
-    }
-    setByHour(
-      Object.entries(hourMap).map(([h, count]) => ({
-        hour: `${String(h).padStart(2, '0')}h`,
-        count,
-      }))
-    )
-
-    // Top watchlist
-    const wlMap: Record<string, TopMedia> = {}
-    for (const w of (watchlistRes.data ?? []) as TopMedia[]) {
-      const k = `${w.media_id}-${w.media_type}`
-      if (!wlMap[k]) wlMap[k] = { ...w, count: 0 }
-      wlMap[k].count++
-    }
-    setTopWatchlist(Object.values(wlMap).sort((a, b) => b.count - a.count).slice(0, 20))
-
-    // Top rated
-    type RatingRow = { media_id: number; media_type: string; title: string; poster_path: string | null }
-    const ratMap: Record<string, TopMedia> = {}
-    for (const r of (ratingsRes.data ?? []) as unknown as RatingRow[]) {
-      const k = `${r.media_id}-${r.media_type}`
-      if (!ratMap[k]) ratMap[k] = { ...r, count: 0 }
-      ratMap[k].count++
-    }
-    setTopRated(Object.values(ratMap).sort((a, b) => b.count - a.count).slice(0, 20))
-
-    // Top users by reviews + lists
-    const revCounts: Record<string, number> = {}
-    for (const r of (reviewsRes.data ?? []) as { user_id: string }[]) {
-      revCounts[r.user_id] = (revCounts[r.user_id] ?? 0) + 1
-    }
-    const lstCounts: Record<string, number> = {}
-    for (const l of (listsCountRes.data ?? []) as { user_id: string }[]) {
-      lstCounts[l.user_id] = (lstCounts[l.user_id] ?? 0) + 1
-    }
-    const topUsers: TopUser[] = profiles
-      .map(p => ({
-        id: p.id, username: p.username, avatar_url: p.avatar_url,
-        review_count: revCounts[p.id] ?? 0,
-        list_count:   lstCounts[p.id] ?? 0,
-        total: (revCounts[p.id] ?? 0) + (lstCounts[p.id] ?? 0),
-      }))
-      .filter(u => u.total > 0)
-      .sort((a, b) => b.total - a.total)
-      .slice(0, 20)
-    setTopUsers(topUsers)
-
+    setContenido(cont)
     setLoading(false)
     setRefrescando(false)
     setActualizadoEn(new Date())
@@ -186,6 +99,21 @@ export default function MetricasPage() {
       <Loader2 size={28} className="animate-spin text-[#FFFD02]" />
     </div>
   )
+
+  // Usuarios por país: los conteos vienen del endpoint; acá sólo se traduce el
+  // código ISO a nombre.
+  const byCountry = (overview?.paises ?? []).map(({ country, count }) => ({
+    country: COUNTRIES.find(c => c.code === country)?.name ?? country,
+    count,
+  }))
+  const byHour = (contenido?.porHora ?? []).map(h => ({
+    hour: `${String(h.hora).padStart(2, '0')}h`,
+    eventos: h.eventos,
+    personas: h.personas,
+  }))
+  const topWatchlist = contenido?.topVerDespues ?? []
+  const topRated = contenido?.topCalificadas ?? []
+  const topUsers = contenido?.topUsuarios ?? []
 
   const tooltipStyle = {
     contentStyle: { background: '#1C1C27', border: '1px solid #2A2A3A', borderRadius: 8, color: '#fff', fontSize: 12 },
@@ -337,34 +265,60 @@ export default function MetricasPage() {
           </ResponsiveContainer>
         </div>
 
-        {/* Actividad por hora */}
+        {/* Actividad por hora.
+            Antes contaba sólo reseñas, en hora UTC y leídas desde el navegador
+            (sin los usuarios privados, cortadas en 1000). Ahora son todos los
+            eventos de personas, de la web y la app, agrupados en la base. */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
           <h2 className="text-sm font-semibold text-white mb-1">Actividad por hora del día</h2>
-          <p className="text-xs text-[#A0A0B0] mb-5">Basado en reseñas publicadas (hora UTC)</p>
-          <ResponsiveContainer width="100%" height={180}>
-            <BarChart data={byHour} margin={{ top: 5, right: 10, left: -20, bottom: 0 }}>
-              <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
-              <XAxis dataKey="hour" tick={{ fill: '#A0A0B0', fontSize: 9 }} tickLine={false} axisLine={false} interval={1} />
-              <YAxis tick={{ fill: '#A0A0B0', fontSize: 9 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <Tooltip {...tooltipStyle} />
-              <Bar dataKey="count" name="Reseñas" fill="#A855F7" radius={[2,2,0,0]} />
-            </BarChart>
-          </ResponsiveContainer>
+          <p className="text-xs text-[#A0A0B0] mb-5">
+            Todo lo que hace la gente en la web y en la app (abrirla, ver páginas, calificar, buscar,
+            agregar a &quot;Ver después&quot;…), últimos 30 días, hora de Argentina. Sin bots ni los
+            eventos técnicos de anuncios.
+          </p>
+          {contenido && contenido.porHora === null ? (
+            <p className="text-[#A0A0B0] text-sm py-6 text-center">
+              Falta correr <code className="text-zinc-400">supabase-metricas-2026-10.sql</code> en Supabase.
+            </p>
+          ) : (
+            <ResponsiveContainer width="100%" height={180}>
+              <BarChart data={byHour} margin={{ top: 5, right: 10, left: -10, bottom: 0 }}>
+                <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" />
+                <XAxis dataKey="hour" tick={{ fill: '#A0A0B0', fontSize: 9 }} tickLine={false} axisLine={false} interval={1} />
+                <YAxis tick={{ fill: '#A0A0B0', fontSize: 9 }} tickLine={false} axisLine={false} allowDecimals={false} />
+                <Tooltip {...tooltipStyle} />
+                <Bar dataKey="eventos" name="Eventos" fill="#A855F7" radius={[2,2,0,0]} />
+              </BarChart>
+            </ResponsiveContainer>
+          )}
         </div>
 
         {/* Plataformas favoritas.
-            Del endpoint: `favorites` tiene RLS owner-only, así que leído desde el
-            navegador esto mostraba únicamente las plataformas del propio admin
-            presentadas como estadística de toda la base. */}
+            Las que eligen en el onboarding de la web o de la app
+            (profiles.favorite_platforms). Antes era el proveedor de los títulos
+            marcados con "Me gusta", que guardaba sólo la web y con el nombre
+            crudo de TMDB de cualquier país ("Sooner Amazon Channel"). */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-1">Plataformas favoritas (top 10)</h2>
-          <p className="text-xs text-[#A0A0B0] mb-5">Sobre los favoritos de todos los usuarios</p>
-          <ResponsiveContainer width="100%" height={220}>
-            <BarChart data={overview?.plataformasFavoritas ?? []} layout="vertical" margin={{ top: 0, right: 20, left: 80, bottom: 0 }}>
+          <h2 className="text-sm font-semibold text-white mb-1">Plataformas favoritas</h2>
+          <p className="text-xs text-[#A0A0B0] mb-5">
+            Las que eligen en el onboarding
+            {overview?.plataformasCobertura && (
+              <> · {overview.plataformasCobertura.conPlataformas.toLocaleString('es-AR')} de{' '}
+                {overview.plataformasCobertura.total.toLocaleString('es-AR')} usuarios eligieron alguna; el % es sobre ellos</>
+            )}
+          </p>
+          <ResponsiveContainer width="100%" height={380}>
+            <BarChart data={overview?.plataformasFavoritas ?? []} layout="vertical" margin={{ top: 0, right: 40, left: 10, bottom: 0 }}>
               <CartesianGrid strokeDasharray="3 3" stroke="#2A2A3A" horizontal={false} />
               <XAxis type="number" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} allowDecimals={false} />
-              <YAxis type="category" dataKey="provider" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} width={80} />
-              <Tooltip {...tooltipStyle} />
+              <YAxis type="category" dataKey="provider" tick={{ fill: '#A0A0B0', fontSize: 10 }} tickLine={false} axisLine={false} width={120} interval={0} />
+              <Tooltip
+                {...tooltipStyle}
+                formatter={(v, _n, item) => [
+                  `${Number(v).toLocaleString('es-AR')} (${(item?.payload as { pct?: number } | undefined)?.pct ?? 0}%)`,
+                  'Usuarios',
+                ]}
+              />
               <Bar dataKey="count" name="Usuarios" fill="#FFFD02" radius={[0,3,3,0]} />
             </BarChart>
           </ResponsiveContainer>
@@ -375,7 +329,7 @@ export default function MetricasPage() {
 
           {/* Top watchlist */}
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-            <h2 className="text-sm font-semibold text-white mb-4">Top 20 — más en watchlist</h2>
+            <h2 className="text-sm font-semibold text-white mb-4">Top 20 — más en &quot;Ver después&quot;</h2>
             <div className="space-y-2.5">
               {topWatchlist.map((item, i) => (
                 <Link
@@ -432,13 +386,17 @@ export default function MetricasPage() {
 
         {/* Top usuarios */}
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
-          <h2 className="text-sm font-semibold text-white mb-4">Top 20 — usuarios más activos</h2>
+          <h2 className="text-sm font-semibold text-white mb-1">Top 20 — usuarios más activos</h2>
+          <p className="text-xs text-[#A0A0B0] mb-4">Todo lo que guardó cada uno, desde siempre, en la web y en la app</p>
           <div className="overflow-x-auto">
             <table className="w-full text-sm">
               <thead>
                 <tr className="border-b border-[#2A2A3A]">
                   <th className="text-left pb-3 text-xs text-[#A0A0B0] font-medium w-8">#</th>
                   <th className="text-left pb-3 text-xs text-[#A0A0B0] font-medium">Usuario</th>
+                  <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Calificaciones</th>
+                  <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Ver después</th>
+                  <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Favoritos</th>
                   <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Reseñas</th>
                   <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Listas</th>
                   <th className="text-center pb-3 text-xs text-[#A0A0B0] font-medium">Total</th>
@@ -464,8 +422,11 @@ export default function MetricasPage() {
                         </Link>
                       </div>
                     </td>
-                    <td className="py-3 text-center text-xs font-semibold text-purple-400">{u.review_count}</td>
-                    <td className="py-3 text-center text-xs font-semibold text-blue-400">{u.list_count}</td>
+                    <td className="py-3 text-center text-xs font-semibold text-amber-400">{u.calificaciones}</td>
+                    <td className="py-3 text-center text-xs font-semibold text-sky-400">{u.verDespues}</td>
+                    <td className="py-3 text-center text-xs font-semibold text-red-400">{u.favoritos}</td>
+                    <td className="py-3 text-center text-xs font-semibold text-purple-400">{u.resenas}</td>
+                    <td className="py-3 text-center text-xs font-semibold text-blue-400">{u.listas}</td>
                     <td className="py-3 text-center text-xs font-bold text-[#FFFD02]">{u.total}</td>
                   </tr>
                 ))}

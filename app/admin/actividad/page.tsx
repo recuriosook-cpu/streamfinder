@@ -57,8 +57,10 @@ export default function ActividadPage() {
 
   async function fetchAll() {
     setLoading(true)
+    // "Hoy" es desde las 0 de Argentina, como el resto del panel, y no desde
+    // la medianoche del navegador. Argentina no tiene horario de verano.
     const cutoff = dateFilter === 'today'
-      ? new Date(new Date().setHours(0,0,0,0)).toISOString()
+      ? new Date(`${new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())}T00:00:00-03:00`).toISOString()
       : dateFilter === '7d'
         ? new Date(Date.now() - 7  * 86400_000).toISOString()
         : new Date(Date.now() - 30 * 86400_000).toISOString()

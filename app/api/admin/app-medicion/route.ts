@@ -170,16 +170,22 @@ async function eventos(admin: SupabaseClient, nombres: string[]): Promise<Evento
 }
 
 async function pantallasRecomendaciones(admin: SupabaseClient): Promise<Evento[]> {
-  const { data, error } = await admin
-    .from('analytics_events')
-    .select('name, anon_id, platform, path, props, created_at')
-    .eq('name', 'page_view')
-    .eq('path', '/onboarding/recomendaciones')
-    .eq('is_bot', false)
-    .order('created_at', { ascending: true })
-    .limit(10000)
-  if (error) throw new Error(error.message)
-  return (data ?? []) as Evento[]
+  // Paginado como `eventos`: un `.limit(10000)` igual se corta en 1000.
+  const filas: Evento[] = []
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await admin
+      .from('analytics_events')
+      .select('name, anon_id, platform, path, props, created_at')
+      .eq('name', 'page_view')
+      .eq('path', '/onboarding/recomendaciones')
+      .eq('is_bot', false)
+      .order('created_at', { ascending: true })
+      .range(desde, desde + 999)
+    if (error) throw new Error(error.message)
+    filas.push(...((data ?? []) as Evento[]))
+    if (!data || data.length < 1000) break
+  }
+  return filas
 }
 
 const prop = (e: Evento, k: string): unknown => e.props?.[k]
@@ -345,13 +351,19 @@ async function tokens(admin: SupabaseClient): Promise<Map<string, number>> {
 }
 
 async function apagados(admin: SupabaseClient, clave: string): Promise<string[]> {
-  const { data, error } = await admin
-    .from('profiles')
-    .select('id')
-    .eq(`notification_preferences->>${clave}`, 'false')
-    .limit(10000)
-  if (error) throw new Error(error.message)
-  return ((data ?? []) as { id: string }[]).map(r => r.id)
+  const ids: string[] = []
+  for (let desde = 0; ; desde += 1000) {
+    const { data, error } = await admin
+      .from('profiles')
+      .select('id')
+      .eq(`notification_preferences->>${clave}`, 'false')
+      .order('id', { ascending: true })
+      .range(desde, desde + 999)
+    if (error) throw new Error(error.message)
+    ids.push(...((data ?? []) as { id: string }[]).map(r => r.id))
+    if (!data || data.length < 1000) break
+  }
+  return ids
 }
 
 // ── Modo deslizar ──────────────────────────────────────────────────────────

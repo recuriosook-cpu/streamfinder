@@ -3,6 +3,9 @@ import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
+import { fetchAllRows, mesAR } from '@/lib/admin-filas'
+import { ALL_PLATFORMS } from '@/lib/providers'
+import { normalizeSavedPlatforms } from '@/lib/onboarding'
 
 /**
  * GET /api/admin/overview
@@ -17,9 +20,9 @@ import { requireAdminClient } from '@/lib/service-role'
  *    los "registros por mes" salían corridos hacia el presente.
  *
  * 2. El panel consulta Supabase desde el navegador con la anon key, o sea
- *    sujeto a RLS. `favorites` tiene RLS owner-only, así que el gráfico de
- *    plataformas favoritas mostraba únicamente las del propio admin,
- *    presentadas como estadística de toda la base.
+ *    sujeto a RLS y al corte de 1000 filas de PostgREST: lo de los usuarios
+ *    privados no se veía y las tablas grandes llegaban cortadas. Lo de
+ *    contenido (reseñas, calificaciones, listas) está en `/api/admin/contenido`.
  *
  * Nada de lo que devuelve este endpoint se puede calcular bien desde el
  * cliente.
@@ -81,9 +84,19 @@ export interface ActividadResumen {
   /** Desde cuándo se mide. Va en el cartel arriba de las tarjetas. */
   medicionDesde: string | null
 
+  /**
+   * `true` si "ayer" es ayer hasta la misma hora que ahora. `false` si la
+   * vista todavía es la vieja (falta el SQL) y "ayer" es el día entero.
+   */
+  ayerMismaHora: boolean
   conectadosHoy:    Metrica
   conectadosSemana: Metrica
+  /** Usuarios distintos en 30 días. `null` si falta el SQL. */
+  conectados30d:    number | null
   anonimosHoy:      Metrica
+  /** Los anónimos de hoy, separados. `null` si falta el SQL. */
+  anonimosHoyWeb:   Metrica | null
+  anonimosHoyApp:   Metrica | null
   sesionesHoy:      Metrica
   /** Promedio en SEGUNDOS. La UI lo formatea. */
   duracionSesion:   Metrica
@@ -130,15 +143,27 @@ export interface AdminOverview {
   registrosTotales: number
   confirmados: number
   sinConfirmar: number
-  activos7d: number
-  activos30d: number
+  /**
+   * Usuarios distintos con algún evento (web o app) en los últimos 7 y 30
+   * días de Argentina. Mismo criterio que "Se conectaron esta semana": sale de
+   * `analytics_events`, no de `profiles.last_active`, que escribe sólo la web
+   * (eran 22 contra 504). `null` si falta la vista, o el SQL nuevo (30 días).
+   */
+  activos7d: number | null
+  activos30d: number | null
   onboarding: {
     completadoReal: number
     salteado: number
     abandonado: number
     total: number
   }
-  plataformasFavoritas: { provider: string; count: number }[]
+  /**
+   * Las plataformas que eligen en el onboarding (`profiles.favorite_platforms`,
+   * web y app), las 15 aunque estén en cero. `pct` es sobre los perfiles que
+   * eligieron alguna.
+   */
+  plataformasFavoritas: { provider: string; count: number; pct: number }[]
+  plataformasCobertura: { conPlataformas: number; total: number }
   /** Sólo perfiles con país real (`country_source` 'auto' o 'manual'). */
   paises: { country: string; count: number }[]
   /**
@@ -191,34 +216,11 @@ async function fetchAuthUsers(admin: SupabaseClient): Promise<AuthUserLite[]> {
   return out
 }
 
-/** Lee una tabla entera en tandas de 1000 (el max-rows de PostgREST). */
-async function fetchAllRows<T>(
-  admin: SupabaseClient,
-  table: string,
-  columns: string
-): Promise<T[]> {
-  const out: T[] = []
-  let from = 0
-  // eslint-disable-next-line no-constant-condition
-  while (true) {
-    const { data, error } = await admin
-      .from(table)
-      .select(columns)
-      .range(from, from + 999)
-    if (error) throw new Error(`${table}: ${error.message}`)
-    if (!data?.length) break
-    out.push(...(data as T[]))
-    if (data.length < 1000) break
-    from += 1000
-  }
-  return out
-}
-
 interface PerfilFila {
   country: string | null
   /** 'auto' | 'manual' | null. Ver `supabase-pais-real-2026-10.sql`. */
   country_source: string | null
-  last_active: string | null
+  favorite_platforms: (string | number)[] | null
   onboarding_completed_at: string | null
   onboarding_skipped: boolean | null
 }
@@ -229,7 +231,7 @@ interface PerfilFila {
  * caerse, y "Usuarios por país" queda vacío, que es lo correcto.
  */
 async function fetchProfiles(admin: SupabaseClient): Promise<PerfilFila[]> {
-  const base = 'country, last_active, onboarding_completed_at, onboarding_skipped'
+  const base = 'country, favorite_platforms, onboarding_completed_at, onboarding_skipped'
   try {
     return await fetchAllRows<PerfilFila>(admin, 'profiles', `${base}, country_source`)
   } catch (err) {
@@ -250,6 +252,13 @@ interface ResumenRow {
   usuarios_semana_prev: number
   anonimos_hoy: number
   anonimos_ayer: number
+  // Las de supabase-metricas-2026-10.sql. Sin ese SQL no vienen.
+  usuarios_30d?: number
+  anonimos_hoy_web?: number
+  anonimos_hoy_app?: number
+  anonimos_ayer_web?: number
+  anonimos_ayer_app?: number
+  ayer_hasta?: string
   sesiones_hoy: number
   sesiones_ayer: number
   seg_prom_hoy: number | null
@@ -283,9 +292,13 @@ function metrica(actual: number | null, previo: number | null): Metrica {
 const ACTIVIDAD_VACIA: ActividadResumen = {
   disponible: false,
   medicionDesde: null,
+  ayerMismaHora: false,
   conectadosHoy:    { valor: null, previo: null, deltaPct: null },
   conectadosSemana: { valor: null, previo: null, deltaPct: null },
+  conectados30d:    null,
   anonimosHoy:      { valor: null, previo: null, deltaPct: null },
+  anonimosHoyWeb:   null,
+  anonimosHoyApp:   null,
   sesionesHoy:      { valor: null, previo: null, deltaPct: null },
   duracionSesion:   { valor: null, previo: null, deltaPct: null },
   duracionSesionTotal: null,
@@ -405,12 +418,23 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
     return { ...ACTIVIDAD_VACIA, medicionDesde: desde, app, appUso }
   }
 
+  // Las columnas nuevas vienen sólo con supabase-metricas-2026-10.sql. Sin
+  // ellas, todo sigue como antes: "ayer" es el día entero y los anónimos van
+  // en un solo número.
+  const nueva = r.ayer_hasta !== undefined
+  const anonimosDe = (hoy: number | undefined, ayer: number | undefined) =>
+    nueva ? metrica(Number(hoy ?? 0), Number(ayer ?? 0)) : null
+
   return {
     disponible: true,
     medicionDesde: desde,
+    ayerMismaHora: nueva,
     conectadosHoy:    metrica(Number(r.usuarios_hoy ?? 0),    Number(r.usuarios_ayer ?? 0)),
     conectadosSemana: metrica(Number(r.usuarios_semana ?? 0), Number(r.usuarios_semana_prev ?? 0)),
+    conectados30d:    r.usuarios_30d === undefined ? null : Number(r.usuarios_30d),
     anonimosHoy:      metrica(Number(r.anonimos_hoy ?? 0),    Number(r.anonimos_ayer ?? 0)),
+    anonimosHoyWeb:   anonimosDe(r.anonimos_hoy_web, r.anonimos_ayer_web),
+    anonimosHoyApp:   anonimosDe(r.anonimos_hoy_app, r.anonimos_ayer_app),
     sesionesHoy:      metrica(Number(r.sesiones_hoy ?? 0),    Number(r.sesiones_ayer ?? 0)),
     // `seg_prom_*` viene NULL cuando no hubo ninguna sesión en la ventana. Ese
     // null se propaga como "sin datos" en vez de convertirse en 0 segundos.
@@ -423,37 +447,29 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
   }
 }
 
-function monthKey(iso: string): string {
-  const d = new Date(iso)
-  return `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
-}
-
 // ── Cálculo ────────────────────────────────────────────────────────────────
 
 async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
-  const now = Date.now()
-  const d7  = new Date(now - 7  * 86400_000).toISOString()
-  const d30 = new Date(now - 30 * 86400_000).toISOString()
-
-  const [authUsers, profiles, favorites, actividad] = await Promise.all([
+  const [authUsers, profiles, actividad] = await Promise.all([
     fetchAuthUsers(admin),
     fetchProfiles(admin),
-    fetchAllRows<{ provider_name: string | null }>(admin, 'favorites', 'provider_name'),
     buildActividad(admin),
   ])
 
   // ── Registros por mes (12 meses), con la fecha REAL de auth.users ────────
+  // Meses de Argentina: con los de UTC (o los del servidor, que es UTC), un
+  // alta del 31 a las 22 caía en el mes siguiente.
   const monthBuckets: Record<string, number> = {}
   const monthOrder: string[] = []
-  const ref = new Date()
+  const [anio, mes] = mesAR(Date.now()).split('-').map(Number)
   for (let i = 11; i >= 0; i--) {
-    const d = new Date(ref.getFullYear(), ref.getMonth() - i, 1)
-    const k = `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}`
+    const d = new Date(Date.UTC(anio, mes - 1 - i, 1))
+    const k = d.toISOString().slice(0, 7)
     monthBuckets[k] = 0
     monthOrder.push(k)
   }
   for (const u of authUsers) {
-    const k = monthKey(u.created_at)
+    const k = mesAR(u.created_at)
     if (k in monthBuckets) monthBuckets[k]++
   }
   const registrosPorMes = monthOrder.map(mes => ({ mes, total: monthBuckets[mes] }))
@@ -465,8 +481,9 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
   const confirmados = authUsers.filter(u => u.email_confirmed_at != null).length
 
   // ── Actividad ────────────────────────────────────────────────────────────
-  const activos7d  = profiles.filter(p => p.last_active != null && p.last_active >= d7).length
-  const activos30d = profiles.filter(p => p.last_active != null && p.last_active >= d30).length
+  // De los eventos, web y app: ver `activos7d` en `AdminOverview`.
+  const activos7d  = actividad.conectadosSemana.valor
+  const activos30d = actividad.conectados30d
 
   // ── Onboarding ───────────────────────────────────────────────────────────
   // `onboarding_completed = true` no sirve: handleSkip() lo pone en true igual
@@ -482,15 +499,25 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     else abandonado++
   }
 
-  // ── Plataformas favoritas (todos los usuarios, no solo el admin) ─────────
-  const provCounts: Record<string, number> = {}
-  for (const f of favorites) {
-    if (f.provider_name) provCounts[f.provider_name] = (provCounts[f.provider_name] ?? 0) + 1
+  // ── Plataformas favoritas ────────────────────────────────────────────────
+  // Las que cada uno eligió en el onboarding (web o app), no el proveedor de
+  // los títulos que marcó con "Me gusta": ese lo guardaba sólo la web, crudo
+  // de TMDB y de cualquier país ("Sooner Amazon Channel"). Ids viejos
+  // canonizados (384 → 1899) y nombres de `ALL_PLATFORMS`.
+  const provCounts = new Map<number, number>(ALL_PLATFORMS.map(pl => [pl.id, 0]))
+  let conPlataformas = 0
+  for (const p of profiles) {
+    const ids = normalizeSavedPlatforms(p.favorite_platforms).filter(id => provCounts.has(id))
+    if (ids.length === 0) continue
+    conPlataformas++
+    for (const id of ids) provCounts.set(id, (provCounts.get(id) ?? 0) + 1)
   }
-  const plataformasFavoritas = Object.entries(provCounts)
-    .sort((a, b) => b[1] - a[1])
-    .slice(0, 10)
-    .map(([provider, count]) => ({ provider, count }))
+  const plataformasFavoritas = ALL_PLATFORMS
+    .map(pl => {
+      const count = provCounts.get(pl.id) ?? 0
+      return { provider: pl.name, count, pct: conPlataformas > 0 ? Math.round((count / conPlataformas) * 100) : 0 }
+    })
+    .sort((a, b) => b.count - a.count)
 
   // ── Países ───────────────────────────────────────────────────────────────
   // Sólo los que tienen origen: un `country_source` NULL es el 'AR' por defecto
@@ -522,6 +549,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
       total: profiles.length,
     },
     plataformasFavoritas,
+    plataformasCobertura: { conPlataformas, total: profiles.length },
     paises,
     paisesCobertura,
     actividad,

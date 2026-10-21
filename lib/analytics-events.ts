@@ -25,7 +25,11 @@ export const EVENT_NAMES = [
    * duración. Ver `components/PageViewTracker.tsx`.
    */
   'page_view',
-  /** Arranca un registro. props: { metodo: 'email' | 'google' | 'facebook' } */
+  /**
+   * Arranca un registro. props: { metodo: 'email' | 'google' | 'apple' | 'facebook',
+   * pantalla? }. La app 1.0.17 también lo manda desde el ingreso con Google, Apple
+   * o Facebook (`pantalla: 'login'`), que crean la cuenta si no existe.
+   */
   'signup_started',
   /** El registro se concretó. props: { metodo } */
   'signup_completed',

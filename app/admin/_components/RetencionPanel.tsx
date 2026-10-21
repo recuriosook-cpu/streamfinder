@@ -4,25 +4,25 @@ import { useEffect, useState } from 'react'
 import { Loader2, AlertTriangle, Repeat, UserMinus, LogIn, Smartphone } from 'lucide-react'
 import type {
   RetencionResumen, CohorteRetencion, CohorteApp, PasoRegistro, GrupoComportamiento,
+  GrupoApp, EmbudoPlataforma, FlujoOnboarding,
 } from '@/app/api/admin/retencion/route'
 
 /**
  * La sección de retención.
  *
- * Cinco bloques: retención de la app por instalación, retención de la web por
- * semana de alta, embudo del registro, sesiones de la primera semana y qué
- * hizo distinto el que volvió.
+ * Cinco bloques: retención de la app por instalación (Android e iOS por
+ * separado), retención de los usuarios registrados por semana de alta, embudo
+ * del registro (web y app, con el onboarding por flujo), sesiones de la
+ * primera semana y qué hizo distinto el que volvió.
  *
  * ── Dos denominadores distintos en la misma sección ───────────────────────
  *
- * El bloque de la app cuenta INSTALACIONES y los demás cuentan CUENTAS
- * REGISTRADAS. No son lo mismo y no se restan: una instalación que nunca se
- * registró existe sólo en el primero, y una cuenta creada en la web no
- * aparece en el primero aunque después instale la app.
+ * El bloque de la app cuenta INSTALACIONES y el de cohortes cuenta CUENTAS
+ * REGISTRADAS, que vuelven por la web o por la app. No son lo mismo y no se
+ * restan: una instalación que nunca se registró existe sólo en el primero.
  *
  * Mezclarlos es el error fácil de cometer mirando esto, así que el cartel de
- * arriba lo dice en pantalla y no sólo acá. Mientras la app no mande nada, ese
- * mismo cartel avisa que todo lo que se ve es la web.
+ * arriba lo dice en pantalla y no sólo acá.
  *
  * ── Por qué hay tantos guiones ────────────────────────────────────────────
  *
@@ -186,6 +186,57 @@ function FilaPasoRegistro({ paso, maximo }: { paso: PasoRegistro; maximo: number
   )
 }
 
+/** Una escalera de pasos con su barra, escalada contra su primer paso. */
+function Escalera({ pasos }: { pasos: PasoRegistro[] }) {
+  const maximo = pasos[0]?.usuarios ?? 0
+  return (
+    <div className="space-y-2.5">
+      {pasos.map(p => <FilaPasoRegistro key={p.clave} paso={p} maximo={maximo} />)}
+    </div>
+  )
+}
+
+const NOMBRE_FLUJO: Record<FlujoOnboarding['flujo'], string> = {
+  corto: 'Onboarding nuevo (3 pasos)',
+  viejo: 'Onboarding viejo',
+}
+
+/**
+ * El embudo de una plataforma: el alta y, debajo, cada flujo de onboarding
+ * con su propia escalera. Los flujos no se encadenan con el alta: el
+ * onboarding también lo ven cuentas viejas, y un porcentaje "sobre los que
+ * completaron el registro" mezclaría dos poblaciones.
+ */
+function EmbudoDePlataforma({ embudo }: { embudo: EmbudoPlataforma }) {
+  return (
+    <div className="rounded-xl border border-[#2A2A3A] bg-[#0A0A0F] p-4">
+      <p className="text-xs font-semibold text-white mb-3">
+        {embudo.plataforma === 'web' ? 'Web' : 'App'}
+        <span className="text-[10px] text-[#A0A0B0] font-normal">
+          {' · '}{embudo.plataforma === 'web' ? 'navegadores' : 'instalaciones'}
+        </span>
+      </p>
+      <Escalera pasos={embudo.registro} />
+
+      {embudo.onboarding.length === 0 ? (
+        <p className="text-[10px] text-[#A0A0B0] mt-4">Sin onboarding en los últimos 30 días.</p>
+      ) : embudo.onboarding.map(f => (
+        <div key={f.flujo} className="mt-5">
+          <p className="text-[11px] font-semibold text-white mb-2">
+            {NOMBRE_FLUJO[f.flujo]}
+            {f.salteo > 0 && (
+              <span className="text-[10px] text-[#A0A0B0] font-normal">
+                {' · '}{numero(f.salteo)} lo saltearon
+              </span>
+            )}
+          </p>
+          <Escalera pasos={f.pasos} />
+        </div>
+      ))}
+    </div>
+  )
+}
+
 // ── Comportamiento ─────────────────────────────────────────────────────────
 
 const METRICAS_COMPORTAMIENTO: {
@@ -256,6 +307,13 @@ function TablaComportamiento({ grupos }: { grupos: GrupoComportamiento[] }) {
   )
 }
 
+const TITULO_SISTEMA: Record<GrupoApp['sistema'], string> = {
+  android: 'Android',
+  ios: 'iPhone (iOS)',
+  sin_dato: 'Sin sistema conocido',
+  todos: 'Android e iOS juntos',
+}
+
 // ── Panel ──────────────────────────────────────────────────────────────────
 
 /**
@@ -274,8 +332,6 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
       .then(d => { if (vivo) { setDatos(d); setCargando(false) } })
     return () => { vivo = false }
   }, [recarga])
-
-  const maxPaso = datos?.registro[0]?.usuarios ?? 0
 
   return (
     <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
@@ -309,9 +365,10 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
           <Smartphone size={15} className="text-[#A0A0B0] shrink-0 mt-0.5" />
           <p className="text-[11px] text-[#A0A0B0] leading-relaxed">
             El primer bloque es la <span className="text-white font-semibold">app</span> y
-            se cuenta por instalación; los demás son la{' '}
-            <span className="text-white font-semibold">web</span> y se cuentan por cuenta
-            registrada. No son el mismo denominador y no se restan entre sí.
+            se cuenta por instalación; el segundo cuenta{' '}
+            <span className="text-white font-semibold">cuentas registradas</span>, que
+            vuelven por la web o por la app. No son el mismo denominador y no se restan
+            entre sí.
           </p>
         </div>
       ))}
@@ -330,15 +387,36 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
             <div>
               <h3 className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5">
                 <Smartphone size={13} className="text-[#A0A0B0]" />
-                App de Android: vuelven, por semana de instalación
+                App: vuelven, por semana de instalación
               </h3>
               <p className="text-[10px] text-[#A0A0B0] mb-3">
                 Una instalación, no una cuenta: se cohortea por el primer evento que
                 mandó ese aparato y cuenta los que no se registraron nunca. Si una
-                instalación deja de aparecer, se abandonó o se borró — Google no dice
-                cuál de las dos.
+                instalación deja de aparecer, se abandonó o se borró — la tienda no dice
+                cuál de las dos. Días de Argentina.
               </p>
-              <TablaApp cohortes={datos.app} />
+              {!datos.separado.app && (
+                <p className="text-[10px] text-amber-300/80 mb-3">
+                  Android e iOS van juntos hasta que se corra{' '}
+                  <code className="text-amber-200">supabase-metricas-2026-10.sql</code>.
+                </p>
+              )}
+              <div className="space-y-5">
+                {datos.app.map(g => (
+                  <div key={g.sistema}>
+                    <p className="text-[11px] font-semibold text-white mb-1.5">
+                      {TITULO_SISTEMA[g.sistema]}
+                      {g.sistema === 'sin_dato' && (
+                        <span className="text-[10px] text-[#A0A0B0] font-normal">
+                          {' · '}instalaciones que no abrieron la app desde el 15/10, cuando se
+                          empezó a registrar el sistema
+                        </span>
+                      )}
+                    </p>
+                    <TablaApp cohortes={g.cohortes} />
+                  </div>
+                ))}
+              </div>
             </div>
           )}
 
@@ -346,10 +424,12 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
           <div>
             <h3 className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5">
               <Repeat size={13} className="text-[#A0A0B0]" />
-              Web: vuelven, por semana de alta
+              Usuarios registrados: vuelven, por semana de alta
             </h3>
             <p className="text-[10px] text-[#A0A0B0] mb-3">
-              Retención Día-N: tuvo actividad <em>ese</em> día, no antes ni después.
+              Cuenta como vuelta cualquier actividad con la sesión iniciada, en la web o
+              en la app. Retención Día-N: tuvo actividad <em>ese</em> día, no antes ni
+              después, en días de Argentina.
               Un <span className="text-zinc-500">—</span> es una cohorte que todavía no
               cumplió el plazo.
             </p>
@@ -363,14 +443,25 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
               Dónde abandonan el registro
             </h3>
             <p className="text-[10px] text-[#A0A0B0] mb-3">
-              Navegadores distintos que llegaron a cada pantalla, últimos {datos.dias} días.
-              El triángulo marca una caída de más de la mitad respecto del paso anterior.
+              Navegadores o instalaciones distintas que llegaron a cada pantalla, últimos{' '}
+              {datos.dias} días. El triángulo marca una caída de más de la mitad respecto del
+              paso anterior. &quot;Completó&quot; cuenta sólo cuentas creadas en las 48 h
+              anteriores, y &quot;Empezó&quot; incluye a los que completaron: la app todavía
+              no marca el inicio cuando se entra con Google, Apple o Facebook.
             </p>
-            <div className="space-y-2.5">
-              {datos.registro.map(p => (
-                <FilaPasoRegistro key={p.clave} paso={p} maximo={maxPaso} />
-              ))}
-            </div>
+            {datos.embudos ? (
+              <div className="grid grid-cols-1 lg:grid-cols-2 gap-4">
+                {datos.embudos.map(e => <EmbudoDePlataforma key={e.plataforma} embudo={e} />)}
+              </div>
+            ) : (
+              <>
+                <p className="text-[10px] text-amber-300/80 mb-3">
+                  Web, app y los dos onboardings van mezclados hasta que se corra{' '}
+                  <code className="text-amber-200">supabase-metricas-2026-10.sql</code>.
+                </p>
+                <Escalera pasos={datos.registro} />
+              </>
+            )}
           </div>
 
           {/* ── 3. Sesiones de la primera semana ──────────────────── */}
