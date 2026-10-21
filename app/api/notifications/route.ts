@@ -80,6 +80,12 @@ export interface NotificationItem {
   /** Ya redactado por el servidor. */
   title: string
   body: string
+  /**
+   * `title` sin el nombre del actor ("comentó tu reseña"), en las que tienen
+   * actor. La app 1.0.17 muestra el nombre aparte, con su tilde de verificado.
+   * `null` en las de sistema o si no se pudo redactar.
+   */
+  accion: string | null
   /** Ruta de glynbox.com. La app la resuelve con su parser de deep links. */
   url: string
   /** `null` en las de sistema: actor_birthday y new_release no tienen actor. */
@@ -181,6 +187,7 @@ export async function GET(req: NextRequest) {
       createdAt: String(row.created_at ?? ''),
       title: idioma === 'en' ? 'You have something new' : 'Tenés una novedad',
       body: '',
+      accion: null,
       url: notificationUrl(type, row, null),
       actorId: row.actor_id ?? null,
     }
@@ -214,6 +221,7 @@ export async function GET(req: NextRequest) {
             createdAt: String(row.created_at ?? ''),
             title: content.title,
             body: content.body,
+            accion: content.accion ?? null,
             url: content.url,
             actorId: row.actor_id ?? null,
           }

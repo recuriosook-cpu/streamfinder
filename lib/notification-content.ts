@@ -131,6 +131,12 @@ export interface NotificationContent {
   title: string
   body: string
   url: string
+  /**
+   * Lo que hizo el actor, sin su nombre ("comentó tu reseña"), en las que
+   * tienen actor. La bandeja de la app muestra el nombre aparte, con el tilde
+   * de verificado, y esto al lado. El push sigue usando `title`.
+   */
+  accion?: string
 }
 
 /** Recorta en el espacio más cercano para no cortar una palabra al medio. */
@@ -331,12 +337,13 @@ export async function buildNotificationContent(
   switch (type) {
     case 'follow':
       // Sin cuerpo: el título ya lo dice todo y una segunda línea vacía se ve mal.
-      return { title: en ? `${actor} started following you` : `${actor} te empezó a seguir`, body: '', url }
+      return { title: en ? `${actor} started following you` : `${actor} te empezó a seguir`, accion: en ? 'started following you' : 'te empezó a seguir', body: '', url }
 
     case 'review_like': {
       const title = await resolveReviewTitle(admin, row)
       return {
         title: en ? `${actor} liked your review` : `A ${actor} le gustó tu reseña`,
+        accion: en ? 'liked your review' : 'le gustó tu reseña',
         body:  title ? (en ? `Your review of ${title}` : `Tu reseña de ${title}`) : '',
         url,
       }
@@ -349,6 +356,7 @@ export async function buildNotificationContent(
       ])
       return {
         title: en ? `${actor} commented on your review` : `${actor} comentó tu reseña`,
+        accion: en ? 'commented on your review' : 'comentó tu reseña',
         body:  comment || (reviewTitle ? (en ? `Your review of ${reviewTitle}` : `Tu reseña de ${reviewTitle}`) : ''),
         url,
       }
@@ -358,6 +366,7 @@ export async function buildNotificationContent(
       const comment = await resolveCommentText(admin, row)
       return {
         title: en ? `${actor} replied to your comment` : `${actor} respondió tu comentario`,
+        accion: en ? 'replied to your comment' : 'respondió tu comentario',
         body:  comment,
         url,
       }
@@ -370,6 +379,7 @@ export async function buildNotificationContent(
       ])
       return {
         title: en ? `${actor} mentioned you` : `${actor} te mencionó`,
+        accion: en ? 'mentioned you' : 'te mencionó',
         body:  comment || (reviewTitle ? (en ? `In their review of ${reviewTitle}` : `En su reseña de ${reviewTitle}`) : ''),
         url,
       }
@@ -388,6 +398,7 @@ export async function buildNotificationContent(
     case 'list_like':
       return {
         title: en ? `${actor} liked your list` : `A ${actor} le gustó tu lista`,
+        accion: en ? 'liked your list' : 'le gustó tu lista',
         body:  await resolveListTitle(admin, row),
         url,
       }
@@ -401,6 +412,7 @@ export async function buildNotificationContent(
       ])
       return {
         title: en ? `${actor} commented on your list` : `${actor} comentó tu lista`,
+        accion: en ? 'commented on your list' : 'comentó tu lista',
         body:  comment || listTitle,
         url,
       }
