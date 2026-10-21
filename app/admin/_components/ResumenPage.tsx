@@ -294,7 +294,13 @@ export default function ResumenPage() {
             value={overview?.activos30d ?? '—'}
             sub={
               overview?.activos30d == null
-                ? 'Falta correr supabase-metricas-2026-10.sql'
+                ? overview?.actividad.fallo === 'tiempo'
+                  ? 'No se pudo calcular: la base tardó demasiado. Probá actualizar.'
+                  : overview?.actividad.fallo === 'error'
+                    ? 'No se pudo calcular (el detalle está en los logs, [admin/overview])'
+                    : overview
+                      ? 'Falta correr supabase-metricas-2026-10.sql'
+                      : 'No se pudo cargar el resumen'
                 : overview.activos7d != null
                   ? `${overview.activos7d.toLocaleString('es-AR')} en 7 días · web y app`
                   : 'Web y app'
@@ -383,7 +389,7 @@ export default function ResumenPage() {
               contra={contraAyer}
               sub={
                 act?.duracionSesionTotal != null
-                  ? `${fmtDuracion(act.duracionSesionTotal)} promedio desde el inicio`
+                  ? `${fmtDuracion(act.duracionSesionTotal)} promedio ${act.duracionSesionDesde ? 'de los últimos 30 días' : 'desde el inicio'}`
                   : undefined
               }
               color="purple"

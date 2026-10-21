@@ -81,6 +81,14 @@ export interface Metrica {
 export interface ActividadResumen {
   /** `false` si las vistas no existen o si todavía no entró un evento humano. */
   disponible: boolean
+  /**
+   * Por qué no hay datos, si fue porque la consulta falló: `tiempo` si
+   * Postgres la cortó por el límite de tiempo (pasó con el salto de tráfico
+   * del 20/10), `error` por cualquier otra cosa. `null` si no falló. Sirve
+   * para no decir "falta correr el SQL" cuando el SQL está y lo que pasó es
+   * otra cosa.
+   */
+  fallo: 'tiempo' | 'error' | null
   /** Desde cuándo se mide. Va en el cartel arriba de las tarjetas. */
   medicionDesde: string | null
 
@@ -102,6 +110,12 @@ export interface ActividadResumen {
   duracionSesion:   Metrica
   /** Promedio de toda la medición, para contexto debajo de la tarjeta. */
   duracionSesionTotal: number | null
+  /**
+   * Desde cuándo cuenta `duracionSesionTotal`: con
+   * supabase-resumen-rapido-2026-10.sql son los últimos 30 días. `null` con la
+   * vista anterior, que promediaba toda la historia.
+   */
+  duracionSesionDesde: string | null
 
   /**
    * Usuarios con token de notificaciones (`user_devices`). NO es "tienen la
@@ -260,6 +274,8 @@ interface ResumenRow {
   anonimos_ayer_web?: number
   anonimos_ayer_app?: number
   ayer_hasta?: string
+  /** Con supabase-resumen-rapido-2026-10.sql. */
+  sesiones_desde?: string
   sesiones_hoy: number
   sesiones_ayer: number
   seg_prom_hoy: number | null
@@ -292,6 +308,7 @@ function metrica(actual: number | null, previo: number | null): Metrica {
 
 const ACTIVIDAD_VACIA: ActividadResumen = {
   disponible: false,
+  fallo: null,
   medicionDesde: null,
   ayerMismaHora: false,
   conectadosHoy:    { valor: null, previo: null, deltaPct: null },
@@ -303,6 +320,7 @@ const ACTIVIDAD_VACIA: ActividadResumen = {
   sesionesHoy:      { valor: null, previo: null, deltaPct: null },
   duracionSesion:   { valor: null, previo: null, deltaPct: null },
   duracionSesionTotal: null,
+  duracionSesionDesde: null,
   app: { usuarios: 0, android: 0, ios: 0, otras: 0, previo: 0, deltaPct: null },
   appUso: {
     disponible: false,
@@ -385,15 +403,27 @@ async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
  * después de un login, y un crawler no llega nunca.
  */
 async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> {
-  const [resumenRes, medicionRes, appUso] = await Promise.all([
-    admin.from('admin_resumen_actividad').select('*').maybeSingle(),
+  const leerResumen = () => admin.from('admin_resumen_actividad').select('*').maybeSingle()
+  const [primerResumen, medicionRes, appUso] = await Promise.all([
+    leerResumen(),
     admin.from('analytics_medicion').select('desde, eventos_humanos').maybeSingle(),
     buildAppUso(admin),
   ])
 
+  // Un corte por tiempo suele ser de un momento con la base cargada (esta
+  // vista corre al lado de las de /api/admin/contenido): se reintenta una vez,
+  // ya sin las otras consultas de este pedido en paralelo.
+  const esCortePorTiempo = (m: string | undefined) => (m ?? '').includes('statement timeout')
+  let resumenRes = primerResumen
+  if (resumenRes.error && esCortePorTiempo(resumenRes.error.message)) {
+    console.warn('[admin/overview] admin_resumen_actividad se cortó por tiempo; reintento')
+    resumenRes = await leerResumen()
+  }
+
   if (resumenRes.error || !resumenRes.data) {
     if (resumenRes.error) console.error('[admin/overview] admin_resumen_actividad:', resumenRes.error.message)
-    return { ...ACTIVIDAD_VACIA, appUso }
+    const fallo = !resumenRes.error ? null : esCortePorTiempo(resumenRes.error.message) ? 'tiempo' : 'error'
+    return { ...ACTIVIDAD_VACIA, fallo, appUso }
   }
 
   const r = resumenRes.data as unknown as ResumenRow
@@ -428,6 +458,7 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
 
   return {
     disponible: true,
+    fallo: null,
     medicionDesde: desde,
     ayerMismaHora: nueva,
     conectadosHoy:    metrica(Number(r.usuarios_hoy ?? 0),    Number(r.usuarios_ayer ?? 0)),
@@ -443,6 +474,7 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
       ? { valor: null, previo: null, deltaPct: null }
       : metrica(Number(r.seg_prom_hoy), r.seg_prom_ayer === null ? 0 : Number(r.seg_prom_ayer)),
     duracionSesionTotal: r.seg_prom_total === null ? null : Number(r.seg_prom_total),
+    duracionSesionDesde: r.sesiones_desde ?? null,
     app,
     appUso,
   }
@@ -589,7 +621,9 @@ export async function GET() {
     return NextResponse.json({ error: 'overview_failed', message }, { status: 500 })
   }
 
-  overviewCache = { data, ts: Date.now() }
+  // Una respuesta con la actividad caída no se guarda: el próximo
+  // "Actualizar" tiene que volver a intentar, no servir el error un minuto.
+  if (!data.actividad.fallo) overviewCache = { data, ts: Date.now() }
 
   return NextResponse.json(data, {
     headers: { 'Cache-Control': 'private, max-age=60', 'X-Cache': 'MISS' },
