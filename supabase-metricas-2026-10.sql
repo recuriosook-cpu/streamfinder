@@ -1,8 +1,9 @@
 -- ================================================================
 -- GLYNBOX — Métricas del panel de admin (2026-10)
 -- Correr en: Supabase Dashboard (proyecto de GLYNBOX) > SQL Editor > New query
--- Seguro de correr más de una vez. No borra ni cambia datos: sólo vistas y
--- funciones de lectura del panel.
+-- Seguro de correr más de una vez, también después de
+-- supabase-resumen-rapido-2026-10.sql y supabase-embudo-web-2026-10.sql. No
+-- borra ni cambia datos: sólo vistas y funciones de lectura del panel.
 -- ================================================================
 --
 -- El panel funciona antes de correr esto (cae a las vistas y funciones
@@ -230,6 +231,10 @@ AS $$
       FROM public.analytics_events e
      WHERE e.is_bot = false
        AND e.created_at >= now() - make_interval(days => GREATEST(p_dias, 1))
+       -- La web, desde que manda `signup_completed` (17/10). Es el arreglo de
+       -- supabase-embudo-web-2026-10.sql: está acá también para que volver a
+       -- correr este archivo no lo deshaga.
+       AND (e.platform = 'mobile' OR e.created_at >= timestamptz '2026-10-17 00:00-03')
   ),
   -- Un alta real: el evento llega dentro de las 48 h de creada la cuenta. El
   -- margen de 10 minutos hacia atrás cubre la diferencia entre el reloj de
@@ -352,10 +357,24 @@ GRANT  EXECUTE ON FUNCTION public.retencion_embudo_registro_v2(int)   TO service
 --   3. Los anónimos, también separados por plataforma: el total mezclaba
 --      navegadores con instalaciones de la app sin sesión.
 --
--- Las columnas viejas siguen en el mismo orden y con el mismo tipo (lo exige
--- CREATE OR REPLACE VIEW); las nuevas van al final.
+-- La definición es la de `supabase-resumen-rapido-2026-10.sql`, que vino
+-- después: la misma vista recorriendo los eventos una sola vez (la anterior
+-- daba "statement timeout" en el panel) y con la columna `sesiones_desde` al
+-- final. Las dos tienen que quedar iguales.
+--
+-- DROP y CREATE, no CREATE OR REPLACE: este último no deja sacar ni reordenar
+-- columnas, y la vista que haya en la base puede venir de cualquiera de los
+-- archivos que la definieron. Fallaba con "42P16: cannot drop columns from
+-- view" cuando ya se había corrido resumen-rapido. Va en una transacción, así
+-- la vista no falta ni un momento. Sin CASCADE a propósito: ninguna vista ni
+-- función depende de ésta (el panel la lee por la API); si algún día una
+-- dependiera, el DROP frena con un error en vez de borrarla.
 
-CREATE OR REPLACE VIEW public.admin_resumen_actividad
+BEGIN;
+
+DROP VIEW IF EXISTS public.admin_resumen_actividad;
+
+CREATE VIEW public.admin_resumen_actividad
 WITH (security_invoker = true) AS
 WITH v AS (
   SELECT
@@ -372,81 +391,85 @@ WITH v AS (
   ) d
 ),
 
+-- Una sola lectura de la tabla para todo lo de abajo.
+ev AS (
+  SELECT e.user_id, e.anon_id, e.platform, e.session_id, e.created_at
+    FROM public.analytics_events e, v
+   WHERE e.is_bot = false
+     AND e.created_at >= v.mes_desde
+),
+
+-- Un renglón por (anon_id, user_id, plataforma) y en qué ventanas apareció.
+marcas AS (
+  SELECT
+    ev.anon_id, ev.user_id, ev.platform,
+    bool_or(ev.created_at >= v.hoy_desde)                                         AS hoy,
+    bool_or(ev.created_at >= v.ayer_desde AND ev.created_at < v.ayer_hasta)       AS ayer,
+    bool_or(ev.created_at >= v.semana_desde)                                      AS semana,
+    bool_or(ev.created_at >= v.semana_prev_desde AND ev.created_at < v.semana_desde) AS semana_prev
+  FROM ev, v
+  GROUP BY ev.anon_id, ev.user_id, ev.platform
+),
+
 eventos AS (
   SELECT
-    count(DISTINCT e.user_id) FILTER (
-      WHERE e.user_id IS NOT NULL AND e.created_at >= v.hoy_desde
-    ) AS usuarios_hoy,
-    count(DISTINCT e.user_id) FILTER (
-      WHERE e.user_id IS NOT NULL
-        AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) AS usuarios_ayer,
-
-    count(DISTINCT e.user_id) FILTER (
-      WHERE e.user_id IS NOT NULL AND e.created_at >= v.semana_desde
-    ) AS usuarios_semana,
-    count(DISTINCT e.user_id) FILTER (
-      WHERE e.user_id IS NOT NULL
-        AND e.created_at >= v.semana_prev_desde AND e.created_at < v.semana_desde
-    ) AS usuarios_semana_prev,
-
-    count(DISTINCT e.user_id) FILTER (
-      WHERE e.user_id IS NOT NULL AND e.created_at >= v.mes_desde
-    ) AS usuarios_30d,
+    count(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL AND hoy)         AS usuarios_hoy,
+    count(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL AND ayer)        AS usuarios_ayer,
+    count(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL AND semana)      AS usuarios_semana,
+    count(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL AND semana_prev) AS usuarios_semana_prev,
+    count(DISTINCT user_id) FILTER (WHERE user_id IS NOT NULL)                 AS usuarios_30d,
 
     -- Anónimos: los `anon_id` de la ventana menos los que estuvieron logueados
     -- en algún momento de esa misma ventana. Total y por plataforma.
-    count(DISTINCT e.anon_id) FILTER (WHERE e.created_at >= v.hoy_desde)
-      - count(DISTINCT e.anon_id) FILTER (
-          WHERE e.user_id IS NOT NULL AND e.created_at >= v.hoy_desde
-        ) AS anonimos_hoy,
-    count(DISTINCT e.anon_id) FILTER (
-      WHERE e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) - count(DISTINCT e.anon_id) FILTER (
-      WHERE e.user_id IS NOT NULL
-        AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) AS anonimos_ayer,
+    count(DISTINCT anon_id) FILTER (WHERE hoy)
+      - count(DISTINCT anon_id) FILTER (WHERE hoy AND user_id IS NOT NULL)     AS anonimos_hoy,
+    count(DISTINCT anon_id) FILTER (WHERE ayer)
+      - count(DISTINCT anon_id) FILTER (WHERE ayer AND user_id IS NOT NULL)    AS anonimos_ayer,
+    count(DISTINCT anon_id) FILTER (WHERE platform = 'web' AND hoy)
+      - count(DISTINCT anon_id) FILTER (WHERE platform = 'web' AND hoy AND user_id IS NOT NULL)
+      AS anonimos_hoy_web,
+    count(DISTINCT anon_id) FILTER (WHERE platform = 'mobile' AND hoy)
+      - count(DISTINCT anon_id) FILTER (WHERE platform = 'mobile' AND hoy AND user_id IS NOT NULL)
+      AS anonimos_hoy_app,
+    count(DISTINCT anon_id) FILTER (WHERE platform = 'web' AND ayer)
+      - count(DISTINCT anon_id) FILTER (WHERE platform = 'web' AND ayer AND user_id IS NOT NULL)
+      AS anonimos_ayer_web,
+    count(DISTINCT anon_id) FILTER (WHERE platform = 'mobile' AND ayer)
+      - count(DISTINCT anon_id) FILTER (WHERE platform = 'mobile' AND ayer AND user_id IS NOT NULL)
+      AS anonimos_ayer_app
+  FROM marcas
+),
 
-    count(DISTINCT e.anon_id) FILTER (WHERE e.platform = 'web' AND e.created_at >= v.hoy_desde)
-      - count(DISTINCT e.anon_id) FILTER (
-          WHERE e.platform = 'web' AND e.user_id IS NOT NULL AND e.created_at >= v.hoy_desde
-        ) AS anonimos_hoy_web,
-    count(DISTINCT e.anon_id) FILTER (WHERE e.platform = 'mobile' AND e.created_at >= v.hoy_desde)
-      - count(DISTINCT e.anon_id) FILTER (
-          WHERE e.platform = 'mobile' AND e.user_id IS NOT NULL AND e.created_at >= v.hoy_desde
-        ) AS anonimos_hoy_app,
-    count(DISTINCT e.anon_id) FILTER (
-      WHERE e.platform = 'web' AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) - count(DISTINCT e.anon_id) FILTER (
-      WHERE e.platform = 'web' AND e.user_id IS NOT NULL
-        AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) AS anonimos_ayer_web,
-    count(DISTINCT e.anon_id) FILTER (
-      WHERE e.platform = 'mobile' AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) - count(DISTINCT e.anon_id) FILTER (
-      WHERE e.platform = 'mobile' AND e.user_id IS NOT NULL
-        AND e.created_at >= v.ayer_desde AND e.created_at < v.ayer_hasta
-    ) AS anonimos_ayer_app
-
-  FROM v LEFT JOIN public.analytics_events e
-    ON e.is_bot = false
-   AND e.created_at >= v.mes_desde
-  GROUP BY v.hoy_desde, v.ayer_desde, v.ayer_hasta, v.semana_desde, v.semana_prev_desde, v.mes_desde
+-- Las mismas reglas de duración que `analytics_sessions`: una sesión de un
+-- solo evento vale 30 s, el resto lo que va del primero al último, con tope de
+-- 30 minutos.
+ses AS (
+  SELECT
+    min(ev.created_at) AS inicio,
+    LEAST(
+      CASE
+        WHEN count(*) = 1 THEN 30
+        ELSE EXTRACT(EPOCH FROM (max(ev.created_at) - min(ev.created_at)))
+      END,
+      1800
+    ) AS segundos
+  FROM ev
+  GROUP BY ev.session_id
 ),
 
 sesiones AS (
   SELECT
-    count(*) FILTER (WHERE s.inicio >= v.hoy_desde)::bigint  AS sesiones_hoy,
-    count(*) FILTER (
+    count(s.inicio) FILTER (WHERE s.inicio >= v.hoy_desde)::bigint AS sesiones_hoy,
+    count(s.inicio) FILTER (
       WHERE s.inicio >= v.ayer_desde AND s.inicio < v.ayer_hasta
     )::bigint AS sesiones_ayer,
-    round(avg(s.segundos) FILTER (WHERE s.inicio >= v.hoy_desde))::int
-      AS seg_prom_hoy,
+    round(avg(s.segundos) FILTER (WHERE s.inicio >= v.hoy_desde))::int AS seg_prom_hoy,
     round(avg(s.segundos) FILTER (
       WHERE s.inicio >= v.ayer_desde AND s.inicio < v.ayer_hasta
     ))::int AS seg_prom_ayer,
+    -- Desde este SQL, el promedio de los últimos 30 días (ver `sesiones_desde`).
     round(avg(s.segundos))::int AS seg_prom_total
-  FROM v LEFT JOIN public.analytics_sessions s ON true
+  FROM v LEFT JOIN ses s ON true
   GROUP BY v.hoy_desde, v.ayer_desde, v.ayer_hasta
 ),
 
@@ -475,16 +498,21 @@ SELECT
   eventos.anonimos_ayer,
   sesiones.*,
   app.*,
-  -- Nuevas, al final.
   eventos.usuarios_30d,
   eventos.anonimos_hoy_web,
   eventos.anonimos_hoy_app,
   eventos.anonimos_ayer_web,
   eventos.anonimos_ayer_app,
-  (SELECT ayer_hasta FROM v) AS ayer_hasta
+  (SELECT ayer_hasta FROM v) AS ayer_hasta,
+  -- Nueva: desde cuándo cuenta `seg_prom_total`.
+  (SELECT mes_desde FROM v) AS sesiones_desde
 FROM eventos, sesiones, app;
 
 REVOKE ALL ON public.admin_resumen_actividad FROM anon, authenticated;
+
+COMMIT;
+
+NOTIFY pgrst, 'reload schema';
 
 -- ----------------------------------------------------------------
 -- USO DE LA APP: el sistema de las instalaciones "sin dato"
