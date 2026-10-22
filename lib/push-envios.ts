@@ -5,12 +5,13 @@ import { deleteDeadTokens, getExpoReceipts, type ExpoTicketRef } from './expo-pu
 
 /**
  * Lo que comparten los envíos masivos de push: "Ferlage te recomienda ver"
- * (`/api/admin/recomendaciones/notificar`) y "Tu resumen semanal"
- * (`lib/resumen-semanal.ts`). Los dos dejan una fila en `push_envios`, y el
- * panel revisa los recibos y cuenta las aperturas igual para los dos.
+ * (`/api/admin/recomendaciones/notificar`), "Tu resumen semanal"
+ * (`lib/resumen-semanal.ts`) y "Para esta noche", la del día 1
+ * (`lib/push-dia1.ts`). Todos dejan una fila en `push_envios`, y el panel
+ * revisa los recibos y cuenta las aperturas igual para todos.
  */
 
-export type TipoEnvio = 'recomendacion' | 'semanal'
+export type TipoEnvio = 'recomendacion' | 'semanal' | 'dia1'
 
 /**
  * Las claves de `profiles.notification_preferences` que apagan cada envío.
@@ -19,6 +20,9 @@ export type TipoEnvio = 'recomendacion' | 'semanal'
 export const PREFERENCIA_DE: Record<TipoEnvio, string> = {
   recomendacion: 'recomendaciones_ferlage',
   semanal: 'resumen_semanal',
+  // Es una recomendación armada para la persona, como la semanal: la apaga el
+  // mismo interruptor, que ya está en las versiones de la app que hay en la calle.
+  dia1: 'resumen_semanal',
 }
 
 /** Antes de esto Expo puede no tener los recibos. Después de 24 h los borra. */

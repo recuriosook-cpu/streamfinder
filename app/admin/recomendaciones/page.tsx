@@ -11,6 +11,7 @@ import type { RecomendacionAdmin } from '@/app/api/admin/recomendaciones/route'
 import type { NotificarEstado } from '@/app/api/admin/recomendaciones/notificar/route'
 import { EnviarNotificacion, HistorialEnvios } from './Notificaciones'
 import { ResumenSemanal } from './ResumenSemanal'
+import { Dia1 } from './Dia1'
 
 /**
  * Carga de recomendaciones de creadores, de a una: el link del post de
@@ -244,6 +245,7 @@ export default function AdminRecomendacionesPage() {
         <HistorialEnvios estado={notificar} />
 
         <ResumenSemanal recargar={actualizadoEn?.getTime() ?? 0} />
+        <Dia1 recargar={actualizadoEn?.getTime() ?? 0} />
 
         {/* Lista */}
         <div className="space-y-3">

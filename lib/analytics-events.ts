@@ -263,7 +263,7 @@ export const EVENT_NAMES = [
    * Abrió la app tocando una notificación push. Sólo de la app.
    * props: { tipo, envio, arranque: 'frio' | 'abierta' }. `tipo` es el `data.type`
    * de la push ('recomendacion' para "Ferlage te recomienda ver", 'semanal'
-   * para "Tu resumen semanal") y `envio` el
+   * para "Tu resumen semanal", 'dia1' para "Para esta noche") y `envio` el
    * id de `push_envios`, que el historial de `/admin/recomendaciones` cuenta.
    */
   'push_abierta',

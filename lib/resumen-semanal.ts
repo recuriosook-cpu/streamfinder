@@ -53,7 +53,7 @@ const TITULO_POR_IDIOMA: Record<Idioma, string> = {
   en: 'Your weekly recap',
 }
 
-const LIMITE_NOTIFICACIONES = 3
+export const LIMITE_NOTIFICACIONES = 3
 const DIA_MS = 24 * 60 * 60 * 1000
 const SEMANA_MS = 7 * DIA_MS
 /** Una corrida real por semana: si Vercel dispara el cron dos veces, la segunda no hace nada. */
@@ -253,7 +253,7 @@ export function proximaCorrida(ahora = Date.now()): string {
   return d.toISOString()
 }
 
-async function enParalelo<T, R>(items: T[], cuantos: number, fn: (item: T) => Promise<R>): Promise<R[]> {
+export async function enParalelo<T, R>(items: T[], cuantos: number, fn: (item: T) => Promise<R>): Promise<R[]> {
   const salida: R[] = new Array(items.length)
   let siguiente = 0
   await Promise.all(
@@ -486,12 +486,15 @@ async function titulosRecomendados(admin: SupabaseClient): Promise<Set<string>> 
 
 /**
  * Cuántas notificaciones recibió cada uno en los últimos 7 días: sus filas de
- * `notifications` más los envíos reales de "Ferlage te recomienda ver", que no
- * dejan fila, si no los tiene apagados.
+ * `notifications`, los envíos reales de "Ferlage te recomienda ver", que no
+ * dejan fila, si no los tiene apagados, y las semanales y del día 1 que le
+ * llegaron (`push_semanal_enviados`, `push_dia1_enviados`).
+ *
+ * La usan la semanal y la del día 1 (`lib/push-dia1.ts`) para el límite de 3.
  */
-async function notificacionesDeLaSemana(
+export async function notificacionesDeLaSemana(
   admin: SupabaseClient,
-  perfiles: Perfil[]
+  perfiles: { id: string; notification_preferences: unknown }[]
 ): Promise<Map<string, number>> {
   const desde = new Date(Date.now() - SEMANA_MS).toISOString()
   const cuenta = new Map<string, number>()
@@ -525,6 +528,21 @@ async function notificacionesDeLaSemana(
         cuenta.set(row.user_id, (cuenta.get(row.user_id) ?? 0) + 1)
       }
       if (!data || data.length < 1000) break
+    }
+
+    // Las armadas para cada persona. Sin la tabla (falta el SQL), no suman.
+    for (const tabla of ['push_semanal_enviados', 'push_dia1_enviados']) {
+      const { data, error: e } = await admin
+        .from(tabla)
+        .select('user_id')
+        .in('user_id', tanda)
+        .gte('creado_en', desde)
+        .limit(5000)
+      if (faltaLaTabla(e)) continue
+      if (e) throw new Error(`${tabla}: ${e.message}`)
+      for (const row of (data ?? []) as { user_id: string }[]) {
+        cuenta.set(row.user_id, (cuenta.get(row.user_id) ?? 0) + 1)
+      }
     }
   }
   return cuenta
