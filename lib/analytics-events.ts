@@ -29,10 +29,23 @@ export const EVENT_NAMES = [
    * Arranca un registro. props: { metodo: 'email' | 'google' | 'apple' | 'facebook',
    * pantalla? }. La app 1.0.17 también lo manda desde el ingreso con Google, Apple
    * o Facebook (`pantalla: 'login'`), que crean la cuenta si no existe.
+   *
+   * En la web, desde el 22/10, sale al tocar "Crear cuenta" o el botón de
+   * Google, Apple o Facebook, como en la app. Antes el de email salía con sólo
+   * abrir la pestaña "Crear cuenta". Lleva `navegador` ('tiktok' | 'instagram'
+   * | 'facebook' | 'otro') si se toca desde el navegador de adentro de una app.
    */
   'signup_started',
   /** El registro se concretó. props: { metodo } */
   'signup_completed',
+  /**
+   * El registro de la web no pudo seguir. props: { metodo, motivo, navegador? }
+   *
+   * `motivo` es una etiqueta fija ('ya_existe', 'clave_debil',
+   * 'email_invalido', 'demasiados_intentos', 'oauth', 'otro'), nunca el texto
+   * del error, que puede traer el email.
+   */
+  'signup_fallido',
   /**
    * Se mostró un paso del onboarding. props: { paso, flujo }
    *

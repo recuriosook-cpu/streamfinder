@@ -338,6 +338,14 @@ export function registrarAlta(
     if (enviadas.includes(user.id)) return
     writeStore('local', ALTA_KEY, [...enviadas.slice(-9), user.id].join(','))
 
+    // El usuario se fija acá y no se deja a `resolveUserId`: si en esta carga
+    // de la página ya salió algún evento sin sesión (el `page_view` de /auth
+    // antes de crear la cuenta con email), el "sin usuario" quedó cacheado y
+    // el alta salía sin `user_id`. El panel no la podía cruzar con la cuenta y
+    // no la contaba (4 de 9 altas con email, 20 al 22/10).
+    cachedUserId = user.id
+    userIdResolved = true
+
     const p = user.app_metadata?.provider
     const metodo = p === 'email' || p === 'google' || p === 'facebook' || p === 'apple' ? p : 'desconocido'
     track('signup_completed', { metodo, ...origenDelRegistro() })

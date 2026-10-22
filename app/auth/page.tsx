@@ -1,11 +1,86 @@
 'use client'
 
-import { useState, useRef, useEffect } from 'react'
+import { useState, useRef, useSyncExternalStore } from 'react'
 import { useRouter, useSearchParams } from 'next/navigation'
 import Link from 'next/link'
 import { Eye, EyeOff } from 'lucide-react'
+import type { AuthError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
-import { track } from '@/lib/analytics'
+import { track, resetAnalyticsUser } from '@/lib/analytics'
+import type { EventProps } from '@/lib/analytics-events'
+import { navegadorEmbebido, nombreDeApp, abrirEnChromeUrl, type NavegadorEmbebido } from '@/lib/navegador-embebido'
+
+type MotivoFalla = 'ya_existe' | 'clave_debil' | 'email_invalido' | 'demasiados_intentos' | 'otro'
+
+/**
+ * Por qué falló el alta con email, en una etiqueta fija.
+ *
+ * Antes la pantalla mostraba `error.message` tal cual: en inglés ("User
+ * already registered") y sin decir qué hacer.
+ */
+function motivoDe(error: AuthError): MotivoFalla {
+  const code = error.code ?? ''
+  const msg = error.message.toLowerCase()
+  if (code === 'user_already_exists' || code === 'email_exists' || msg.includes('already registered')) return 'ya_existe'
+  if (code === 'weak_password' || msg.includes('password')) return 'clave_debil'
+  if (code === 'email_address_invalid' || code === 'validation_failed' || msg.includes('invalid')) return 'email_invalido'
+  if (error.status === 429 || code.startsWith('over_')) return 'demasiados_intentos'
+  return 'otro'
+}
+
+const MENSAJE_FALLA: Record<MotivoFalla, string> = {
+  ya_existe: 'Ya hay una cuenta con ese email. Iniciá sesión con tu contraseña o con Google.',
+  clave_debil: 'La contraseña tiene que tener al menos 6 caracteres.',
+  email_invalido: 'Revisá el email: parece que tiene un error.',
+  demasiados_intentos: 'Hubo demasiados intentos seguidos. Esperá un minuto y probá de nuevo.',
+  otro: 'No pudimos crear la cuenta. Probá de nuevo en un rato.',
+}
+
+/**
+ * Aviso para quien llega desde TikTok, Instagram o Facebook: Google no deja
+ * entrar desde esos navegadores (ver `lib/navegador-embebido.ts`). En Android
+ * ofrece abrir la página en Chrome; en iPhone explica el menú, que es la única
+ * salida. El email funciona igual en cualquier navegador.
+ */
+function AvisoNavegadorEmbebido({ navegador }: { navegador: NavegadorEmbebido }) {
+  const app = nombreDeApp(navegador)
+  const chrome = useSyncExternalStore(
+    sinSuscripcion,
+    () => (/android/i.test(navigator.userAgent) ? abrirEnChromeUrl(window.location.href) : null),
+    () => null,
+  )
+  return (
+    <div className="bg-[#FFFD02]/10 border border-[#F5A623] text-[#FFF84D] text-sm px-4 py-3 rounded-xl mb-6 leading-relaxed">
+      <p>
+        {app ? `Estás en el navegador de ${app}. ` : 'Estás en el navegador de una app. '}
+        Google no deja entrar desde acá: creá la cuenta con email, o abrí Glynbox en tu navegador.
+      </p>
+      {chrome ? (
+        <a
+          href={chrome}
+          className="inline-block mt-2 font-bold underline"
+        >
+          Abrir en Chrome
+        </a>
+      ) : (
+        <p className="mt-1 text-[#A0A0B0]">
+          Tocá ··· (arriba a la derecha) y elegí &quot;Abrir en el navegador&quot;.
+        </p>
+      )}
+    </div>
+  )
+}
+
+const sinSuscripcion = () => () => {}
+
+/** El navegador embebido, leído sólo en el cliente (en el servidor no hay user-agent). */
+function useNavegadorEmbebido(): NavegadorEmbebido | null {
+  return useSyncExternalStore(
+    sinSuscripcion,
+    () => navegadorEmbebido(navigator.userAgent),
+    () => null,
+  )
+}
 
 function GoogleIcon() {
   return (
@@ -54,46 +129,28 @@ export default function AuthPage() {
   const [message, setMessage] = useState('')
   const router = useRouter()
   const supabase = useRef(createClient()).current
+  const embebido = useNavegadorEmbebido()
+  /** Va en los eventos del registro, para separar TikTok e Instagram en el panel. */
+  const deNavegador: EventProps = embebido ? { navegador: embebido } : {}
 
-  // signup_started: se dispara cuando queda visible el formulario de registro,
-  // sea porque se llegó con ?mode=register o porque se tocó el tab. El `metodo`
-  // es 'email' porque eso es lo que muestra el formulario; si después elige
-  // Google o Facebook, esos botones mandan su propio signup_started.
-  useEffect(() => {
-    if (mode === 'register') track('signup_started', { metodo: 'email' })
-  }, [mode])
+  // signup_started sale al tocar "Crear cuenta" o un botón de Google, Apple o
+  // Facebook, como en la app. Antes el de email salía con sólo abrir la
+  // pestaña "Crear cuenta", y el panel contaba como "empezó" a cualquiera que
+  // la miró.
 
-  const handleGoogle = async () => {
-    setSocialLoading('google')
+  const handleOAuth = async (provider: 'google' | 'apple' | 'facebook') => {
+    setSocialLoading(provider)
     setError('')
-    track('signup_started', { metodo: 'google' })
+    track('signup_started', { metodo: provider, ...deNavegador })
     const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'google',
+      provider,
       options: { redirectTo: `${window.location.origin}/auth/callback` },
     })
-    if (error) { setError(error.message); setSocialLoading(null) }
-  }
-
-  const handleApple = async () => {
-    setSocialLoading('apple')
-    setError('')
-    track('signup_started', { metodo: 'apple' })
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'apple',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) { setError(error.message); setSocialLoading(null) }
-  }
-
-  const handleFacebook = async () => {
-    setSocialLoading('facebook')
-    setError('')
-    track('signup_started', { metodo: 'facebook' })
-    const { error } = await supabase.auth.signInWithOAuth({
-      provider: 'facebook',
-      options: { redirectTo: `${window.location.origin}/auth/callback` },
-    })
-    if (error) { setError(error.message); setSocialLoading(null) }
+    if (error) {
+      track('signup_fallido', { metodo: provider, motivo: 'oauth', ...deNavegador })
+      setError('No pudimos conectar. Probá de nuevo o creá la cuenta con email.')
+      setSocialLoading(null)
+    }
   }
 
   const handleSubmit = async (e: React.FormEvent) => {
@@ -107,6 +164,8 @@ export default function AuthPage() {
       if (error) {
         setError('Email o contraseña incorrectos')
       } else {
+        // Los eventos de esta carga quedaron cacheados sin usuario.
+        resetAnalyticsUser()
         const { data: profile } = await supabase
           .from('profiles')
           .select('username, onboarding_completed, onboarding_skipped')
@@ -119,11 +178,23 @@ export default function AuthPage() {
         }
       }
     } else {
-      const { error } = await supabase.auth.signUp({ email, password })
+      track('signup_started', { metodo: 'email', ...deNavegador })
+      const { data, error } = await supabase.auth.signUp({ email, password })
       if (error) {
-        setError(error.message)
+        const motivo = motivoDe(error)
+        track('signup_fallido', { metodo: 'email', motivo, ...deNavegador })
+        setError(MENSAJE_FALLA[motivo])
+      } else if (data.session) {
+        // La confirmación por email está apagada en Supabase: la cuenta queda
+        // activa y con sesión en el acto. Antes la pantalla decía "Revisá tu
+        // email para confirmar tu cuenta" y se quedaba ahí; el email no
+        // llegaba nunca, y sólo seguía quien se iba solo a otra página.
+        resetAnalyticsUser()
+        router.replace('/onboarding')
+        return
       } else {
-        setMessage('¡Registro exitoso! Revisá tu email para confirmar tu cuenta.')
+        // Por si algún día se prende la confirmación.
+        setMessage('¡Listo! Revisá tu email para confirmar tu cuenta.')
       }
     }
     setLoading(false)
@@ -161,6 +232,8 @@ export default function AuthPage() {
             {mode === 'login' ? 'Ingresá tus datos para continuar' : 'Empezá a descubrir y compartir'}
           </p>
         </div>
+
+        {embebido && <AvisoNavegadorEmbebido navegador={embebido} />}
 
         {/* Tabs */}
         <div className="flex bg-[#0A0A0F] rounded-xl p-1 mb-7 border border-[#2A2A3A]">
@@ -249,7 +322,7 @@ export default function AuthPage() {
           {APPLE_LOGIN_ENABLED && (
             <button
               type="button"
-              onClick={handleApple}
+              onClick={() => void handleOAuth('apple')}
               disabled={!!socialLoading}
               className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-black font-semibold py-3 rounded-xl transition-colors text-sm"
             >
@@ -262,7 +335,7 @@ export default function AuthPage() {
           )}
           <button
             type="button"
-            onClick={handleGoogle}
+            onClick={() => void handleOAuth('google')}
             disabled={!!socialLoading}
             className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
           >
@@ -274,7 +347,7 @@ export default function AuthPage() {
           </button>
           <button
             type="button"
-            onClick={handleFacebook}
+            onClick={() => void handleOAuth('facebook')}
             disabled={!!socialLoading}
             className="w-full flex items-center justify-center gap-3 bg-[#1877F2] hover:bg-[#166fe5] disabled:opacity-40 disabled:cursor-not-allowed text-white font-semibold py-3 rounded-xl transition-colors text-sm"
           >
