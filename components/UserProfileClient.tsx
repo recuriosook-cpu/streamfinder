@@ -20,6 +20,7 @@ import VerifiedBadge from '@/components/VerifiedBadge'
 import { toast } from 'sonner'
 import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 import CompartirHistoria from '@/components/CompartirHistoria'
+import CompletarPerfil, { perfilCompleto } from '@/components/CompletarPerfil'
 
 // ── Social icons ───────────────────────────────────────────────────────────
 
@@ -513,6 +514,21 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       .maybeSingle()
     setUsernameChecking(false)
     return fail(data ? 'Este nombre de usuario ya está en uso' : null)
+  }
+
+  /** Abre la edición del perfil con lo que tiene hoy. */
+  function abrirEdicion() {
+    setEditName(localProfile.display_name ?? '')
+    setEditBio(localProfile.bio ?? '')
+    setEditUsername(localProfile.username ?? '')
+    setEditInstagram(localProfile.instagram_username ?? '')
+    setEditTiktok(localProfile.tiktok_username ?? '')
+    setEditX(localProfile.x_username ?? '')
+    setUsernameError(null)
+    setAvatarFile(null)
+    setAvatarPreview(null)
+    setIsEditing(true)
+    window.scrollTo({ top: 0, behavior: 'smooth' })
   }
 
   async function saveProfile() {
@@ -1040,18 +1056,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {currentUserId === undefined ? null : isOwner ? (
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => {
-                      setEditName(localProfile.display_name ?? '')
-                      setEditBio(localProfile.bio ?? '')
-                      setEditUsername(localProfile.username ?? '')
-                      setEditInstagram(localProfile.instagram_username ?? '')
-                      setEditTiktok(localProfile.tiktok_username ?? '')
-                      setEditX(localProfile.x_username ?? '')
-                      setUsernameError(null)
-                      setAvatarFile(null)
-                      setAvatarPreview(null)
-                      setIsEditing(true)
-                    }}
+                    onClick={abrirEdicion}
                     className="inline-flex items-center gap-2 text-sm font-medium bg-[#1C1C27] hover:bg-zinc-700 border border-[#2A2A3A] text-zinc-300 hover:text-white px-4 py-2 rounded-lg transition-colors"
                   >
                     <Pencil size={13} /> Editar perfil
@@ -1149,6 +1154,16 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
             {/* Main column */}
             <div className="space-y-10">
+
+              {/* Completá tu perfil: en el propio, mientras falte foto, nombre o bio. */}
+              {isOwner && !perfilCompleto(localProfile) && (
+                <CompletarPerfil
+                  avatarUrl={localProfile.avatar_url}
+                  displayName={localProfile.display_name}
+                  bio={localProfile.bio}
+                  onCompletar={abrirEdicion}
+                />
+              )}
 
               {/* Películas favoritas */}
               {(hasPinned || isOwner) && (
