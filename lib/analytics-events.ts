@@ -278,6 +278,16 @@ export const EVENT_NAMES = [
    * tanda nueva. props: { lugar: 'que_ver' | 'inicio' }
    */
   'recomendaciones_regeneradas',
+
+  // ── Calificación en la tienda (sólo la app) ─────────────────────────────
+
+  /**
+   * Se pidió calificación con la API de Play / App Store. props: { momento:
+   * 'resena' | 'logro' | 'deslizar' | 'tercera_visita', plataforma }. Cuenta
+   * pedidos, no diálogos vistos: ninguna de las dos tiendas avisa si salió.
+   * Ver `lib/storeReview.ts` de glynbox-mobile.
+   */
+  'review_pedido',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
