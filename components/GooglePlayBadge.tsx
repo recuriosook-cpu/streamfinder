@@ -2,7 +2,7 @@
 
 import { usePathname } from 'next/navigation'
 import { track, flushAnalytics } from '@/lib/analytics'
-import { PLAY_URL } from '@/lib/tiendas'
+import { playUrl, type MarcaTienda } from '@/lib/tiendas'
 
 /**
  * El badge oficial de Google Play.
@@ -84,14 +84,17 @@ export interface GooglePlayBadgeProps {
    * que pase y la cola manda de a lotes cada 5 segundos.
    */
   onClick?: () => void
+
+  /** La marca de campaña del link. Por defecto, la del sitio (`web`). */
+  marca?: MarcaTienda
 }
 
-export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick }: GooglePlayBadgeProps = {}) {
+export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick, marca }: GooglePlayBadgeProps = {}) {
   const pathname = usePathname()
 
   return (
     <a
-      href={PLAY_URL}
+      href={playUrl(marca)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Conseguilo en Google Play"

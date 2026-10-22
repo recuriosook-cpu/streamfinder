@@ -1,6 +1,6 @@
 'use client'
 
-import { APP_STORE_URL } from '@/lib/tiendas'
+import { appStoreUrl, type MarcaTienda } from '@/lib/tiendas'
 
 /**
  * El badge oficial de Apple, "Descárgalo en el App Store".
@@ -32,12 +32,14 @@ export interface AppStoreBadgeProps {
   /** Alto CSS del dibujo, sin el espacio libre. No bajar de 40px. */
   alto: number
   onClick: () => void
+  /** La marca de campaña del link. Por defecto, la del sitio (`web`). */
+  marca?: MarcaTienda
 }
 
-export function AppStoreBadge({ alto, onClick }: AppStoreBadgeProps) {
+export function AppStoreBadge({ alto, onClick, marca }: AppStoreBadgeProps) {
   return (
     <a
-      href={APP_STORE_URL}
+      href={appStoreUrl(marca)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Descárgalo en el App Store"

@@ -161,10 +161,16 @@ const noHayASuscribirse = () => () => {}
 export default function DescargarClient({
   dispositivoInicial,
   posters,
+  campana,
 }: {
   dispositivoInicial: Dispositivo
   /** Rutas de poster de TMDB para el mosaico. Vacío = pantalla sin mosaico. */
   posters: string[]
+  /**
+   * La campaña de los links a las tiendas: `landing`, o el `?src=` validado.
+   * Ver `MarcaTienda` en `lib/tiendas.ts`.
+   */
+  campana: string
 }) {
   /**
    * El aparato que se usa para elegir la variante.
@@ -302,6 +308,7 @@ export default function DescargarClient({
           <BadgesTiendas
             dispositivo={dispositivo}
             tamano={accion.tamano}
+            marca={{ medio: 'landing', campana }}
             onClick={(tienda) => registrarClick(tienda, ranura, false)}
           />
         )

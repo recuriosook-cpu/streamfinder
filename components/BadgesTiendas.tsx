@@ -4,7 +4,7 @@ import { useSyncExternalStore } from 'react'
 import { usePathname } from 'next/navigation'
 import { track, flushAnalytics } from '@/lib/analytics'
 import { detectarDispositivo, refinarDispositivo, type Dispositivo } from '@/lib/device'
-import { tiendasPara, type Tienda } from '@/lib/tiendas'
+import { tiendasPara, type MarcaTienda, type Tienda } from '@/lib/tiendas'
 import { GooglePlayBadge } from './GooglePlayBadge'
 import { AppStoreBadge } from './AppStoreBadge'
 
@@ -62,9 +62,11 @@ export interface BadgesTiendasProps {
    * la tienda. El flush lo hace cada badge.
    */
   onClick?: (tienda: Tienda) => void
+  /** La marca de campaña de los links. Por defecto, la del sitio (`web`). */
+  marca?: MarcaTienda
 }
 
-export function BadgesTiendas({ dispositivo, tamano = 'normal', alinear = 'centro', onClick }: BadgesTiendasProps) {
+export function BadgesTiendas({ dispositivo, tamano = 'normal', alinear = 'centro', onClick, marca }: BadgesTiendasProps) {
   const delNavegador = useDispositivo()
   const pathname = usePathname()
   const tiendas = tiendasPara(dispositivo ?? delNavegador)
@@ -83,13 +85,14 @@ export function BadgesTiendas({ dispositivo, tamano = 'normal', alinear = 'centr
           <AppStoreBadge
             key={tienda}
             alto={altoApple}
+            marca={marca}
             onClick={() => {
               registrar(tienda)
               flushAnalytics()
             }}
           />
         ) : (
-          <GooglePlayBadge key={tienda} ancho={`${ancho}px`} onClick={() => registrar(tienda)} />
+          <GooglePlayBadge key={tienda} ancho={`${ancho}px`} marca={marca} onClick={() => registrar(tienda)} />
         ),
       )}
     </div>

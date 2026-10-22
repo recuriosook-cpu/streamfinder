@@ -1,6 +1,7 @@
 import type { Metadata } from 'next'
 import { headers } from 'next/headers'
 import { detectarDispositivo } from '@/lib/device'
+import { campanaDeSrc } from '@/lib/tiendas'
 import { obtenerPostersPopulares } from './posters'
 import DescargarClient from './DescargarClient'
 
@@ -45,6 +46,14 @@ import DescargarClient from './DescargarClient'
  * monta el navbar y el pie. Se agregó `/descargar` a esa lista junto a
  * `/admin`. De yapa, también apaga la barra de descarga flotante, que estaría
  * ofreciendo la app en la página que ya no hace otra cosa que ofrecerla.
+ *
+ * ── `?src=` y la marca de las tiendas ──────────────────────────────────────
+ *
+ * Los links a las tiendas llevan la marca de campaña `landing`, o el valor de
+ * `?src=` si viene uno válido (`/descargar?src=tiktok`): así App Store Connect
+ * y Play Console separan las descargas por fuente. Se lee acá y no en el
+ * cliente por lo mismo que el aparato: el primer HTML ya sale con el link
+ * bueno. La ruta ya era dinámica, así que no cuesta nada.
  */
 
 export const metadata: Metadata = {
@@ -62,12 +71,17 @@ export const metadata: Metadata = {
   },
 }
 
-export default async function DescargarPage() {
+export default async function DescargarPage({
+  searchParams,
+}: {
+  searchParams: Promise<{ src?: string | string[] }>
+}) {
   // En paralelo: el veredicto del user-agent no depende de los posters ni al
   // revés, y encadenarlos sumaría la espera de TMDB a la de los headers.
-  const [cabeceras, posters] = await Promise.all([
+  const [cabeceras, posters, query] = await Promise.all([
     headers(),
     obtenerPostersPopulares(),
+    searchParams,
   ])
 
   const dispositivo = detectarDispositivo(cabeceras.get('user-agent'))
@@ -80,7 +94,11 @@ export default async function DescargarPage() {
         primer `<img>`. React 19 lo sube solo al `<head>`.
       */}
       <link rel="preconnect" href="https://image.tmdb.org" />
-      <DescargarClient dispositivoInicial={dispositivo} posters={posters} />
+      <DescargarClient
+        dispositivoInicial={dispositivo}
+        posters={posters}
+        campana={campanaDeSrc(query.src)}
+      />
     </>
   )
 }
