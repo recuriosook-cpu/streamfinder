@@ -7,6 +7,7 @@ import Papa from 'papaparse'
 import { createClient } from '@/lib/supabase'
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Star, Bookmark, FileText, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
+import { tieneLink } from '@/lib/sin-links'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -197,6 +198,7 @@ export default function ImportarPage() {
     for (const row of parsed.reviews) {
       if (!row.Review?.trim()) continue
       done++; setProgress(done)
+      if (tieneLink(row.Review)) { addLog(`⛔ Reseña con un link, no se importa: ${row.Name}`); continue }
       const movie = await getTmdb(row.Name, row.Year)
       if (!movie) { notFound.push(`${row.Name} (${row.Year})`); continue }
       const rating = row.Rating ? Math.max(0.5, Math.min(5, parseFloat(row.Rating))) : null

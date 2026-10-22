@@ -17,6 +17,8 @@ import { usePushPrompt } from '@/lib/use-push-prompt'
 import ReviewCard from '@/components/ReviewCard'
 import StarDisplay from '@/components/StarDisplay'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 // ── Social icons ───────────────────────────────────────────────────────────
 
@@ -506,6 +508,8 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   async function saveProfile() {
     if (!currentUserId || currentUserId !== profile.id || editSaving) return
     if (usernameError) return
+    const aviso = avisoDeLinks('bio', editBio)
+    if (aviso) { toast.error(aviso); return }
     setEditSaving(true)
 
     const newUsername  = editUsername.trim() || profile.username
@@ -535,7 +539,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     }
 
     // Main profile update
-    await supabase.from('profiles').update({
+    const { error: saveError } = await supabase.from('profiles').update({
       display_name,
       bio,
       username: newUsername,
@@ -544,6 +548,11 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       x_username,
       ...(usernameChanged ? { username_changed_at: new Date().toISOString() } : {}),
     }).eq('id', profile.id)
+    if (esRechazoPorLinks(saveError)) {
+      toast.error(MENSAJE_SIN_LINKS.bio)
+      setEditSaving(false)
+      return
+    }
 
     setLocalProfile(p => ({
       ...p,

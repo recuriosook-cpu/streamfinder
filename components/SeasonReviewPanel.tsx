@@ -8,6 +8,7 @@ import { createClient } from '@/lib/supabase'
 import { StarIcon } from '@/components/StarDisplay'
 import { fechaLarga, nombreTemporada, sinEstrenar, type TmdbSeason } from '@/lib/seasons'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 /**
  * Lo de Glynbox sobre una temporada: el promedio de la comunidad, tu nota y
@@ -121,6 +122,8 @@ export default function SeasonReviewPanel({
 
   async function guardar() {
     if (!userId || nota <= 0 || guardando) return
+    const aviso = avisoDeLinks('resena', texto)
+    if (aviso) { toast.error(aviso); return }
     setGuardando(true)
     const { error } = await supabase.from('season_reviews').upsert(
       {
@@ -139,7 +142,7 @@ export default function SeasonReviewPanel({
     setGuardando(false)
     if (error) {
       console.error('[season_reviews]', error)
-      toast.error('No se pudo guardar. Intentá de nuevo.')
+      toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo guardar. Intentá de nuevo.')
       return
     }
     setTengoGuardada(true)

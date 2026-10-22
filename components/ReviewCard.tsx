@@ -14,6 +14,8 @@ import ReportModal from '@/components/ReportModal'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 // Render text with @mentions as yellow links
 function BodyWithMentions({ text }: { text: string }) {
@@ -163,6 +165,8 @@ function ReviewCard({
 
   async function submitComment() {
     if (!currentUserId || !newComment.trim() || submitting) return
+    const aviso = avisoDeLinks('comentario', newComment)
+    if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
 
     const { data, error } = await supabase
@@ -175,6 +179,7 @@ function ReviewCard({
       })
       .select('id, user_id, parent_id, content, created_at')
       .single()
+    if (esRechazoPorLinks(error)) toast.error(MENSAJE_SIN_LINKS.comentario)
 
     if (!error && data) {
       const { data: myProfile } = await supabase

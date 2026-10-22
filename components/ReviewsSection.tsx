@@ -9,6 +9,7 @@ import { StarIcon } from '@/components/StarDisplay'
 import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
 import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -185,6 +186,8 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
   async function submitReview() {
     if (!currentUserId || formRating === 0) return
+    const aviso = avisoDeLinks('resena', formBody)
+    if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
     const payload = {
       user_id:     currentUserId,
@@ -205,7 +208,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
         const { error } = await supabase.from('reviews').update(payload).eq('id', editingId)
         if (error) {
           console.error('[submitReview]', error)
-          toast.error('No se pudo publicar la reseña. Intentá de nuevo.')
+          toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo publicar la reseña. Intentá de nuevo.')
           return
         }
       } else {
@@ -216,7 +219,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
           .single()
         if (error) {
           console.error('[submitReview]', error)
-          toast.error('No se pudo publicar la reseña. Intentá de nuevo.')
+          toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo publicar la reseña. Intentá de nuevo.')
           return
         }
         reviewId = data?.id ?? null

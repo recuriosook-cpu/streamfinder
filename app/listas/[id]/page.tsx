@@ -10,6 +10,8 @@ import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -135,10 +137,13 @@ export default function ListPage() {
 
   const submitComment = async () => {
     if (!currentUserId || !newComment.trim() || submitting) return
+    const aviso = avisoDeLinks('comentario', newComment)
+    if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
-    const { data } = await supabase.from('list_comments')
+    const { data, error } = await supabase.from('list_comments')
       .insert({ list_id: id, user_id: currentUserId, content: newComment.trim() })
       .select('*').single()
+    if (esRechazoPorLinks(error)) toast.error(MENSAJE_SIN_LINKS.comentario)
     if (data) {
       const { data: profile } = await supabase.from('profiles')
         .select('id,username,display_name,avatar_url').eq('id', currentUserId).maybeSingle()

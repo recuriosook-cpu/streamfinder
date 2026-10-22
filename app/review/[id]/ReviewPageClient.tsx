@@ -13,6 +13,8 @@ import ShareDropdown from '@/components/ShareDropdown'
 import { reviewImagePath } from '@/lib/share-urls'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 // ── Render @mentions as yellow links ──────────────────────────────────────
 function WithMentions({ text }: { text: string }) {
@@ -174,6 +176,8 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
   async function submitComment() {
     if (!currentUserId || !newComment.trim() || submitting) return
+    const aviso = avisoDeLinks('comentario', newComment)
+    if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
 
     const { data, error } = await supabase
@@ -186,6 +190,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
       })
       .select('id, user_id, parent_id, content, created_at')
       .single()
+    if (esRechazoPorLinks(error)) toast.error(MENSAJE_SIN_LINKS.comentario)
 
     if (!error && data) {
       const { data: myProfile } = await supabase

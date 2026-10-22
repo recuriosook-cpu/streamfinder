@@ -6,6 +6,7 @@ import { useRouter, useSearchParams } from 'next/navigation'
 import { X, Plus, Search, ArrowLeft, Tag, ArrowUp, ArrowDown } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { toast } from 'sonner'
+import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
@@ -127,9 +128,12 @@ function NuevaListaContent() {
 
   const save = async () => {
     if (!title.trim() || !userId || saving) return
+    const aviso = avisoDeLinks('lista', title, description)
+    if (aviso) { toast.error(aviso); return }
     setSaving(true)
     if (editId) {
-      await supabase.from('lists').update({ title: title.trim(), description: description.trim() || null, tags, is_public: isPublic, updated_at: new Date().toISOString() }).eq('id', editId)
+      const { error } = await supabase.from('lists').update({ title: title.trim(), description: description.trim() || null, tags, is_public: isPublic, updated_at: new Date().toISOString() }).eq('id', editId)
+      if (esRechazoPorLinks(error)) { toast.error(MENSAJE_SIN_LINKS.lista); setSaving(false); return }
       await supabase.from('list_items').delete().eq('list_id', editId)
       if (items.length > 0) {
         await supabase.from('list_items').insert(items.map(it => ({ list_id: editId, ...it })))
@@ -137,9 +141,10 @@ function NuevaListaContent() {
       toast.success('Lista actualizada')
       router.push(`/listas/${editId}`)
     } else {
-      const { data } = await supabase.from('lists')
+      const { data, error } = await supabase.from('lists')
         .insert({ user_id: userId, title: title.trim(), description: description.trim() || null, tags, is_public: isPublic })
         .select('id').single()
+      if (esRechazoPorLinks(error)) { toast.error(MENSAJE_SIN_LINKS.lista); setSaving(false); return }
       if (data && items.length > 0) {
         await supabase.from('list_items').insert(items.map(it => ({ list_id: data.id, ...it })))
       }
