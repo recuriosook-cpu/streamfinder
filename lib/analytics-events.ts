@@ -339,6 +339,15 @@ export const EVENT_NAMES = [
    * `metodo` es 'menu' (el menú del navegador) o 'descarga' (la bajó).
    */
   'compartir_hecho',
+
+  // ── Gente con tu gusto (web y app, 2026-10) ─────────────────────────────
+
+  /** Se vio el carrusel de Comunidad con gente. props: { personas } */
+  'gusto_carrusel_visto',
+  /** Abrió un perfil desde el carrusel. props: { porcentaje } */
+  'gusto_perfil_abierto',
+  /** Tocó "Seguir" en el carrusel. props: { porcentaje } */
+  'gusto_seguir',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

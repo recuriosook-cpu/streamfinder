@@ -516,6 +516,20 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     return fail(data ? 'Este nombre de usuario ya está en uso' : null)
   }
 
+  // "Coinciden en X%" (`/api/community/gusto`): en el perfil de otro, con sesión.
+  const [coincidencia, setCoincidencia] = useState<number | null>(null)
+  useEffect(() => {
+    if (!currentUserId || currentUserId === profile.id) return
+    let vivo = true
+    fetch(`/api/community/gusto?con=${profile.id}`, { cache: 'no-store' })
+      .then(r => (r.ok ? r.json() : null))
+      .then((body: { coincidencia?: { porcentaje: number } | null } | null) => {
+        if (vivo) setCoincidencia(body?.coincidencia?.porcentaje ?? null)
+      })
+      .catch(() => {})
+    return () => { vivo = false }
+  }, [currentUserId, profile.id])
+
   /** Abre la edición del perfil con lo que tiene hoy. */
   function abrirEdicion() {
     setEditName(localProfile.display_name ?? '')
@@ -1154,6 +1168,12 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
 
             {/* Main column */}
             <div className="space-y-10">
+
+              {coincidencia !== null && !isOwner && (
+                <p className="inline-flex items-center rounded-full border border-[#FFFD02] bg-[#FFFD02]/10 px-3 py-1 text-sm font-bold text-[#FFFD02]">
+                  Coinciden en {coincidencia}%
+                </p>
+              )}
 
               {/* Completá tu perfil: en el propio, mientras falte foto, nombre o bio. */}
               {isOwner && !perfilCompleto(localProfile) && (

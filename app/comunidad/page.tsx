@@ -9,6 +9,7 @@ import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
 import VerifiedBadge from '@/components/VerifiedBadge'
 import type { User } from '@supabase/supabase-js'
+import GenteConTuGusto from '@/components/GenteConTuGusto'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
@@ -31,7 +32,8 @@ interface UserProfile { id: string; username: string | null; display_name: strin
 // Used by compat logic (alias)
 type Profile = UserProfile
 
-interface CompatItem { userId: string; score: number; sharedCount: number; friendTotal: number }
+/** `score` null: no hay calificaciones suficientes de los dos para calcularla. */
+interface CompatItem { userId: string; score: number | null; sharedCount: number }
 
 interface Achievement {
   id: string; emoji: string; name: string; description: string
@@ -688,12 +690,11 @@ function FeedSkeleton() {
 function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string, Profile> }) {
   const profile = profiles.get(item.userId)
   const username = profile?.username ?? 'Usuario'
-  const color = compatColor(item.score)
-  const label = item.friendTotal === 0
-    ? 'Este usuario todavía no marcó nada como visto'
-    : item.sharedCount === 0
-    ? 'Todavía no vieron nada en común'
-    : `Vieron ${item.sharedCount} título${item.sharedCount !== 1 ? 's' : ''} en común`
+  const score = item.score ?? 0
+  const color = compatColor(score)
+  const label = item.score === null
+    ? 'Todavía no calificaron suficientes títulos en común'
+    : `Calificaron ${item.sharedCount} título${item.sharedCount !== 1 ? 's' : ''} en común`
   return (
     <Link href={`/usuario/${username}`}
       className="flex items-center gap-3 bg-[#1C1C27]/50 border border-[#2A2A3A]/40 rounded-xl p-4 hover:border-zinc-600 transition-colors">
@@ -704,10 +705,10 @@ function CompatCard({ item, profiles }: { item: CompatItem; profiles: Map<string
             <span className="text-sm font-semibold text-white">{username}</span>
             <VerifiedBadge userId={profile?.id} size={13} />
           </div>
-          <span className="text-sm font-bold tabular-nums" style={{ color }}>{item.score}%</span>
+          <span className="text-sm font-bold tabular-nums" style={{ color }}>{item.score === null ? '—' : `${item.score}%`}</span>
         </div>
         <div className="w-full h-1.5 bg-zinc-700 rounded-full overflow-hidden mb-1.5">
-          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${item.score}%`, backgroundColor: color }} />
+          <div className="h-full rounded-full transition-all duration-700" style={{ width: `${score}%`, backgroundColor: color }} />
         </div>
         <p className="text-xs text-[#A0A0B0]">{label}</p>
       </div>
@@ -1165,38 +1166,26 @@ export default function ComunidadPage() {
   }, [rawFeed, recommendations])
 
   // ── Compat (lazy) ──────────────────────────────────────────────────────────
+  // La coincidencia la calcula el servidor (`/api/community/gusto`, `lib/gusto.ts`):
+  // es la misma de "Gente con tu gusto" y de los perfiles. Antes se calculaba
+  // acá leyendo las notas de los demás, que desde la privacidad de 2026-09 sólo
+  // lee su dueño, así que daba cualquier cosa.
   const loadCompat = useCallback(async () => {
     if (!currentUserId || followingIds.length === 0) { setCompatItems([]); setCompatLoaded(true); return }
     setCompatLoading(true)
-    const [myWatchedRes, myRatingsRes] = await Promise.all([
-      supabase.from('watched').select('media_id, media_type').eq('user_id', currentUserId),
-      supabase.from('ratings').select('media_id, media_type, rating').eq('user_id', currentUserId),
-    ])
-    const mySet = new Set((myWatchedRes.data ?? []).map((w: { media_id: number; media_type: string }) => `${w.media_type}:${w.media_id}`))
-    const myRatingMap = new Map<string, number>()
-    for (const r of myRatingsRes.data ?? []) myRatingMap.set(`${r.media_type}:${r.media_id}`, r.rating)
-
-    const results = await Promise.all(followingIds.map(async friendId => {
-      const [fw, fr] = await Promise.all([
-        supabase.from('watched').select('media_id, media_type').eq('user_id', friendId),
-        supabase.from('ratings').select('media_id, media_type, rating').eq('user_id', friendId),
-      ])
-      const friendSet = new Set((fw.data ?? []).map((w: { media_id: number; media_type: string }) => `${w.media_type}:${w.media_id}`))
-      if (friendSet.size === 0) return { userId: friendId, score: 0, sharedCount: 0, friendTotal: 0 }
-      const sharedCount = [...mySet].filter(k => friendSet.has(k)).length
-      const unionSize = new Set([...mySet, ...friendSet]).size
-      let rawScore = unionSize > 0 ? (sharedCount / unionSize) * 100 : 0
-      const friendRatingMap = new Map<string, number>()
-      for (const r of fr.data ?? []) friendRatingMap.set(`${r.media_type}:${r.media_id}`, r.rating)
-      let similar = 0
-      for (const [key, myR] of myRatingMap) {
-        const fr2 = friendRatingMap.get(key)
-        if (fr2 !== undefined && Math.abs(myR - fr2) <= 1) similar++
-      }
-      rawScore += Math.floor(similar / 3) * 5
-      return { userId: friendId, score: Math.min(99, Math.max(5, Math.round(rawScore))), sharedCount, friendTotal: friendSet.size }
+    const ids = followingIds.slice(0, 100)
+    let coincidencias: Record<string, { porcentaje: number; comunes: number } | null> = {}
+    try {
+      // La coma final pide la respuesta de a varios aunque siga a uno solo.
+      const res = await fetch(`/api/community/gusto?con=${ids.join(',')},`, { cache: 'no-store' })
+      if (res.ok) coincidencias = ((await res.json()) as { coincidencias?: typeof coincidencias }).coincidencias ?? {}
+    } catch { /* sin datos: todos sin calcular */ }
+    const results: CompatItem[] = ids.map(id => ({
+      userId: id,
+      score: coincidencias[id]?.porcentaje ?? null,
+      sharedCount: coincidencias[id]?.comunes ?? 0,
     }))
-    setCompatItems(results.sort((a, b) => b.score - a.score))
+    setCompatItems(results.sort((a, b) => (b.score ?? -1) - (a.score ?? -1)))
     setCompatLoading(false)
     setCompatLoaded(true)
   }, [currentUserId, followingIds]) // eslint-disable-line react-hooks/exhaustive-deps
@@ -1404,6 +1393,9 @@ export default function ComunidadPage() {
       {/* ── FEED ── */}
       {tab === 'feed' && (
         <>
+          {/* Arriba de todo: gente con calificaciones parecidas, con foto. */}
+          {user && <GenteConTuGusto />}
+
           {/* Carrusel de últimas reseñas de amigos — solo para usuarios logueados */}
           {user && friendReviews.length > 0 && (
             <FriendReviewsCarousel reviews={friendReviews} profiles={profiles} />
