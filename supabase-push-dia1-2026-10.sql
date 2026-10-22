@@ -15,13 +15,15 @@
 --      notificaciones por semana.
 --   3. Programa la corrida cada hora con pg_cron. Hace falta porque el plan de
 --      Vercel sólo deja crons diarios, y "a las 20 de cada país" necesita
---      mirar cada hora. pg_cron llama a /api/cron/push-dia1 con el mismo
---      CRON_SECRET que usan los crons de Vercel.
+--      mirar cada hora. pg_cron llama a /api/cron/push-dia1 con
+--      DIA1_CRON_SECRET, un secreto propio de esta tarea que está cargado en
+--      Vercel (Production). No es CRON_SECRET: ése es sensible en Vercel y no
+--      se puede leer para copiarlo acá.
 --
--- ANTES DE CORRERLO: reemplazá PEGAR_ACA_EL_CRON_SECRET (más abajo, en el
--- paso 3) por el valor de CRON_SECRET de Vercel (Project > Settings >
--- Environment Variables). Queda guardado cifrado en Supabase Vault, no en el
--- texto del cron.
+-- ANTES DE CORRERLO: reemplazá PEGAR_ACA_EL_DIA1_CRON_SECRET (más abajo, en
+-- el paso 3) por el valor de DIA1_CRON_SECRET. Este archivo, el del repo, no
+-- lo trae a propósito: un secreto no va en GitHub. Queda guardado cifrado en
+-- Supabase Vault, no en el texto del cron.
 -- ================================================================
 
 
@@ -66,15 +68,15 @@ CREATE EXTENSION IF NOT EXISTS pg_net;
 -- El secreto, en Vault. Si ya estaba, se actualiza.
 DO $$
 DECLARE
-  secreto constant text := 'PEGAR_ACA_EL_CRON_SECRET';
+  secreto constant text := 'PEGAR_ACA_EL_DIA1_CRON_SECRET';
   existente uuid;
 BEGIN
-  IF secreto = 'PEGAR_ACA_EL_CRON_SECRET' THEN
-    RAISE EXCEPTION 'Falta reemplazar PEGAR_ACA_EL_CRON_SECRET por el CRON_SECRET de Vercel.';
+  IF secreto = 'PEGAR_ACA_EL_DIA1_CRON_SECRET' THEN
+    RAISE EXCEPTION 'Falta reemplazar PEGAR_ACA_EL_DIA1_CRON_SECRET por el valor de DIA1_CRON_SECRET.';
   END IF;
   SELECT id INTO existente FROM vault.secrets WHERE name = 'glynbox_cron_secret';
   IF existente IS NULL THEN
-    PERFORM vault.create_secret(secreto, 'glynbox_cron_secret', 'CRON_SECRET de Vercel, para los crons de pg_cron');
+    PERFORM vault.create_secret(secreto, 'glynbox_cron_secret', 'DIA1_CRON_SECRET de Vercel, para la push del día 1');
   ELSE
     PERFORM vault.update_secret(existente, secreto);
   END IF;
@@ -110,7 +112,8 @@ SELECT cron.schedule(
 --    WHERE jobid = (SELECT jobid FROM cron.job WHERE jobname = 'glynbox-push-dia1')
 --    ORDER BY start_time DESC LIMIT 5;
 --
--- Lo que contestó la web (200 = bien, 401 = el secreto no coincide):
+-- Lo que contestó la web (200 = bien, 401 = el secreto no coincide con
+-- DIA1_CRON_SECRET de Vercel):
 --   SELECT created, status_code, left(content::text, 300)
 --     FROM net._http_response ORDER BY created DESC LIMIT 5;
 --

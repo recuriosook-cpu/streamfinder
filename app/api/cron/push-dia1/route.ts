@@ -8,8 +8,11 @@ import { correrDia1 } from '@/lib/push-dia1'
  *
  * Corre cada hora: a las 20 de cada país le toca a la gente que se registró
  * el día anterior. El plan de Vercel sólo deja crons diarios, así que no está
- * en `vercel.json`: la llama pg_cron desde Supabase, con el mismo
- * `CRON_SECRET` (ver supabase-push-dia1-2026-10.sql). Llamarla más de una vez
+ * en `vercel.json`: la llama pg_cron desde Supabase con `DIA1_CRON_SECRET`,
+ * un secreto propio de esta tarea (ver supabase-push-dia1-2026-10.sql). No
+ * usa `CRON_SECRET` porque en Vercel está marcado como sensible y no se puede
+ * leer para copiarlo a Supabase; igual se acepta, por si algún día se llama
+ * con ése. Llamarla más de una vez
  * en la misma hora no manda nada dos veces: cada persona queda anotada en
  * `push_dia1_enviados`.
  */
@@ -18,9 +21,10 @@ export const runtime = 'nodejs'
 export const maxDuration = 300
 
 function authorized(req: Request): boolean {
-  const secret = process.env.CRON_SECRET
-  if (!secret) return false
-  return (req.headers.get('authorization') ?? '') === `Bearer ${secret}`
+  const header = req.headers.get('authorization') ?? ''
+  return [process.env.DIA1_CRON_SECRET, process.env.CRON_SECRET].some(
+    secret => !!secret && header === `Bearer ${secret}`
+  )
 }
 
 export async function GET(req: Request) {
