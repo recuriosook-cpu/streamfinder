@@ -6,8 +6,9 @@ import sharp from 'sharp'
 
 /**
  * Imágenes para compartir: reseñas (historia y publicación), fichas de
- * películas y series (historia) y la vista previa de los links (la que muestran
- * WhatsApp, X y Facebook al pegar un link de glynbox.com).
+ * películas y series (historia), calificaciones, listas y "Mi top 5"
+ * (historia), y la vista previa de los links (la que muestran WhatsApp, X y
+ * Facebook al pegar un link de glynbox.com).
  *
  * Las arma el servidor con `ImageResponse` (satori + resvg), así la web y la
  * app comparten exactamente la misma imagen. Satori no es un navegador: cada
@@ -541,6 +542,285 @@ export function LinkPreview({
             ) : null}
           </div>
         </div>
+      </div>
+    </div>
+  )
+}
+
+// ---------------------------------------------------------------------------
+// Historias de "compartí" (octubre de 2026): calificación, lista y top 5
+// ---------------------------------------------------------------------------
+//
+// Las tres terminan igual: el logo con "Descubrí qué ver en Glynbox" sobre una
+// franja amarilla. Es lo único que queda de Glynbox en una historia de
+// Instagram, que no deja poner un link: tiene que decir qué es y dónde.
+
+/** El pie de las historias de compartir. */
+function PieMarca({ logo }: { logo: string }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'center', gap: 26 }}>
+      <Logo src={logo} height={60} />
+      <div
+        style={{
+          display: 'flex',
+          padding: '22px 52px',
+          borderRadius: 60,
+          background: C.yellow,
+          color: C.bg,
+          fontSize: 38,
+          fontFamily: 'Inter Tight',
+          fontWeight: 800,
+        }}
+      >
+        Descubrí qué ver en Glynbox
+      </div>
+    </div>
+  )
+}
+
+/** Un póster de la grilla, con su puesto si lo tiene (top 5). */
+function PosterGrilla({ path, width, puesto }: { path: string | null; width: number; puesto?: number }) {
+  const height = Math.round(width * 1.5)
+  return (
+    <div style={{ display: 'flex', position: 'relative', width, height }}>
+      {path ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${TMDB_IMG}/w500${path}`}
+          alt=""
+          width={width}
+          height={height}
+          style={{ width, height, borderRadius: 18, objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.55)' }}
+        />
+      ) : (
+        <div style={{ display: 'flex', width, height, borderRadius: 18, background: C.card }} />
+      )}
+      {puesto !== undefined && (
+        <div
+          style={{
+            display: 'flex',
+            position: 'absolute',
+            top: -18,
+            left: -18,
+            width: 72,
+            height: 72,
+            borderRadius: 72,
+            background: C.yellow,
+            color: C.bg,
+            alignItems: 'center',
+            justifyContent: 'center',
+            fontSize: 40,
+            fontFamily: 'Inter Tight',
+            fontWeight: 800,
+          }}
+        >
+          {puesto}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Hasta 6 pósters en filas de 3; la última fila, centrada. */
+function Grilla({ posters, width, numerados }: { posters: (string | null)[]; width: number; numerados?: boolean }) {
+  const filas: (string | null)[][] = []
+  for (let i = 0; i < posters.length; i += 3) filas.push(posters.slice(i, i + 3))
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap: 34, alignItems: 'center' }}>
+      {filas.map((fila, f) => (
+        <div key={f} style={{ display: 'flex', gap: 30 }}>
+          {fila.map((p, i) => (
+            <PosterGrilla key={i} path={p} width={width} puesto={numerados ? f * 3 + i + 1 : undefined} />
+          ))}
+        </div>
+      ))}
+    </div>
+  )
+}
+
+/** Fondo de las historias de grilla: oscuro con un brillo amarillo arriba. */
+function FondoMarca({ width, height }: { width: number; height: number }) {
+  return (
+    <div
+      style={{
+        display: 'flex',
+        position: 'absolute',
+        inset: 0,
+        width,
+        height,
+        background: `radial-gradient(circle at 50% 0%, rgba(255,253,2,0.22) 0%, rgba(255,253,2,0.05) 38%, ${C.bg} 70%)`,
+      }}
+    />
+  )
+}
+
+export type ShareCalificacion = {
+  media: ShareMedia
+  rating: number
+  /** La reseña, si escribió una (sin spoilers). */
+  body: string | null
+  username: string
+  avatarUrl: string | null
+}
+
+/** "Compartí tu calificación", 1080 × 1920: póster grande, estrellas, @usuario y la frase. */
+export function CalificacionStory({ c, logo }: { c: ShareCalificacion; logo: string }) {
+  const { width, height } = SIZES.historia
+  const m = c.media
+  return (
+    <div style={{ display: 'flex', width, height, position: 'relative', background: C.bg }}>
+      <Backdrop url={backdropUrl(m)} width={width} height={height} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width,
+          height,
+          padding: '120px 90px 100px',
+          position: 'relative',
+        }}
+      >
+        <Poster path={m.posterPath} width={600} />
+        <div
+          style={{
+            display: 'flex',
+            marginTop: 60,
+            fontSize: m.title.length > 28 ? 62 : 78,
+            lineHeight: 1.05,
+            color: C.white,
+            fontFamily: 'Inter Tight',
+            fontWeight: 800,
+            textAlign: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {m.title}
+        </div>
+        <div style={{ display: 'flex', marginTop: 40 }}>
+          <Stars rating={c.rating} size={92} gap={16} />
+        </div>
+        <div style={{ display: 'flex', marginTop: 40 }}>
+          <Author username={c.username} avatarUrl={c.avatarUrl} size={70} />
+        </div>
+        {c.body?.trim() && (
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 36,
+              fontSize: 40,
+              lineHeight: 1.4,
+              color: 'rgba(255,255,255,0.92)',
+              fontFamily: 'Manrope',
+              fontWeight: 500,
+              textAlign: 'center',
+              justifyContent: 'center',
+            }}
+          >
+            “{excerpt(c.body, 140)}”
+          </div>
+        )}
+        <div style={{ display: 'flex', flexGrow: 1 }} />
+        <PieMarca logo={logo} />
+      </div>
+    </div>
+  )
+}
+
+export type ShareLista = {
+  title: string
+  username: string
+  avatarUrl: string | null
+  total: number
+  posters: (string | null)[]
+}
+
+/** "Compartir lista", 1080 × 1920: título, @dueño y una grilla de hasta 6 pósters. */
+export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
+  const { width, height } = SIZES.historia
+  const resto = l.total - l.posters.length
+  return (
+    <div style={{ display: 'flex', width, height, position: 'relative', background: C.bg }}>
+      <FondoMarca width={width} height={height} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width,
+          height,
+          padding: '120px 80px 100px',
+          position: 'relative',
+        }}
+      >
+        <div
+          style={{
+            display: 'flex',
+            fontSize: l.title.length > 30 ? 64 : 80,
+            lineHeight: 1.05,
+            color: C.white,
+            fontFamily: 'Inter Tight',
+            fontWeight: 800,
+            textAlign: 'center',
+            justifyContent: 'center',
+          }}
+        >
+          {excerpt(l.title, 60)}
+        </div>
+        <div style={{ display: 'flex', marginTop: 30, alignItems: 'center', gap: 20 }}>
+          <Author username={l.username} avatarUrl={l.avatarUrl} size={64} />
+          <div style={{ display: 'flex', fontSize: 32, color: C.muted, fontFamily: 'Manrope', fontWeight: 600 }}>
+            · {l.total} {l.total === 1 ? 'título' : 'títulos'}
+          </div>
+        </div>
+        {/* La grilla, centrada en lo que queda entre el título y el pie. */}
+        <div style={{ display: 'flex', flexGrow: 1 }} />
+        <Grilla posters={l.posters} width={286} />
+        {resto > 0 && (
+          <div style={{ display: 'flex', marginTop: 34, fontSize: 36, color: C.yellow, fontFamily: 'Manrope', fontWeight: 700 }}>
+            y {resto} más
+          </div>
+        )}
+        <div style={{ display: 'flex', flexGrow: 1 }} />
+        <PieMarca logo={logo} />
+      </div>
+    </div>
+  )
+}
+
+export type ShareTop5 = {
+  username: string
+  avatarUrl: string | null
+  posters: (string | null)[]
+}
+
+/** "Mi top 5", 1080 × 1920: los cinco pósters numerados. */
+export function Top5Story({ t, logo }: { t: ShareTop5; logo: string }) {
+  const { width, height } = SIZES.historia
+  return (
+    <div style={{ display: 'flex', width, height, position: 'relative', background: C.bg }}>
+      <FondoMarca width={width} height={height} />
+      <div
+        style={{
+          display: 'flex',
+          flexDirection: 'column',
+          alignItems: 'center',
+          width,
+          height,
+          padding: '120px 80px 100px',
+          position: 'relative',
+        }}
+      >
+        <div style={{ display: 'flex', fontSize: 96, color: C.white, fontFamily: 'Inter Tight', fontWeight: 800 }}>
+          Mi top 5
+        </div>
+        <div style={{ display: 'flex', marginTop: 30 }}>
+          <Author username={t.username} avatarUrl={t.avatarUrl} size={64} />
+        </div>
+        <div style={{ display: 'flex', flexGrow: 1 }} />
+        <Grilla posters={t.posters} width={286} numerados />
+        <div style={{ display: 'flex', flexGrow: 1 }} />
+        <PieMarca logo={logo} />
       </div>
     </div>
   )

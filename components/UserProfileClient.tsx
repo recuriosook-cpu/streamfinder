@@ -19,6 +19,7 @@ import StarDisplay from '@/components/StarDisplay'
 import VerifiedBadge from '@/components/VerifiedBadge'
 import { toast } from 'sonner'
 import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import CompartirHistoria from '@/components/CompartirHistoria'
 
 // ── Social icons ───────────────────────────────────────────────────────────
 
@@ -1152,7 +1153,18 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               {/* Películas favoritas */}
               {(hasPinned || isOwner) && (
                 <section>
-                  <SectionLabel>Películas favoritas</SectionLabel>
+                  <div className="flex items-center justify-between gap-3">
+                    <SectionLabel>Películas favoritas</SectionLabel>
+                    {isOwner && (
+                      <CompartirHistoria
+                        que="top5"
+                        desde="perfil"
+                        imagen="/api/share/top5"
+                        mensaje="Mi top 5 en Glynbox"
+                        etiqueta="Mi top 5"
+                      />
+                    )}
+                  </div>
                   <div className="grid grid-cols-4 gap-2 sm:gap-3">
                     {pinned.map((item, idx) => {
                       const slot = idx + 1

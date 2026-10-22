@@ -12,6 +12,7 @@ import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
 import { toast } from 'sonner'
 import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import CompartirHistoria from '@/components/CompartirHistoria'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -227,12 +228,22 @@ export default function ListPage() {
       <div className="mb-8">
         <div className="flex items-start justify-between gap-4 mb-4">
           <h1 className="text-3xl sm:text-4xl font-bold text-white leading-tight">{list.title}</h1>
+          <div className="shrink-0 flex items-center gap-3">
+          <CompartirHistoria
+            que="lista"
+            desde="lista"
+            // `v` cambia con lo que se ve en la imagen: la pública se cachea un día.
+            imagen={`/api/share/lista/${id}?v=${items.length}-${encodeURIComponent(list.title)}-${items.slice(0, 6).map(i => i.id).join('.')}`}
+            mensaje={`Mirá mi lista "${list.title}" en Glynbox`}
+            etiqueta="Compartir lista"
+          />
           {isOwner && (
             <Link href={`/listas/nueva?edit=${id}`}
               className="shrink-0 flex items-center gap-1.5 text-sm text-[#A0A0B0] hover:text-white border border-[#2A2A3A] hover:border-[#FFFD02] px-3 py-1.5 rounded-lg transition-all">
               <Pencil size={13} /> Editar
             </Link>
           )}
+          </div>
         </div>
 
         {/* Author */}

@@ -6,6 +6,7 @@ import { useRouter } from 'next/navigation'
 import { StarIcon } from '@/components/StarDisplay'
 import { track } from '@/lib/analytics'
 import ResenaEnUnaFrase, { anotarFraseOfrecida, puedeOfrecerFrase } from '@/components/ResenaEnUnaFrase'
+import CompartirHistoria from '@/components/CompartirHistoria'
 
 interface Props {
   mediaId: number
@@ -145,6 +146,17 @@ export default function RatingStars({
         <span className="text-xs text-[#A0A0B0] ml-1">{rating}/5</span>
       )}
     </div>
+    {ofrecerFrase && userId && rating > 0 && (
+      <div className="mt-2">
+        <CompartirHistoria
+          que="calificacion"
+          desde="ficha"
+          imagen={`/api/share/calificacion/${mediaType}/${mediaId}?v=${rating}`}
+          mensaje={`Le puse ${rating}★ a ${title} en Glynbox`}
+          etiqueta="Compartí tu calificación"
+        />
+      </div>
+    )}
     {frase && userId && rating >= 4 && (
       <ResenaEnUnaFrase
         userId={userId}

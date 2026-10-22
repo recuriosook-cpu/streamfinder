@@ -326,6 +326,19 @@ export const EVENT_NAMES = [
    * iniciada (ver `app/api/sesion-web`).
    */
   'letterboxd_abierto',
+
+  // ── Historias de compartir (web y app, 2026-10) ─────────────────────────
+
+  /**
+   * Tocó compartir una historia. props: { que: 'calificacion' | 'lista' |
+   * 'top5', desde: 'ficha' | 'lista' | 'perfil' }
+   */
+  'compartir_abierto',
+  /**
+   * Eligió dónde mandarla. props: { que, desde, metodo? }. En la web,
+   * `metodo` es 'menu' (el menú del navegador) o 'descarga' (la bajó).
+   */
+  'compartir_hecho',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
