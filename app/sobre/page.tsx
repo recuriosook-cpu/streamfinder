@@ -50,7 +50,7 @@ export default function SobrePage() {
                 { title: 'Crear listas', desc: 'Armá tu Top 10, tu lista de pendientes, las que querés ver con amigos. Podés hacer listas públicas o privadas.' },
                 { title: 'Seguir a otros cinéfilos', desc: 'Seguí a usuarios con gustos similares y descubrí lo que están mirando. La comunidad es el mejor algoritmo de recomendación.' },
                 { title: 'Saber dónde está disponible', desc: 'Cada película y serie muestra en qué plataformas de streaming está disponible en tu país: Argentina, México, España y más.' },
-                { title: 'Recibir recomendaciones', desc: 'El recomendador por estado de ánimo te sugiere qué ver hoy según cómo te sentís: algo que te haga reír, llorar, pensar o asustar.' },
+                { title: 'Recibir recomendaciones', desc: '"¿Qué veo hoy?" te pregunta con quién vas a ver algo y qué tenés ganas (reírte, tensión, emocionarte, algo liviano), y te recomienda una de tus plataformas, parecida a lo que ya te gustó.' },
                 { title: 'Leer guías curadas', desc: 'Guías editoriales sobre Studio Ghibli, cine coreano, el MCU, HBO, viajes en el tiempo y mucho más. Contenido editado por humanos, no por algoritmos.' },
               ].map(item => (
                 <li key={item.title} className="flex gap-3">

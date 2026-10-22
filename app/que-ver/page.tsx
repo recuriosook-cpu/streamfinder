@@ -4,18 +4,18 @@ import type { Metadata } from 'next'
 
 export const metadata: Metadata = {
   title: 'Qué ver hoy — Glynbox',
-  description: 'Descubrí películas y series según tu estado de ánimo. Filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
+  description: '¿Qué veo hoy? Contá con quién y qué tenés ganas, y te recomendamos algo de tus plataformas. O filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
   robots: { index: false, follow: true },
   openGraph: {
     title:       'Qué ver hoy — Glynbox',
-    description: 'Descubrí películas y series según tu estado de ánimo. Filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
+    description: '¿Qué veo hoy? Contá con quién y qué tenés ganas, y te recomendamos algo de tus plataformas. O filtrá por género y encontrá qué ver en Netflix, Disney+, Amazon Prime y más.',
     url:         'https://www.glynbox.com/que-ver',
     images:      [{ url: 'https://www.glynbox.com/logo.png', width: 1200, height: 630, alt: 'Glynbox' }],
   },
   twitter: {
     card:        'summary_large_image',
     title:       'Qué ver hoy — Glynbox',
-    description: 'Descubrí películas y series según tu estado de ánimo.',
+    description: '¿Qué veo hoy? Una recomendación de tus plataformas en dos preguntas.',
     images:      ['https://www.glynbox.com/logo.png'],
   },
   alternates: { canonical: 'https://www.glynbox.com/que-ver' },

@@ -3,8 +3,8 @@
 import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
-import { Star, EyeOff, Compass } from 'lucide-react'
-import MoodRecommender from '@/components/MoodRecommender'
+import { Star, EyeOff } from 'lucide-react'
+import QueVeoHoy from '@/components/QueVeoHoy'
 import { getPosterUrl } from '@/lib/tmdb'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
@@ -298,16 +298,9 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
 
   return (
     <div className="min-h-screen">
-      {/* ── Recomendador por estado de ánimo ── */}
+      {/* ── ¿Qué veo hoy? (reemplazó al recomendador por ánimo, 2026-10) ── */}
       <section>
-        <div className="max-w-7xl mx-auto px-4 pt-8 pb-4">
-          <div className="flex items-center gap-2 mb-1">
-            <Compass size={20} className="text-[#FFFD02]" />
-            <h1 className="text-lg sm:text-xl font-bold text-white">¿No sabés qué ver?</h1>
-          </div>
-          <p className="text-sm text-[#A0A0B0]">Probá el recomendador por estado de ánimo</p>
-        </div>
-        <MoodRecommender />
+        <QueVeoHoy />
       </section>
 
       {/* Separador visual */}

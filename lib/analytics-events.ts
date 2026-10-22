@@ -348,6 +348,24 @@ export const EVENT_NAMES = [
   'gusto_perfil_abierto',
   /** Tocó "Seguir" en el carrusel. props: { porcentaje } */
   'gusto_seguir',
+
+  // ── ¿Qué veo hoy? (web y app, 2026-10) ──────────────────────────────────
+
+  /** Empezó. props: { desde: 'inicio' | 'que_ver', repetida? } (repetida = "¿Lo mismo que la última vez?") */
+  'que_veo_hoy_abierto',
+  /**
+   * Respondió las dos preguntas. props: { compania: 'solo' | 'pareja' |
+   * 'amigos' | 'familia', ganas: 'reirme' | 'tension' | 'emocionarme' |
+   * 'liviano' | 'sorprendeme', repetida }
+   */
+  'que_veo_hoy_respuestas',
+  /**
+   * Se mostró una recomendación. props: { intento (1 = la primera, 2 a 4 =
+   * "Otra"), fuente: 'calificadas' | 'plataformas', media_type, media_id }
+   */
+  'que_veo_hoy_resultado',
+  /** Tocó un botón. props: { accion: 'la_veo' | 'otra' | 'guardar' | 'cerrar', intento, media_type, media_id } */
+  'que_veo_hoy_accion',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
