@@ -469,12 +469,20 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   }
 
   // ── Inline profile edit ────────────────────────────────────────
-  async function checkUsername(val: string) {
-    const trimmed = val.trim()
-    if (!trimmed || trimmed === profile.username) { setUsernameError(null); return }
-    if (!/^[a-zA-Z0-9_]{3,30}$/.test(trimmed)) {
-      setUsernameError('Solo letras, números y guión bajo (3-30 caracteres)')
-      return
+  /**
+   * Valida el @ nuevo y muestra el error. Devuelve el error, o `null` si se
+   * puede usar: guardar la espera, así un @ inválido o tomado no se manda.
+   *
+   * Las reglas son las de la app (`src/lib/profileEdit.ts`): minúsculas,
+   * números, punto y guion bajo. Acá el largo llega a 30, como siempre en la
+   * web; la app pide hasta 20.
+   */
+  async function checkUsername(val: string): Promise<string | null> {
+    const fail = (msg: string | null) => { setUsernameError(msg); return msg }
+    const trimmed = val.trim().toLowerCase()
+    if (!trimmed || trimmed === localProfile.username) return fail(null)
+    if (!/^[a-z0-9_.]{3,30}$/.test(trimmed)) {
+      return fail('Solo minúsculas, números, punto y guion bajo (3 a 30 caracteres)')
     }
     // Rate limit: once per 30 days. Se lee acá, con la sesión del dueño: la
     // página arma el perfil como visitante y un visitante no ve esta columna.
@@ -490,35 +498,37 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       const nextAvailable = new Date(new Date(usernameChangedAt).getTime() + 30 * 24 * 60 * 60 * 1000)
       if (new Date() < nextAvailable) {
         const formatted = nextAvailable.toLocaleDateString('es-AR', { day: 'numeric', month: 'long' })
-        setUsernameError(`Solo podés cambiar tu @ una vez por mes. Próximo cambio disponible el ${formatted}`)
-        return
+        return fail(`Solo podés cambiar tu @ una vez por mes. Próximo cambio disponible el ${formatted}`)
       }
     }
     setUsernameChecking(true)
+    // Sin distinguir mayúsculas: @Paloma y @paloma serían la misma persona a la vista.
     const { data } = await supabase
       .from('profiles')
       .select('id')
-      .eq('username', trimmed)
+      .ilike('username', trimmed.replace(/[\\%_]/g, '\\$&'))
       .neq('id', profile.id)
+      .limit(1)
       .maybeSingle()
     setUsernameChecking(false)
-    setUsernameError(data ? 'Este nombre de usuario ya está en uso' : null)
+    return fail(data ? 'Este nombre de usuario ya está en uso' : null)
   }
 
   async function saveProfile() {
     if (!currentUserId || currentUserId !== profile.id || editSaving) return
-    if (usernameError) return
     const aviso = avisoDeLinks('bio', editBio)
     if (aviso) { toast.error(aviso); return }
+    const candidate = editUsername.trim().toLowerCase()
+    if (candidate && candidate !== localProfile.username && await checkUsername(candidate)) return
     setEditSaving(true)
 
-    const newUsername  = editUsername.trim() || profile.username
+    const newUsername  = candidate || localProfile.username
     const display_name = editName.trim()     || null
     const bio          = editBio.trim()      || null
     const instagram_username = editInstagram.replace(/^@/, '').trim() || null
     const tiktok_username    = editTiktok.replace(/^@/, '').trim()    || null
     const x_username         = editX.replace(/^@/, '').trim()         || null
-    const usernameChanged    = newUsername !== profile.username
+    const usernameChanged    = newUsername !== localProfile.username
 
     // Avatar upload — separate call as per spec
     let newAvatarUrl = localProfile.avatar_url
@@ -548,8 +558,10 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
       x_username,
       ...(usernameChanged ? { username_changed_at: new Date().toISOString() } : {}),
     }).eq('id', profile.id)
-    if (esRechazoPorLinks(saveError)) {
-      toast.error(MENSAJE_SIN_LINKS.bio)
+    if (saveError) {
+      if (esRechazoPorLinks(saveError)) toast.error(MENSAJE_SIN_LINKS.bio)
+      else if (saveError.code === '23505') setUsernameError('Este nombre de usuario ya está en uso')
+      else toast.error('No se pudo guardar el perfil. Intentá de nuevo.')
       setEditSaving(false)
       return
     }
@@ -2099,7 +2111,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 <div className="relative">
                   <input
                     value={editUsername}
-                    onChange={e => { setEditUsername(e.target.value); setUsernameError(null) }}
+                    onChange={e => { setEditUsername(e.target.value.toLowerCase()); setUsernameError(null) }}
                     onBlur={() => checkUsername(editUsername)}
                     placeholder="tu_usuario"
                     maxLength={30}

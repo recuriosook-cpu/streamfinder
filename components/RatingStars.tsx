@@ -4,6 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { StarIcon } from '@/components/StarDisplay'
+import { track } from '@/lib/analytics'
+import ResenaEnUnaFrase, { anotarFraseOfrecida, puedeOfrecerFrase } from '@/components/ResenaEnUnaFrase'
 
 interface Props {
   mediaId: number
@@ -14,6 +16,11 @@ interface Props {
   initialRating?: number
   /** Called after a rating is saved. */
   onChange?: (newRating: number) => void
+  /**
+   * Después de un 4 o 5, ofrecer "¿La resumís en una frase?" debajo
+   * (`ResenaEnUnaFrase`). Sólo en las fichas: en el perfil no.
+   */
+  ofrecerFrase?: boolean
 }
 
 export default function RatingStars({
@@ -23,6 +30,7 @@ export default function RatingStars({
   posterPath,
   initialRating,
   onChange,
+  ofrecerFrase = false,
 }: Props) {
   const supabase = useRef(createClient()).current
   const router   = useRouter()
@@ -31,6 +39,7 @@ export default function RatingStars({
   const [hover,   setHover]   = useState(0)
   const [userId,  setUserId]  = useState<string | null>(null)
   const [loading, setLoading] = useState(true)
+  const [frase,   setFrase]   = useState(false)
 
   // Single init effect: always fetch userId; fetch stored rating only when
   // no initialRating is provided (i.e. on movie/tv detail pages).
@@ -91,11 +100,21 @@ export default function RatingStars({
     setRating(newValue)
     onChange?.(newValue)
     setLoading(false)
+
+    if (!ofrecerFrase) return
+    if (newValue < 4) { setFrase(false); return }
+    if (frase) return
+    if (await puedeOfrecerFrase(userId, mediaId, mediaType)) {
+      anotarFraseOfrecida(userId)
+      track('resena_frase_ofrecida', { media_type: mediaType, media_id: mediaId, nota: newValue })
+      setFrase(true)
+    }
   }
 
   const display = hover || rating
 
   return (
+    <div>
     <div className="flex items-center gap-1.5">
       <span className="text-xs text-[#A0A0B0] mr-0.5">Tu nota:</span>
       {[1, 2, 3, 4, 5].map(s => {
@@ -125,6 +144,18 @@ export default function RatingStars({
       {rating > 0 && (
         <span className="text-xs text-[#A0A0B0] ml-1">{rating}/5</span>
       )}
+    </div>
+    {frase && userId && rating >= 4 && (
+      <ResenaEnUnaFrase
+        userId={userId}
+        mediaId={mediaId}
+        mediaType={mediaType}
+        title={title}
+        posterPath={posterPath}
+        rating={rating}
+        onClose={() => setFrase(false)}
+      />
+    )}
     </div>
   )
 }

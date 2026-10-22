@@ -425,6 +425,7 @@ export default async function MoviePage({ params }: Props) {
               mediaType="movie"
               title={movie.title}
               posterPath={movie.poster_path}
+              ofrecerFrase
             />
           </div>
         </div>

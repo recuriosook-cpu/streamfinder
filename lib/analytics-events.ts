@@ -305,6 +305,27 @@ export const EVENT_NAMES = [
    * Ver `lib/storeReview.ts` de glynbox-mobile.
    */
   'review_pedido',
+
+  // ── Reseña en una frase (web y app, 2026-10) ────────────────────────────
+
+  /**
+   * Después de calificar con 4 o 5, "¿La resumís en una frase?". props:
+   * { media_type, media_id, nota }. Una vez por día por persona.
+   */
+  'resena_frase_ofrecida',
+  /** La escribió: quedó como reseña normal. props: { media_type, media_id, nota, largo } */
+  'resena_frase_guardada',
+  /** La cerró sin escribir. props: { media_type, media_id } */
+  'resena_frase_descartada',
+
+  // ── Letterboxd (2026-10) ────────────────────────────────────────────────
+
+  /**
+   * La app abrió la importación de la web. props: { origen: 'ajustes' |
+   * 'onboarding', con_sesion }. `con_sesion` = se abrió ya con la cuenta
+   * iniciada (ver `app/api/sesion-web`).
+   */
+  'letterboxd_abierto',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

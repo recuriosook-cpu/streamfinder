@@ -80,6 +80,17 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType])
 
+  // Una "reseña en una frase" publicada desde las estrellas (`ResenaEnUnaFrase`).
+  useEffect(() => {
+    const recargar = (e: Event) => {
+      const d = (e as CustomEvent<{ mediaId: number; mediaType: string }>).detail
+      if (d?.mediaId === mediaId && d.mediaType === mediaType) void loadReviews()
+    }
+    window.addEventListener('glynbox:resena-guardada', recargar)
+    return () => window.removeEventListener('glynbox:resena-guardada', recargar)
+  // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [mediaId, mediaType])
+
   // ── Anchor scroll (#review-{id}) ────────────────────────────────────────
   // La app nativa comparte links con el fragmento `#review-{id}`. El navegador
   // no puede saltar solo porque las reseñas se cargan en el cliente: cuando

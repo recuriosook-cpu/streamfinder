@@ -379,6 +379,7 @@ export default async function TVPage({ params }: Props) {
               mediaType="tv"
               title={show.name}
               posterPath={show.poster_path}
+              ofrecerFrase
             />
           </div>
         </div>

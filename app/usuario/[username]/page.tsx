@@ -1,12 +1,44 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import type { Metadata } from 'next'
 import { itunesPara } from '@/lib/tiendas'
 import { createServerClient } from '@/lib/supabase-server'
+import { getAdminClient } from '@/lib/service-role'
 import UserProfileClient from '@/components/UserProfileClient'
 import Breadcrumb from '@/components/Breadcrumb'
 
 interface Props {
   params: Promise<{ username: string }>
+}
+
+/**
+ * El @ de hoy de alguien que antes se llamaba `username`, o `null`.
+ *
+ * Los @ que se cambian sin que la persona los elija (los aleatorios de Apple,
+ * supabase-usuarios-apple-2026-10.sql) quedan en `usuarios_anteriores`, así un
+ * link viejo compartido lleva al perfil en vez de a un 404. La tabla sólo la
+ * lee el service role. Si no existe o falla, `null` y sigue el 404 de siempre.
+ */
+async function usuarioActual(username: string): Promise<string | null> {
+  try {
+    const admin = getAdminClient()
+    const { data: anterior } = await admin
+      .from('usuarios_anteriores')
+      .select('user_id')
+      // `ilike` para no depender de mayúsculas, con % y _ escapados.
+      .ilike('username_viejo', username.replace(/[\\%_]/g, '\\$&'))
+      .order('cambiado_en', { ascending: false })
+      .limit(1)
+      .maybeSingle()
+    if (!anterior) return null
+    const { data: perfil } = await admin
+      .from('profiles')
+      .select('username')
+      .eq('id', anterior.user_id)
+      .maybeSingle()
+    return perfil?.username && perfil.username !== username ? perfil.username : null
+  } catch {
+    return null
+  }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
@@ -58,7 +90,11 @@ export default async function UserProfilePage({ params }: Props) {
     .eq('username', username)
     .maybeSingle()
 
-  if (!profile) notFound()
+  if (!profile) {
+    const actual = await usuarioActual(username)
+    if (actual) permanentRedirect(`/usuario/${encodeURIComponent(actual)}`)
+    notFound()
+  }
 
   return (
     <>

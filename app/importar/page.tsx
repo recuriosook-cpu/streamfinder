@@ -4,6 +4,7 @@ import { useState, useRef } from 'react'
 import { useRouter } from 'next/navigation'
 import Link from 'next/link'
 import Papa from 'papaparse'
+import JSZip from 'jszip'
 import { createClient } from '@/lib/supabase'
 import { Upload, CheckCircle, AlertCircle, Loader2, Film, Star, Bookmark, FileText, ChevronRight } from 'lucide-react'
 import { toast } from 'sonner'
@@ -79,6 +80,7 @@ export default function ImportarPage() {
     watched: null, ratings: null, watchlist: null, reviews: null,
   })
   const [dragOver, setDragOver] = useState<string | null>(null)
+  const [zipError, setZipError] = useState<string | null>(null)
   const [phase, setPhase] = useState<'idle' | 'processing' | 'done'>('idle')
   const [progress, setProgress] = useState(0)
   const [total, setTotal] = useState(0)
@@ -101,6 +103,31 @@ export default function ImportarPage() {
   function handleFile(key: string, file: File) {
     if (!file.name.endsWith('.csv')) return
     setFiles(prev => ({ ...prev, [key]: file }))
+  }
+
+  /**
+   * El ZIP tal cual lo manda Letterboxd, sin descomprimir: en el celular (y
+   * desde la app, que abre esta página) descomprimir y subir cuatro archivos
+   * de a uno era donde la gente abandonaba. Se toman los cuatro CSV de la
+   * raíz del ZIP; `likes/`, `lists/` y los demás no se usan.
+   */
+  async function handleZip(file: File) {
+    setZipError(null)
+    try {
+      const zip = await JSZip.loadAsync(file)
+      const found: { [k: string]: File | null } = { watched: null, ratings: null, watchlist: null, reviews: null }
+      for (const key of Object.keys(found)) {
+        const entry = zip.file(`${key}.csv`)
+        if (entry) found[key] = new File([await entry.async('string')], `${key}.csv`, { type: 'text/csv' })
+      }
+      if (!Object.values(found).some(Boolean)) {
+        setZipError('Ese ZIP no tiene los archivos de Letterboxd (watched.csv, ratings.csv…).')
+        return
+      }
+      setFiles(found)
+    } catch {
+      setZipError('No pudimos abrir el ZIP. Probá de nuevo o subí los CSV sueltos.')
+    }
   }
 
   function handleDrop(key: string, e: React.DragEvent) {
@@ -247,8 +274,8 @@ export default function ImportarPage() {
             {[
               { n: 1, text: 'Entrá a', link: 'letterboxd.com → Settings → Data', note: 'O directo: letterboxd.com/[tuusuario]/settings/data' },
               { n: 2, text: 'Hacé clic en "Export Your Data"', note: 'Letterboxd te manda un email con un link de descarga' },
-              { n: 3, text: 'Descargá el ZIP y descomprimilo', note: 'Vas a ver varios archivos .csv adentro' },
-              { n: 4, text: 'Subí los archivos acá abajo', note: 'Podés subir uno o varios a la vez' },
+              { n: 3, text: 'Descargá el ZIP', note: 'No hace falta descomprimirlo' },
+              { n: 4, text: 'Subilo acá abajo', note: 'O, si ya lo descomprimiste, subí los .csv sueltos' },
             ].map(step => (
               <li key={step.n} className="flex items-start gap-3">
                 <span className="w-6 h-6 rounded-full flex items-center justify-center text-xs font-bold text-black shrink-0 mt-0.5" style={{ backgroundColor: '#FFFD02' }}>{step.n}</span>
@@ -264,6 +291,19 @@ export default function ImportarPage() {
         {/* Upload zones */}
         {phase === 'idle' && (
           <>
+            <label className="relative flex flex-col items-center justify-center gap-2 p-6 mb-3 rounded-xl border-2 border-dashed border-[#FFFD02]/50 bg-[#FFFD02]/5 cursor-pointer hover:border-[#FFFD02] transition-colors">
+              <input
+                type="file"
+                accept=".zip,application/zip"
+                className="absolute inset-0 opacity-0 cursor-pointer"
+                onChange={e => { if (e.target.files?.[0]) void handleZip(e.target.files[0]) }}
+              />
+              <Upload size={22} className="text-[#FFFD02]" />
+              <p className="text-sm font-semibold text-white">Subí el ZIP de Letterboxd</p>
+              <p className="text-xs text-[#A0A0B0]">Tal cual te llega, sin descomprimir</p>
+            </label>
+            {zipError && <p className="text-xs text-red-400 mb-3">{zipError}</p>}
+            <p className="text-xs text-[#A0A0B0] text-center mb-3">o los archivos sueltos</p>
             <div className="grid grid-cols-1 sm:grid-cols-2 gap-3 mb-6">
               {FILE_TYPES.map(({ key, label, icon, desc }) => {
                 const file = files[key]
