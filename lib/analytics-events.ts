@@ -277,8 +277,12 @@ export const EVENT_NAMES = [
   /**
    * Una tarjeta. props: { accion: 'me_gusto' | 'no_me_gusto' | 'quiero_verla' |
    * 'pasar', gesto: 'deslizar' | 'boton', media_type, media_id, tarjeta,
-   * parecida }. `tarjeta` cuenta las de esa entrada (el máximo por sesión es
-   * cuántas pasó); `parecida` = llegó por un "Me gustó" anterior.
+   * parecida, fuente? }. `tarjeta` cuenta las de esa entrada (el máximo por
+   * sesión es cuántas pasó); `parecida` = llegó por un "Me gustó" anterior.
+   * `fuente` (desde el 22/10): 'plataformas' | 'generos' | 'calificadas' |
+   * 'parecida', de dónde salió la tarjeta (ver `lib/swipe.ts` de
+   * glynbox-mobile); 'calificadas' son recomendaciones de lo que calificó con
+   * 4 o más en cualquier parte de la app.
    */
   'deslizar_accion',
   /** Deshizo la última. props: { accion, media_type, media_id } */
