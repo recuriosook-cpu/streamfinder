@@ -6,6 +6,7 @@ import { requireAdminClient } from '@/lib/service-role'
 import { fetchAllRows, mesAR } from '@/lib/admin-filas'
 import { ALL_PLATFORMS, LOGOS_TMDB } from '@/lib/providers'
 import { normalizeSavedPlatforms } from '@/lib/onboarding'
+import { leerMedicionDesde } from '@/lib/analytics-medicion'
 
 /**
  * GET /api/admin/overview
@@ -404,11 +405,12 @@ async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
  */
 async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> {
   const leerResumen = () => admin.from('admin_resumen_actividad').select('*').maybeSingle()
-  const [primerResumen, medicionRes, appUso] = await Promise.all([
+  const [primerResumen, medicion, appUso] = await Promise.all([
     leerResumen(),
-    admin.from('analytics_medicion').select('desde, eventos_humanos').maybeSingle(),
+    leerMedicionDesde(admin),
     buildAppUso(admin),
   ])
+  if (medicion.error) console.error('[admin/overview] medición desde:', medicion.error)
 
   // Un corte por tiempo suele ser de un momento con la base cargada (esta
   // vista corre al lado de las de /api/admin/contenido): se reintenta una vez,
@@ -427,8 +429,7 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
   }
 
   const r = resumenRes.data as unknown as ResumenRow
-  const desde = (medicionRes.data?.desde as string | null) ?? null
-  const eventosHumanos = Number(medicionRes.data?.eventos_humanos ?? 0)
+  const desde = medicion.desde
 
   // La app se cuenta siempre, haya o no medición: `user_devices` no depende de
   // analytics. Cero dispositivos es un cero verdadero —nadie instaló la app—,
@@ -444,8 +445,10 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
 
   // Sin un solo evento humano, todo lo demás es "sin datos" y no 0. Un 0 acá
   // diría "no se conectó nadie", que es una afirmación que no podemos sostener
-  // cuando lo que pasa es que todavía no estamos midiendo.
-  if (eventosHumanos === 0) {
+  // cuando lo que pasa es que todavía no estamos midiendo. Si la fecha no se
+  // pudo leer, eso no es "no hay eventos": la vista de arriba contestó, así
+  // que las tarjetas se muestran igual, sin la fecha en el cartel.
+  if (!medicion.error && desde === null) {
     return { ...ACTIVIDAD_VACIA, medicionDesde: desde, app, appUso }
   }
 

@@ -338,6 +338,19 @@ export default function ResumenPage() {
                   incompletos: el número es un piso, no el total. Los eventos de crawlers están
                   excluidos (<code className="text-[#A0A0B0]">is_bot = false</code>).
                 </>
+              ) : act && act.disponible ? (
+                <>
+                  Los períodos que empiezan antes de que se instalara el tracking están
+                  incompletos: el número es un piso, no el total. Los eventos de crawlers están
+                  excluidos (<code className="text-[#A0A0B0]">is_bot = false</code>).
+                </>
+              ) : act?.fallo ? (
+                <>
+                  <span className="text-white font-medium">No se pudo leer la actividad.</span>{' '}
+                  {act.fallo === 'tiempo'
+                    ? 'La base tardó demasiado. Probá actualizar en un rato.'
+                    : 'El detalle está en los logs ([admin/overview]).'}
+                </>
               ) : (
                 <>
                   <span className="text-white font-medium">Todavía no hay medición de actividad.</span>{' '}

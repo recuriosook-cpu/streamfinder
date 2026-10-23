@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { leerMedicionDesde } from '@/lib/analytics-medicion'
 
 /**
  * GET /api/admin/retencion
@@ -357,9 +358,9 @@ export async function GET() {
       conCaida(admin, 'retencion_embudo_registro_v2', 'retencion_embudo_registro', { p_dias: DIAS }),
       admin.rpc('retencion_sesiones_primera_semana', { p_dias: DIAS }),
       admin.rpc('retencion_comportamiento', { p_dias: DIAS }),
-      // Vista vieja, de `supabase-analytics-actividad.sql`: dice desde cuándo
-      // hay eventos, que es lo que vuelve legibles (o no) a las cohortes.
-      admin.from('analytics_medicion').select('desde').maybeSingle(),
+      // Desde cuándo hay eventos, que es lo que vuelve legibles (o no) a las
+      // cohortes.
+      leerMedicionDesde(admin),
     ])
 
   // `appRes` queda afuera: su migración es un archivo aparte y su ausencia no
@@ -463,8 +464,7 @@ export async function GET() {
     (sesiones?.usuarios ?? 0) > 0 ||
     comportamiento.length > 0
 
-  const medicionDesde =
-    (medicionRes.data as { desde?: string } | null)?.desde ?? null
+  const medicionDesde = medicionRes.desde
 
   if (!hayAlgo) {
     const sinDatos = vacio('sin_datos')
