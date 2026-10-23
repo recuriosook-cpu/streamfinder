@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
+import { precalculado, FRESCO_LENTO } from '@/lib/admin-precalculado'
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 
@@ -89,10 +90,10 @@ async function getMedicion(admin: SupabaseClient): Promise<Medicion> {
     return medicionCache.data
   }
 
-  const { data, error } = await admin
-    .from('analytics_medicion')
-    .select('desde, eventos_humanos, usuarios_con_datos')
-    .maybeSingle()
+  const res = await precalculado(admin, 'analytics_medicion', FRESCO_LENTO,
+    () => admin.from('analytics_medicion').select('desde, eventos_humanos, usuarios_con_datos').maybeSingle())
+  const { error } = res
+  const data = res.data as { desde?: string | null; eventos_humanos?: number; usuarios_con_datos?: number } | null
 
   // Si la vista no está creada todavía, el panel tiene que seguir funcionando:
   // las columnas de tiempo muestran "sin datos" y el resto de la tabla anda

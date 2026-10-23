@@ -7,6 +7,7 @@ import { fetchAllRows, mesAR } from '@/lib/admin-filas'
 import { ALL_PLATFORMS, LOGOS_TMDB } from '@/lib/providers'
 import { normalizeSavedPlatforms } from '@/lib/onboarding'
 import { leerMedicionDesde } from '@/lib/analytics-medicion'
+import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 
 /**
  * GET /api/admin/overview
@@ -353,7 +354,7 @@ interface AppUsoRow {
  */
 async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
   const [usoRes, playRes] = await Promise.all([
-    admin.rpc('admin_app_uso'),
+    precalculado(admin, 'admin_app_uso', FRESCO_RAPIDO, () => admin.rpc('admin_app_uso')),
     admin
       .from('play_install_stats')
       .select('fecha, base_instalada')
@@ -404,7 +405,8 @@ async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
  * después de un login, y un crawler no llega nunca.
  */
 async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> {
-  const leerResumen = () => admin.from('admin_resumen_actividad').select('*').maybeSingle()
+  const leerResumen = () => precalculado(admin, 'admin_resumen_actividad', FRESCO_RAPIDO,
+    () => admin.from('admin_resumen_actividad').select('*').maybeSingle())
   const [primerResumen, medicion, appUso] = await Promise.all([
     leerResumen(),
     leerMedicionDesde(admin),

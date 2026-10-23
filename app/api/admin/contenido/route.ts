@@ -4,6 +4,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
 import { fetchAllRows, diaAR, inicioDiaAR } from '@/lib/admin-filas'
+import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 
 /**
  * GET /api/admin/contenido
@@ -123,7 +124,8 @@ function contarPor<T extends { user_id: string }>(filas: T[]): Map<string, numbe
 }
 
 async function porHoraDe(admin: SupabaseClient): Promise<AdminContenido['porHora']> {
-  const { data, error } = await admin.rpc('admin_actividad_por_hora', { p_dias: 30 })
+  const { data, error } = await precalculado(admin, 'admin_actividad_por_hora:30', FRESCO_RAPIDO,
+    () => admin.rpc('admin_actividad_por_hora', { p_dias: 30 }))
   if (error) {
     console.warn('[admin/contenido] admin_actividad_por_hora:', error.message)
     return null

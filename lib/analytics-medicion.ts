@@ -12,7 +12,7 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  *
  * Esto es un solo registro, y la fecha no cambia una vez que hay eventos: se
  * guarda en memoria y deja de consultarse. Con el índice de
- * `supabase-medicion-rapida-2026-10.sql` la consulta es instantánea; sin él
+ * `supabase-rendimiento-2026-10.sql` la consulta es instantánea; sin él
  * funciona igual, más lenta.
  */
 export type MedicionDesde =

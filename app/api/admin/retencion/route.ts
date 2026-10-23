@@ -4,6 +4,7 @@ import { cookies } from 'next/headers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 import { leerMedicionDesde } from '@/lib/analytics-medicion'
+import { precalculado, FRESCO_LENTO } from '@/lib/admin-precalculado'
 
 /**
  * GET /api/admin/retencion
@@ -327,6 +328,15 @@ function embudosDe(filas: FilaPasoV2[]): EmbudoPlataforma[] {
   })
 }
 
+/**
+ * Una RPC, leída de lo que dejó calculado el cron de la base
+ * (`lib/admin-precalculado.ts`); si no está, en vivo. La clave es el nombre
+ * con sus argumentos, igual que en `supabase-rendimiento-2026-10.sql`.
+ */
+function rpcPrecalculada(admin: SupabaseClient, fn: string, args: Record<string, number>) {
+  return precalculado(admin, `${fn}:${Object.values(args).join(',')}`, FRESCO_LENTO, () => admin.rpc(fn, args))
+}
+
 /** Una RPC nueva, y si todavía no existe, la vieja con los mismos argumentos. */
 async function conCaida(
   admin: SupabaseClient,
@@ -334,7 +344,7 @@ async function conCaida(
   vieja: string,
   args: Record<string, number>,
 ) {
-  const res = await admin.rpc(nueva, args)
+  const res = await rpcPrecalculada(admin, nueva, args)
   if (!res.error || !faltaLaMigracion(res.error)) return { res, nueva: true }
   return { res: await admin.rpc(vieja, args), nueva: false }
 }
@@ -350,14 +360,14 @@ export async function GET() {
 
   const [cohortesRes, appV, registroV, sesionesRes, comportamientoRes, medicionRes] =
     await Promise.all([
-      admin.rpc('retencion_cohortes', { p_semanas: SEMANAS }),
+      rpcPrecalculada(admin, 'retencion_cohortes', { p_semanas: SEMANAS }),
       // La de la app va aparte del resto: su SQL es otro archivo y puede no
       // estar corrido todavía. Su error NO tira abajo la sección entera.
       // Las dos `_v2` caen a la vieja mientras no se corra el SQL nuevo.
       conCaida(admin, 'retencion_app_instalaciones_v2', 'retencion_app_instalaciones', { p_semanas: SEMANAS }),
       conCaida(admin, 'retencion_embudo_registro_v2', 'retencion_embudo_registro', { p_dias: DIAS }),
-      admin.rpc('retencion_sesiones_primera_semana', { p_dias: DIAS }),
-      admin.rpc('retencion_comportamiento', { p_dias: DIAS }),
+      rpcPrecalculada(admin, 'retencion_sesiones_primera_semana', { p_dias: DIAS }),
+      rpcPrecalculada(admin, 'retencion_comportamiento', { p_dias: DIAS }),
       // Desde cuándo hay eventos, que es lo que vuelve legibles (o no) a las
       // cohortes.
       leerMedicionDesde(admin),

@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 
 /**
  * GET /api/admin/app-medicion — lo nuevo de la app en `/admin/metricas`.
@@ -509,7 +510,7 @@ export async function GET() {
       eventos(admin, ['ad_cargado']),
       fallosDeAnuncios(admin),
       tokens(admin),
-      admin.rpc('admin_app_uso'),
+      precalculado(admin, 'admin_app_uso', FRESCO_RAPIDO, () => admin.rpc('admin_app_uso')),
       admin.from('profiles').select('id', { count: 'exact', head: true }),
       ...INTERRUPTORES.map(i => apagados(admin, i.clave)),
     ])
