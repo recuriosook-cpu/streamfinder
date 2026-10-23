@@ -1,4 +1,4 @@
-// SERVER-ONLY — lo usan los crons.
+// SERVER-ONLY — lo usan los crons y el feed de Comunidad (`lib/feed-extras.ts`).
 
 /**
  * Lo que comparten los avisos del cron diario (`lib/avisos-famosos.ts` y
@@ -13,14 +13,29 @@
 
 const TMDB = 'https://api.themoviedb.org/3'
 
-/** Un GET a TMDB. `null` si falla o no hay clave: quien llama saltea ese dato. */
-export async function tmdbJson<T>(ruta: string, params: Record<string, string> = {}): Promise<T | null> {
+/**
+ * Un GET a TMDB. `null` si falla o no hay clave: quien llama saltea ese dato.
+ *
+ * Sin `revalidate` no pasa por el caché de datos (lo de arriba). Con
+ * `revalidate`, sí: es para quien pide siempre las mismas pocas URLs desde una
+ * ruta que se llama mucho (el feed de Comunidad), donde cada escritura se lee
+ * cientos de veces. Nunca para un cron que recorre ids distintos. Next sólo
+ * guarda las respuestas 200: un 429 o un 404 no queda cacheado.
+ */
+export async function tmdbJson<T>(
+  ruta: string,
+  params: Record<string, string> = {},
+  opciones: { revalidate?: number } = {},
+): Promise<T | null> {
   const key = process.env.NEXT_PUBLIC_TMDB_API_KEY
   if (!key) return null
   const qs = new URLSearchParams({ api_key: key, ...params })
+  const cache: RequestInit = opciones.revalidate
+    ? { next: { revalidate: opciones.revalidate } }
+    : { cache: 'no-store' }
   for (let intento = 0; intento < 2; intento++) {
     try {
-      const res = await fetch(`${TMDB}${ruta}?${qs}`, { cache: 'no-store' })
+      const res = await fetch(`${TMDB}${ruta}?${qs}`, cache)
       if (res.status === 429) {
         // Límite de TMDB: se espera un poco y se reintenta una vez.
         await new Promise(r => setTimeout(r, 1500))

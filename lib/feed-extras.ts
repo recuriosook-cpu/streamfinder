@@ -105,9 +105,18 @@ const RECS_FERLAGE = 3
 const RECS_FERLAGE_DIAS = 45
 
 /**
+ * Cuánto se guarda la ficha de TMDB (título y póster) de cada recomendación.
+ * Son las mismas 3 para todos, en 2 idiomas: sin caché eran 3 pedidos a TMDB
+ * por cada carga del feed. El título y el póster casi no cambian, y si TMDB
+ * cambia el póster la ruta vieja sigue sirviendo. Una recomendación nueva es
+ * otra URL, así que aparece enseguida.
+ */
+const FICHA_FERLAGE_SEGUNDOS = 86_400
+
+/**
  * Las últimas recomendaciones de Ferlage (las del panel), con su portada. El
  * título y el póster se piden a TMDB en el idioma de quien mira: son 3
- * pedidos, y el feed se cachea un minuto por persona.
+ * pedidos, compartidos por todos y cacheados un día (no dependen de quién mira).
  */
 export async function recomendacionesFerlage(db: SupabaseClient, idioma: Idioma): Promise<FerlageItem[]> {
   const desde = new Date(Date.now() - RECS_FERLAGE_DIAS * 86_400_000).toISOString()
@@ -126,7 +135,8 @@ export async function recomendacionesFerlage(db: SupabaseClient, idioma: Idioma)
   const filas = (recs.data ?? []) as Row[]
   const fichas = await Promise.all(filas.map(r =>
     tmdbJson<{ title?: string; name?: string; poster_path?: string | null }>(
-      `/${r.media_type}/${r.tmdb_id}`, { language: idiomaTmdb(idioma) })))
+      `/${r.media_type}/${r.tmdb_id}`, { language: idiomaTmdb(idioma) },
+      { revalidate: FICHA_FERLAGE_SEGUNDOS })))
 
   return filas.flatMap((r, i) => {
     const titulo = (fichas[i]?.title ?? fichas[i]?.name)?.trim()

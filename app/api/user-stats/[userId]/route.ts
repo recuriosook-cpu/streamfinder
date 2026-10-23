@@ -35,8 +35,13 @@ const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const SUPABASE_URL = process.env.NEXT_PUBLIC_SUPABASE_URL
 const SUPABASE_ANON_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY
 
-/** Caché de los datos de TMDB (géneros, créditos): no dependen de nadie. */
-const CACHE_SECONDS = 3600
+/**
+ * Caché de los datos de TMDB (duración, géneros, fecha, créditos): no dependen
+ * de nadie y casi no cambian, así que un día. Con una hora, abrir las
+ * estadísticas otra vez a la tarde volvía a pedir hasta 300 fichas a TMDB, y
+ * cada ficha con créditos es una escritura grande en el caché de datos.
+ */
+const CACHE_SECONDS = 86_400
 
 /**
  * Caché de la respuesta. Antes era una hora en el CDN más un día de
