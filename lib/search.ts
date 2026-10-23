@@ -34,11 +34,42 @@ export type { TipoBusqueda, FilaBusqueda, ResultadoBusqueda } from '@/lib/search
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 
-/** Con menos letras el índice trae medio catálogo: se busca sólo en TMDB. */
-const LARGO_MINIMO_INDICE = 3
+/**
+ * Con menos letras el índice trae medio catálogo: se busca sólo en TMDB. Con
+ * tres ("har", "los", "man") tardaba más de un segundo, y un error de tipeo en
+ * tres letras no es algo que valga la pena corregir.
+ */
+const LARGO_MINIMO_INDICE = 4
 
 /** Candidatos que se le piden al índice. */
 const CANDIDATOS_INDICE = 40
+
+/**
+ * Después de esto se sigue con TMDB solo. El límite de Supabase para la anon
+ * key es de 3 segundos; esperarlo entero demoraba todas las sugerencias.
+ */
+const ESPERA_INDICE_MS = 1500
+
+/**
+ * Palabras que están en decenas de miles de títulos. Con ellas el índice de
+ * trigramas tiene que revisar casi toda la tabla: "the", "las" o "the last"
+ * se cortaban por tiempo (23/10, más de 50 veces desde la noche anterior).
+ * Para el índice se sacan; TMDB las sigue recibiendo, y el orden final
+ * (`lib/search-ranking.ts`) compara con la búsqueda entera.
+ */
+const PALABRAS_COMUNES = new Set([
+  'the', 'a', 'an', 'of', 'and', 'in', 'on', 'to', 'for', 'with',
+  'el', 'la', 'los', 'las', 'lo', 'un', 'una', 'unos', 'unas', 'de', 'del',
+  'y', 'e', 'en', 'al', 'por', 'con', 'para', 'le', 'les', 'des', 'du', 'il',
+])
+
+/**
+ * Lo que se le manda al índice: sin palabras comunes ni letras sueltas (la que
+ * queda al final mientras se escribe, "the last o"). Vacío si no queda nada.
+ */
+export function consultaIndice(qn: string): string {
+  return qn.split(' ').filter(p => p.length > 1 && !PALABRAS_COMUNES.has(p)).join(' ')
+}
 
 async function buscarEnTmdb(q: string, tipo: TipoBusqueda, page: number, idioma: Idioma): Promise<PaginaTmdb> {
   const vacio = { page, total_pages: 0, total_results: 0, results: [] }
@@ -65,10 +96,12 @@ async function buscarEnTmdb(q: string, tipo: TipoBusqueda, page: number, idioma:
 }
 
 async function buscarEnIndice(qn: string, tipo: TipoBusqueda): Promise<FilaIndice[]> {
-  if (tipo === 'person' || qn.length < LARGO_MINIMO_INDICE) return []
+  const q = consultaIndice(qn)
+  if (tipo === 'person' || q.length < LARGO_MINIMO_INDICE) return []
   try {
     const { data, error } = await createServerClient()
-      .rpc('search_titles_fuzzy', { q: qn, max_results: CANDIDATOS_INDICE })
+      .rpc('search_titles_fuzzy', { q, max_results: CANDIDATOS_INDICE })
+      .abortSignal(AbortSignal.timeout(ESPERA_INDICE_MS))
     if (error) {
       console.error('[search] índice:', error.message)
       return []
