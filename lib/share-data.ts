@@ -1,7 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { getAdminClient } from '@/lib/service-role'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
-import type { ShareCalificacion, ShareLista, ShareMedia, ShareReview, ShareTop5 } from '@/lib/share-image'
+import { fondoDesenfocado, type ShareCalificacion, type ShareLista, type ShareMedia, type ShareReview, type ShareTop5 } from '@/lib/share-image'
 
 /**
  * Datos para las imágenes de compartir (lib/share-image.tsx).
@@ -15,6 +15,7 @@ export async function loadShareMedia(kind: 'movie' | 'tv', id: number): Promise<
   try {
     const d = kind === 'movie' ? await getMovieDetails(id) : await getTVDetails(id)
     const date: string | undefined = kind === 'movie' ? d.release_date : d.first_air_date
+    const fondo = await fondoDesenfocado(d.backdrop_path ?? d.poster_path ?? null)
     return {
       kind,
       title: (kind === 'movie' ? d.title : d.name) ?? '',
@@ -22,6 +23,7 @@ export async function loadShareMedia(kind: 'movie' | 'tv', id: number): Promise<
       posterPath: d.poster_path ?? null,
       backdropPath: d.backdrop_path ?? null,
       tmdbScore: d.vote_count > 0 && d.vote_average > 0 ? d.vote_average : null,
+      fondo,
     }
   } catch {
     return null
@@ -36,10 +38,10 @@ type ReviewRow = {
   body: string | null
   has_spoiler: boolean | null
 }
-type AuthorRow = { username: string; avatar_url: string | null; hide_activity: boolean | null }
+type AuthorRow = { username: string; avatar_url: string | null; hide_activity: boolean | null; verified: boolean | null }
 
 const REVIEW_COLS = 'user_id, media_id, media_type, rating, body, has_spoiler'
-const AUTHOR_COLS = 'username, avatar_url, hide_activity'
+const AUTHOR_COLS = 'username, avatar_url, hide_activity, verified'
 
 /**
  * La reseña lista para dibujar, o `null` si no existe o quien pide no la puede
@@ -86,6 +88,7 @@ export async function loadShareReview(
       hasSpoiler: row.has_spoiler === true,
       username: author.username,
       avatarUrl: author.avatar_url,
+      verified: author.verified === true,
     },
   }
 }
@@ -108,8 +111,8 @@ export async function loadShareCalificacion(
       .maybeSingle<{ rating: number | string | null }>(),
     admin.from('reviews').select('body, has_spoiler').eq('user_id', viewerId).eq('media_type', kind).eq('media_id', id)
       .maybeSingle<{ body: string | null; has_spoiler: boolean | null }>(),
-    admin.from('profiles').select('username, avatar_url').eq('id', viewerId)
-      .maybeSingle<{ username: string; avatar_url: string | null }>(),
+    admin.from('profiles').select('username, avatar_url, verified').eq('id', viewerId)
+      .maybeSingle<{ username: string; avatar_url: string | null; verified: boolean | null }>(),
   ])
   const rating = Number(nota?.rating ?? 0)
   if (!rating || !autor?.username) return null
@@ -121,6 +124,7 @@ export async function loadShareCalificacion(
     body: resena && !resena.has_spoiler ? resena.body : null,
     username: autor.username,
     avatarUrl: autor.avatar_url,
+    verified: autor.verified === true,
   }
 }
 
@@ -151,8 +155,8 @@ export async function loadShareLista(
   const [{ data: items, count }, { data: autor }] = await Promise.all([
     lector.from('list_items').select('poster_path', { count: 'exact' }).eq('list_id', id)
       .order('position', { ascending: true }).limit(6),
-    lector.from('profiles').select('username, avatar_url').eq('id', lista.user_id)
-      .maybeSingle<{ username: string; avatar_url: string | null }>(),
+    lector.from('profiles').select('username, avatar_url, verified').eq('id', lista.user_id)
+      .maybeSingle<{ username: string; avatar_url: string | null; verified: boolean | null }>(),
   ])
   if (!autor?.username) return null
   return {
@@ -161,6 +165,7 @@ export async function loadShareLista(
       title: lista.title,
       username: autor.username,
       avatarUrl: autor.avatar_url,
+      verified: autor.verified === true,
       total: count ?? items?.length ?? 0,
       posters: ((items ?? []) as { poster_path: string | null }[]).map(i => i.poster_path),
     },
@@ -168,32 +173,24 @@ export async function loadShareLista(
 }
 
 /**
- * "Mi top 5" de quien pide: primero sus favoritas fijadas del perfil (hay 4
- * lugares), y se completa con lo que calificó más alto. Con su sesión, sin
- * caché. `null` si no tiene ni una.
+ * "Compartir mi top" de quien pide: las favoritas que fijó en el perfil (hay 4
+ * lugares), en su orden, y nada más. Antes se completaba hasta cinco con lo
+ * que calificó más alto, y salían títulos que la persona no había elegido.
+ * Con su sesión, sin caché. `null` si no fijó ninguna.
  */
 export async function loadShareTop5(viewerId: string): Promise<ShareTop5 | null> {
   const admin = getAdminClient()
-  const [{ data: fijadas }, { data: notas }, { data: autor }] = await Promise.all([
-    admin.from('pinned_favorites').select('media_id, media_type, poster_path, slot').eq('user_id', viewerId)
+  const [{ data: fijadas }, { data: autor }] = await Promise.all([
+    admin.from('pinned_favorites').select('poster_path, slot').eq('user_id', viewerId)
       .order('slot', { ascending: true }),
-    admin.from('ratings').select('media_id, media_type, poster_path, rating, rated_at').eq('user_id', viewerId)
-      .gte('rating', 4).order('rating', { ascending: false }).order('rated_at', { ascending: false }).limit(20),
-    admin.from('profiles').select('username, avatar_url').eq('id', viewerId)
-      .maybeSingle<{ username: string; avatar_url: string | null }>(),
+    admin.from('profiles').select('username, avatar_url, verified').eq('id', viewerId)
+      .maybeSingle<{ username: string; avatar_url: string | null; verified: boolean | null }>(),
   ])
   if (!autor?.username) return null
-
-  type Fila = { media_id: number; media_type: string; poster_path: string | null }
-  const vistos = new Set<string>()
-  const posters: (string | null)[] = []
-  for (const f of [...((fijadas ?? []) as Fila[]), ...((notas ?? []) as Fila[])]) {
-    const clave = `${f.media_type}:${f.media_id}`
-    if (vistos.has(clave) || !f.poster_path) continue
-    vistos.add(clave)
-    posters.push(f.poster_path)
-    if (posters.length === 5) break
-  }
+  const posters = ((fijadas ?? []) as { poster_path: string | null }[])
+    .map(f => f.poster_path)
+    .filter((p): p is string => Boolean(p))
+    .slice(0, 4)
   if (posters.length === 0) return null
-  return { username: autor.username, avatarUrl: autor.avatar_url, posters }
+  return { username: autor.username, avatarUrl: autor.avatar_url, verified: autor.verified === true, posters }
 }

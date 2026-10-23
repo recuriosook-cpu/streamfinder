@@ -18,8 +18,8 @@ import { track } from '@/lib/analytics'
 
 export const LINK_COMPARTIR = 'https://www.glynbox.com/descargar?src=compartir'
 
-type Que = 'calificacion' | 'lista' | 'top5'
-type Desde = 'ficha' | 'lista' | 'perfil'
+type Que = 'calificacion' | 'lista' | 'top5' | 'que_veo_hoy'
+type Desde = 'ficha' | 'lista' | 'perfil' | 'que_veo_hoy'
 
 interface Props {
   que: Que
@@ -40,7 +40,10 @@ export default function CompartirHistoria({ que, desde, imagen, mensaje, etiquet
     try {
       const res = await fetch(imagen, { cache: 'no-store' })
       if (!res.ok) throw new Error(`Imagen: ${res.status}`)
-      const archivo = new File([await res.blob()], `glynbox-${que}.png`, { type: 'image/png' })
+      // PNG o JPEG (`?jpg=1`): el nombre del archivo, según lo que vino.
+      const blob = await res.blob()
+      const jpeg = blob.type === 'image/jpeg'
+      const archivo = new File([blob], `glynbox-${que}.${jpeg ? 'jpg' : 'png'}`, { type: jpeg ? 'image/jpeg' : 'image/png' })
       const texto = `${mensaje} ${LINK_COMPARTIR}`
 
       if (typeof navigator.canShare === 'function' && navigator.canShare({ files: [archivo] })) {

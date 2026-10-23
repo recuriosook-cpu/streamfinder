@@ -1190,13 +1190,14 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 <section>
                   <div className="flex items-center justify-between gap-3">
                     <SectionLabel>Películas favoritas</SectionLabel>
-                    {isOwner && (
+                    {/* Sólo con favoritas fijadas: la imagen lleva ésas y nada más. */}
+                    {isOwner && hasPinned && (
                       <CompartirHistoria
                         que="top5"
                         desde="perfil"
-                        imagen="/api/share/top5"
-                        mensaje="Mi top 5 en Glynbox"
-                        etiqueta="Mi top 5"
+                        imagen="/api/share/top5?jpg=1"
+                        mensaje="Mi top en Glynbox"
+                        etiqueta="Compartir mi top"
                       />
                     )}
                   </div>

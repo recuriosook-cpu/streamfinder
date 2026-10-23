@@ -1,9 +1,9 @@
-import { loadShareAssets, renderShareImage, MediaStory, LinkPreview, SIZES } from '@/lib/share-image'
+import { loadShareAssets, renderShareImage, MediaStory, LinkPreview, SIZES, pideJpeg } from '@/lib/share-image'
 import { loadShareMedia } from '@/lib/share-data'
 
 /**
  * Imagen de una ficha (película o serie) para compartir.
- *   ?formato=historia  1080 × 1920 PNG (default)
+ *   ?formato=historia  1080 × 1920 PNG (default); con `&jpg=1`, JPEG
  *   ?formato=link      1200 × 630 JPEG, la vista previa de los links
  */
 export async function GET(req: Request, { params }: { params: Promise<{ type: string; id: string }> }) {
@@ -18,5 +18,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
 
   return formato === 'link'
     ? renderShareImage(<LinkPreview media={media} logo={logo} />, SIZES.link, { cache: 'publica', jpeg: true })
-    : renderShareImage(<MediaStory media={media} logo={logo} />, SIZES.historia, { cache: 'publica' })
+    : renderShareImage(<MediaStory media={media} logo={logo} />, SIZES.historia, { cache: 'publica', jpeg: pideJpeg(req) })
 }

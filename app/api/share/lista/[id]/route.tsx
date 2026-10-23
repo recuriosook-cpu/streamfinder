@@ -1,4 +1,4 @@
-import { ListaStory, loadShareAssets, renderShareImage, SIZES } from '@/lib/share-image'
+import { ListaStory, loadShareAssets, pideJpeg, renderShareImage, SIZES } from '@/lib/share-image'
 import { loadShareLista } from '@/lib/share-data'
 import { getRequestUserId } from '@/lib/request-user'
 
@@ -13,5 +13,6 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (!found) return new Response('No encontrada', { status: 404 })
   return renderShareImage(<ListaStory l={found.lista} logo={logo} />, SIZES.historia, {
     cache: found.privada ? 'privada' : 'publica',
+    jpeg: pideJpeg(req),
   })
 }

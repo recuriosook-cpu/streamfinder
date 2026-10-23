@@ -2,17 +2,19 @@
 
 import { useEffect, useState } from 'react'
 import { useRouter } from 'next/navigation'
-import { Loader2, Sparkles, X } from 'lucide-react'
+import { ArrowLeft, Clapperboard, Loader2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { track } from '@/lib/analytics'
 import { buildProviderUrl } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
-import type { Compania, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
+import { mediaImagePath } from '@/lib/share-urls'
+import CompartirHistoria from '@/components/CompartirHistoria'
+import type { Compania, Duracion, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
 
 /**
- * "¿Qué veo hoy?": dos preguntas (con quién y qué ganas) y UNA recomendación
- * a pantalla completa, con "La veo", "Otra" (hasta 3) y "Guardar para
+ * "¿Qué veo hoy?": tres preguntas (con quién, qué ganas y cuánto tiempo) y
+ * UNA recomendación a pantalla completa, con "La veo", "Otra" (hasta 3) y "Guardar para
  * después". La próxima vez ofrece "¿Lo mismo que la última vez?". Reemplaza al
  * recomendador por ánimo. Es lo mismo que `QueVeoHoy` de la app; las dos usan
  * `/api/que-veo-hoy` (`lib/que-veo-hoy.ts`).
@@ -26,10 +28,17 @@ const COMPANIAS: { id: Compania; texto: string }[] = [
 ]
 const GANAS: { id: Ganas; texto: string }[] = [
   { id: 'reirme', texto: 'Reírme' },
-  { id: 'tension', texto: 'Tensión' },
   { id: 'emocionarme', texto: 'Emocionarme' },
-  { id: 'liviano', texto: 'Algo liviano' },
-  { id: 'sorprendeme', texto: 'Sorprendeme' },
+  { id: 'asustarme', texto: 'Asustarme' },
+  { id: 'accion', texto: 'Acción' },
+  { id: 'intriga', texto: 'Intriga' },
+]
+const DURACIONES: { id: Duracion; texto: string }[] = [
+  { id: 'corta', texto: 'Menos de 1:30 h' },
+  { id: 'hasta2', texto: 'Hasta 2 h' },
+  { id: 'larga', texto: 'Más de 2 h' },
+  { id: 'capitulo', texto: 'Un capítulo de serie' },
+  { id: 'sinApuro', texto: 'Sin apuro' },
 ]
 const OTRAS_MAXIMO = 3
 
@@ -37,7 +46,7 @@ const ULTIMA_KEY = 'glynbox_que_veo_hoy_ultima'
 const MOSTRADAS_KEY = 'glynbox_que_veo_hoy_mostradas'
 const SEMANA_MS = 7 * 24 * 60 * 60 * 1000
 
-type Respuestas = { compania: Compania; ganas: Ganas }
+type Respuestas = { compania: Compania; ganas: Ganas; duracion: Duracion }
 type Paso = 'inicio' | 'preguntas' | 'buscando' | 'nada' | 'error'
 
 function leer<T>(clave: string): T | null {
@@ -56,19 +65,36 @@ function anotarMostrada(r: ResultadoQueVeoHoy): void {
   escribir(MOSTRADAS_KEY, { ...mostradas(), [`${r.mediaType}:${r.id}`]: Date.now() })
 }
 
+/** Las últimas respuestas, si siguen siendo opciones de hoy (las ganas cambiaron el 23/10). */
+function ultimasValidas(): Respuestas | null {
+  const r = leer<Respuestas>(ULTIMA_KEY)
+  return r && COMPANIAS.some(c => c.id === r.compania) && GANAS.some(g => g.id === r.ganas) &&
+    DURACIONES.some(d => d.id === r.duracion) ? r : null
+}
+
+/** "1 h 52 min", o "Episodios de 45 min" en series. */
+function duracionTexto(r: ResultadoQueVeoHoy): string | null {
+  if (!r.duracion) return null
+  const h = Math.floor(r.duracion / 60)
+  const m = r.duracion % 60
+  const texto = h > 0 ? `${h} h${m > 0 ? ` ${m} min` : ''}` : `${m} min`
+  return r.mediaType === 'tv' ? `Episodios de ${texto}` : texto
+}
+
 export default function QueVeoHoy() {
   const router = useRouter()
   const { country } = useCountry()
   const [paso, setPaso] = useState<Paso>('inicio')
   const [compania, setCompania] = useState<Compania | null>(null)
   const [ganas, setGanas] = useState<Ganas | null>(null)
+  const [duracion, setDuracion] = useState<Duracion | null>(null)
   const [ultima, setUltima] = useState<Respuestas | null>(null)
   const [resultados, setResultados] = useState<ResultadoQueVeoHoy[]>([])
   const [indice, setIndice] = useState(0)
   const [abierto, setAbierto] = useState(false)
 
   // localStorage sólo existe en el navegador: se lee después de montar.
-  useEffect(() => { setUltima(leer<Respuestas>(ULTIMA_KEY)) }, [])
+  useEffect(() => { setUltima(ultimasValidas()) }, [])
 
   const actual = resultados[indice]
   const hayOtra = indice + 1 < resultados.length && indice < OTRAS_MAXIMO
@@ -77,10 +103,10 @@ export default function QueVeoHoy() {
     setPaso('buscando')
     escribir(ULTIMA_KEY, r)
     setUltima(r)
-    track('que_veo_hoy_respuestas', { compania: r.compania, ganas: r.ganas, repetida })
+    track('que_veo_hoy_respuestas', { compania: r.compania, ganas: r.ganas, duracion: r.duracion, repetida })
     try {
       const qs = new URLSearchParams({
-        compania: r.compania, ganas: r.ganas, pais: country, idioma: 'es',
+        compania: r.compania, ganas: r.ganas, duracion: r.duracion, pais: country, idioma: 'es',
         excluir: Object.keys(mostradas()).slice(-60).join(','),
       })
       const res = await fetch(`/api/que-veo-hoy?${qs}`, { cache: 'no-store' })
@@ -98,13 +124,23 @@ export default function QueVeoHoy() {
     }
   }
 
-  function elegir(c: Compania | null, g: Ganas | null) {
+  function elegir(c: Compania | null, g: Ganas | null, d: Duracion | null) {
     setCompania(c)
     setGanas(g)
-    if (c && g) void buscar({ compania: c, ganas: g }, false)
+    setDuracion(d)
+    if (c && g && d) void buscar({ compania: c, ganas: g, duracion: d }, false)
   }
 
-  function accion(nombre: 'la_veo' | 'otra' | 'guardar' | 'cerrar') {
+  function empezar(repetida = false) {
+    track('que_veo_hoy_abierto', { desde: 'que_ver', ...(repetida ? { repetida } : {}) })
+    if (repetida && ultima) { void buscar(ultima, true); return }
+    setCompania(null)
+    setGanas(null)
+    setDuracion(null)
+    setPaso('preguntas')
+  }
+
+  function accion(nombre: 'la_veo' | 'otra' | 'guardar' | 'cerrar' | 'compartir') {
     track('que_veo_hoy_accion', { accion: nombre, intento: indice + 1, media_type: actual?.mediaType ?? null, media_id: actual?.id ?? null })
   }
 
@@ -149,16 +185,25 @@ export default function QueVeoHoy() {
     <div className="max-w-7xl mx-auto px-4 pt-8 pb-6">
       <div className="rounded-2xl border border-[#FFFD02] bg-[#FFFD02]/5 p-5 sm:p-6">
         <div className="flex items-center gap-2">
-          <Sparkles size={20} className="text-[#FFFD02]" />
-          <h1 className="text-xl sm:text-2xl font-black text-white">¿Qué veo hoy?</h1>
+          <Clapperboard size={20} className="text-[#FFFD02]" />
+          <h1 className="flex-1 text-xl sm:text-2xl font-black text-white">Recomendador de películas y series</h1>
+          {paso === 'preguntas' && (
+            <button
+              type="button"
+              onClick={() => setPaso('inicio')}
+              className="inline-flex items-center gap-1 text-sm font-semibold text-[#A0A0B0] hover:text-white"
+            >
+              <ArrowLeft size={16} /> Volver
+            </button>
+          )}
         </div>
-        <p className="mt-1 text-sm text-[#A0A0B0]">Dos preguntas y te decimos qué ver de tus plataformas.</p>
+        <p className="mt-1 text-sm text-[#A0A0B0]">Tres preguntas y te decimos qué ver de tus plataformas.</p>
 
         {paso === 'inicio' && (
           <div className="mt-4 flex flex-wrap items-center gap-4">
             <button
               type="button"
-              onClick={() => { track('que_veo_hoy_abierto', { desde: 'que_ver' }); setCompania(null); setGanas(null); setPaso('preguntas') }}
+              onClick={() => empezar()}
               className="rounded-full bg-[#FFFD02] px-6 py-2.5 text-sm font-bold text-black hover:bg-[#E5EB00]"
             >
               Empezar
@@ -166,12 +211,13 @@ export default function QueVeoHoy() {
             {ultima && (
               <button
                 type="button"
-                onClick={() => { track('que_veo_hoy_abierto', { desde: 'que_ver', repetida: true }); void buscar(ultima, true) }}
+                onClick={() => empezar(true)}
                 className="text-sm font-semibold text-[#FFFD02] hover:underline"
               >
                 ¿Lo mismo que la última vez?{' '}
                 <span className="font-normal text-[#A0A0B0]">
-                  {COMPANIAS.find(c => c.id === ultima.compania)?.texto} · {GANAS.find(g => g.id === ultima.ganas)?.texto}
+                  {COMPANIAS.find(c => c.id === ultima.compania)?.texto} · {GANAS.find(g => g.id === ultima.ganas)?.texto} ·{' '}
+                  {DURACIONES.find(d => d.id === ultima.duracion)?.texto}
                 </span>
               </button>
             )}
@@ -184,7 +230,7 @@ export default function QueVeoHoy() {
               <p className="mb-2 text-sm font-semibold text-white">¿Con quién?</p>
               <div className="flex flex-wrap gap-2">
                 {COMPANIAS.map(c => (
-                  <button key={c.id} type="button" onClick={() => elegir(c.id, ganas)} className={chip(compania === c.id)}>{c.texto}</button>
+                  <button key={c.id} type="button" onClick={() => elegir(c.id, ganas, duracion)} className={chip(compania === c.id)}>{c.texto}</button>
                 ))}
               </div>
             </div>
@@ -192,7 +238,15 @@ export default function QueVeoHoy() {
               <p className="mb-2 text-sm font-semibold text-white">¿Qué tenés ganas?</p>
               <div className="flex flex-wrap gap-2">
                 {GANAS.map(g => (
-                  <button key={g.id} type="button" onClick={() => elegir(compania, g.id)} className={chip(ganas === g.id)}>{g.texto}</button>
+                  <button key={g.id} type="button" onClick={() => elegir(compania, g.id, duracion)} className={chip(ganas === g.id)}>{g.texto}</button>
+                ))}
+              </div>
+            </div>
+            <div>
+              <p className="mb-2 text-sm font-semibold text-white">¿Cuánto tiempo tenés?</p>
+              <div className="flex flex-wrap gap-2">
+                {DURACIONES.map(d => (
+                  <button key={d.id} type="button" onClick={() => elegir(compania, ganas, d.id)} className={chip(duracion === d.id)}>{d.texto}</button>
                 ))}
               </div>
             </div>
@@ -229,7 +283,14 @@ export default function QueVeoHoy() {
               className="absolute inset-0 h-full w-full object-cover opacity-30 blur-2xl"
             />
           )}
-          <div className="relative flex justify-end p-4">
+          <div className="relative flex items-center justify-between p-4">
+            <button
+              type="button"
+              onClick={() => { accion('cerrar'); setAbierto(false) }}
+              className="inline-flex items-center gap-1.5 text-sm font-semibold text-white"
+            >
+              <ArrowLeft size={20} /> Volver
+            </button>
             <button type="button" onClick={() => { accion('cerrar'); setAbierto(false) }} aria-label="Cerrar" className="text-white">
               <X size={28} />
             </button>
@@ -245,7 +306,7 @@ export default function QueVeoHoy() {
             )}
             <h2 className="mt-5 text-center text-2xl font-black text-white">{actual.titulo}</h2>
             <p className="mt-1 text-sm text-[#A0A0B0]">
-              {[actual.anio, actual.nota > 0 ? `★ ${actual.nota.toFixed(1)}` : null].filter(Boolean).join(' · ')}
+              {[actual.anio, duracionTexto(actual), actual.nota > 0 ? `★ ${actual.nota.toFixed(1)}` : null].filter(Boolean).join(' · ')}
             </p>
             {actual.plataforma && (
               <p className="mt-3 text-base font-semibold text-white">
@@ -276,6 +337,16 @@ export default function QueVeoHoy() {
               >
                 Guardar para después
               </button>
+            </div>
+            <div className="flex justify-center" onClickCapture={() => accion('compartir')}>
+              <CompartirHistoria
+                que="que_veo_hoy"
+                desde="que_veo_hoy"
+                imagen={`${mediaImagePath(actual.mediaType, actual.id, 'historia')}&jpg=1`}
+                mensaje={`Hoy veo ${actual.titulo}`}
+                etiqueta="Compartir"
+                className="inline-flex items-center gap-1.5 py-1 text-sm font-semibold text-[#FFFD02] hover:underline disabled:opacity-50"
+              />
             </div>
           </div>
         </div>

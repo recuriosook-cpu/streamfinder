@@ -4,13 +4,23 @@ import { getRequestUserId } from '@/lib/request-user'
 import { getAdminClient } from '@/lib/service-role'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { normalizarIdioma } from '@/lib/idioma'
-import { COMPANIAS, GANAS, queVeoHoy, type Compania, type Ganas } from '@/lib/que-veo-hoy'
+import {
+  COMPANIAS,
+  DURACIONES,
+  GANAS,
+  GANAS_VIEJAS,
+  queVeoHoy,
+  type Compania,
+  type Duracion,
+  type Ganas,
+} from '@/lib/que-veo-hoy'
 
 /**
  * /api/que-veo-hoy — "¿Qué veo hoy?". La lógica está en `lib/que-veo-hoy.ts`.
  *
  *   GET ?compania=solo|pareja|amigos|familia
- *       &ganas=reirme|tension|emocionarme|liviano|sorprendeme
+ *       &ganas=reirme|emocionarme|asustarme|accion|intriga
+ *       &duracion=corta|hasta2|larga|capitulo|sinApuro  (sin ella, sin apuro)
  *       &pais=AR  &idioma=es|en  &excluir=movie:1,tv:2  (lo mostrado hace poco)
  *
  * Con sesión (Bearer desde la app, cookie desde la web) usa sus plataformas y
@@ -28,8 +38,12 @@ export async function GET(req: NextRequest) {
 
   const q = req.nextUrl.searchParams
   const compania = q.get('compania') as Compania
-  const ganas = q.get('ganas') as Ganas
-  if (!COMPANIAS.includes(compania) || !GANAS.includes(ganas)) return jsonError('Respuestas inválidas', 400)
+  const ganasPedidas = q.get('ganas') ?? ''
+  const ganas = (GANAS_VIEJAS[ganasPedidas] ?? ganasPedidas) as Ganas
+  const duracion = (q.get('duracion') ?? 'sinApuro') as Duracion
+  if (!COMPANIAS.includes(compania) || !GANAS.includes(ganas) || !DURACIONES.includes(duracion)) {
+    return jsonError('Respuestas inválidas', 400)
+  }
   const paisPedido = (q.get('pais') ?? 'AR').toUpperCase()
   const pais = /^[A-Z]{2}$/.test(paisPedido) ? paisPedido : 'AR'
   const excluir = new Set(
@@ -42,6 +56,7 @@ export async function GET(req: NextRequest) {
       userId,
       compania,
       ganas,
+      duracion,
       pais,
       idioma: normalizarIdioma(q.get('idioma')),
       excluir,

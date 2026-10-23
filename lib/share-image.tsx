@@ -19,6 +19,10 @@ import sharp from 'sharp'
 /**
  * Arma la respuesta. La vista previa de links sale en JPEG: WhatsApp no
  * muestra imágenes de más de ~300 KB y el PNG con la foto de fondo pesa ~800.
+ * Las historias, en JPEG si se pide con `?jpg=1` (`pideJpeg`): 150 KB en vez
+ * de 2 MB, que el teléfono baja antes de abrir el menú de compartir. La app
+ * lo pide desde el build del 23/10; las versiones anteriores guardan el
+ * archivo como PNG y siguen recibiendo PNG.
  *
  * Caché en la CDN de Vercel con `Vercel-CDN-Cache-Control`, nunca con ISR (las
  * escrituras de ISR se cobran; ver next.config.ts). Una reseña privada —sólo
@@ -45,6 +49,11 @@ export async function renderShareImage(
   })
 }
 
+/** `?jpg=1`: la historia en JPEG (ver `renderShareImage`). */
+export function pideJpeg(req: Request): boolean {
+  return new URL(req.url).searchParams.get('jpg') === '1'
+}
+
 export const SIZES = {
   historia: { width: 1080, height: 1920 },
   publicacion: { width: 1080, height: 1350 },
@@ -61,6 +70,50 @@ const C = {
 }
 
 const TMDB_IMG = 'https://image.tmdb.org/t/p'
+
+/** El color del tilde de verificado, el mismo de `VerifiedBadge` de la app. */
+const AZUL_VERIFICADO = '#1D9BF0'
+
+// ---------------------------------------------------------------------------
+// Fondo desenfocado, preparado antes de dibujar
+// ---------------------------------------------------------------------------
+
+/**
+ * El fondo de las historias: la imagen de la película desenfocada. Antes lo
+ * desenfocaba satori (`filter: blur`) sobre los 1080 × 1920 de la imagen, y
+ * eso solo tardaba entre 0,7 y 1,4 s de los ~3 s que tardaba cada imagen
+ * (23/10). Acá se baja la versión chica de TMDB y sharp la desenfoca a un
+ * cuarto del tamaño: ~0,2 s, y el resultado es el mismo porque desenfocada no
+ * tiene detalle que perder al estirarla.
+ *
+ * Se guardan las últimas en memoria: la misma película se comparte seguido.
+ */
+const fondos = new Map<string, Promise<string | null>>()
+const FONDOS_EN_MEMORIA = 60
+
+export function fondoDesenfocado(path: string | null): Promise<string | null> {
+  if (!path) return Promise.resolve(null)
+  let fondo = fondos.get(path)
+  if (!fondo) {
+    fondo = (async () => {
+      try {
+        const res = await fetch(`${TMDB_IMG}/w300${path}`, { signal: AbortSignal.timeout(5000) })
+        if (!res.ok) return null
+        const jpg = await sharp(Buffer.from(await res.arrayBuffer()))
+          .resize(270, 480, { fit: 'cover' })
+          .blur(7)
+          .jpeg({ quality: 70 })
+          .toBuffer()
+        return `data:image/jpeg;base64,${jpg.toString('base64')}`
+      } catch {
+        return null
+      }
+    })()
+    fondos.set(path, fondo)
+    if (fondos.size > FONDOS_EN_MEMORIA) fondos.delete(fondos.keys().next().value as string)
+  }
+  return fondo
+}
 
 // ---------------------------------------------------------------------------
 // Recursos: fuentes y logo, leídos una vez por instancia
@@ -138,7 +191,11 @@ export function Stars({ rating, size, gap }: { rating: number; size: number; gap
   )
 }
 
-/** Fondo: la imagen de la película desenfocada, con un degradé que la oscurece. */
+/**
+ * Fondo: la imagen de la película desenfocada, con un degradé que la oscurece.
+ * Con `fondoDesenfocado` ya viene desenfocada y se estira nomás; si no se pudo
+ * preparar, la desenfoca satori como antes (más lento, pero sale).
+ */
 function Backdrop({ url, width, height }: { url: string | null; width: number; height: number }) {
   return (
     <div style={{ display: 'flex', position: 'absolute', inset: 0, background: C.bg }}>
@@ -149,16 +206,20 @@ function Backdrop({ url, width, height }: { url: string | null; width: number; h
           alt=""
           width={width}
           height={height}
-          style={{
-            position: 'absolute',
-            inset: 0,
-            width,
-            height,
-            objectFit: 'cover',
-            filter: 'blur(28px)',
-            opacity: 0.55,
-            transform: 'scale(1.15)',
-          }}
+          style={
+            url.startsWith('data:')
+              ? { position: 'absolute', inset: 0, width, height, objectFit: 'cover', opacity: 0.55 }
+              : {
+                  position: 'absolute',
+                  inset: 0,
+                  width,
+                  height,
+                  objectFit: 'cover',
+                  filter: 'blur(28px)',
+                  opacity: 0.55,
+                  transform: 'scale(1.15)',
+                }
+          }
         />
       )}
       <div
@@ -186,7 +247,9 @@ function Poster({ path, width }: { path: string | null; width: number }) {
         height,
         borderRadius: 24,
         objectFit: 'cover',
-        boxShadow: '0 30px 80px rgba(0,0,0,0.6)',
+        // Un borde y no una sombra: la sombra desenfocada le sumaba ~0,4 s a
+        // cada imagen (23/10).
+        border: '2px solid rgba(255,255,255,0.12)',
       }}
     />
   ) : (
@@ -200,7 +263,27 @@ function Logo({ src, height }: { src: string; height: number }) {
   return <img src={src} alt="Glynbox" height={height} width={Math.round((height * 2098) / 437)} />
 }
 
-function Author({ username, avatarUrl, size }: { username: string; avatarUrl: string | null; size: number }) {
+/** El tilde de verificado, como `VerifiedBadge` de la app. */
+function Tilde({ size }: { size: number }) {
+  return (
+    <svg width={size} height={size} viewBox="0 0 20 20">
+      <circle cx="10" cy="10" r="10" fill={AZUL_VERIFICADO} />
+      <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth={1.8} strokeLinecap="round" strokeLinejoin="round" fill="none" />
+    </svg>
+  )
+}
+
+function Author({
+  username,
+  avatarUrl,
+  verified,
+  size,
+}: {
+  username: string
+  avatarUrl: string | null
+  verified: boolean
+  size: number
+}) {
   return (
     <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.3 }}>
       {avatarUrl ? (
@@ -231,8 +314,11 @@ function Author({ username, avatarUrl, size }: { username: string; avatarUrl: st
           {username.slice(0, 1).toUpperCase()}
         </div>
       )}
-      <div style={{ display: 'flex', fontSize: size * 0.45, color: C.white, fontFamily: 'Manrope', fontWeight: 700 }}>
-        @{username}
+      <div style={{ display: 'flex', alignItems: 'center', gap: size * 0.14 }}>
+        <div style={{ display: 'flex', fontSize: size * 0.45, color: C.white, fontFamily: 'Manrope', fontWeight: 700 }}>
+          @{username}
+        </div>
+        {verified && <Tilde size={Math.round(size * 0.42)} />}
       </div>
     </div>
   )
@@ -250,6 +336,8 @@ export type ShareMedia = {
   /** Puntaje de TMDB sobre 10, o null si no tiene votos. */
   tmdbScore: number | null
   kind: 'movie' | 'tv'
+  /** El fondo ya desenfocado (`fondoDesenfocado`), o null si no se pudo. */
+  fondo: string | null
 }
 
 export type ShareReview = {
@@ -259,9 +347,11 @@ export type ShareReview = {
   hasSpoiler: boolean
   username: string
   avatarUrl: string | null
+  verified: boolean
 }
 
 function backdropUrl(m: ShareMedia) {
+  if (m.fondo) return m.fondo
   if (m.backdropPath) return `${TMDB_IMG}/w780${m.backdropPath}`
   if (m.posterPath) return `${TMDB_IMG}/w500${m.posterPath}`
   return null
@@ -347,7 +437,7 @@ export function ReviewStory({ review, logo }: { review: ShareReview; logo: strin
           <Quote review={review} max={170} fontSize={42} />
         </div>
         <div style={{ display: 'flex', flexGrow: 1 }} />
-        <Author username={review.username} avatarUrl={review.avatarUrl} size={76} />
+        <Author username={review.username} avatarUrl={review.avatarUrl} verified={review.verified} size={76} />
         <div style={{ display: 'flex', marginTop: 26, fontSize: 32, color: C.muted, fontFamily: 'Manrope', fontWeight: 600 }}>
           glynbox.com
         </div>
@@ -401,7 +491,7 @@ export function ReviewPost({ review, logo }: { review: ShareReview; logo: string
           <Quote review={review} max={210} fontSize={38} />
         </div>
         <div style={{ display: 'flex', flexGrow: 1 }} />
-        <Author username={review.username} avatarUrl={review.avatarUrl} size={68} />
+        <Author username={review.username} avatarUrl={review.avatarUrl} verified={review.verified} size={68} />
       </div>
     </div>
   )
@@ -516,7 +606,7 @@ export function LinkPreview({
           <div style={{ display: 'flex', flexGrow: 1 }} />
           {review && (
             <div style={{ display: 'flex', marginBottom: 20 }}>
-              <Author username={review.username} avatarUrl={review.avatarUrl} size={56} />
+              <Author username={review.username} avatarUrl={review.avatarUrl} verified={review.verified} size={56} />
             </div>
           )}
           <div
@@ -590,7 +680,7 @@ function PosterGrilla({ path, width, puesto }: { path: string | null; width: num
           alt=""
           width={width}
           height={height}
-          style={{ width, height, borderRadius: 18, objectFit: 'cover', boxShadow: '0 20px 50px rgba(0,0,0,0.55)' }}
+          style={{ width, height, borderRadius: 18, objectFit: 'cover', border: '2px solid rgba(255,255,255,0.12)' }}
         />
       ) : (
         <div style={{ display: 'flex', width, height, borderRadius: 18, background: C.card }} />
@@ -621,16 +711,20 @@ function PosterGrilla({ path, width, puesto }: { path: string | null; width: num
   )
 }
 
-/** Hasta 6 pósters en filas de 3; la última fila, centrada. */
+/**
+ * Hasta 6 pósters en filas de 3; la última fila, centrada. Con 4, dos filas de
+ * 2: 3 + 1 dejaba uno solo abajo.
+ */
 function Grilla({ posters, width, numerados }: { posters: (string | null)[]; width: number; numerados?: boolean }) {
+  const porFila = posters.length === 4 ? 2 : 3
   const filas: (string | null)[][] = []
-  for (let i = 0; i < posters.length; i += 3) filas.push(posters.slice(i, i + 3))
+  for (let i = 0; i < posters.length; i += porFila) filas.push(posters.slice(i, i + porFila))
   return (
     <div style={{ display: 'flex', flexDirection: 'column', gap: 34, alignItems: 'center' }}>
       {filas.map((fila, f) => (
         <div key={f} style={{ display: 'flex', gap: 30 }}>
           {fila.map((p, i) => (
-            <PosterGrilla key={i} path={p} width={width} puesto={numerados ? f * 3 + i + 1 : undefined} />
+            <PosterGrilla key={i} path={p} width={width} puesto={numerados ? f * porFila + i + 1 : undefined} />
           ))}
         </div>
       ))}
@@ -661,6 +755,7 @@ export type ShareCalificacion = {
   body: string | null
   username: string
   avatarUrl: string | null
+  verified: boolean
 }
 
 /** "Compartí tu calificación", 1080 × 1920: póster grande, estrellas, @usuario y la frase. */
@@ -701,7 +796,7 @@ export function CalificacionStory({ c, logo }: { c: ShareCalificacion; logo: str
           <Stars rating={c.rating} size={92} gap={16} />
         </div>
         <div style={{ display: 'flex', marginTop: 40 }}>
-          <Author username={c.username} avatarUrl={c.avatarUrl} size={70} />
+          <Author username={c.username} avatarUrl={c.avatarUrl} verified={c.verified} size={70} />
         </div>
         {c.body?.trim() && (
           <div
@@ -731,6 +826,7 @@ export type ShareLista = {
   title: string
   username: string
   avatarUrl: string | null
+  verified: boolean
   total: number
   posters: (string | null)[]
 }
@@ -768,7 +864,7 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
           {excerpt(l.title, 60)}
         </div>
         <div style={{ display: 'flex', marginTop: 30, alignItems: 'center', gap: 20 }}>
-          <Author username={l.username} avatarUrl={l.avatarUrl} size={64} />
+          <Author username={l.username} avatarUrl={l.avatarUrl} verified={l.verified} size={64} />
           <div style={{ display: 'flex', fontSize: 32, color: C.muted, fontFamily: 'Manrope', fontWeight: 600 }}>
             · {l.total} {l.total === 1 ? 'título' : 'títulos'}
           </div>
@@ -791,10 +887,14 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
 export type ShareTop5 = {
   username: string
   avatarUrl: string | null
+  verified: boolean
   posters: (string | null)[]
 }
 
-/** "Mi top 5", 1080 × 1920: los cinco pósters numerados. */
+/**
+ * "Compartir mi top", 1080 × 1920: las favoritas que fijó en el perfil (hasta
+ * 4), numeradas. Con 4, más grandes en 2 × 2.
+ */
 export function Top5Story({ t, logo }: { t: ShareTop5; logo: string }) {
   const { width, height } = SIZES.historia
   return (
@@ -812,13 +912,13 @@ export function Top5Story({ t, logo }: { t: ShareTop5; logo: string }) {
         }}
       >
         <div style={{ display: 'flex', fontSize: 96, color: C.white, fontFamily: 'Inter Tight', fontWeight: 800 }}>
-          Mi top 5
+          Mi top {t.posters.length}
         </div>
         <div style={{ display: 'flex', marginTop: 30 }}>
-          <Author username={t.username} avatarUrl={t.avatarUrl} size={64} />
+          <Author username={t.username} avatarUrl={t.avatarUrl} verified={t.verified} size={64} />
         </div>
         <div style={{ display: 'flex', flexGrow: 1 }} />
-        <Grilla posters={t.posters} width={286} numerados />
+        <Grilla posters={t.posters} width={t.posters.length === 4 ? 380 : 286} numerados />
         <div style={{ display: 'flex', flexGrow: 1 }} />
         <PieMarca logo={logo} />
       </div>

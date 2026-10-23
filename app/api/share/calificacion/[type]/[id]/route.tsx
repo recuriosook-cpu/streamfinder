@@ -1,4 +1,4 @@
-import { CalificacionStory, loadShareAssets, renderShareImage, SIZES } from '@/lib/share-image'
+import { CalificacionStory, loadShareAssets, pideJpeg, renderShareImage, SIZES } from '@/lib/share-image'
 import { loadShareCalificacion } from '@/lib/share-data'
 import { getRequestUserId } from '@/lib/request-user'
 
@@ -16,5 +16,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ type: st
   const kind = type === 'tv' ? 'tv' : 'movie'
   const [c, { logo }] = await Promise.all([loadShareCalificacion(viewerId, kind, Number(id)), loadShareAssets()])
   if (!c) return new Response('No encontrada', { status: 404 })
-  return renderShareImage(<CalificacionStory c={c} logo={logo} />, SIZES.historia, { cache: 'privada' })
+  return renderShareImage(<CalificacionStory c={c} logo={logo} />, SIZES.historia, { cache: 'privada', jpeg: pideJpeg(req) })
 }

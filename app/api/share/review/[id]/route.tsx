@@ -1,10 +1,10 @@
-import { loadShareAssets, renderShareImage, ReviewPost, ReviewStory, LinkPreview, SIZES } from '@/lib/share-image'
+import { loadShareAssets, renderShareImage, ReviewPost, ReviewStory, LinkPreview, SIZES, pideJpeg } from '@/lib/share-image'
 import { loadShareReview } from '@/lib/share-data'
 import { getRequestUserId } from '@/lib/request-user'
 
 /**
  * Imagen de una reseña para compartir.
- *   ?formato=historia     1080 × 1920 PNG (default)
+ *   ?formato=historia     1080 × 1920 PNG (default); con `&jpg=1`, JPEG
  *   ?formato=publicacion  1080 × 1350 PNG
  *   ?formato=link         1200 × 630 JPEG, la vista previa de los links
  *   ?v=...                versión (fecha de edición); sólo cambia la URL
@@ -30,5 +30,5 @@ export async function GET(req: Request, { params }: { params: Promise<{ id: stri
   if (formato === 'link') {
     return renderShareImage(<LinkPreview media={review.media} review={review} logo={logo} />, SIZES.link, { cache, jpeg: true })
   }
-  return renderShareImage(<ReviewStory review={review} logo={logo} />, SIZES.historia, { cache })
+  return renderShareImage(<ReviewStory review={review} logo={logo} />, SIZES.historia, { cache, jpeg: pideJpeg(req) })
 }
