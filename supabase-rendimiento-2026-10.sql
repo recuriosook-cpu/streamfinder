@@ -10,8 +10,8 @@
 --
 --   1. Un índice para "desde cuándo se mide" (lo usa `lib/analytics-medicion.ts`).
 --   2. `admin_panel_precalculado`: el resultado de cada consulta pesada del
---      panel, calculado por pg_cron cada 10 minutos (las de hoy) o cada hora
---      (retención). El panel lee esa tabla (`lib/admin-precalculado.ts`) y, si
+--      panel, calculado por pg_cron cada 10 minutos (las de hoy y la landing
+--      /descargar) o cada hora (retención). El panel lee esa tabla (`lib/admin-precalculado.ts`) y, si
 --      la fila falta o es vieja, consulta en vivo como antes.
 --
 -- Reemplaza a supabase-medicion-rapida-2026-10.sql (el índice está acá).
@@ -67,6 +67,17 @@ BEGIN
          'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.admin_app_uso() x'),
       ('rapido', 'admin_actividad_por_hora:30',
          'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.admin_actividad_por_hora(30) x'),
+      -- La landing /descargar, desde el 23/10: con el tráfico de ese día se
+      -- cortaba por tiempo y el panel lo mostraba como "ninguna sesión". Las
+      -- ventanas son las de lib/metricas-ventanas.ts.
+      ('rapido', 'analytics_descargar_resumen:7',
+         'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.analytics_descargar_resumen(7) x'),
+      ('rapido', 'analytics_descargar_resumen:30',
+         'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.analytics_descargar_resumen(30) x'),
+      ('rapido', 'analytics_descargar_dispositivos:7',
+         'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.analytics_descargar_dispositivos(7) x'),
+      ('rapido', 'analytics_descargar_dispositivos:30',
+         'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.analytics_descargar_dispositivos(30) x'),
       ('lento',  'retencion_cohortes:12',
          'SELECT coalesce(jsonb_agg(to_jsonb(x)), ''[]'') FROM public.retencion_cohortes(12) x'),
       ('lento',  'retencion_app_instalaciones_v2:12',
@@ -122,7 +133,7 @@ NOTIFY pgrst, 'reload schema';
 -- ----------------------------------------------------------------
 -- VERIFICAR (solo lectura)
 -- ----------------------------------------------------------------
--- Lo calculado, cuándo y cuánto tardó (tienen que estar las 9 claves):
+-- Lo calculado, cuándo y cuánto tardó (tienen que estar las 13 claves):
 --   SELECT clave, calculado_en, milisegundos FROM public.admin_panel_precalculado ORDER BY clave;
 --
 -- Las corridas del cron:

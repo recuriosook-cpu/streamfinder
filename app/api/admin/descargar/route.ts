@@ -3,6 +3,7 @@ import { createServerClient } from '@supabase/ssr'
 import { cookies } from 'next/headers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 import { DISPOSITIVOS, esDispositivo, type Dispositivo } from '@/lib/device'
 import {
   VENTANA_POR_DEFECTO,
@@ -148,9 +149,9 @@ export interface PasoEmbudo {
 }
 
 export interface DescargarResumen {
-  /** `false` si falta correr el SQL o si todavía no entró ninguna sesión. */
+  /** `false` si falta correr el SQL, si la consulta falló o si todavía no entró ninguna sesión. */
   disponible: boolean
-  motivo: 'sin_migracion' | 'sin_datos' | null
+  motivo: 'sin_migracion' | 'sin_datos' | 'error' | null
   /** La ventana efectivamente aplicada. */
   dias: Ventana
   /** Primera sesión registrada, sin ventana. Para saber desde cuándo medimos. */
@@ -255,7 +256,7 @@ function porcentaje(parte: number, total: number): number | null {
   return Math.round((parte / total) * 1000) / 10
 }
 
-function vacio(dias: Ventana, motivo: 'sin_migracion' | 'sin_datos'): DescargarResumen {
+function vacio(dias: Ventana, motivo: 'sin_migracion' | 'sin_datos' | 'error'): DescargarResumen {
   return {
     disponible: false,
     motivo,
@@ -295,9 +296,15 @@ export async function GET(req: NextRequest) {
 
   const dias = leerVentana(req)
 
+  // Las dos funciones recorren todas las sesiones marcadas antes de aplicar
+  // la ventana, y con el tráfico del 23/10 se pasaban de los 8 segundos de la
+  // service role. Las deja calculadas pg_cron (`supabase-rendimiento-2026-10.sql`);
+  // sin fila fresca, en vivo como antes.
   const [resumenRes, dispositivosRes, altas] = await Promise.all([
-    admin.rpc('analytics_descargar_resumen', { p_dias: dias }),
-    admin.rpc('analytics_descargar_dispositivos', { p_dias: dias }),
+    precalculado(admin, `analytics_descargar_resumen:${dias}`, FRESCO_RAPIDO,
+      () => admin.rpc('analytics_descargar_resumen', { p_dias: dias })),
+    precalculado(admin, `analytics_descargar_dispositivos:${dias}`, FRESCO_RAPIDO,
+      () => admin.rpc('analytics_descargar_dispositivos', { p_dias: dias })),
     contarRegistros(admin, dias),
   ])
 
@@ -306,12 +313,14 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(vacio(dias, 'sin_migracion'))
   }
 
+  // Un error no es "no hubo sesiones": el 23/10 un corte por tiempo se leyó
+  // como "Ninguna sesión entró por la landing".
   if (resumenRes.error || dispositivosRes.error) {
     console.error(
       '[admin/descargar] consulta falló:',
       resumenRes.error?.message ?? dispositivosRes.error?.message
     )
-    return NextResponse.json(vacio(dias, 'sin_datos'))
+    return NextResponse.json(vacio(dias, 'error'))
   }
 
   // La función de resumen es un agregado sin GROUP BY: siempre devuelve

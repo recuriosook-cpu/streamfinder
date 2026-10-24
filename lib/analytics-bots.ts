@@ -222,3 +222,40 @@ export function classifyUserAgent(raw: string | null | undefined): BotVerdict {
 export function isBotUserAgent(raw: string | null | undefined): boolean {
   return classifyUserAgent(raw).isBot
 }
+
+/**
+ * Países donde está la gente de GLYNBOX: Latinoamérica, el Caribe y España.
+ * Ver `motivoLinuxDeAfuera`.
+ */
+const REGION_PROPIA: readonly string[] = [
+  'AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'EC', 'SV', 'GT', 'HN', 'MX', 'NI',
+  'PA', 'PY', 'PE', 'DO', 'UY', 'VE', 'PR', 'AG', 'BS', 'BB', 'BZ', 'GF', 'GY',
+  'TC', 'JM', 'LC', 'TT', 'ES',
+]
+
+/**
+ * ¿Es el navegador automatizado del 23/10?
+ *
+ * Desde las 18 UTC del 23/10 llegó un Chrome de Linux de escritorio
+ * (`Mozilla/5.0 (X11; Linux x86_64) … Chrome/155.0.0.0 Safari/537.36`) desde
+ * IPs residenciales de EE.UU., Francia, Alemania, Reino Unido y Singapur (RCN,
+ * Comcast, Free, Deutsche Telekom, BT). Pasa el Challenge, ejecuta JS y manda
+ * `page_view` + `app_open` desde una ficha por cada navegador nuevo: 5.000
+ * "navegadores sin sesión" en una tarde y el 85% de las funciones.
+ *
+ * El user-agent es el de un Chrome real, así que solo no alcanza. Con el país
+ * sí: en esa muestra no hubo ni un Chrome de Linux de escritorio desde la
+ * región. Una persona con Linux fuera de la región queda marcada, pero se
+ * guarda igual (ver arriba), y es una fracción mínima del público.
+ *
+ * Devuelve el `bot_reason`, o `null` si no aplica.
+ */
+export function motivoLinuxDeAfuera(
+  raw: string | null | undefined,
+  pais: string | null,
+): string | null {
+  if (typeof raw !== 'string' || !pais || REGION_PROPIA.includes(pais)) return null
+  const ua = raw.toLowerCase()
+  if (!ua.includes('(x11; linux x86_64)') || ua.includes('android')) return null
+  return `linux-de-afuera:${pais}`
+}

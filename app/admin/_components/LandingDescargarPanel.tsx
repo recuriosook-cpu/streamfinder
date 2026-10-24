@@ -309,19 +309,27 @@ export function LandingDescargarPanel({ recarga = 0 }: { recarga?: number }) {
 // ── Vacío ──────────────────────────────────────────────────────────────────
 
 /**
- * Los tres motivos por los que puede no haber nada, cada uno con su texto.
+ * Los cuatro motivos por los que puede no haber nada, cada uno con su texto.
  *
  * Distinguirlos no es cosmético. "Falta correr el SQL" es una tarea pendiente
  * para el que está mirando; "todavía no entró nadie" es una landing que no
- * recibió tráfico; y un fetch fallido es un error. Con un único "Sin datos"
- * para los tres, el primero se ve igual que el segundo y nadie corre la
- * migración nunca.
+ * recibió tráfico; un fetch fallido o una consulta cortada por tiempo son un
+ * error. Con un único "Sin datos" para todos, el primero se ve igual que el
+ * segundo y nadie corre la migración nunca.
  */
 function VacioPanel({ datos, dias }: { datos: DescargarResumen | null; dias: Ventana }) {
   if (!datos) {
     return (
       <p className="text-[#A0A0B0] text-sm py-8 text-center">
         No se pudo cargar el panel.
+      </p>
+    )
+  }
+
+  if (datos.motivo === 'error') {
+    return (
+      <p className="text-[#A0A0B0] text-sm py-8 text-center">
+        La consulta falló o tardó demasiado. Probá con Actualizar en unos minutos.
       </p>
     )
   }

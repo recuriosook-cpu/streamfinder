@@ -2,7 +2,7 @@ import { NextResponse, type NextRequest } from 'next/server'
 import { enforceRateLimit } from '@/lib/rate-limit'
 import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
-import { classifyUserAgent } from '@/lib/analytics-bots'
+import { classifyUserAgent, motivoLinuxDeAfuera } from '@/lib/analytics-bots'
 import { paisDelPedido, motivoPaisBloqueado } from '@/lib/geo'
 import { sistemaDeLaApp } from '@/lib/device'
 import {
@@ -114,7 +114,9 @@ export async function POST(req: NextRequest) {
     // del user-agent de su cliente HTTP. Ver `sistemaDeLaApp`.
     const sistema = sistemaDeLaApp(req.headers.get('user-agent'))
     // Si el user-agent ya dijo bot, gana su motivo, que es más específico.
+    // Después, el navegador automatizado del 23/10 (ver `motivoLinuxDeAfuera`).
     const bloqueado = motivoPaisBloqueado(country)
+      ?? motivoLinuxDeAfuera(req.headers.get('user-agent'), country)
     const verdict = !uaVerdict.isBot && bloqueado
       ? { isBot: true, reason: bloqueado }
       : uaVerdict
