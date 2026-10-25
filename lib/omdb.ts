@@ -1,4 +1,8 @@
-const OMDB_KEY = process.env.OMDB_API_KEY
+/**
+ * Lo de OMDb que usan también los componentes del navegador: tipos, el pasaje
+ * al formato de la ficha y el parseo de premios. Nada de servidor acá: la
+ * lectura y los pedidos a OMDb están en `lib/omdb-cache.ts`.
+ */
 
 export interface OMDBRatings {
   imdbScore: string | null
@@ -6,36 +10,31 @@ export interface OMDBRatings {
   rtCritics: string | null
   metacritic: number | null
   awards: string | null
+  /**
+   * No estaba guardado, o venció. La ficha (que queda 24 h en la CDN) los
+   * pide desde el navegador: ver `RatingsSection`.
+   */
+  pendiente: boolean
 }
 
-const EMPTY: OMDBRatings = {
-  imdbScore: null, imdbVotes: null,
-  rtCritics: null, metacritic: null, awards: null,
-}
-
-export async function getOMDBRatings(imdbId: string | null | undefined): Promise<OMDBRatings> {
-  if (!OMDB_KEY || !imdbId) return EMPTY
-  try {
-    const res = await fetch(
-      `https://www.omdbapi.com/?apikey=${OMDB_KEY}&i=${imdbId}`,
-      { next: { revalidate: 86400 } },
-    )
-    if (!res.ok) return EMPTY
-    const data = await res.json()
-    if (data.Response === 'False') return EMPTY
-
-    const imdbScore  = data.imdbRating && data.imdbRating !== 'N/A' ? data.imdbRating : null
-    const imdbVotes  = data.imdbVotes  && data.imdbVotes  !== 'N/A' ? data.imdbVotes  : null
-    const rtEntry    = (data.Ratings as { Source: string; Value: string }[] | undefined)
-      ?.find(r => r.Source === 'Rotten Tomatoes')
-    const rtCritics  = rtEntry ? rtEntry.Value : null
-    const metaRaw    = data.Metascore
-    const metacritic = metaRaw && metaRaw !== 'N/A' ? Number(metaRaw) : null
-    const awards     = data.Awards && data.Awards !== 'N/A' ? (data.Awards as string) : null
-
-    return { imdbScore, imdbVotes, rtCritics, metacritic, awards }
-  } catch {
-    return EMPTY
+/** Los puntajes como los da `/api/omdb-ratings` (números), como los muestra la ficha. */
+export function aFormatoFicha(
+  p: {
+    imdbRating: number | null
+    imdbVotes: number | null
+    tomatoMeter: number | null
+    metacritic: number | null
+    awards: string | null
+  },
+  pendiente: boolean,
+): OMDBRatings {
+  return {
+    imdbScore: p.imdbRating !== null ? p.imdbRating.toFixed(1) : null,
+    imdbVotes: p.imdbVotes !== null ? p.imdbVotes.toLocaleString('en-US') : null,
+    rtCritics: p.tomatoMeter !== null ? `${p.tomatoMeter}%` : null,
+    metacritic: p.metacritic,
+    awards: p.awards,
+    pendiente,
   }
 }
 

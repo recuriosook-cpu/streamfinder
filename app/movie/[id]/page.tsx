@@ -1,5 +1,6 @@
 ﻿import { getMovieDetails, originalTitleIfDifferent, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
-import { getOMDBRatings, parseAwards } from '@/lib/omdb'
+import { parseAwards } from '@/lib/omdb'
+import { getOMDBRatings } from '@/lib/omdb-cache'
 import { createServerClient } from '@/lib/supabase-server'
 import { mediaImageUrl } from '@/lib/share-urls'
 
@@ -442,6 +443,7 @@ export default async function MoviePage({ params }: Props) {
           tmdbScore={movie.vote_average}
           tmdbVotes={movie.vote_count}
           omdb={omdb}
+          imdbId={movie.imdb_id}
           mediaId={movie.id}
           mediaType="movie"
         />

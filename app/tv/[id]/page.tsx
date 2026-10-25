@@ -1,5 +1,6 @@
 ﻿import { getTVDetails, originalTitleIfDifferent, getTVProviders, getTVExternalIds, getTVCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
-import { getOMDBRatings, parseAwards } from '@/lib/omdb'
+import { parseAwards } from '@/lib/omdb'
+import { getOMDBRatings } from '@/lib/omdb-cache'
 import { createServerClient } from '@/lib/supabase-server'
 import { mediaImageUrl } from '@/lib/share-urls'
 
@@ -393,6 +394,7 @@ export default async function TVPage({ params }: Props) {
           tmdbScore={show.vote_average}
           tmdbVotes={show.vote_count}
           omdb={omdb}
+          imdbId={externalIds?.imdb_id}
           mediaId={show.id}
           mediaType="tv"
         />

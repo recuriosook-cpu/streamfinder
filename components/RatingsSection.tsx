@@ -2,7 +2,9 @@
 
 import { useState, useEffect } from 'react'
 import { createClient } from '@/lib/supabase'
-import type { OMDBRatings } from '@/lib/omdb'
+import { aFormatoFicha, parseAwards, type OMDBRatings } from '@/lib/omdb'
+import AwardsSection from '@/components/AwardsSection'
+import type { OMDBRatingsResponse } from '@/app/api/omdb-ratings/[imdbId]/route'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -10,6 +12,8 @@ interface Props {
   tmdbScore: number
   tmdbVotes: number
   omdb: OMDBRatings
+  /** Para volver a pedir los puntajes de OMDb si la ficha se generó sin ellos. */
+  imdbId?: string | null
   mediaId: number
   mediaType: 'movie' | 'tv'
 }
@@ -66,9 +70,26 @@ function ScoreCircle({
 
 // ── Main component ────────────────────────────────────────────────────────────
 
-export default function RatingsSection({ tmdbScore, tmdbVotes, omdb, mediaId, mediaType }: Props) {
+export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServidor, imdbId, mediaId, mediaType }: Props) {
+  const [omdb, setOmdb] = useState(omdbServidor)
   const { imdbScore, imdbVotes, rtCritics, metacritic } = omdb
   const [userRating, setUserRating] = useState<number | null>(null)
+
+  // La ficha se generó sin los puntajes guardados (no estaban, o vencieron):
+  // el servidor nunca va a OMDb al generarla, para que bingbot no se coma el
+  // cupo (ver `lib/omdb-cache.ts`). Los pide el navegador por el proxy, que
+  // los guarda. Si OMDb no contesta, la ficha queda con TMDB y nada más.
+  useEffect(() => {
+    if (!omdbServidor.pendiente || !imdbId) return
+    let vivo = true
+    fetch(`/api/omdb-ratings/${imdbId}`)
+      .then(r => (r.ok ? r.json() : null))
+      .then((p: OMDBRatingsResponse | null) => {
+        if (vivo && p) setOmdb(aFormatoFicha(p, false))
+      })
+      .catch(() => {})
+    return () => { vivo = false }
+  }, [omdbServidor.pendiente, imdbId])
 
   // Load user's own rating client-side
   useEffect(() => {
@@ -100,9 +121,17 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb, mediaId, me
     (imdbNum !== null && !isNaN(imdbNum) && imdbNum > 0) ||
     (rtNum !== null && !isNaN(rtNum)) ||
     metacriticNum !== null
-  if (!hasAnyRating) return null
+
+  // Los premios también salen de OMDb. Si la ficha se generó sin ellos, el
+  // servidor no dibujó `AwardsSection` (va justo arriba de esto en las dos
+  // fichas), así que se dibuja acá con lo que llegó.
+  const premiosNuevos = !omdbServidor.awards ? parseAwards(omdb.awards) : null
+
+  if (!hasAnyRating) return premiosNuevos ? <AwardsSection awards={premiosNuevos} /> : null
 
   return (
+    <>
+    {premiosNuevos && <AwardsSection awards={premiosNuevos} />}
     <div className="mt-8">
       <h2 className="text-lg font-bold mb-5 text-zinc-200">Puntajes</h2>
       <div className="flex flex-wrap gap-6 items-start">
@@ -167,5 +196,6 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb, mediaId, me
         )}
       </div>
     </div>
+    </>
   )
 }
