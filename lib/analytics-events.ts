@@ -14,7 +14,15 @@
  */
 
 export const EVENT_NAMES = [
-  /** Carga de la app. props: { logueado: boolean } */
+  /**
+   * Carga de la app. props: { logueado: boolean, idioma? }
+   *
+   * `idioma` ('es' | 'en') lo manda sólo la app nativa, desde el 25/10: el
+   * idioma en que se muestra en ese arranque (el del teléfono o el elegido en
+   * Ajustes). Es por instalación, a diferencia de `profiles.idioma`, que es
+   * por cuenta y no cubre a quien no tiene una. Lo cuenta el bloque "Idioma
+   * de la app" de `/admin/metricas`.
+   */
   'app_open',
   /**
    * Una pantalla vista. props: { path }
@@ -366,6 +374,16 @@ export const EVENT_NAMES = [
   'que_veo_hoy_resultado',
   /** Tocó un botón. props: { accion: 'la_veo' | 'otra' | 'guardar' | 'cerrar', intento, media_type, media_id } */
   'que_veo_hoy_accion',
+
+  // ── Idioma (sólo la app, 2026-10) ───────────────────────────────────────
+
+  /**
+   * Eligió un idioma en Ajustes. props: { idioma: 'es' | 'en', anterior,
+   * preferencia: 'auto' | 'es' | 'en' }. `idioma` es en el que queda la app
+   * (con 'auto', el del teléfono) y `anterior` en el que estaba. Sale aunque
+   * elija el que ya tenía.
+   */
+  'idioma_cambiado',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]

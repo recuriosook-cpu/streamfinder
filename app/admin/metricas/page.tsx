@@ -15,6 +15,7 @@ import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarP
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
 import { AppMedicionPanel } from '@/app/admin/_components/AppMedicionPanel'
+import { IdiomaAppPanel } from '@/app/admin/_components/IdiomaAppPanel'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 
 // ── Tarjeta del desglose de onboarding ─────────────────────────────────────
@@ -200,6 +201,9 @@ export default function MetricasPage() {
             notificaciones y modo deslizar. Después del desglose por perfiles
             porque el embudo es el detalle de ese mismo onboarding. */}
         <AppMedicionPanel recarga={recarga} />
+
+        {/* En qué idioma usan la app las instalaciones activas. */}
+        <IdiomaAppPanel recarga={recarga} />
 
         {/* Registros por mes — fecha de alta real (auth.users.created_at).
             Antes se graficaba profiles.updated_at, que es cuándo se tocó la fila

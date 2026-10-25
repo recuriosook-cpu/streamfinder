@@ -14,11 +14,11 @@ import type { CaminoPermiso, EmbudoOnboarding, MedicionApp, Provisional } from '
  * de hoy (tokens, interruptores) lo dicen también.
  */
 
-const numero = (n: number) => n.toLocaleString('es-AR')
+export const numero = (n: number) => n.toLocaleString('es-AR')
 const pct = (v: number | null) => (v === null ? '—' : `${v.toLocaleString('es-AR')}%`)
 const fecha = (iso: string) => new Date(iso).toLocaleDateString('es-AR')
 
-function Bloque({ titulo, subtitulo, children }: { titulo: string; subtitulo: ReactNode; children: ReactNode }) {
+export function Bloque({ titulo, subtitulo, children }: { titulo: string; subtitulo: ReactNode; children: ReactNode }) {
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
       <h2 className="text-sm font-semibold text-white mb-1">{titulo}</h2>
@@ -38,7 +38,7 @@ function Desde({ desde, ultimo }: { desde: string | null; ultimo?: string | null
   )
 }
 
-function Cifra({ label, valor, detalle }: { label: string; valor: ReactNode; detalle?: ReactNode }) {
+export function Cifra({ label, valor, detalle }: { label: string; valor: ReactNode; detalle?: ReactNode }) {
   return (
     <div className="rounded-xl border border-[#2A2A3A] bg-[#0A0A0F] p-4">
       <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0]">{label}</p>
