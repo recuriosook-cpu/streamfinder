@@ -1,0 +1,182 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>Soporte — Potion Bottle: Water Sort Puzzle</title>
+<meta name="description" content="Soporte de Potion Bottle: Water Sort Puzzle, un juego de ordenar pociones por color.">
+<link rel="icon" href="/potion-icono.png">
+<style>
+  :root{
+    --papel:#F5EDE0;
+    --papel-hondo:#EBDFCC;
+    --tinta:#3A2A1E;
+    --tinta-suave:#6B5442;
+    --madera:#8B5A32;
+    --borde:#D6C4AA;
+  }
+  *{box-sizing:border-box}
+  body{
+    margin:0;
+    background:var(--papel-hondo);
+    color:var(--tinta);
+    font-family:Georgia,"Times New Roman",serif;
+    font-size:17px;
+    line-height:1.7;
+  }
+  .hoja{
+    max-width:720px;
+    margin:0 auto;
+    background:var(--papel);
+    min-height:100vh;
+    padding:0 0 72px;
+    box-shadow:0 0 40px rgba(58,42,30,.12);
+  }
+  header{
+    background:var(--madera);
+    color:var(--papel);
+    padding:36px 32px 30px;
+    border-bottom:5px solid #6E4526;
+    display:flex;
+    align-items:center;
+    gap:22px;
+  }
+  header .icono{
+    width:84px;
+    height:84px;
+    flex:none;
+    border-radius:20px;
+    background:var(--papel);
+    box-shadow:0 2px 10px rgba(0,0,0,.25);
+  }
+  header .juego{
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:13px;
+    letter-spacing:.18em;
+    text-transform:uppercase;
+    opacity:.85;
+    margin:0 0 10px;
+  }
+  header h1{
+    margin:0;
+    font-size:30px;
+    line-height:1.25;
+    font-weight:700;
+  }
+  main{padding:8px 32px 0}
+  h2{
+    font-size:20px;
+    margin:38px 0 12px;
+    padding-bottom:8px;
+    border-bottom:1px solid var(--borde);
+  }
+  p{margin:0 0 16px}
+  ul{margin:0 0 16px; padding-left:22px}
+  li{margin-bottom:9px}
+  a{color:var(--madera)}
+  strong{color:var(--tinta)}
+  .aparte{
+    background:var(--papel-hondo);
+    border-left:4px solid var(--madera);
+    padding:18px 22px;
+    margin:24px 0;
+  }
+  .aparte p:last-child{margin-bottom:0}
+  .lema{
+    font-size:19px;
+    margin:28px 0 16px;
+  }
+  .tiendas{
+    display:flex;
+    flex-wrap:wrap;
+    align-items:center;
+    gap:12px 18px;
+    margin:0 0 16px;
+  }
+  .tiendas a, .tiendas span{display:inline-block; line-height:0}
+  .tiendas .play img{height:62px; width:auto}
+  .tiendas .apple img{height:42px; width:auto}
+  .tiendas .pronto{position:relative; opacity:.45}
+  .tiendas .pronto::after{
+    content:"Próximamente";
+    position:absolute;
+    left:0; right:0; top:100%;
+    margin-top:6px;
+    text-align:center;
+    font-family:-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,sans-serif;
+    font-size:12px;
+    line-height:1;
+    color:var(--tinta);
+  }
+  .correo{font-size:19px}
+  footer{
+    margin:48px 32px 0;
+    padding-top:22px;
+    border-top:1px solid var(--borde);
+    font-size:15px;
+    color:var(--tinta-suave);
+  }
+  @media (max-width:600px){
+    body{font-size:16px}
+    header{padding:28px 20px 24px; gap:16px}
+    header .icono{width:64px; height:64px; border-radius:15px}
+    header h1{font-size:24px}
+    main{padding:8px 20px 0}
+    footer{margin:40px 20px 0}
+  }
+</style>
+</head>
+<body>
+<div class="hoja">
+
+<header>
+  <img class="icono" src="/potion-icono.png" alt="" width="84" height="84">
+  <div>
+    <p class="juego">Soporte</p>
+    <h1>Potion Bottle: Water Sort Puzzle</h1>
+  </div>
+</header>
+
+<main>
+
+<p class="lema">Un juego de ordenar pociones: pasá los líquidos de frasco en frasco hasta que cada uno quede de un solo color.</p>
+
+<div class="tiendas">
+  <a class="play" href="https://play.google.com/store/apps/details?id=com.potionbottle.watersort" target="_blank" rel="noopener">
+    <img src="/google-play-badge.png" alt="Descargar en Google Play" width="161" height="62">
+  </a>
+  <!-- App Store: cuando esté publicada, cambiar este <span> por
+       <a class="apple" href="https://apps.apple.com/app/idXXXXXXXXXX" target="_blank" rel="noopener">
+       y sacarle la clase "pronto". -->
+  <span class="apple pronto" title="Próximamente en la App Store">
+    <img src="/app-store-badge.svg" alt="App Store (próximamente)" width="126" height="42">
+  </span>
+</div>
+
+<h2>Contacto</h2>
+
+<p>¿Tenés un problema con el juego, una compra que no se acreditó o una sugerencia? Escribinos a:</p>
+
+<p class="correo"><a href="mailto:soporte@glynbox.com?subject=Potion%20Bottle">soporte@glynbox.com</a></p>
+
+<div class="aparte">
+  <p>Para ayudarte más rápido, contanos el modelo de tu teléfono, la versión del juego y en qué nivel estás. Respondemos dentro de los 30 días.</p>
+</div>
+
+<h2>Legales</h2>
+
+<ul>
+  <li><a href="/potion-bottle/terminos.html">Términos y Condiciones</a></li>
+  <li><a href="/potion-bottle/privacidad.html">Política de Privacidad</a></li>
+</ul>
+
+</main>
+
+<footer>
+  <p>Potion Bottle: Water Sort Puzzle — Fernando Darío Lage Muñoz<br>
+  <a href="/potion-bottle/terminos.html">Términos y Condiciones</a> · <a href="/potion-bottle/privacidad.html">Política de Privacidad</a></p>
+</footer>
+
+</div>
+</body>
+</html>

@@ -15,6 +15,13 @@ const nextConfig: NextConfig = {
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
     ]
   },
+  async rewrites() {
+    return [
+      // public/ no sirve index.html al pedir la carpeta: la página de soporte de
+      // Potion Bottle (la que figura en las tiendas) se pide sin el archivo.
+      { source: '/potion-bottle', destination: '/potion-bottle/index.html' },
+    ]
+  },
   async headers() {
     return [
       {
