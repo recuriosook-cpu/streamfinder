@@ -1,6 +1,7 @@
 import { NextResponse } from 'next/server'
 import { requireAdminClient } from '@/lib/service-role'
 import { correrDia1 } from '@/lib/push-dia1'
+import { revisarRecibosPendientes } from '@/lib/push-envios'
 
 /**
  * /api/cron/push-dia1 — "Para esta noche", la push del día 1. Toda la lógica
@@ -35,10 +36,15 @@ export async function GET(req: Request) {
   const { admin, failure } = requireAdminClient('cron/push-dia1')
   if (failure) return failure
 
+  // De paso, los recibos de Expo de cualquier envío que ya los tenga: es lo que
+  // anota los tokens de quien desinstaló (`push_tokens_inactivos`). Va antes y
+  // aparte para que un error del día 1 no lo frene.
+  const recibosRevisados = await revisarRecibosPendientes(admin)
+
   try {
     const resumen = await correrDia1(admin)
-    console.log('[dia1]', JSON.stringify(resumen))
-    return NextResponse.json({ ok: true, ...resumen })
+    console.log('[dia1]', JSON.stringify({ ...resumen, recibosRevisados }))
+    return NextResponse.json({ ok: true, ...resumen, recibosRevisados })
   } catch (err) {
     console.error('[dia1] falló:', (err as Error).message)
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 })

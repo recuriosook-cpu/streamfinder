@@ -189,7 +189,54 @@ export interface AdminOverview {
    */
   paisesCobertura: { conPais: number; total: number }
   actividad: ActividadResumen
+  siguen: SiguenConGlynbox | null
   generadoEn: string
+}
+
+/**
+ * "Siguen con Glynbox": registrados con actividad en 30 días o con la app
+ * instalada (un token que Expo no rechazó). Las tres primeras partes no se
+ * pisan: cada usuario cae en una sola. Lo calcula pg_cron cada 10 minutos
+ * (supabase-siguen-con-glynbox-2026-10.sql) y acá sólo se lee: nunca en vivo.
+ * `null` si todavía no se corrió el SQL.
+ */
+export interface SiguenConGlynbox {
+  total: number
+  porActividad: number
+  soloApp: number
+  /** Sin actividad ni token, y Expo rechazó su token: desinstalaron. */
+  desinstalaron: number
+  /** Cuentas borradas: ya no están en `total`. */
+  eliminadas: number
+  /** Desde cuándo se anotan los tokens rechazados. `null` si todavía ninguno. */
+  desinstaladosDesde: string | null
+  calculadoEn: string
+}
+
+/** La fila de `admin_panel_precalculado`. Si es vieja se muestra igual, con su hora. */
+const SIGUEN_CLAVE = 'admin_siguen_con_glynbox'
+
+async function leerSiguen(admin: SupabaseClient): Promise<SiguenConGlynbox | null> {
+  const { data, error } = await admin
+    .from('admin_panel_precalculado')
+    .select('datos, calculado_en')
+    .eq('clave', SIGUEN_CLAVE)
+    .maybeSingle()
+  if (error) {
+    console.error('[admin/overview] siguen:', error.message)
+    return null
+  }
+  if (!data) return null
+  const d = data.datos as Record<string, unknown>
+  return {
+    total: Number(d.total ?? 0),
+    porActividad: Number(d.por_actividad ?? 0),
+    soloApp: Number(d.solo_app ?? 0),
+    desinstalaron: Number(d.desinstalaron ?? 0),
+    eliminadas: Number(d.eliminadas ?? 0),
+    desinstaladosDesde: (d.desinstalados_desde as string | null) ?? null,
+    calculadoEn: data.calculado_en as string,
+  }
 }
 
 // ── Caché de módulo (60s, igual que el emailCache de /api/admin/users) ─────
@@ -488,10 +535,11 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
 // ── Cálculo ────────────────────────────────────────────────────────────────
 
 async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
-  const [authUsers, profiles, actividad] = await Promise.all([
+  const [authUsers, profiles, actividad, siguen] = await Promise.all([
     fetchAuthUsers(admin),
     fetchProfiles(admin),
     buildActividad(admin),
+    leerSiguen(admin),
   ])
 
   // ── Registros por mes (12 meses), con la fecha REAL de auth.users ────────
@@ -598,6 +646,7 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
     paises,
     paisesCobertura,
     actividad,
+    siguen,
     generadoEn: new Date().toISOString(),
   }
 }

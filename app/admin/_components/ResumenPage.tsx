@@ -3,13 +3,13 @@
 import { useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getPosterUrl } from '@/lib/tmdb'
-import type { AdminOverview, Metrica } from '@/app/api/admin/overview/route'
+import type { AdminOverview, Metrica, SiguenConGlynbox } from '@/app/api/admin/overview/route'
 import type { AdminContenido, TopMedia } from '@/app/api/admin/contenido/route'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from './Refresco'
 import {
   Users, FileText, List, Star, Loader2, AlertCircle, Film, Tv,
-  UserCheck, Eye, Activity, Clock, Smartphone, TrendingUp, TrendingDown, Info,
+  UserCheck, Eye, Activity, Clock, Smartphone, TrendingUp, TrendingDown, Info, HeartHandshake,
 } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
@@ -38,6 +38,49 @@ function StatCard({
       </p>
       <p className="text-sm text-[#A0A0B0] mt-1 font-medium">{label}</p>
       {sub && <p className="text-xs text-[#FFFD02] mt-0.5">{sub}</p>}
+    </div>
+  )
+}
+
+/**
+ * "Siguen con Glynbox": el número, su porcentaje sobre los registrados y de
+ * dónde sale. Viene sólo del precálculo de cada 10 minutos, nunca en vivo.
+ */
+function SiguenCard({ siguen, cargado }: { siguen: SiguenConGlynbox | null; cargado: boolean }) {
+  const n = (x: number) => x.toLocaleString('es-AR')
+  const valor = siguen ? siguen.porActividad + siguen.soloApp : null
+  const pct = siguen && siguen.total > 0 && valor != null ? Math.round((valor / siguen.total) * 100) : null
+  const hora = siguen
+    ? new Date(siguen.calculadoEn).toLocaleTimeString('es-AR', { hour: '2-digit', minute: '2-digit' })
+    : null
+  const desde = siguen?.desinstaladosDesde
+    ? new Date(siguen.desinstaladosDesde).toLocaleDateString('es-AR', { day: 'numeric', month: 'short' })
+    : null
+
+  return (
+    <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6">
+      <div className="w-11 h-11 rounded-xl flex items-center justify-center mb-4 text-emerald-400 bg-emerald-500/10">
+        <HeartHandshake size={20} />
+      </div>
+      <p className="text-3xl font-black text-white tabular-nums">
+        {valor != null ? n(valor) : '—'}
+        {pct != null && <span className="text-base font-bold text-emerald-400 ml-2">{pct}%</span>}
+      </p>
+      <p className="text-sm text-[#A0A0B0] mt-1 font-medium">Siguen con Glynbox</p>
+      {siguen ? (
+        <ul className="mt-2 space-y-0.5 text-xs text-[#A0A0B0] tabular-nums">
+          <li><span className="text-white">{n(siguen.porActividad)}</span> por actividad en 30 días</li>
+          <li><span className="text-white">{n(siguen.soloApp)}</span> sólo por tener la app</li>
+          <li>
+            <span className="text-white">{n(siguen.desinstalaron)}</span> desinstalaron
+            {desde ? ` (desde el ${desde})` : ''}
+          </li>
+          <li><span className="text-white">{n(siguen.eliminadas)}</span> eliminaron la cuenta</li>
+          <li className="text-[#6B6B80]">De {n(siguen.total)} registrados · {hora}</li>
+        </ul>
+      ) : (
+        cargado && <p className="text-xs text-[#FFFD02] mt-0.5">Falta correr supabase-siguen-con-glynbox-2026-10.sql</p>
+      )}
     </div>
   )
 }
@@ -276,7 +319,7 @@ export default function ResumenPage() {
         )}
 
         {/* Stats cards */}
-        <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+        <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
           <StatCard
             icon={<Users size={20} />}
             label="Usuarios registrados"
@@ -284,6 +327,7 @@ export default function ResumenPage() {
             sub="Alta real (auth.users)"
             color="yellow"
           />
+          <SiguenCard siguen={overview?.siguen ?? null} cargado={!!overview} />
           {/* Usuarios distintos con algún evento, en la web o en la app. Es el
               mismo criterio que "Se conectaron esta semana", de abajo: antes
               salía de profiles.last_active, que escribe sólo la web, y daba 22

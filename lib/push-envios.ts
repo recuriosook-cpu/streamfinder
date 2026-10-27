@@ -117,6 +117,31 @@ export async function revisarRecibos(admin: SupabaseClient, filas: FilaEnvio[]):
   }
 }
 
+/**
+ * Revisa los recibos de todos los envíos que los tengan pendientes, de
+ * cualquier tipo. Antes sólo se revisaban al abrir la página de cada envío en
+ * el panel, y un token de alguien que desinstaló seguía contando como app
+ * instalada hasta que alguien la abría. La llama el cron de cada hora
+ * (`/api/cron/push-dia1`). Nunca tira.
+ */
+export async function revisarRecibosPendientes(admin: SupabaseClient): Promise<number> {
+  const listos = new Date(Date.now() - RECIBOS_DESDE_MS).toISOString()
+  const { data, error } = await admin
+    .from('push_envios')
+    .select(COLUMNAS_FILA)
+    .is('recibos_revisados_en', null)
+    .not('tickets', 'is', null)
+    .lt('creado_en', listos)
+    .limit(50)
+  if (error) {
+    console.error('[push-envios] recibos pendientes:', error.message)
+    return 0
+  }
+  const filas = (data ?? []) as FilaEnvio[]
+  await revisarRecibos(admin, filas)
+  return filas.filter((f) => f.recibos_revisados_en).length
+}
+
 /** Instalaciones distintas que abrieron cada envío de un tipo. */
 export async function aperturas(
   admin: SupabaseClient,

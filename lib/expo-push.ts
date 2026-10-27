@@ -201,13 +201,42 @@ export async function getExpoReceipts(
 }
 
 /**
- * Borra de `user_devices` los tokens de gente que desinstaló.
+ * Saca de `user_devices` los tokens de gente que desinstaló, y los anota en
+ * `push_tokens_inactivos` con su usuario.
  *
- * Un token muerto no revive: si no se borra, cada notificación futura paga el
- * viaje a Expo para que lo rechace de nuevo. Devuelve cuántos borró.
+ * Un token muerto no revive: si se dejara, cada notificación futura paga el
+ * viaje a Expo para que lo rechace de nuevo. Pero borrarlo sin más perdía
+ * quién desinstaló, que es lo que cuenta "Siguen con Glynbox" en el resumen
+ * (supabase-siguen-con-glynbox-2026-10.sql). `user_devices` queda con los
+ * válidos, como esperan los envíos y los conteos que la leen.
+ *
+ * Si la tabla de inactivos todavía no está, se borra igual. Devuelve cuántos borró.
  */
 export async function deleteDeadTokens(admin: SupabaseClient, tokens: string[]): Promise<number> {
   if (tokens.length === 0) return 0
+
+  const { data: filas, error: leerError } = await admin
+    .from('user_devices')
+    .select('push_token, user_id, platform, last_seen_at')
+    .in('push_token', tokens)
+  if (leerError) {
+    console.error('[expo-push] no se pudieron leer los tokens muertos:', leerError.message)
+  } else if (filas?.length) {
+    const { error: anotarError } = await admin.from('push_tokens_inactivos').upsert(
+      (filas as { push_token: string; user_id: string | null; platform: string | null; last_seen_at: string | null }[])
+        .map((f) => ({
+          push_token: f.push_token,
+          user_id: f.user_id,
+          platform: f.platform,
+          motivo: DEVICE_NOT_REGISTERED,
+          ultimo_visto: f.last_seen_at,
+          detectado_en: new Date().toISOString(),
+        })),
+      { onConflict: 'push_token' }
+    )
+    if (anotarError) console.error('[expo-push] no se pudieron anotar los tokens muertos:', anotarError.message)
+  }
+
   const { error, count } = await admin
     .from('user_devices')
     .delete({ count: 'exact' })

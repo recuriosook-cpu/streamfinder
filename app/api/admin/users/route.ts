@@ -430,7 +430,7 @@ function masReciente(...fechas: (string | null | undefined)[]): string | null {
 /**
  * Lo mismo para TODOS los usuarios, cuando se ordena por una columna de
  * actividad. Eso no se puede pedir por usuario, así que se lee lo que deja
- * calculado pg_cron cada 10 minutos (`supabase-usuarios-panel-2026-10.sql`).
+ * calculado pg_cron cada 10 minutos (`supabase-siguen-con-glynbox-2026-10.sql`).
  * Sin ese precálculo se consulta la vista en vivo como antes, que con la base
  * actual puede cortarse por tiempo.
  */
