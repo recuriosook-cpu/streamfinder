@@ -487,7 +487,8 @@ async function titulosRecomendados(admin: SupabaseClient): Promise<Set<string>> 
 /**
  * Cuántas notificaciones recibió cada uno en los últimos 7 días: sus filas de
  * `notifications`, los envíos reales de "Ferlage te recomienda ver", que no
- * dejan fila, si no los tiene apagados, y las semanales y del día 1 que le
+ * dejan fila, si no los tiene apagados y salieron después de su alta (a quien
+ * se registró después no le llegaron), y las semanales y del día 1 que le
  * llegaron (`push_semanal_enviados`, `push_dia1_enviados`).
  *
  * La usan la semanal y la del día 1 (`lib/push-dia1.ts`) para el límite de 3.
@@ -499,18 +500,34 @@ export async function notificacionesDeLaSemana(
   const desde = new Date(Date.now() - SEMANA_MS).toISOString()
   const cuenta = new Map<string, number>()
 
-  const { count: recomendaciones, error } = await admin
+  const { data: recomendaciones, error } = await admin
     .from('push_envios')
-    .select('id', { count: 'exact', head: true })
+    .select('creado_en')
     .eq('tipo', 'recomendacion')
     .eq('prueba', false)
     .gte('creado_en', desde)
+    .limit(1000)
   if (error) throw new Error(`push_envios: ${error.message}`)
-  for (const p of perfiles) {
-    cuenta.set(p.id, envioApagado(p.notification_preferences, 'recomendacion') ? 0 : recomendaciones ?? 0)
-  }
+  const enviadasEn = ((recomendaciones ?? []) as { creado_en: string }[]).map(r => Date.parse(r.creado_en))
 
   const ids = perfiles.map(p => p.id)
+  const altaDe = new Map<string, number>()
+  for (let i = 0; i < ids.length; i += 200) {
+    const { data, error: e } = await admin
+      .from('usuarios_alta')
+      .select('id, created_at')
+      .in('id', ids.slice(i, i + 200))
+    if (e) throw new Error(`usuarios_alta: ${e.message}`)
+    for (const row of (data ?? []) as { id: string; created_at: string }[]) altaDe.set(row.id, Date.parse(row.created_at))
+  }
+  for (const p of perfiles) {
+    const alta = altaDe.get(p.id) ?? 0
+    cuenta.set(
+      p.id,
+      envioApagado(p.notification_preferences, 'recomendacion') ? 0 : enviadasEn.filter(t => t >= alta).length
+    )
+  }
+
   for (let i = 0; i < ids.length; i += 100) {
     const tanda = ids.slice(i, i + 100)
     for (let desdeFila = 0; ; desdeFila += 1000) {

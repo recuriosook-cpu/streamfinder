@@ -22,6 +22,12 @@ import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
  * los interruptores (`profiles.notification_preferences`), que son la foto de
  * hoy. Una "persona" es un `anon_id`: una instalación de la app o un
  * navegador. Cada bloque devuelve desde cuándo hay datos.
+ *
+ * Los conteos sobre `analytics_events` y `client_errors` los hace
+ * `admin_app_medicion()` en la base (`supabase-panel-app-2026-10.sql`) y
+ * pg_cron los deja calculados cada 10 minutos: bajar los eventos de a 1000
+ * filas se cortaba por tiempo desde el 26/10. Acá se les ponen los nombres y
+ * el orden.
  */
 
 export const runtime = 'nodejs'
@@ -142,69 +148,52 @@ export interface AnuncioLugar {
   pct: number | null
 }
 
-// ── Lectura ────────────────────────────────────────────────────────────────
+// ── Lo que devuelve admin_app_medicion() ───────────────────────────────────
 
-interface Evento {
-  name: string
-  anon_id: string
-  platform: string | null
-  path: string | null
-  props: Record<string, unknown> | null
-  created_at: string
-}
-
-async function eventos(admin: SupabaseClient, nombres: string[]): Promise<Evento[]> {
-  const filas: Evento[] = []
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await admin
-      .from('analytics_events')
-      .select('name, anon_id, platform, path, props, created_at')
-      .in('name', nombres)
-      .eq('is_bot', false)
-      .order('created_at', { ascending: true })
-      .range(desde, desde + 999)
-    if (error) throw new Error(error.message)
-    filas.push(...((data ?? []) as Evento[]))
-    if (!data || data.length < 1000) break
+interface Sql {
+  onboarding: {
+    flujo: EmbudoOnboarding['clave']
+    desde: string | null
+    ultimo: string | null
+    /** Personas que vieron "Tus primeras recomendaciones" (sólo los cortos). */
+    recos: number
+    saltos_sin_paso: number
+    pasos: { paso: string | null; vieron: number; saltearon: number }[]
+  }[]
+  notificaciones: {
+    desde: string | null
+    /** En el orden en que apareció cada camino. */
+    caminos: {
+      camino: string; vieron: number; tocaron: number; activaron: number; ahora_no: number; sin_responder: number
+    }[]
+    provisional: Provisional
   }
-  return filas
-}
-
-async function pantallasRecomendaciones(admin: SupabaseClient): Promise<Evento[]> {
-  // Paginado como `eventos`: un `.limit(10000)` igual se corta en 1000.
-  const filas: Evento[] = []
-  for (let desde = 0; ; desde += 1000) {
-    const { data, error } = await admin
-      .from('analytics_events')
-      .select('name, anon_id, platform, path, props, created_at')
-      .eq('name', 'page_view')
-      .eq('path', '/onboarding/recomendaciones')
-      .eq('is_bot', false)
-      .order('created_at', { ascending: true })
-      .range(desde, desde + 999)
-    if (error) throw new Error(error.message)
-    filas.push(...((data ?? []) as Evento[]))
-    if (!data || data.length < 1000) break
+  deslizar: {
+    desde: string | null
+    aperturas: { origen: string; veces: number; personas: number }[]
+    personas: number
+    tarjetasPromedio: number | null
+    tarjetasMediana: number | null
+    acciones: Record<string, number>
+    totalAcciones: number
+    deshechas: number
   }
-  return filas
+  /** Últimos 30 días. */
+  anuncios: {
+    desde: string | null
+    sinLugar: number
+    cargados: { ubicacion: string; cargados: number; android: number; ios: number }[]
+    fallos: { ubicacion: string; total: number; sin_relleno: number }[]
+  }
 }
 
-const prop = (e: Evento, k: string): unknown => e.props?.[k]
 const pct = (n: number, de: number): number | null => (de > 0 ? Math.round((n / de) * 1000) / 10 : null)
+const num = (v: number | null | undefined): number | null => (v === null || v === undefined ? null : Number(v))
 
-function rango(evs: Evento[]): { desde: string | null; ultimo: string | null } {
-  if (evs.length === 0) return { desde: null, ultimo: null }
-  let desde = evs[0].created_at
-  let ultimo = evs[0].created_at
-  for (const e of evs) {
-    if (e.created_at < desde) desde = e.created_at
-    if (e.created_at > ultimo) ultimo = e.created_at
-  }
-  return { desde, ultimo }
-}
-
-function personas(evs: Evento[]): number {
-  return new Set(evs.map(e => e.anon_id)).size
+/** Falta correr `supabase-panel-app-2026-10.sql`. */
+function faltaLaFuncion(error: { code?: string; message?: string }): boolean {
+  if (error.code === '42883' || error.code === 'PGRST202') return true
+  return (error.message ?? '').toLowerCase().includes('could not find the function')
 }
 
 // ── Onboarding ─────────────────────────────────────────────────────────────
@@ -226,51 +215,38 @@ const CORTOS: EmbudoOnboarding['clave'][] = ['app_corto', 'web_corto']
 /** Los flujos viejos se muestran mientras sigan llegando datos: algo en los últimos 30 días. */
 const VIGENCIA_MS = 30 * 24 * 60 * 60 * 1000
 
-function flujoDe(e: Evento): EmbudoOnboarding['clave'] {
-  const corto = prop(e, 'flujo') === 'corto'
-  if (e.platform !== 'mobile') return corto ? 'web_corto' : 'web'
-  return corto ? 'app_corto' : 'app_viejo'
-}
-
-function embudos(evs: Evento[], recomendaciones: Evento[]): EmbudoOnboarding[] {
+/**
+ * El SQL arma los mismos cuatro flujos: el corto o el viejo según
+ * `props.flujo`, de la app o de la web según `platform`. La cantidad de pasos
+ * de cada uno está repetida ahí, para contar los saltos sin paso.
+ */
+function embudos(filas: Sql['onboarding']): EmbudoOnboarding[] {
   const salida: EmbudoOnboarding[] = []
   for (const flujo of FLUJOS) {
-    const propios = evs.filter(e => flujoDe(e) === flujo.clave)
-    const vistos = propios.filter(e => e.name === 'onboarding_step_viewed')
-    const saltos = propios.filter(e => e.name === 'onboarding_skipped')
-    const recos =
-      flujo.clave === 'app_corto' ? recomendaciones.filter(e => e.platform === 'mobile')
-      : flujo.clave === 'web_corto' ? recomendaciones.filter(e => e.platform !== 'mobile')
-      : []
-
-    const { desde, ultimo } = rango([...propios, ...recos])
+    const fila = filas.find(f => f.flujo === flujo.clave)
+    const desde = fila?.desde ?? null
+    const ultimo = fila?.ultimo ?? null
     const vigente = ultimo !== null && Date.now() - new Date(ultimo).getTime() < VIGENCIA_MS
     // Los flujos nuevos van siempre, aunque estén vacíos: son los que hay que mirar.
     if (!CORTOS.includes(flujo.clave) && !vigente) continue
 
     const pasos: PasoEmbudo[] = flujo.pasos.map((nombre, i) => {
-      const paso = i + 1
-      return {
-        nombre,
-        personas: personas(vistos.filter(e => Number(prop(e, 'paso')) === paso)),
-        pct: null,
-        saltearon: personas(saltos.filter(e => Number(prop(e, 'paso')) === paso)),
-      }
+      const paso = fila?.pasos.find(p => Number(p.paso) === i + 1)
+      return { nombre, personas: Number(paso?.vieron ?? 0), pct: null, saltearon: Number(paso?.saltearon ?? 0) }
     })
     if (CORTOS.includes(flujo.clave)) {
-      pasos.push({ nombre: 'Vio sus recomendaciones', personas: personas(recos), pct: null, saltearon: 0 })
+      pasos.push({ nombre: 'Vio sus recomendaciones', personas: Number(fila?.recos ?? 0), pct: null, saltearon: 0 })
     }
     const base = pasos[0]?.personas ?? 0
     for (const p of pasos) p.pct = pct(p.personas, base)
 
-    const conPaso = new Set(flujo.pasos.map((_, i) => i + 1))
     salida.push({
       clave: flujo.clave,
       titulo: flujo.titulo,
       desde,
       ultimo,
       pasos,
-      saltosSinPaso: personas(saltos.filter(e => !conPaso.has(Number(prop(e, 'paso'))))),
+      saltosSinPaso: Number(fila?.saltos_sin_paso ?? 0),
     })
   }
   return salida
@@ -289,48 +265,24 @@ const CAMINOS: Record<string, string> = {
 }
 
 /**
- * El camino de un evento. Los builds de prueba de la 1.0.16 mandaban
- * `origen: 'recordatorio'` con el camino en `momento`; desde los caminos, el
- * camino es el `origen`.
+ * El camino lo saca el SQL: el `origen` de los eventos push_*, salvo los
+ * builds de prueba de la 1.0.16, que mandaban `origen: 'recordatorio'` con el
+ * camino en `momento`.
  */
-function caminoDe(e: Evento): string {
-  const origen = String(prop(e, 'origen') ?? 'sin origen')
-  return origen === 'recordatorio' ? String(prop(e, 'momento') ?? 'recordatorio') : origen
-}
-
-function caminos(evs: Evento[]): CaminoPermiso[] {
-  const claves = [...new Set([...Object.keys(CAMINOS), ...evs.map(caminoDe)])]
+function caminos(filas: Sql['notificaciones']['caminos']): CaminoPermiso[] {
+  const claves = [...new Set([...Object.keys(CAMINOS), ...filas.map(f => f.camino)])]
   return claves.map(clave => {
-    const de = evs.filter(e => caminoDe(e) === clave)
-    const quien = (pred: (e: Evento) => boolean) => new Set(de.filter(pred).map(e => e.anon_id))
-    const vieron = quien(e => e.name === 'push_ofrecido')
-    const tocaron = quien(e => e.name === 'push_aceptado' || e.name === 'push_ajustes_abiertos')
-    // Antes de la 1.0.16 no existía push_activado: el onboarding contaba el
-    // permiso con push_aceptado resultado 'granted'.
-    const activaron = quien(e => e.name === 'push_activado' ||
-      (e.name === 'push_aceptado' && prop(e, 'resultado') === 'granted'))
-    const ahoraNo = quien(e => e.name === 'push_ahora_no')
-    let sinResponder = 0
-    for (const id of vieron) if (!tocaron.has(id) && !ahoraNo.has(id)) sinResponder++
+    const f = filas.find(c => c.camino === clave)
     return {
       clave,
       nombre: CAMINOS[clave] ?? clave,
-      vieron: vieron.size,
-      tocaron: tocaron.size,
-      activaron: activaron.size,
-      ahoraNo: ahoraNo.size,
-      sinResponder,
+      vieron: Number(f?.vieron ?? 0),
+      tocaron: Number(f?.tocaron ?? 0),
+      activaron: Number(f?.activaron ?? 0),
+      ahoraNo: Number(f?.ahora_no ?? 0),
+      sinResponder: Number(f?.sin_responder ?? 0),
     }
   })
-}
-
-function provisional(evs: Evento[]): Provisional {
-  const quien = (pred: (e: Evento) => boolean) => new Set(evs.filter(pred).map(e => e.anon_id)).size
-  return {
-    loTienen: quien(e => e.name === 'push_provisional'),
-    normales: quien(e => e.name === 'push_provisional_resultado' && prop(e, 'resultado') === 'normales'),
-    desactivadas: quien(e => e.name === 'push_provisional_resultado' && prop(e, 'resultado') === 'desactivadas'),
-  }
 }
 
 const INTERRUPTORES = [
@@ -376,51 +328,31 @@ const ACCIONES = [
   { accion: 'pasar', nombre: 'Pasar' },
 ]
 
-function mediana(valores: number[]): number | null {
-  if (valores.length === 0) return null
-  const v = [...valores].sort((a, b) => a - b)
-  const m = Math.floor(v.length / 2)
-  return v.length % 2 ? v[m] : (v[m - 1] + v[m]) / 2
-}
-
-function deslizar(evs: Evento[]): MedicionApp['deslizar'] {
-  const abiertos = evs.filter(e => e.name === 'deslizar_abierto')
-  const acciones = evs.filter(e => e.name === 'deslizar_accion')
-  const deshechas = evs.filter(e => e.name === 'deslizar_deshacer')
-
-  const origenes = [...new Set(['home', 'que_ver', ...abiertos.map(e => String(prop(e, 'origen') ?? 'desconocido'))])]
-  const aperturas = origenes.map(origen => {
-    const de = abiertos.filter(e => String(prop(e, 'origen') ?? 'desconocido') === origen)
-    return { origen, veces: de.length, personas: personas(de) }
-  })
-
-  // Tarjetas por persona: sus acciones menos las que deshizo, sobre todos los
-  // que entraron (los que entraron y no pasaron ninguna cuentan como cero).
-  const tarjetas = new Map<string, number>()
-  for (const e of abiertos) tarjetas.set(e.anon_id, tarjetas.get(e.anon_id) ?? 0)
-  for (const e of acciones) tarjetas.set(e.anon_id, (tarjetas.get(e.anon_id) ?? 0) + 1)
-  for (const e of deshechas) tarjetas.set(e.anon_id, Math.max(0, (tarjetas.get(e.anon_id) ?? 0) - 1))
-  const valores = [...tarjetas.values()]
-
+/**
+ * Tarjetas por persona (las cuenta el SQL): sus acciones menos las que
+ * deshizo, sobre todos los que entraron (los que entraron y no pasaron
+ * ninguna cuentan como cero).
+ */
+function deslizar(d: Sql['deslizar']): MedicionApp['deslizar'] {
+  const origenes = [...new Set(['home', 'que_ver', ...d.aperturas.map(a => a.origen)])]
   return {
-    desde: rango(evs).desde,
-    aperturas,
-    personas: valores.length,
-    tarjetasPromedio: valores.length > 0
-      ? Math.round((valores.reduce((s, n) => s + n, 0) / valores.length) * 10) / 10
-      : null,
-    tarjetasMediana: mediana(valores),
-    acciones: ACCIONES.map(({ accion, nombre }) => {
-      const veces = acciones.filter(e => prop(e, 'accion') === accion).length
-      return { accion, nombre, veces, pct: pct(veces, acciones.length) }
+    desde: d.desde,
+    aperturas: origenes.map(origen => {
+      const a = d.aperturas.find(x => x.origen === origen)
+      return { origen, veces: Number(a?.veces ?? 0), personas: Number(a?.personas ?? 0) }
     }),
-    deshechas: deshechas.length,
+    personas: Number(d.personas),
+    tarjetasPromedio: num(d.tarjetasPromedio),
+    tarjetasMediana: num(d.tarjetasMediana),
+    acciones: ACCIONES.map(({ accion, nombre }) => {
+      const veces = Number(d.acciones[accion] ?? 0)
+      return { accion, nombre, veces, pct: pct(veces, Number(d.totalAcciones)) }
+    }),
+    deshechas: Number(d.deshechas),
   }
 }
 
 // ── Anuncios ───────────────────────────────────────────────────────────────
-
-const VENTANA_ANUNCIOS_MS = 30 * 24 * 60 * 60 * 1000
 
 /** En el orden en que se muestran. Las que no están acá salen al final con su clave. */
 const LUGARES: Record<string, string> = {
@@ -435,61 +367,39 @@ const LUGARES: Record<string, string> = {
   perfil: 'Perfil',
 }
 
-async function fallosDeAnuncios(admin: SupabaseClient): Promise<{ ubicacion: string; code: string }[]> {
-  const desde = new Date(Date.now() - VENTANA_ANUNCIOS_MS).toISOString()
-  const filas: { context: Record<string, unknown> | null }[] = []
-  for (let d = 0; ; d += 1000) {
-    const { data, error } = await admin
-      .from('client_errors')
-      .select('context')
-      .eq('scope', 'ads.load')
-      .gte('created_at', desde)
-      .range(d, d + 999)
-    if (error) throw new Error(error.message)
-    filas.push(...((data ?? []) as typeof filas))
-    if (!data || data.length < 1000) break
-  }
-  return filas.map(f => ({
-    ubicacion: String(f.context?.ubicacion ?? ''),
-    code: String(f.context?.code ?? ''),
-  }))
-}
-
-function anuncios(cargados: Evento[], fallos: { ubicacion: string; code: string }[]): MedicionApp['anuncios'] {
-  const corte = new Date(Date.now() - VENTANA_ANUNCIOS_MS).toISOString()
-  const enVentana = cargados.filter(e => e.created_at >= corte)
-  const conLugar = enVentana.filter(e => prop(e, 'ubicacion'))
+/**
+ * Cargados (`ad_cargado`) contra fallos (`client_errors` `ads.load`) de los
+ * últimos 30 días, ya contados por lugar en el SQL.
+ */
+function anuncios(d: Sql['anuncios']): MedicionApp['anuncios'] {
   // El diagnóstico de Ajustes no es un lugar de la app: no se cuenta.
   const lugar = (u: string) => u && u !== 'diagnostico'
 
   const claves = [...new Set([
     ...Object.keys(LUGARES),
-    ...conLugar.map(e => String(prop(e, 'ubicacion'))),
-    ...fallos.map(f => f.ubicacion),
+    ...d.cargados.map(c => c.ubicacion),
+    ...d.fallos.map(f => f.ubicacion),
   ])].filter(lugar)
 
   const lugares = claves.map(ubicacion => {
-    const de = conLugar.filter(e => prop(e, 'ubicacion') === ubicacion)
-    const falla = fallos.filter(f => f.ubicacion === ubicacion)
-    const sinRelleno = falla.filter(f => f.code.includes('no-fill')).length
-    const errores = falla.length - sinRelleno
+    const c = d.cargados.find(x => x.ubicacion === ubicacion)
+    const f = d.fallos.find(x => x.ubicacion === ubicacion)
+    const cargados = Number(c?.cargados ?? 0)
+    const falla = Number(f?.total ?? 0)
+    const sinRelleno = Number(f?.sin_relleno ?? 0)
     return {
       ubicacion,
       nombre: LUGARES[ubicacion] ?? ubicacion,
-      cargados: de.length,
-      android: de.filter(e => prop(e, 'plataforma') === 'android').length,
-      ios: de.filter(e => prop(e, 'plataforma') === 'ios').length,
+      cargados,
+      android: Number(c?.android ?? 0),
+      ios: Number(c?.ios ?? 0),
       sinRelleno,
-      errores,
-      pct: pct(de.length, de.length + falla.length),
+      errores: falla - sinRelleno,
+      pct: pct(cargados, cargados + falla),
     }
   })
 
-  return {
-    desde: rango(conLugar).desde,
-    lugares,
-    sinLugar: enVentana.length - conLugar.length,
-  }
+  return { desde: d.desde, lugares, sinLugar: Number(d.sinLugar) }
 }
 
 // ── GET ────────────────────────────────────────────────────────────────────
@@ -502,28 +412,34 @@ export async function GET() {
   if (failure) return failure
 
   try {
-    const [onb, recos, push, desl, cargados, fallos, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
-      eventos(admin, ['onboarding_step_viewed', 'onboarding_skipped']),
-      pantallasRecomendaciones(admin),
-      eventos(admin, ['push_ofrecido', 'push_aceptado', 'push_ahora_no', 'push_ajustes_abiertos', 'push_activado', 'push_provisional', 'push_provisional_resultado']),
-      eventos(admin, ['deslizar_abierto', 'deslizar_accion', 'deslizar_deshacer']),
-      eventos(admin, ['ad_cargado']),
-      fallosDeAnuncios(admin),
+    const [conteos, porUsuario, uso, perfiles, ...apagadosPor] = await Promise.all([
+      precalculado(admin, 'admin_app_medicion', FRESCO_RAPIDO, () => admin.rpc('admin_app_medicion')),
       tokens(admin),
       precalculado(admin, 'admin_app_uso', FRESCO_RAPIDO, () => admin.rpc('admin_app_uso')),
       admin.from('profiles').select('id', { count: 'exact', head: true }),
       ...INTERRUPTORES.map(i => apagados(admin, i.clave)),
     ])
 
+    if (conteos.error) {
+      throw new Error(faltaLaFuncion(conteos.error)
+        ? 'Falta correr supabase-panel-app-2026-10.sql.'
+        : conteos.error.message)
+    }
+    const sql = conteos.data as Sql
+
     if (uso.error) console.error('[admin/app-medicion] admin_app_uso:', uso.error.message)
     const fila = (uso.data as { activas: number; con_sesion: number; desde: string | null }[] | null)?.[0]
 
     const medicion: MedicionApp = {
-      onboarding: embudos(onb, recos),
+      onboarding: embudos(sql.onboarding ?? []),
       notificaciones: {
-        permisoDesde: rango(push).desde,
-        caminos: caminos(push),
-        provisional: provisional(push),
+        permisoDesde: sql.notificaciones.desde,
+        caminos: caminos(sql.notificaciones.caminos),
+        provisional: {
+          loTienen: Number(sql.notificaciones.provisional.loTienen),
+          normales: Number(sql.notificaciones.provisional.normales),
+          desactivadas: Number(sql.notificaciones.provisional.desactivadas),
+        },
         usuariosConToken: porUsuario.size,
         aparatosConToken: [...porUsuario.values()].reduce((s, n) => s + n, 0),
         instalacionesActivas: fila ? Number(fila.activas) : null,
@@ -537,8 +453,8 @@ export async function GET() {
           apagadosConToken: apagadosPor[n].filter(id => porUsuario.has(id)).length,
         })),
       },
-      deslizar: deslizar(desl),
-      anuncios: anuncios(cargados, fallos),
+      deslizar: deslizar(sql.deslizar),
+      anuncios: anuncios(sql.anuncios),
     }
     return NextResponse.json(medicion)
   } catch (err) {

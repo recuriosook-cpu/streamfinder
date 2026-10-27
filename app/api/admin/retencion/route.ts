@@ -52,6 +52,9 @@ export const runtime = 'nodejs'
 /** Cuántas semanas de cohortes se muestran. */
 const SEMANAS = 12
 
+/** Cuántos días de altas se muestran en la vista por día. */
+const DIAS_DE_ALTA = 14
+
 /** Ventana del embudo, las sesiones y la comparación de comportamiento. */
 const DIAS = 90
 
@@ -97,6 +100,17 @@ export interface CohorteRetencion {
   d1Pct: number | null
   d7Pct: number | null
   d30Pct: number | null
+}
+
+/** Lo mismo que una cohorte, por día de alta y sólo con día 1 y día 7. */
+export interface DiaRetencion {
+  /** El día de alta, en Argentina (AAAA-MM-DD). */
+  dia: string
+  usuarios: number
+  d1: number
+  d7: number
+  d1Pct: number | null
+  d7Pct: number | null
 }
 
 export interface PasoRegistro {
@@ -177,6 +191,11 @@ export interface RetencionResumen {
   medicionDesde: string | null
   cohortes: CohorteRetencion[]
   /**
+   * Los últimos 14 días de altas, el más nuevo primero. Vacío mientras no se
+   * corra `supabase-panel-app-2026-10.sql`: no tira abajo el resto.
+   */
+  porDia: DiaRetencion[]
+  /**
    * Retención de la app, por semana de instalación.
    *
    * Vacío mientras no haya eventos con `platform = 'mobile'`, o si todavía no
@@ -203,6 +222,9 @@ export interface RetencionResumen {
 interface FilaCohorte {
   semana: string; usuarios: number; d1: number; d7: number; d30: number
   d1_maduro: boolean; d7_maduro: boolean; d30_maduro: boolean
+}
+interface FilaDia {
+  dia: string; usuarios: number; d1: number; d7: number; d1_maduro: boolean; d7_maduro: boolean
 }
 interface FilaCohorteApp {
   semana: string; instalaciones: number; d1: number; d7: number; d30: number
@@ -236,7 +258,7 @@ const num = (v: number | null | undefined): number | null =>
 function vacio(motivo: 'sin_migracion' | 'sin_datos'): RetencionResumen {
   return {
     disponible: false, motivo, semanas: SEMANAS, dias: DIAS, medicionDesde: null,
-    cohortes: [], app: [], registro: [], embudos: null, separado: { app: false, embudo: false },
+    cohortes: [], porDia: [], app: [], registro: [], embudos: null, separado: { app: false, embudo: false },
     sesiones: null, comportamiento: [],
     generadoEn: new Date().toISOString(),
   }
@@ -358,9 +380,12 @@ export async function GET() {
   const { admin, failure } = requireAdminClient('admin/retencion')
   if (failure) return failure
 
-  const [cohortesRes, appV, registroV, sesionesRes, comportamientoRes, medicionRes] =
+  const [cohortesRes, porDiaRes, appV, registroV, sesionesRes, comportamientoRes, medicionRes] =
     await Promise.all([
       rpcPrecalculada(admin, 'retencion_cohortes', { p_semanas: SEMANAS }),
+      // Como la de la app: su SQL es otro archivo y su error no tira abajo
+      // la sección.
+      rpcPrecalculada(admin, 'retencion_por_dia', { p_dias: DIAS_DE_ALTA }),
       // La de la app va aparte del resto: su SQL es otro archivo y puede no
       // estar corrido todavía. Su error NO tira abajo la sección entera.
       // Las dos `_v2` caen a la vieja mientras no se corra el SQL nuevo.
@@ -406,6 +431,22 @@ export async function GET() {
         d30Pct: f.d30_maduro ? porcentaje(Number(f.d30), usuarios) : null,
       }
     })
+
+  // ── Por día de alta ──────────────────────────────────────────────────
+  if (porDiaRes.error && !faltaLaMigracion(porDiaRes.error)) {
+    console.error('[admin/retencion] la vista por día falló:', porDiaRes.error.message)
+  }
+  const porDia: DiaRetencion[] = ((porDiaRes.data as FilaDia[] | null) ?? []).map(f => {
+    const usuarios = Number(f.usuarios)
+    return {
+      dia: f.dia,
+      usuarios,
+      d1: Number(f.d1),
+      d7: Number(f.d7),
+      d1Pct: f.d1_maduro ? porcentaje(Number(f.d1), usuarios) : null,
+      d7Pct: f.d7_maduro ? porcentaje(Number(f.d7), usuarios) : null,
+    }
+  })
 
   // ── Retención de la app ──────────────────────────────────────────────
   //
@@ -489,6 +530,7 @@ export async function GET() {
     dias: DIAS,
     medicionDesde,
     cohortes,
+    porDia,
     app,
     registro,
     embudos,

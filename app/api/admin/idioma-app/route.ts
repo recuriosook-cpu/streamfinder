@@ -1,8 +1,8 @@
 import { NextResponse } from 'next/server'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
-import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 
 /**
  * GET /api/admin/idioma-app — en qué idioma usan la app las instalaciones que
@@ -19,8 +19,9 @@ import { requireAdminClient } from '@/lib/service-role'
  * a quien no tiene cuenta. El resto queda "sin dato", y va bajando a medida
  * que la gente actualiza.
  *
- * Son pocas filas (unos 3.600 `app_open` de la app en 30 días, en octubre),
- * así que se cuenta acá y no hace falta una función en la base.
+ * Lo cuenta `admin_idioma_app()` en la base (`supabase-panel-app-2026-10.sql`)
+ * y pg_cron lo deja calculado cada 10 minutos: con 29.000 `app_open` en 30
+ * días, bajarlos de a 1000 filas se cortaba por tiempo desde el 26/10.
  */
 
 export const runtime = 'nodejs'
@@ -50,8 +51,6 @@ async function requireAdmin() {
 
 // ── Tipos ──────────────────────────────────────────────────────────────────
 
-type Idioma = 'es' | 'en'
-
 export interface ConteoIdioma {
   /** Las dos fuentes sumadas. */
   total: number
@@ -73,59 +72,6 @@ export interface IdiomaApp {
   cambios: { aEs: number; aEn: number }
 }
 
-// ── Lectura ────────────────────────────────────────────────────────────────
-
-const VENTANA_MS = 30 * 24 * 60 * 60 * 1000
-
-interface Evento {
-  name: string
-  anon_id: string
-  user_id: string | null
-  props: Record<string, unknown> | null
-  created_at: string
-}
-
-async function eventos(admin: SupabaseClient, desde: string): Promise<Evento[]> {
-  const filas: Evento[] = []
-  for (let d = 0; ; d += 1000) {
-    const { data, error } = await admin
-      .from('analytics_events')
-      .select('name, anon_id, user_id, props, created_at')
-      .in('name', ['app_open', 'idioma_cambiado'])
-      .eq('platform', 'mobile')
-      .eq('is_bot', false)
-      .gte('created_at', desde)
-      .order('created_at', { ascending: true })
-      .range(d, d + 999)
-    if (error) throw new Error(error.message)
-    filas.push(...((data ?? []) as Evento[]))
-    if (!data || data.length < 1000) break
-  }
-  return filas
-}
-
-/** `profiles.idioma` de esas cuentas, sólo las que lo tienen. */
-async function idiomaDeCuentas(admin: SupabaseClient, ids: string[]): Promise<Map<string, Idioma>> {
-  const salida = new Map<string, Idioma>()
-  // De a tandas: la lista va en la URL de PostgREST.
-  for (let i = 0; i < ids.length; i += 200) {
-    const { data, error } = await admin
-      .from('profiles')
-      .select('id, idioma')
-      .in('id', ids.slice(i, i + 200))
-    if (error) throw new Error(error.message)
-    for (const row of (data ?? []) as { id: string; idioma: string | null }[]) {
-      if (row.idioma === 'es' || row.idioma === 'en') salida.set(row.id, row.idioma)
-    }
-  }
-  return salida
-}
-
-const idiomaDe = (e: Evento): Idioma | null => {
-  const v = e.props?.idioma
-  return v === 'es' || v === 'en' ? v : null
-}
-
 // ── GET ────────────────────────────────────────────────────────────────────
 
 export async function GET() {
@@ -135,59 +81,15 @@ export async function GET() {
   const { admin, failure } = requireAdminClient('admin/idioma-app')
   if (failure) return failure
 
-  try {
-    const evs = await eventos(admin, new Date(Date.now() - VENTANA_MS).toISOString())
-
-    // Vienen en orden: el último que se pisa es el más reciente.
-    const porInstalacion = new Map<string, { idioma: Idioma | null; usuario: string | null }>()
-    let desde: string | null = null
-    const cambios = { aEs: 0, aEn: 0 }
-    for (const e of evs) {
-      const inst = porInstalacion.get(e.anon_id) ?? { idioma: null, usuario: null }
-      const idioma = idiomaDe(e)
-      if (idioma) {
-        inst.idioma = idioma
-        desde ??= e.created_at
-      }
-      if (e.user_id) inst.usuario = e.user_id
-      porInstalacion.set(e.anon_id, inst)
-
-      if (e.name === 'idioma_cambiado' && idioma) {
-        if (idioma === 'es') cambios.aEs++
-        else cambios.aEn++
-      }
-    }
-
-    const sinIdioma = [...porInstalacion.values()].filter(i => !i.idioma && i.usuario)
-    const cuentas = await idiomaDeCuentas(admin, [...new Set(sinIdioma.map(i => i.usuario!))])
-
-    const conteo = (): ConteoIdioma => ({ total: 0, evento: 0, cuenta: 0 })
-    const salida: IdiomaApp = {
-      instalaciones: porInstalacion.size,
-      es: conteo(),
-      en: conteo(),
-      sinDato: 0,
-      desde,
-      cambios,
-    }
-    for (const inst of porInstalacion.values()) {
-      if (inst.idioma) {
-        salida[inst.idioma].evento++
-        salida[inst.idioma].total++
-        continue
-      }
-      const deCuenta = inst.usuario ? cuentas.get(inst.usuario) : undefined
-      if (deCuenta) {
-        salida[deCuenta].cuenta++
-        salida[deCuenta].total++
-      } else {
-        salida.sinDato++
-      }
-    }
-
-    return NextResponse.json(salida)
-  } catch (err) {
-    console.error('[admin/idioma-app]', (err as Error).message)
-    return NextResponse.json({ message: (err as Error).message }, { status: 500 })
+  const { data, error } = await precalculado(admin, 'admin_idioma_app', FRESCO_RAPIDO,
+    () => admin.rpc('admin_idioma_app'))
+  if (error) {
+    const falta = error.code === '42883' || error.code === 'PGRST202'
+    console.error('[admin/idioma-app]', error.message)
+    return NextResponse.json(
+      { message: falta ? 'Falta correr supabase-panel-app-2026-10.sql.' : error.message },
+      { status: 500 }
+    )
   }
+  return NextResponse.json(data as IdiomaApp)
 }

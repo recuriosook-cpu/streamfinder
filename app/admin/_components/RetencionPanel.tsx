@@ -3,7 +3,7 @@
 import { useEffect, useState } from 'react'
 import { Loader2, AlertTriangle, Repeat, UserMinus, LogIn, Smartphone } from 'lucide-react'
 import type {
-  RetencionResumen, CohorteRetencion, CohorteApp, PasoRegistro, GrupoComportamiento,
+  RetencionResumen, CohorteRetencion, DiaRetencion, CohorteApp, PasoRegistro, GrupoComportamiento,
   GrupoApp, EmbudoPlataforma, FlujoOnboarding,
 } from '@/app/api/admin/retencion/route'
 
@@ -139,6 +139,41 @@ function TablaCohortes({ cohortes }: { cohortes: CohorteRetencion[] }) {
               <CeldaRetencion valor={c.d1}  pctValor={c.d1Pct} />
               <CeldaRetencion valor={c.d7}  pctValor={c.d7Pct} />
               <CeldaRetencion valor={c.d30} pctValor={c.d30Pct} />
+            </tr>
+          ))}
+        </tbody>
+      </table>
+    </div>
+  )
+}
+
+const DIAS_SEMANA = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb']
+
+/** `2026-10-26` → `lun 26/10`. */
+function diaCorto(iso: string): string {
+  const dia = DIAS_SEMANA[new Date(`${iso.slice(0, 10)}T12:00:00Z`).getUTCDay()]
+  return `${dia} ${semanaCorta(iso)}`
+}
+
+function TablaPorDia({ dias }: { dias: DiaRetencion[] }) {
+  return (
+    <div className="overflow-x-auto">
+      <table className="w-full text-sm">
+        <thead>
+          <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+            <th className="text-left  font-medium py-2 pr-3">Día de alta</th>
+            <th className="text-right font-medium py-2 px-2">Altas</th>
+            <th className="text-right font-medium py-2 px-2">Día 1</th>
+            <th className="text-right font-medium py-2 px-2">Día 7</th>
+          </tr>
+        </thead>
+        <tbody>
+          {dias.map(d => (
+            <tr key={d.dia} className="border-b border-[#2A2A3A]/60 last:border-0">
+              <td className="py-2 pr-3 text-white tabular-nums">{diaCorto(d.dia)}</td>
+              <td className="py-2 px-2 text-right tabular-nums text-zinc-300">{numero(d.usuarios)}</td>
+              <CeldaRetencion valor={d.d1} pctValor={d.d1Pct} />
+              <CeldaRetencion valor={d.d7} pctValor={d.d7Pct} />
             </tr>
           ))}
         </tbody>
@@ -435,6 +470,23 @@ export function RetencionPanel({ recarga = 0 }: { recarga?: number }) {
             </p>
             <TablaCohortes cohortes={datos.cohortes} />
           </div>
+
+          {/* ── 1b. Por día de alta ───────────────────────────────── */}
+          {datos.porDia?.length > 0 && (
+            <div>
+              <h3 className="text-xs font-semibold text-white mb-1 flex items-center gap-1.5">
+                <Repeat size={13} className="text-[#A0A0B0]" />
+                Usuarios registrados: vuelven, por día de alta
+              </h3>
+              <p className="text-[10px] text-[#A0A0B0] mb-3">
+                Lo mismo que la tabla de arriba, día por día en las últimas dos semanas,
+                para ver cada día sin esperar a que cierre la semana. Se recalcula cada
+                hora. El día 1 de un alta se lee al terminar el día siguiente, y el día 7,
+                una semana después.
+              </p>
+              <TablaPorDia dias={datos.porDia} />
+            </div>
+          )}
 
           {/* ── 2. Embudo del registro ────────────────────────────── */}
           <div>
