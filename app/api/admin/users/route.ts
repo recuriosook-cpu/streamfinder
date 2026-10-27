@@ -3,7 +3,8 @@ import { createServerClient } from '@supabase/ssr'
 import { SupabaseClient } from '@supabase/supabase-js'
 import { cookies } from 'next/headers'
 import { requireAdminClient } from '@/lib/service-role'
-import { precalculado, FRESCO_LENTO } from '@/lib/admin-precalculado'
+import { precalculado, FRESCO_LENTO, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
+import { actividadDesdeEventos, type ActivityRow, type AppUsageRow } from '@/lib/admin-actividad'
 
 // ── Auth helper ────────────────────────────────────────────────────────────
 
@@ -36,7 +37,16 @@ async function requireAdmin() {
  * frágil: alcanza con que alguien agregue un trigger de updated_at (lo normal)
  * para que todas las fechas históricas se pisen. La fecha buena es ésta.
  */
-interface AuthInfo { email: string | null; createdAt: string | null }
+interface AuthInfo {
+  email: string | null
+  createdAt: string | null
+  /**
+   * Último inicio de sesión según auth. Es la única fuente de "Últ. acceso"
+   * que existe para alguien que se acaba de registrar: los eventos llegan de a
+   * lotes y las vistas de actividad pueden venir vacías, pero esto no.
+   */
+  lastSignInAt: string | null
+}
 interface AuthCache { map: Record<string, AuthInfo>; ts: number }
 let authCache: AuthCache | null = null
 const EMAIL_TTL = 90_000 // 90 seconds
@@ -51,7 +61,11 @@ async function getAuthMap(admin: SupabaseClient): Promise<Record<string, AuthInf
     const { data, error } = await admin.auth.admin.listUsers({ page, perPage: 1000 })
     if (error || !data?.users?.length) break
     for (const u of data.users) {
-      map[u.id] = { email: u.email ?? null, createdAt: u.created_at ?? null }
+      map[u.id] = {
+        email: u.email ?? null,
+        createdAt: u.created_at ?? null,
+        lastSignInAt: u.last_sign_in_at ?? null,
+      }
     }
     if (data.users.length < 1000) break
     page++
@@ -136,11 +150,13 @@ async function getMedicion(admin: SupabaseClient): Promise<Medicion> {
 const MAX_IDS_EN_URL = 300
 const LOTE = 1000
 
-async function fetchForUsers<T extends { user_id: string }>(
+async function fetchForUsers<T extends object>(
   admin: SupabaseClient,
   table: string,
   columns: string,
-  ids: string[]
+  ids: string[],
+  /** La columna que tiene el id del usuario. `follows` la llama `following_id`. */
+  idCol = 'user_id'
 ): Promise<T[]> {
   if (!ids.length) return []
 
@@ -152,7 +168,7 @@ async function fetchForUsers<T extends { user_id: string }>(
   // eslint-disable-next-line no-constant-condition
   while (true) {
     let q = admin.from(table).select(columns)
-    if (usarFiltro) q = q.in('user_id', ids)
+    if (usarFiltro) q = q.in(idCol, ids)
 
     const { data, error } = await q.range(from, from + LOTE - 1)
 
@@ -168,7 +184,7 @@ async function fetchForUsers<T extends { user_id: string }>(
     // PostgREST, así que devuelve un tipo genérico. El doble casteo es el
     // precio de tener UN solo helper para dos tablas distintas.
     for (const row of data as unknown as T[]) {
-      if (!wanted || wanted.has(row.user_id)) out.push(row)
+      if (!wanted || wanted.has((row as Record<string, unknown>)[idCol] as string)) out.push(row)
     }
 
     if (data.length < LOTE) break
@@ -320,6 +336,27 @@ export async function GET(req: Request) {
 
   t.mark('profiles')
 
+  // ── Case B1: orden por fecha de registro (el default del panel) ─────────
+  // La fecha ya está en `authMap`, en memoria: no hace falta enriquecer a
+  // todos para ordenar. Enriquecer los 2.300 perfiles juntos era lo que
+  // mandaba a leer enteras `user_activity_time` y `user_app_usage`, que se
+  // cortaban por tiempo y dejaban la tabla en "sin datos" / "sin app".
+  if (sortBy === 'auth_created_at') {
+    const fecha = (p: ProfileRow) => authMap[p.id]?.createdAt ?? ''
+    allProfiles.sort((a, b) => {
+      const af = fecha(a)
+      const bf = fecha(b)
+      // Sin fecha, al final ordene como ordene (igual que los nulos de abajo).
+      if (!af || !bf) return af ? -1 : bf ? 1 : 0
+      return sortDir === 'asc' ? af.localeCompare(bf) : bf.localeCompare(af)
+    })
+    const pagina = allProfiles.slice(page * limit, (page + 1) * limit)
+    const result = await enrichProfiles(admin, authMap, pagina)
+    t.mark('enrich')
+    return jsonResponse(result, allProfiles.length, page, limit, medicion, t.header())
+  }
+
+  // ── Case B2: orden por un campo calculado → hay que enriquecer a todos ──
   const enriched = await enrichProfiles(admin, authMap, allProfiles)
   t.mark('enrich')
 
@@ -378,24 +415,6 @@ interface DeviceRow {
   last_seen_at: string | null
 }
 
-/** Una fila de la vista `user_activity_time`. Ya viene agregada por usuario. */
-interface ActivityRow {
-  user_id: string
-  segundos_totales: number
-  sesiones: number
-  ultima_actividad: string | null
-}
-
-/**
- * Una fila de la vista `user_app_usage` (supabase-uso-app-2026-10.sql): quién
- * usa la app según sus eventos, haya aceptado las notificaciones o no.
- */
-interface AppUsageRow {
-  user_id: string
-  sistemas: string[] | null
-  ultima_app: string | null
-}
-
 /** La más reciente de varias fechas ISO, o `null` si no hay ninguna. */
 function masReciente(...fechas: (string | null | undefined)[]): string | null {
   let max: string | null = null
@@ -408,6 +427,33 @@ function masReciente(...fechas: (string | null | undefined)[]): string | null {
   return max
 }
 
+/**
+ * Lo mismo para TODOS los usuarios, cuando se ordena por una columna de
+ * actividad. Eso no se puede pedir por usuario, así que se lee lo que deja
+ * calculado pg_cron cada 10 minutos (`supabase-usuarios-panel-2026-10.sql`).
+ * Sin ese precálculo se consulta la vista en vivo como antes, que con la base
+ * actual puede cortarse por tiempo.
+ */
+async function actividadPrecalculada(
+  admin: SupabaseClient,
+  ids: string[]
+): Promise<{ activity: ActivityRow[]; app: AppUsageRow[] }> {
+  const wanted = new Set(ids)
+  const leer = async <T extends { user_id: string }>(clave: string, columnas: string) => {
+    const res = await precalculado(admin, clave, FRESCO_RAPIDO, async () => ({
+      data: await fetchForUsers<T>(admin, clave, columnas, ids),
+      error: null,
+    }))
+    if (res.error) console.error(`[admin/users] ${clave}:`, res.error.message)
+    return ((res.data ?? []) as T[]).filter(r => wanted.has(r.user_id))
+  }
+  const [activity, app] = await Promise.all([
+    leer<ActivityRow>('user_activity_time', 'user_id, segundos_totales, sesiones, ultima_actividad'),
+    leer<AppUsageRow>('user_app_usage', 'user_id, sistemas, ultima_app'),
+  ])
+  return { activity, app }
+}
+
 async function enrichProfiles(
   admin: SupabaseClient,
   authMap: Record<string, AuthInfo>,
@@ -417,10 +463,23 @@ async function enrichProfiles(
 
   const ids = profiles.map(p => p.id)
 
-  const [reviewRows, listRows, followRows, deviceRows, activityRows, appRows] = await Promise.all([
-    admin.from('reviews').select('user_id').in('user_id', ids),
-    admin.from('lists').select('user_id').in('user_id', ids),
-    admin.from('follows').select('following_id').in('following_id', ids),
+  // Tiempo, sesiones y app: para una página, directo de los eventos de esa
+  // gente; para todos (orden por una columna de actividad), del precálculo.
+  // Un fallo acá deja esas columnas en "sin datos", no tumba la tabla.
+  const actividad = (ids.length <= MAX_IDS_EN_URL
+    ? actividadDesdeEventos(admin, ids)
+    : actividadPrecalculada(admin, ids)
+  ).catch((err: Error) => {
+    console.error('[admin/users] actividad:', err.message)
+    return { activity: [] as ActivityRow[], app: [] as AppUsageRow[] }
+  })
+
+  const [reviewRows, listRows, followRows, deviceRows, { activity: activityRows, app: appRows }] = await Promise.all([
+    // Con `fetchForUsers` y no con un `.in()` pelado: ordenando por una columna
+    // calculada llegan los 2.300 ids juntos, y esa URL no entra.
+    fetchForUsers<{ user_id: string }>(admin, 'reviews', 'user_id', ids),
+    fetchForUsers<{ user_id: string }>(admin, 'lists', 'user_id', ids),
+    fetchForUsers<{ following_id: string }>(admin, 'follows', 'following_id', ids, 'following_id'),
 
     // UNA consulta para todos los usuarios de la página, no una por usuario.
     // Devuelve una fila por dispositivo y se agrupa acá abajo.
@@ -428,29 +487,19 @@ async function enrichProfiles(
       admin, 'user_devices', 'user_id, platform, last_seen_at', ids
     ),
 
-    // Idem: una consulta a la vista, que ya viene agregada por usuario (una
-    // fila por usuario, o ninguna si nunca generó un evento).
-    fetchForUsers<ActivityRow>(
-      admin, 'user_activity_time', 'user_id, segundos_totales, sesiones, ultima_actividad', ids
-    ),
-
-    // Uso de la app por eventos. Si la vista no está creada todavía,
-    // `fetchForUsers` devuelve [] y la columna sale sólo de `user_devices`.
-    fetchForUsers<AppUsageRow>(
-      admin, 'user_app_usage', 'user_id, sistemas, ultima_app', ids
-    ),
+    actividad,
   ])
 
   const revCounts: Record<string, number> = {}
-  for (const r of (reviewRows.data ?? []) as { user_id: string }[]) {
+  for (const r of reviewRows) {
     revCounts[r.user_id] = (revCounts[r.user_id] ?? 0) + 1
   }
   const lstCounts: Record<string, number> = {}
-  for (const l of (listRows.data ?? []) as { user_id: string }[]) {
+  for (const l of listRows) {
     lstCounts[l.user_id] = (lstCounts[l.user_id] ?? 0) + 1
   }
   const flwCounts: Record<string, number> = {}
-  for (const f of (followRows.data ?? []) as { following_id: string }[]) {
+  for (const f of followRows) {
     flwCounts[f.following_id] = (flwCounts[f.following_id] ?? 0) + 1
   }
 
@@ -508,13 +557,17 @@ async function enrichProfiles(
       ultimo_dispositivo: dev?.ultimo ?? null,
 
       // "Últ. acceso": lo más reciente entre la web (`last_active`, que escribe
-      // /api/ping-active), los eventos de la web y de la app, y el último
-      // registro del token de push.
+      // /api/ping-active), los eventos de la web y de la app, el último
+      // registro del token de push y el último inicio de sesión de auth. Lo de
+      // auth va siempre: sin eso, quien se registró desde la app hace un
+      // minuto figuraba "nunca", porque la app no escribe `last_active`.
       ultimo_acceso: masReciente(
         p.last_active as string | null,
         act?.ultima_actividad,
         app?.ultima_app,
         dev?.ultimo,
+        authMap[p.id]?.lastSignInAt,
+        authMap[p.id]?.createdAt,
       ),
 
       // Actividad. `null` y no `0` a propósito: son cosas distintas y la UI las
