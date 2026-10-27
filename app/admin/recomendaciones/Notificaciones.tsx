@@ -8,9 +8,10 @@ import type { RecomendacionAdmin } from '@/app/api/admin/recomendaciones/route'
 /**
  * El envío de "Ferlage te recomienda ver" y su historial.
  *
- * El servidor (`/api/admin/recomendaciones/notificar`) es el que hace cumplir
- * el límite de 3 por semana; acá sólo se muestra y se deshabilita el botón.
- * Todo envío real pasa por una confirmación con la cantidad de aparatos.
+ * El límite de 3 por semana es un aviso: pasado, el botón sigue andando y la
+ * confirmación lo dice; al confirmar va `forzar: true` y el servidor
+ * (`/api/admin/recomendaciones/notificar`) no lo frena. Todo envío real pasa
+ * por una confirmación con la cantidad de aparatos.
  */
 
 export const TITULO_PUSH = 'Ferlage te recomienda ver'
@@ -26,10 +27,17 @@ type Respuesta = {
 }
 
 const fecha = (iso: string) =>
-  new Date(iso).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
+  new Date(iso).toLocaleString('es-AR', { timeZone: 'America/Argentina/Buenos_Aires', day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })
 
-const dia = (iso: string) =>
-  new Date(iso).toLocaleDateString('es-AR', { weekday: 'long', day: 'numeric', month: 'numeric' })
+const ZONA = 'America/Argentina/Buenos_Aires'
+
+/** Día y hora en Argentina: se libera a una hora exacta, no a la medianoche. */
+const dia = (iso: string) => {
+  const d = new Date(iso)
+  const fechaAr = d.toLocaleDateString('es-AR', { timeZone: ZONA, weekday: 'long', day: 'numeric', month: 'numeric' })
+  const hora = d.toLocaleTimeString('es-AR', { timeZone: ZONA, hour: '2-digit', minute: '2-digit', hour12: false })
+  return `${fechaAr} a las ${hora}`
+}
 
 function titulo(r: RecomendacionAdmin) {
   return r.title ?? `${r.mediaType === 'movie' ? 'Película' : 'Serie'} ${r.tmdbId}`
@@ -49,6 +57,8 @@ export function EnviarNotificacion({
   const [enviando, setEnviando] = useState<'real' | 'prueba' | null>(null)
   const [hecho, setHecho] = useState<Respuesta | null>(null)
   const [error, setError] = useState<string | null>(null)
+  /** El servidor dijo que se pasó el límite aunque el contador no lo mostraba. */
+  const [excedido, setExcedido] = useState(false)
 
   if (!estado) {
     return (
@@ -67,7 +77,7 @@ export function EnviarNotificacion({
     )
   }
 
-  const agotado = estado.usadosSemana >= estado.limite
+  const agotado = estado.usadosSemana >= estado.limite || excedido
   const yaEnviada = hecho !== null && !hecho.prueba
 
   async function enviar(prueba: boolean) {
@@ -77,11 +87,16 @@ export function EnviarNotificacion({
       const res = await fetch('/api/admin/recomendaciones/notificar', {
         method: 'POST',
         headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ recomendacionId: item.id, prueba }),
+        body: JSON.stringify({ recomendacionId: item.id, prueba, forzar: !prueba && agotado }),
       })
       const data = await res.json().catch(() => ({}))
+      if (res.status === 429 && data.limiteSuperado && !prueba) {
+        // El contador estaba viejo: se vuelve a pedir la confirmación, ya con el aviso.
+        setExcedido(true)
+        return
+      }
       if (!res.ok) {
-        const libre = data.proximoLibre ? ` El próximo se libera el ${dia(data.proximoLibre)}.` : ''
+        const libre = data.proximoLibre ? ` Vuelve a quedar dentro del límite el ${dia(data.proximoLibre)}.` : ''
         throw new Error((data.message ?? `Error ${res.status}`) + libre)
       }
       setHecho(data as Respuesta)
@@ -90,8 +105,8 @@ export function EnviarNotificacion({
       setError(e instanceof Error ? e.message : 'No se pudo enviar.')
     } finally {
       setEnviando(null)
-      setConfirmando(false)
     }
+    setConfirmando(false)
   }
 
   return (
@@ -113,8 +128,9 @@ export function EnviarNotificacion({
       {agotado && !yaEnviada && (
         <p className="text-xs text-amber-300 flex items-start gap-1.5">
           <AlertCircle size={13} className="shrink-0 mt-0.5" />
-          Ya mandaste {estado.limite} en los últimos 7 días.
-          {estado.proximoLibre && <> El próximo se libera el {dia(estado.proximoLibre)}.</>}
+          Ya mandaste {Math.max(estado.usadosSemana, estado.limite)} en los últimos 7 días. Podés mandar igual: te lo
+          vuelve a preguntar.
+          {estado.proximoLibre && <> Vuelve a quedar dentro del límite el {dia(estado.proximoLibre)}.</>}
         </p>
       )}
 
@@ -135,11 +151,19 @@ export function EnviarNotificacion({
 
       {confirmando ? (
         <div className="rounded-lg border border-[#FFFD02]/30 bg-[#FFFD02]/5 p-3 space-y-2.5">
-          <p className="text-sm text-white">
-            ¿Mandar la notificación a <span className="font-bold">{estado.aparatos}</span>{' '}
-            {estado.aparatos === 1 ? 'aparato' : 'aparatos'}? No se puede deshacer, y usa
-            {' '}{estado.usadosSemana + 1} de {estado.limite} de esta semana.
-          </p>
+          {agotado ? (
+            <p className="text-sm text-amber-200">
+              Ya mandaste {Math.max(estado.usadosSemana, estado.limite)} esta semana. ¿Enviar igual? Le llega a{' '}
+              <span className="font-bold">{estado.aparatos}</span> {estado.aparatos === 1 ? 'aparato' : 'aparatos'} y no
+              se puede deshacer.
+            </p>
+          ) : (
+            <p className="text-sm text-white">
+              ¿Mandar la notificación a <span className="font-bold">{estado.aparatos}</span>{' '}
+              {estado.aparatos === 1 ? 'aparato' : 'aparatos'}? No se puede deshacer, y usa
+              {' '}{estado.usadosSemana + 1} de {estado.limite} de esta semana.
+            </p>
+          )}
           <div className="flex flex-wrap gap-2">
             <button
               type="button"
@@ -148,7 +172,7 @@ export function EnviarNotificacion({
               className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FFFD02] text-black text-sm font-semibold disabled:opacity-40"
             >
               {enviando === 'real' ? <Loader2 size={14} className="animate-spin" /> : <Send size={14} />}
-              Sí, enviar
+              {agotado ? 'Sí, enviar igual' : 'Sí, enviar'}
             </button>
             <button
               type="button"
@@ -165,7 +189,7 @@ export function EnviarNotificacion({
           <button
             type="button"
             onClick={() => setConfirmando(true)}
-            disabled={agotado || yaEnviada || estado.aparatos === 0 || enviando !== null}
+            disabled={yaEnviada || estado.aparatos === 0 || enviando !== null}
             className="inline-flex items-center gap-1.5 px-3.5 py-2 rounded-lg bg-[#FFFD02] text-black text-sm font-semibold disabled:opacity-40"
           >
             <Send size={14} />
@@ -199,7 +223,7 @@ export function HistorialEnvios({ estado }: { estado: NotificarEstado | null }) 
         <p className="text-sm font-semibold text-white">Notificaciones enviadas</p>
         <p className="text-xs text-[#A0A0B0]">
           Esta semana: <span className="text-white font-semibold">{estado.usadosSemana} de {estado.limite}</span>
-          {estado.proximoLibre && <> · próximo libre el {dia(estado.proximoLibre)}</>}
+          {estado.proximoLibre && <> · vuelve al límite el {dia(estado.proximoLibre)}</>}
         </p>
       </div>
 

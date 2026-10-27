@@ -19,7 +19,8 @@ import {
  *
  *   GET                                  cuántos aparatos, cuántos envíos van
  *                                        esta semana y el historial
- *   POST { recomendacionId, prueba }     manda una recomendación
+ *   POST { recomendacionId, prueba,      manda una recomendación
+ *          forzar }
  *
  * Cada aparato la recibe en el idioma de su dueño (`profiles.idioma`, ver
  * `lib/idioma.ts`): el título y el nombre de la película o serie. El historial
@@ -35,9 +36,10 @@ import {
  *
  * Tres envíos reales en los últimos 7 días, corridos y no por semana de
  * calendario: con semana de calendario se podrían mandar tres el domingo y
- * tres el lunes. Lo hace cumplir el servidor, no el panel: el panel sólo lo
- * muestra. La fila se inserta ANTES de mandar y se vuelve a contar, así dos
- * clics seguidos no pasan los dos.
+ * tres el lunes. Es un aviso, no un tope: pasado el límite, el panel pide
+ * confirmarlo y manda `forzar: true`, que saltea los dos controles de acá.
+ * Sin `forzar`, la fila se inserta ANTES de mandar y se vuelve a contar, así
+ * dos clics seguidos no pasan los dos.
  *
  * ── Los fallos y los tokens muertos ────────────────────────────────────────
  *
@@ -132,7 +134,8 @@ async function enviosDeLaSemana(admin: SupabaseClient) {
     .select('id, creado_en')
     .eq('tipo', 'recomendacion')
     .eq('prueba', false)
-    .gte('creado_en', new Date(Date.now() - SEMANA_MS).toISOString())
+    // `gt`: justo a los 7 días ya no cuenta, que es lo que dice `proximoLibre`.
+    .gt('creado_en', new Date(Date.now() - SEMANA_MS).toISOString())
     .order('creado_en', { ascending: true })
 }
 
@@ -260,9 +263,11 @@ export async function POST(req: NextRequest) {
   const { admin, failure } = requireAdminClient('admin/recomendaciones/notificar')
   if (failure) return failure
 
-  const body = (await req.json().catch(() => ({}))) as { recomendacionId?: unknown; prueba?: unknown }
+  const body = (await req.json().catch(() => ({}))) as { recomendacionId?: unknown; prueba?: unknown; forzar?: unknown }
   const recomendacionId = Number(body.recomendacionId)
   const prueba = body.prueba === true
+  // Confirmado en el panel aunque ya se haya pasado el límite.
+  const forzar = body.forzar === true
   if (!Number.isInteger(recomendacionId)) {
     return NextResponse.json({ message: 'Falta la recomendación.' }, { status: 400 })
   }
@@ -282,7 +287,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: 'No se pudo leer el nombre del título en TMDB. Probá de nuevo.' }, { status: 502 })
   }
 
-  if (!prueba) {
+  if (!prueba && !forzar) {
     const { data: semana, error } = await enviosDeLaSemana(admin)
     if (faltaLaTabla(error)) {
       return NextResponse.json({ message: 'Falta correr supabase-push-envios-2026-10.sql.' }, { status: 409 })
@@ -290,6 +295,7 @@ export async function POST(req: NextRequest) {
     if ((semana ?? []).length >= LIMITE_SEMANAL) {
       return NextResponse.json({
         message: `Ya mandaste ${LIMITE_SEMANAL} esta semana.`,
+        limiteSuperado: true,
         proximoLibre: proximoLibre(semana ?? []),
       }, { status: 429 })
     }
@@ -335,7 +341,7 @@ export async function POST(req: NextRequest) {
     return NextResponse.json({ message: insertError?.message ?? 'No se pudo registrar el envío.' }, { status: 500 })
   }
 
-  if (!prueba) {
+  if (!prueba && !forzar) {
     // Segunda cuenta, ya con la fila adentro: si dos envíos entraron a la vez,
     // el que quedó cuarto se borra y no sale.
     const { data: semana } = await enviosDeLaSemana(admin)
@@ -344,6 +350,7 @@ export async function POST(req: NextRequest) {
       await admin.from('push_envios').delete().eq('id', fila.id)
       return NextResponse.json({
         message: `Ya mandaste ${LIMITE_SEMANAL} esta semana.`,
+        limiteSuperado: true,
         proximoLibre: proximoLibre((semana ?? []).filter(s => s.id !== fila.id)),
       }, { status: 429 })
     }
@@ -376,7 +383,7 @@ export async function POST(req: NextRequest) {
     .eq('id', fila.id)
   if (updateError) console.error('[notificar] no se pudo guardar el resultado:', updateError.message)
 
-  console.log(`[notificar] envío ${fila.id}${prueba ? ' (prueba)' : ''}: ${resultado.aceptados.length} aceptados, ${resultado.fallidos} fallidos, ${borrados} tokens borrados`)
+  console.log(`[notificar] envío ${fila.id}${prueba ? ' (prueba)' : ''}${forzar ? ' (pasado el límite)' : ''}: ${resultado.aceptados.length} aceptados, ${resultado.fallidos} fallidos, ${borrados} tokens borrados`)
 
   return NextResponse.json({
     id: fila.id,
