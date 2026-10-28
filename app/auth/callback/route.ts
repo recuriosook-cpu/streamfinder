@@ -36,7 +36,11 @@ export async function GET(request: Request) {
   // prueba la sesión nueva quedaba en un dominio y la persona en otro.
   const origin = requestUrl.origin
 
-  if (code) {
+  // Sin `code` llega el botón oficial de Google (components/GoogleBotonOficial.tsx):
+  // la sesión ya quedó en las cookies con `signInWithIdToken` y acá sólo se
+  // hace lo de después del login. Sin sesión, `getUser` no trae a nadie y
+  // termina en el inicio, como antes.
+  {
     const cookieStore = await cookies()
     const supabase = createServerClient(
       process.env.NEXT_PUBLIC_SUPABASE_URL!,
@@ -53,7 +57,7 @@ export async function GET(request: Request) {
       }
     )
 
-    const { data: exchanged } = await supabase.auth.exchangeCodeForSession(code)
+    const exchanged = code ? (await supabase.auth.exchangeCodeForSession(code)).data : null
     const { data: { user } } = await supabase.auth.getUser()
 
     // Login con Apple: el refresh token de Apple llega sólo en esta respuesta
@@ -61,7 +65,7 @@ export async function GET(request: Request) {
     // lib/apple-signin.ts). Con qué entró ahora lo dice la identidad con el
     // último login, no app_metadata.provider, que es con qué se registró. Si
     // falla, el login sigue igual.
-    const appleRefreshToken = exchanged.session?.provider_refresh_token
+    const appleRefreshToken = exchanged?.session?.provider_refresh_token
     if (user && lastSignInProvider(user) === 'apple' && appleRefreshToken) {
       try {
         await saveAppleToken(getAdminClient(), user.id, APPLE_WEB_CLIENT_ID, appleRefreshToken)

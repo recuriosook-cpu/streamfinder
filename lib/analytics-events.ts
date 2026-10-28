@@ -291,6 +291,9 @@ export const EVENT_NAMES = [
    * 'parecida', de dónde salió la tarjeta (ver `lib/swipe.ts` de
    * glynbox-mobile); 'calificadas' son recomendaciones de lo que calificó con
    * 4 o más en cualquier parte de la app.
+   * `con_estrellas` y `estrellas` (desde el 27/10): si calificó con las
+   * estrellas de la tarjeta antes de la acción, y con cuánto (0.5 a 5; `null`
+   * sin estrellas). Con estrellas, esa nota reemplaza al 4 o el 2.
    */
   'deslizar_accion',
   /** Deshizo la última. props: { accion, media_type, media_id } */

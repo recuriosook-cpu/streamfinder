@@ -8,6 +8,7 @@ import type { AuthError } from '@supabase/supabase-js'
 import { createClient } from '@/lib/supabase'
 import { track, resetAnalyticsUser } from '@/lib/analytics'
 import type { EventProps } from '@/lib/analytics-events'
+import GoogleBotonOficial from '@/components/GoogleBotonOficial'
 import { navegadorEmbebido, nombreDeApp, abrirEnChromeUrl, type NavegadorEmbebido } from '@/lib/navegador-embebido'
 
 type MotivoFalla = 'ya_existe' | 'clave_debil' | 'email_invalido' | 'demasiados_intentos' | 'otro'
@@ -333,18 +334,37 @@ export default function AuthPage() {
               Continuar con Apple
             </button>
           )}
-          <button
-            type="button"
-            onClick={() => void handleOAuth('google')}
-            disabled={!!socialLoading}
-            className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
-          >
-            {socialLoading === 'google'
-              ? <span className="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
-              : <GoogleIcon />
-            }
-            Continuar con Google
-          </button>
+          {/* El oficial de Google: muestra "Glynbox" y no la dirección de Supabase. */}
+          <div className={socialLoading && socialLoading !== 'google' ? 'opacity-40 pointer-events-none' : ''}>
+            <GoogleBotonOficial
+              supabase={supabase}
+              modo={mode}
+              onInicio={() => {
+                setSocialLoading('google')
+                setError('')
+                track('signup_started', { metodo: 'google', ...deNavegador })
+              }}
+              onError={(motivo) => {
+                track('signup_fallido', { metodo: 'google', motivo: `id_token_${motivo}`, ...deNavegador })
+                setError('No pudimos conectar. Probá de nuevo o creá la cuenta con email.')
+                setSocialLoading(null)
+              }}
+              fallback={
+                <button
+                  type="button"
+                  onClick={() => void handleOAuth('google')}
+                  disabled={!!socialLoading}
+                  className="w-full flex items-center justify-center gap-3 bg-white hover:bg-zinc-100 disabled:opacity-40 disabled:cursor-not-allowed text-zinc-900 font-semibold py-3 rounded-xl transition-colors text-sm"
+                >
+                  {socialLoading === 'google'
+                    ? <span className="w-4 h-4 border-2 border-zinc-400 border-t-zinc-900 rounded-full animate-spin" />
+                    : <GoogleIcon />
+                  }
+                  Continuar con Google
+                </button>
+              }
+            />
+          </div>
           <button
             type="button"
             onClick={() => void handleOAuth('facebook')}
