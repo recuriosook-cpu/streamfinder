@@ -561,21 +561,33 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
     const x_username         = editX.replace(/^@/, '').trim()         || null
     const usernameChanged    = newUsername !== localProfile.username
 
-    // Avatar upload — separate call as per spec
+    // Avatar: el original va a Storage y /api/perfil/avatar lo achica a WebP
+    // con caché de un año y lo deja en el perfil (ver lib/avatar-perfil.ts).
     let newAvatarUrl = localProfile.avatar_url
     if (avatarFile) {
       const extension = avatarFile.name.split('.').pop() ?? 'jpg'
+      const ruta = `${currentUserId}/${Date.now()}.${extension}`
       const { error } = await supabase.storage
         .from('avatars')
-        .upload(`${currentUserId}/avatar.${extension}`, avatarFile, { upsert: true })
+        .upload(ruta, avatarFile, { upsert: true })
       if (error) {
         console.error('[avatar upload]', error)
       } else {
-        const { data: { publicUrl } } = supabase.storage
-          .from('avatars')
-          .getPublicUrl(`${currentUserId}/avatar.${extension}`)
-        newAvatarUrl = publicUrl + '?t=' + Date.now()
-        await supabase.from('profiles').update({ avatar_url: newAvatarUrl }).eq('id', profile.id)
+        const res = await fetch('/api/perfil/avatar', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({ ruta }),
+        })
+        const json = await res.json().catch(() => null) as { avatarUrl?: string } | null
+        if (res.ok && json?.avatarUrl) {
+          newAvatarUrl = json.avatarUrl
+        } else {
+          // Si no se pudo achicar queda el original, como antes; el cron de
+          // avatares lo achica a la noche.
+          console.error('[avatar optimize]', res.status, json)
+          newAvatarUrl = supabase.storage.from('avatars').getPublicUrl(ruta).data.publicUrl
+          await supabase.from('profiles').update({ avatar_url: newAvatarUrl }).eq('id', profile.id)
+        }
       }
     }
 

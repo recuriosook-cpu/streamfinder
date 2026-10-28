@@ -36,6 +36,39 @@ interface Row {
 }
 
 /**
+ * Qué títulos tienen alguna recomendación, guardado en la memoria de la
+ * instancia (Fluid Compute la reusa entre pedidos) por `INDICE_TTL_MS`.
+ *
+ * Son ~200 títulos entre decenas de miles de fichas: antes cada render hacía
+ * la consulta y casi siempre volvía vacía. Eran ~8 pedidos por minuto a
+ * Supabase, cada uno una línea más en sus logs, y el plan Free tiene 1 GB de
+ * logs por mes (2026-10-28 iba por 2,12). Una recomendación nueva tarda hasta
+ * `INDICE_TTL_MS` en aparecer, que igual es menos que el día de CDN de la ficha.
+ */
+const INDICE_TTL_MS = 30 * 60 * 1000
+let indice: { claves: Set<string>; hasta: number } | null = null
+
+async function tieneRecomendaciones(
+  supabase: SupabaseClient,
+  mediaType: 'movie' | 'tv',
+  mediaId: number,
+): Promise<boolean> {
+  if (!indice || indice.hasta < Date.now()) {
+    const { data, error } = await supabase
+      .from('creator_recommendations')
+      .select('media_type, tmdb_id')
+      .range(0, 9999)
+    // Si falla, se sigue como antes (consulta por ficha) hasta la próxima vuelta.
+    if (error || !data) return true
+    indice = {
+      claves: new Set(data.map(r => `${r.media_type}:${r.tmdb_id}`)),
+      hasta: Date.now() + INDICE_TTL_MS,
+    }
+  }
+  return indice.claves.has(`${mediaType}:${mediaId}`)
+}
+
+/**
  * Nunca tira: ante cualquier error devuelve `[]` y el bloque no aparece. Una
  * ficha sin la recomendación sigue siendo una ficha; una ficha que no carga
  * porque falló esto, no.
@@ -46,6 +79,8 @@ export async function getCreatorRecommendations(
   mediaId: number,
 ): Promise<CreatorRecommendation[]> {
   try {
+    if (!(await tieneRecomendaciones(supabase, mediaType, mediaId))) return []
+
     const { data, error } = await supabase
       .from('creator_recommendations')
       .select('instagram_code, cover_path, embeddable, creators(name, instagram_username, avatar_path)')
