@@ -15,6 +15,7 @@ import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { AdMobPanel } from '@/app/admin/_components/AdMobPanel'
+import { PotionComprasPanel } from '@/app/admin/_components/PotionComprasPanel'
 
 /**
  * Las estadísticas del juego Potion Bottle: Water Sort.
@@ -384,6 +385,11 @@ export default function PotionPage() {
             Supabase de Glynbox, tiene su propio filtro de 7 y 30 días y del de
             arriba sólo toma el del lanzamiento. */}
         <AdMobPanel recarga={recargaPlay} desde={lanzamiento ? LANZAMIENTO.slice(0, 10) : undefined} />
+
+        {/* Compras dentro del juego: `potion_compras` del Supabase del juego.
+            Pide su propia ruta, así se ve aunque falle la RPC de abajo. Sigue
+            el rango y la casilla de arriba. */}
+        <PotionComprasPanel rango={rango} lanzamiento={lanzamiento} recarga={recargaPlay} />
 
         {!datos && cargando && (
           <div className="py-24 flex items-center justify-center">
