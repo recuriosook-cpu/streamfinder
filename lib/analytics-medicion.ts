@@ -26,16 +26,18 @@ let desdeGuardado: string | null = null
 export async function leerMedicionDesde(admin: SupabaseClient): Promise<MedicionDesde> {
   if (desdeGuardado) return { desde: desdeGuardado, error: null }
 
+  // Del resumen por día y no de los eventos crudos, que se borran a los 7 o
+  // 60 días (supabase-eventos-limpieza-2026-10.sql): ahí la fecha avanzaría.
   const { data, error } = await admin
-    .from('analytics_events')
-    .select('created_at')
-    .eq('is_bot', false)
-    .order('created_at', { ascending: true })
+    .from('analytics_dia_instalacion')
+    .select('primer_evento')
+    .order('dia', { ascending: true })
+    .order('primer_evento', { ascending: true })
     .limit(1)
     .maybeSingle()
 
   if (error) return { desde: null, error: error.message }
-  const desde = (data?.created_at as string | undefined) ?? null
+  const desde = (data?.primer_evento as string | undefined) ?? null
   if (desde) desdeGuardado = desde
   return { desde, error: null }
 }

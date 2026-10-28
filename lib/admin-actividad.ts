@@ -1,8 +1,8 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 
 /**
- * Actividad por usuario para /api/admin/users, sacada directo de los eventos.
- * Ver `actividadDesdeEventos`.
+ * Actividad por usuario para /api/admin/users, de los resúmenes de eventos
+ * (supabase-eventos-resumen-2026-10.sql). Ver `actividadDesdeEventos`.
  */
 
 /** Una fila de la vista `user_activity_time`. Ya viene agregada por usuario. */
@@ -26,13 +26,19 @@ export interface AppUsageRow {
 /** El tope de filas por respuesta de PostgREST. */
 const LOTE = 1000
 
-/** Una fila de `analytics_events`, con sólo lo que hace falta para la actividad. */
-export interface EventoRow {
-  user_id: string | null
-  session_id: string
-  created_at: string
-  platform: string | null
+/** Una fila de `analytics_sesion`. */
+interface SesionRow {
+  user_id: string
+  eventos: number
+  inicio: string
+  fin: string
+}
+
+/** Una fila de `analytics_dia_instalacion` de la app. */
+interface DiaAppRow {
+  usuarios: string[]
   os: string | null
+  ultimo_evento: string
 }
 
 /** Tantos ids por `.in()` para que la URL quede corta. */
@@ -60,20 +66,17 @@ async function todasLasFilas<T>(
 }
 
 /**
- * Tiempo, sesiones y uso de la app de una página de usuarios, calculados
- * directo de sus eventos.
+ * Tiempo, sesiones y uso de la app de una página de usuarios.
  *
- * Por qué no se leen `user_activity_time` y `user_app_usage`: la primera sale
- * de `analytics_sessions`, que agrupa TODOS los eventos por sesión antes de que
- * se pueda filtrar por usuario. Con 325.000 eventos, aun pidiendo 50 usuarios
- * recorre la tabla entera y en los picos se corta por tiempo (los logs del
- * 27/10 lo muestran). Acá se piden sólo los eventos de estos usuarios, que
- * van por índice, y después los eventos completos de esas sesiones.
+ * Por qué no se leen `user_activity_time` y `user_app_usage`: son de todos los
+ * usuarios y acá se piden 50. Antes esto se calculaba de los eventos crudos,
+ * pero los masivos ahora duran 7 días (supabase-eventos-limpieza-2026-10.sql);
+ * las sesiones y los días por instalación quedan resumidos para siempre.
  *
- * Las reglas son las mismas de `supabase-analytics-resumen.sql`, para que el
- * número no cambie según de dónde salga:
+ * Las reglas son las de `analytics_sessions`, para que el número no cambie
+ * según de dónde salga:
  *   - la sesión es de su ÚLTIMO `user_id` no nulo, y cuenta también la parte
- *     de antes del login;
+ *     de antes del login (así se arma `analytics_sesion`);
  *   - un solo evento vale 30 s; si no, fin − inicio; nunca más de 1800 s;
  *   - nada de bots.
  */
@@ -82,67 +85,55 @@ export async function actividadDesdeEventos(
   ids: string[]
 ): Promise<{ activity: ActivityRow[]; app: AppUsageRow[] }> {
   const ms = (iso: string) => new Date(iso).getTime()
+  const deLaPagina = new Set(ids)
 
-  const deUsuarios = (await Promise.all(lotes(ids, IDS_POR_CONSULTA).map(lote =>
-    todasLasFilas<EventoRow>((d, h) =>
-      admin.from('analytics_events')
-        .select('user_id, session_id, created_at, platform, os:props->>os')
-        .eq('is_bot', false)
-        .in('user_id', lote)
-        .order('created_at')
-        .range(d, h)
-    )
-  ))).flat()
-
-  // Las sesiones enteras, no sólo la parte de estos usuarios: lo anónimo de
-  // antes del login cuenta, y una sesión compartida por varias cuentas (alguien
-  // que probó dos en el mismo navegador) es del último que la usó. Sin todos
-  // sus eventos no se puede saber quién fue.
-  const sesionIds = [...new Set(deUsuarios.map(e => e.session_id))]
-  const deSesiones = (await Promise.all(lotes(sesionIds, IDS_POR_CONSULTA).map(lote =>
-    todasLasFilas<Pick<EventoRow, 'user_id' | 'session_id' | 'created_at'>>((d, h) =>
-      admin.from('analytics_events')
-        .select('user_id, session_id, created_at')
-        .eq('is_bot', false)
-        .in('session_id', lote)
-        .range(d, h)
-    )
-  ))).flat()
+  const [sesiones, diasApp] = await Promise.all([
+    Promise.all(lotes(ids, IDS_POR_CONSULTA).map(lote =>
+      todasLasFilas<SesionRow>((d, h) =>
+        admin.from('analytics_sesion')
+          .select('user_id, eventos, inicio, fin')
+          .in('user_id', lote)
+          .order('session_id')
+          .range(d, h)
+      )
+    )).then(xs => xs.flat()),
+    Promise.all(lotes(ids, IDS_POR_CONSULTA).map(lote =>
+      todasLasFilas<DiaAppRow>((d, h) =>
+        admin.from('analytics_dia_instalacion')
+          .select('usuarios, os, ultimo_evento')
+          .eq('platform', 'mobile')
+          .overlaps('usuarios', lote)
+          .order('dia')
+          .order('anon_id')
+          .range(d, h)
+      )
+    )).then(xs => xs.flat()),
+  ])
 
   // ── Sesiones ──
-  interface Sesion { user: string | null; userEn: number; eventos: number; inicio: number; fin: number }
-  const sesiones = new Map<string, Sesion>()
-  for (const e of deSesiones) {
-    const t = ms(e.created_at)
-    const s = sesiones.get(e.session_id) ?? { user: null, userEn: -Infinity, eventos: 0, inicio: t, fin: t }
-    s.eventos++
-    if (t < s.inicio) s.inicio = t
-    if (t > s.fin) s.fin = t
-    if (e.user_id && t >= s.userEn) { s.user = e.user_id; s.userEn = t }
-    sesiones.set(e.session_id, s)
-  }
-
-  const deLaPagina = new Set(ids)
   const porUsuario = new Map<string, { segundos: number; sesiones: number; fin: number }>()
-  for (const s of sesiones.values()) {
-    if (!s.user || !deLaPagina.has(s.user)) continue
-    const segundos = Math.min(s.eventos === 1 ? 30 : (s.fin - s.inicio) / 1000, 1800)
-    const a = porUsuario.get(s.user) ?? { segundos: 0, sesiones: 0, fin: -Infinity }
+  for (const s of sesiones) {
+    const inicio = ms(s.inicio)
+    const fin = ms(s.fin)
+    const segundos = Math.min(s.eventos === 1 ? 30 : (fin - inicio) / 1000, 1800)
+    const a = porUsuario.get(s.user_id) ?? { segundos: 0, sesiones: 0, fin: -Infinity }
     a.segundos += segundos
     a.sesiones++
-    if (s.fin > a.fin) a.fin = s.fin
-    porUsuario.set(s.user, a)
+    if (fin > a.fin) a.fin = fin
+    porUsuario.set(s.user_id, a)
   }
 
   // ── App ── (lo mismo que `user_app_usage`)
   const app = new Map<string, { sistemas: Set<string>; ultima: number }>()
-  for (const e of deUsuarios) {
-    if (e.platform !== 'mobile' || !e.user_id) continue
-    const t = ms(e.created_at)
-    const a = app.get(e.user_id) ?? { sistemas: new Set<string>(), ultima: t }
-    if (e.os === 'ios' || e.os === 'android') a.sistemas.add(e.os)
-    if (t > a.ultima) a.ultima = t
-    app.set(e.user_id, a)
+  for (const dia of diasApp) {
+    const t = ms(dia.ultimo_evento)
+    for (const userId of dia.usuarios) {
+      if (!deLaPagina.has(userId)) continue
+      const a = app.get(userId) ?? { sistemas: new Set<string>(), ultima: t }
+      if (dia.os === 'ios' || dia.os === 'android') a.sistemas.add(dia.os)
+      if (t > a.ultima) a.ultima = t
+      app.set(userId, a)
+    }
   }
 
   const iso = (t: number) => new Date(t).toISOString()

@@ -155,6 +155,9 @@ export async function aperturas(
   const { data, error } = await admin
     .from('analytics_events')
     .select('anon_id, props')
+    // `is_bot` también para que vaya por el índice parcial de humanos por
+    // nombre: el que no filtraba bots se borró (supabase-eventos-limpieza-2026-10.sql).
+    .eq('is_bot', false)
     .eq('name', 'push_abierta')
     .eq('props->>tipo', tipo)
     .gte('created_at', desde)
