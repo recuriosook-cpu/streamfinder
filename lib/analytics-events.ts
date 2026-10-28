@@ -387,6 +387,19 @@ export const EVENT_NAMES = [
    * elija el que ya tenía.
    */
   'idioma_cambiado',
+
+  // ── Navegación (sólo la app, 2026-10) ───────────────────────────────────
+
+  /**
+   * Volvió de una al principio de una pestaña. props: { via: 'pestana' |
+   * 'casita', … }. 'pestana' = tocó la pestaña en la que ya estaba (sube la
+   * lista), con { pestana: 'Home' | 'Search' | 'Recomender' | 'Community' |
+   * 'Profile' }. 'casita' = el botón del header de una ficha con más de una
+   * pantalla apilada, que las saca todas; con { pantalla, apiladas }
+   * (`apiladas` = cuántas había, contando esa). Ver
+   * `components/HeaderBackButton.tsx` de glynbox-mobile.
+   */
+  'volver_inicio',
 ] as const
 
 export type EventName = (typeof EVENT_NAMES)[number]
