@@ -115,18 +115,18 @@ const VARIANTES: Record<Dispositivo, Variante> = {
   // pone App Store en iPhone y Google Play en Android.
   android: {
     principal:  { tipo: 'badges', tamano: 'grande' },
-    secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/', externo: false, destino: 'glynbox_web' },
+    secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/?explorar=1', externo: false, destino: 'glynbox_web' },
   },
 
   ios: {
     principal:  { tipo: 'badges', tamano: 'grande' },
-    secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/', externo: false, destino: 'glynbox_web' },
+    secundario: { tipo: 'link', texto: 'O usala desde el navegador', href: '/?explorar=1', externo: false, destino: 'glynbox_web' },
   },
 
   // En escritorio no se puede instalar nada, pero los badges igual sirven: es
   // gente que después agarra el teléfono, y no sabemos cuál tiene.
   desktop: {
-    principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/', externo: false, destino: 'glynbox_web' },
+    principal:  { tipo: 'boton', texto: 'Entrar a Glynbox', href: '/?explorar=1', externo: false, destino: 'glynbox_web' },
     secundario: { tipo: 'badges', tamano: 'normal' },
   },
 }
