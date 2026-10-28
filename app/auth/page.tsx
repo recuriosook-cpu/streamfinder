@@ -163,7 +163,12 @@ export default function AuthPage() {
     if (mode === 'login') {
       const { data, error } = await supabase.auth.signInWithPassword({ email, password })
       if (error) {
-        setError('Email o contraseña incorrectos')
+        // Sólo `invalid_credentials` es la clave mal. Antes cualquier falla
+        // (Supabase caído, timeout, 5xx) decía "incorrectos" y parecía que la
+        // cuenta tenía un problema.
+        if (error.code === 'invalid_credentials') setError('Email o contraseña incorrectos')
+        else if (error.status === 429 || error.code?.startsWith('over_')) setError(MENSAJE_FALLA.demasiados_intentos)
+        else setError('No pudimos conectar para iniciar sesión. Probá de nuevo en unos minutos.')
       } else {
         // Los eventos de esta carga quedaron cacheados sin usuario.
         resetAnalyticsUser()
