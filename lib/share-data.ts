@@ -87,7 +87,7 @@ export async function loadShareReview(
       body: row.body,
       hasSpoiler: row.has_spoiler === true,
       username: author.username,
-      avatarUrl: author.avatar_url,
+      avatarUrl: await avatarParaImagen(author.avatar_url),
       verified: author.verified === true,
     },
   }
@@ -123,7 +123,7 @@ export async function loadShareCalificacion(
     rating,
     body: resena && !resena.has_spoiler ? resena.body : null,
     username: autor.username,
-    avatarUrl: autor.avatar_url,
+    avatarUrl: await avatarParaImagen(autor.avatar_url),
     verified: autor.verified === true,
   }
 }
@@ -227,5 +227,5 @@ export async function loadShareTop5(viewerId: string): Promise<ShareTop5 | null>
     .filter((p): p is string => Boolean(p))
     .slice(0, 4)
   if (posters.length === 0) return null
-  return { username: autor.username, avatarUrl: autor.avatar_url, verified: autor.verified === true, posters }
+  return { username: autor.username, avatarUrl: await avatarParaImagen(autor.avatar_url), verified: autor.verified === true, posters }
 }
