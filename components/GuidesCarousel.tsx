@@ -88,22 +88,16 @@ function GuidesCarousel() {
                   href={`/guias/${guide.slug}`}
                   className="shrink-0 w-72 h-48 rounded-xl overflow-hidden relative group carousel-snap block"
                 >
-                  {/* Hero image or gradient fallback */}
-                  {guide.heroImage ? (
-                    <Image
-                      src={guide.heroImage}
-                      alt={guide.title}
-                      fill
-                      loading="lazy"
-                      sizes="288px"
-                      className="object-cover group-hover:scale-105 transition-transform duration-200 will-change-transform"
-                    />
-                  ) : (
-                    <div
-                      className="w-full h-full"
-                      style={{ background: `linear-gradient(135deg, ${guide.heroColor ?? '#1a1a2e'} 0%, #0A0A0F 100%)` }}
-                    />
-                  )}
+                  {/* La portada. Sin una propia, `/api/guias/portada` manda la
+                      imagen horizontal del primer título. */}
+                  <Image
+                    src={guide.heroImage ?? `/api/guias/portada/${guide.slug}`}
+                    alt={guide.title}
+                    fill
+                    loading="lazy"
+                    sizes="288px"
+                    className="object-cover group-hover:scale-105 transition-transform duration-200 will-change-transform"
+                  />
 
                   {/* Overlay */}
                   <div className="absolute inset-0 bg-gradient-to-t from-black/90 via-black/40 to-black/10" />

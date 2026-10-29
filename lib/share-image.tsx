@@ -121,7 +121,22 @@ export function fondoDesenfocado(path: string | null): Promise<string | null> {
 
 type Font = { name: string; data: Buffer; weight: 500 | 600 | 700 | 800; style: 'normal' }
 
-let assets: Promise<{ fonts: Font[]; logo: string }> | null = null
+let assets: Promise<{ fonts: Font[]; logo: string; logoOscuro: string }> | null = null
+
+/**
+ * El logo entero en el color del fondo, para ponerlo sobre amarillo (el pie de
+ * las guías): el original es blanco y amarillo, y ahí se perdía. Se pinta cada
+ * píxel con el color de fondo y se deja la transparencia como está.
+ */
+async function logoEnOscuro(png: Buffer): Promise<Buffer> {
+  const { data, info } = await sharp(png).ensureAlpha().raw().toBuffer({ resolveWithObject: true })
+  for (let i = 0; i < data.length; i += 4) {
+    data[i] = 0x0a
+    data[i + 1] = 0x0a
+    data[i + 2] = 0x0f
+  }
+  return sharp(data, { raw: { width: info.width, height: info.height, channels: 4 } }).png().toBuffer()
+}
 
 export function loadShareAssets() {
   assets ??= (async () => {
@@ -142,7 +157,11 @@ export function loadShareAssets() {
       ]),
       readFile(join(process.cwd(), 'public', 'logo.png')),
     ])
-    return { fonts, logo: `data:image/png;base64,${logo.toString('base64')}` }
+    return {
+      fonts,
+      logo: `data:image/png;base64,${logo.toString('base64')}`,
+      logoOscuro: `data:image/png;base64,${(await logoEnOscuro(logo)).toString('base64')}`,
+    }
   })()
   return assets
 }
@@ -828,17 +847,21 @@ export type ShareListaItem = {
   posterPath: string | null
 }
 
+/**
+ * Una lista, o una guía: las dos usan la misma historia (`ListaStory`).
+ */
 export type ShareLista = {
   title: string
   description: string | null
-  username: string
-  avatarUrl: string | null
-  verified: boolean
+  /** Quien la armó. `null` en las guías, que son de Glynbox: el pie lleva sólo el logo. */
+  autor: { username: string; avatarUrl: string | null; verified: boolean } | null
   total: number
-  /** Los primeros 10, en el orden de la lista. */
+  /** Los primeros 10, en orden. */
   items: ShareListaItem[]
-  /** La imagen horizontal de la primera, ya recortada (`portadaLista`), o null. */
+  /** La imagen de arriba, ya recortada (`portadaLista` o `portadaGuia`), o null. */
   portada: string | null
+  /** Sólo guías: los títulos van en orden de estreno, y se dibujan con una línea de tiempo. */
+  cronologica?: boolean
 }
 
 /**
@@ -854,6 +877,8 @@ const LISTA = {
   /** Entre la portada y los pósters: a la derecha va el sticker de enlace. */
   franja: 130,
   pie: 84,
+  /** La parte de la franja amarilla del pie de las guías que queda arriba de la zona segura. */
+  pieGuia: 120,
   porColumna: 5,
 } as const
 
@@ -864,27 +889,39 @@ const LISTA = {
  */
 const portadas = new Map<string, Promise<string | null>>()
 
-export function portadaLista(path: string | null): Promise<string | null> {
-  if (!path) return Promise.resolve(null)
-  let portada = portadas.get(path)
+/** Recorta una imagen al tamaño de la portada y la deja lista para satori. */
+async function recortarPortada(imagen: Buffer): Promise<string> {
+  const jpg = await sharp(imagen)
+    .resize(SIZES.historia.width, LISTA.portada, { fit: 'cover' })
+    .jpeg({ quality: 80 })
+    .toBuffer()
+  return `data:image/jpeg;base64,${jpg.toString('base64')}`
+}
+
+function recordar(clave: string, armar: () => Promise<string | null>): Promise<string | null> {
+  let portada = portadas.get(clave)
   if (!portada) {
-    portada = (async () => {
-      try {
-        const res = await fetch(`${TMDB_IMG}/w1280${path}`, { signal: AbortSignal.timeout(5000) })
-        if (!res.ok) return null
-        const jpg = await sharp(Buffer.from(await res.arrayBuffer()))
-          .resize(SIZES.historia.width, LISTA.portada, { fit: 'cover' })
-          .jpeg({ quality: 80 })
-          .toBuffer()
-        return `data:image/jpeg;base64,${jpg.toString('base64')}`
-      } catch {
-        return null
-      }
-    })()
-    portadas.set(path, portada)
+    portada = armar().catch(() => null)
+    portadas.set(clave, portada)
     if (portadas.size > FONDOS_EN_MEMORIA) portadas.delete(portadas.keys().next().value as string)
   }
   return portada
+}
+
+export function portadaLista(path: string | null): Promise<string | null> {
+  if (!path) return Promise.resolve(null)
+  return recordar(path, async () => {
+    const res = await fetch(`${TMDB_IMG}/w1280${path}`, { signal: AbortSignal.timeout(5000) })
+    return res.ok ? recortarPortada(Buffer.from(await res.arrayBuffer())) : null
+  })
+}
+
+/**
+ * La portada de una guía: su imagen de `public/guias/`, leída del disco (por
+ * HTTP la frena el firewall, ver `/api/guias/portada`).
+ */
+export function portadaGuia(heroImage: string): Promise<string | null> {
+  return recordar(heroImage, async () => recortarPortada(await readFile(join(process.cwd(), 'public', heroImage))))
 }
 
 /**
@@ -907,7 +944,66 @@ export async function avatarParaImagen(url: string | null): Promise<string | nul
   }
 }
 
-/** Un título de la lista: puesto, póster, título (hasta dos líneas) y año. */
+/** El póster de una fila de la lista o de la guía. */
+function PosterFila({ path, alto }: { path: string | null; alto: number }) {
+  const ancho = Math.round((alto * 2) / 3)
+  return path ? (
+    // eslint-disable-next-line @next/next/no-img-element
+    <img
+      src={`${TMDB_IMG}/w185${path}`}
+      alt=""
+      width={ancho}
+      height={alto}
+      style={{
+        width: ancho,
+        height: alto,
+        flexShrink: 0,
+        borderRadius: 12,
+        objectFit: 'cover',
+        border: '2px solid rgba(255,255,255,0.12)',
+      }}
+    />
+  ) : (
+    <div style={{ display: 'flex', width: ancho, height: alto, flexShrink: 0, borderRadius: 12, background: C.card }} />
+  )
+}
+
+/** El título de una fila: hasta dos líneas (`lineClamp` corta con "…"), y el año abajo si va. */
+function TextoFila({ item, ancho, grande, conAnio }: { item: ShareListaItem; ancho: number; grande: boolean; conAnio: boolean }) {
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', justifyContent: 'center', width: ancho, marginLeft: 22 }}>
+      <div
+        style={{
+          display: 'block',
+          lineClamp: 2,
+          fontSize: grande ? 38 : 29,
+          lineHeight: 1.15,
+          color: C.white,
+          fontFamily: 'Inter Tight',
+          fontWeight: 700,
+        }}
+      >
+        {item.title}
+      </div>
+      {conAnio && item.year && (
+        <div
+          style={{
+            display: 'flex',
+            marginTop: 6,
+            fontSize: grande ? 30 : 24,
+            color: C.muted,
+            fontFamily: 'Manrope',
+            fontWeight: 600,
+          }}
+        >
+          {item.year}
+        </div>
+      )}
+    </div>
+  )
+}
+
+/** Un título de la lista: puesto, póster, título y año. */
 function FilaLista({
   item,
   puesto,
@@ -921,9 +1017,7 @@ function FilaLista({
   ancho: number
   grande: boolean
 }) {
-  const poster = Math.round((alto * 2) / 3)
   const numero = grande ? 64 : 54
-  const gap = 22
   return (
     <div style={{ display: 'flex', alignItems: 'center', width: ancho, height: alto }}>
       <div
@@ -939,81 +1033,121 @@ function FilaLista({
       >
         {puesto}
       </div>
-      {item.posterPath ? (
-        // eslint-disable-next-line @next/next/no-img-element
-        <img
-          src={`${TMDB_IMG}/w185${item.posterPath}`}
-          alt=""
-          width={poster}
-          height={alto}
-          style={{
-            width: poster,
-            height: alto,
-            flexShrink: 0,
-            borderRadius: 12,
-            objectFit: 'cover',
-            border: '2px solid rgba(255,255,255,0.12)',
-          }}
-        />
-      ) : (
-        <div style={{ display: 'flex', width: poster, height: alto, flexShrink: 0, borderRadius: 12, background: C.card }} />
-      )}
+      <PosterFila path={item.posterPath} alto={alto} />
+      <TextoFila item={item} ancho={ancho - numero - Math.round((alto * 2) / 3) - 22} grande={grande} conAnio />
+    </div>
+  )
+}
+
+/** Las medidas de la línea de tiempo de las guías cronológicas. */
+function medidasLinea(grande: boolean) {
+  return { anio: grande ? 108 : 82, eje: grande ? 40 : 32, punto: grande ? 22 : 18 }
+}
+
+/**
+ * Un título de una guía cronológica: el año en amarillo, el punto sobre la
+ * línea de tiempo, el póster y el título. La línea la dibuja la columna
+ * (`ColumnaLinea`), que sabe dónde empieza y dónde termina.
+ */
+function FilaLinea({ item, alto, ancho, grande }: { item: ShareListaItem; alto: number; ancho: number; grande: boolean }) {
+  const m = medidasLinea(grande)
+  return (
+    <div style={{ display: 'flex', alignItems: 'center', width: ancho, height: alto }}>
       <div
         style={{
           display: 'flex',
-          flexDirection: 'column',
-          justifyContent: 'center',
-          width: ancho - numero - poster - gap,
-          marginLeft: gap,
+          width: m.anio,
+          flexShrink: 0,
+          fontSize: grande ? 38 : 29,
+          color: C.yellow,
+          fontFamily: 'Inter Tight',
+          fontWeight: 800,
         }}
       >
-        {/* `lineClamp` corta con "…" lo que no entra en dos líneas. */}
+        {item.year}
+      </div>
+      <div style={{ display: 'flex', width: m.eje, flexShrink: 0, justifyContent: 'center' }}>
         <div
           style={{
-            display: 'block',
-            lineClamp: 2,
-            fontSize: grande ? 38 : 29,
-            lineHeight: 1.15,
-            color: C.white,
-            fontFamily: 'Inter Tight',
-            fontWeight: 700,
+            display: 'flex',
+            width: m.punto,
+            height: m.punto,
+            borderRadius: m.punto,
+            background: C.yellow,
+            border: `4px solid ${C.bg}`,
           }}
-        >
-          {item.title}
-        </div>
-        {item.year && (
-          <div
-            style={{
-              display: 'flex',
-              marginTop: 6,
-              fontSize: grande ? 30 : 24,
-              color: C.muted,
-              fontFamily: 'Manrope',
-              fontWeight: 600,
-            }}
-          >
-            {item.year}
-          </div>
-        )}
+        />
       </div>
+      <PosterFila path={item.posterPath} alto={alto} />
+      <TextoFila
+        item={item}
+        ancho={ancho - m.anio - m.eje - Math.round((alto * 2) / 3) - 22}
+        grande={grande}
+        conAnio={false}
+      />
+    </div>
+  )
+}
+
+/** Una columna de la guía cronológica: la línea vertical detrás, de punto a punto. */
+function ColumnaLinea({
+  items,
+  alto,
+  ancho,
+  gap,
+  grande,
+}: {
+  items: ShareListaItem[]
+  alto: number
+  ancho: number
+  gap: number
+  grande: boolean
+}) {
+  const m = medidasLinea(grande)
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', gap, width: ancho, position: 'relative' }}>
+      {/* Primero, para que los puntos queden encima. */}
+      {items.length > 1 && (
+        <div
+          style={{
+            display: 'flex',
+            position: 'absolute',
+            left: m.anio + m.eje / 2 - 2,
+            top: alto / 2,
+            width: 4,
+            height: (items.length - 1) * (alto + gap),
+            borderRadius: 4,
+            background: 'rgba(255,253,2,0.45)',
+          }}
+        />
+      )}
+      {items.map((item, i) => (
+        <FilaLinea key={i} item={item} alto={alto} ancho={ancho} grande={grande} />
+      ))}
     </div>
   )
 }
 
 /**
- * "Compartir lista", 1080 × 1920.
+ * "Compartir lista" y "Compartir guía", 1080 × 1920.
  *
- * Arriba la portada: la imagen horizontal de la primera, oscurecida hacia
- * abajo, con la descripción en chico y el título en mayúsculas. Después una
- * franja con la cantidad a la izquierda y la derecha libre para el sticker de
- * enlace de Instagram, que se pega a mano y no tiene que tapar nada. Abajo los
- * primeros 10, numerados: del 1 al 5 a la izquierda y del 6 al 10 a la
- * derecha; con 5 o menos, una sola columna más grande. Al pie, @quien la armó
- * y el logo.
+ * Arriba la portada, oscurecida hacia abajo, con el título en mayúsculas.
+ * Después una franja con la cantidad a la izquierda y la derecha libre para el
+ * sticker de enlace de Instagram, que se pega a mano y no tiene que tapar
+ * nada. Abajo los primeros 10: del 1 al 5 a la izquierda y del 6 al 10 a la
+ * derecha; con 5 o menos, una sola columna más grande.
+ *
+ * Una lista lleva la descripción arriba del título, los títulos numerados y al
+ * pie @quien la armó y el logo. Una guía (`autor: null`) tiene que notarse que
+ * es de Glynbox: el sello "GUÍA GLYNBOX" arriba de la portada, la descripción
+ * debajo del título, una línea de tiempo con los años en vez de números si es
+ * cronológica, y el pie amarillo con el logo.
  */
-export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
+export function ListaStory({ l, logo, logoOscuro }: { l: ShareLista; logo: string; logoOscuro: string }) {
   const { width, height } = SIZES.historia
   const { margen } = LISTA
+  const esGuia = l.autor === null
+  const linea = esGuia && l.cronologica === true
   const resto = l.total - l.items.length
   const dosColumnas = l.items.length > LISTA.porColumna
   const columnas = dosColumnas
@@ -1023,14 +1157,34 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
   const anchoColumna = dosColumnas ? (width - 2 * margen - gapColumnas) / 2 : width - 2 * margen
   const gapFilas = dosColumnas ? 18 : 26
 
+  // El pie de la guía es una franja amarilla hasta el borde: el logo va en la
+  // parte de arriba y lo de abajo queda detrás de "Enviar mensaje".
+  const pie = esGuia ? LISTA.pieGuia + LISTA.seguroAbajo : LISTA.pie + LISTA.seguroAbajo
+
   // El alto de cada fila: lo que queda entre la franja y el pie, repartido.
-  const disponible =
-    height - LISTA.portada - LISTA.franja - (resto > 0 ? 70 : 0) - 40 - LISTA.pie - LISTA.seguroAbajo
+  const disponible = height - LISTA.portada - LISTA.franja - (resto > 0 ? 70 : 0) - 40 - pie
   const filas = dosColumnas ? LISTA.porColumna : Math.max(l.items.length, 1)
   const alto = Math.min(dosColumnas ? 150 : 210, Math.floor((disponible - (filas - 1) * gapFilas) / filas))
 
   const titulo = excerpt(l.title, 70).toUpperCase()
   const tamTitulo = titulo.length <= 14 ? 104 : titulo.length <= 26 ? 84 : titulo.length <= 44 ? 66 : 56
+
+  const descripcion = l.description?.trim() ? (
+    <div
+      style={{
+        display: 'block',
+        lineClamp: 2,
+        fontSize: 30,
+        lineHeight: 1.35,
+        color: 'rgba(255,255,255,0.82)',
+        fontFamily: 'Manrope',
+        fontWeight: 600,
+        ...(esGuia ? { marginTop: 18 } : { marginBottom: 16 }),
+      }}
+    >
+      {excerpt(l.description, 120)}
+    </div>
+  ) : null
 
   return (
     <div style={{ display: 'flex', flexDirection: 'column', width, height, position: 'relative', background: C.bg }}>
@@ -1060,6 +1214,27 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
             background: `linear-gradient(180deg, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.55) 35%, rgba(10,10,15,0.9) 72%, ${C.bg} 100%)`,
           }}
         />
+        {/* El sello de las guías, arriba de todo pero debajo de la barra de Instagram. */}
+        {esGuia && (
+          <div
+            style={{
+              display: 'flex',
+              position: 'absolute',
+              left: margen,
+              top: LISTA.seguroArriba,
+              padding: '14px 26px',
+              borderRadius: 12,
+              background: C.yellow,
+              color: C.bg,
+              fontSize: 34,
+              letterSpacing: 4,
+              fontFamily: 'Inter Tight',
+              fontWeight: 800,
+            }}
+          >
+            GUÍA GLYNBOX
+          </div>
+        )}
         <div
           style={{
             display: 'flex',
@@ -1068,27 +1243,15 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
             position: 'absolute',
             left: margen,
             right: margen,
-            top: LISTA.seguroArriba,
+            // Con el sello, el texto empieza más abajo para no pisarlo.
+            top: LISTA.seguroArriba + (esGuia ? 96 : 0),
             bottom: 24,
           }}
         >
-          <div style={{ display: 'flex', width: 72, height: 8, borderRadius: 8, background: C.yellow, marginBottom: 26 }} />
-          {l.description?.trim() && (
-            <div
-              style={{
-                display: 'block',
-                lineClamp: 2,
-                marginBottom: 16,
-                fontSize: 30,
-                lineHeight: 1.35,
-                color: 'rgba(255,255,255,0.82)',
-                fontFamily: 'Manrope',
-                fontWeight: 600,
-              }}
-            >
-              {excerpt(l.description, 120)}
-            </div>
+          {!esGuia && (
+            <div style={{ display: 'flex', width: 72, height: 8, borderRadius: 8, background: C.yellow, marginBottom: 26 }} />
           )}
+          {!esGuia && descripcion}
           <div
             style={{
               display: 'block',
@@ -1103,6 +1266,7 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
           >
             {titulo}
           </div>
+          {esGuia && descripcion}
         </div>
       </div>
 
@@ -1124,20 +1288,24 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
 
       {/* Los pósters */}
       <div style={{ display: 'flex', gap: gapColumnas, paddingLeft: margen, paddingRight: margen }}>
-        {columnas.map((columna, c) => (
-          <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: gapFilas, width: anchoColumna }}>
-            {columna.map((item, i) => (
-              <FilaLista
-                key={i}
-                item={item}
-                puesto={c * LISTA.porColumna + i + 1}
-                alto={alto}
-                ancho={anchoColumna}
-                grande={!dosColumnas}
-              />
-            ))}
-          </div>
-        ))}
+        {columnas.map((columna, c) =>
+          linea ? (
+            <ColumnaLinea key={c} items={columna} alto={alto} ancho={anchoColumna} gap={gapFilas} grande={!dosColumnas} />
+          ) : (
+            <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: gapFilas, width: anchoColumna }}>
+              {columna.map((item, i) => (
+                <FilaLista
+                  key={i}
+                  item={item}
+                  puesto={c * LISTA.porColumna + i + 1}
+                  alto={alto}
+                  ancho={anchoColumna}
+                  grande={!dosColumnas}
+                />
+              ))}
+            </div>
+          )
+        )}
       </div>
       {resto > 0 && (
         <div
@@ -1155,24 +1323,44 @@ export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
         </div>
       )}
 
-      {/* El pie, arriba de la zona segura de abajo */}
       <div style={{ display: 'flex', flexGrow: 1 }} />
-      <div
-        style={{
-          display: 'flex',
-          alignItems: 'center',
-          justifyContent: 'space-between',
-          height: LISTA.pie,
-          marginLeft: margen,
-          marginRight: margen,
-          marginBottom: LISTA.seguroAbajo,
-          paddingTop: 24,
-          borderTop: `2px solid ${C.border}`,
-        }}
-      >
-        <Author username={l.username} avatarUrl={l.avatarUrl} verified={l.verified} size={56} />
-        <Logo src={logo} height={44} />
-      </div>
+      {esGuia ? (
+        // El pie de la guía: amarillo hasta el borde, con el logo oscuro
+        // arriba de la zona segura.
+        <div
+          style={{
+            display: 'flex',
+            justifyContent: 'center',
+            alignItems: 'center',
+            width,
+            height: pie,
+            paddingBottom: LISTA.seguroAbajo,
+            background: C.yellow,
+          }}
+        >
+          <Logo src={logoOscuro} height={60} />
+        </div>
+      ) : (
+        // El pie de la lista, arriba de la zona segura de abajo.
+        <div
+          style={{
+            display: 'flex',
+            alignItems: 'center',
+            justifyContent: 'space-between',
+            height: LISTA.pie,
+            marginLeft: margen,
+            marginRight: margen,
+            marginBottom: LISTA.seguroAbajo,
+            paddingTop: 24,
+            borderTop: `2px solid ${C.border}`,
+          }}
+        >
+          {l.autor && (
+            <Author username={l.autor.username} avatarUrl={l.autor.avatarUrl} verified={l.autor.verified} size={56} />
+          )}
+          <Logo src={logo} height={44} />
+        </div>
+      )}
     </div>
   )
 }

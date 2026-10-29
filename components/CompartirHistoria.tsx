@@ -18,8 +18,8 @@ import { track } from '@/lib/analytics'
 
 export const LINK_COMPARTIR = 'https://www.glynbox.com/descargar?src=compartir'
 
-type Que = 'calificacion' | 'lista' | 'top5' | 'que_veo_hoy'
-type Desde = 'ficha' | 'lista' | 'perfil' | 'que_veo_hoy'
+type Que = 'calificacion' | 'lista' | 'top5' | 'que_veo_hoy' | 'guia'
+type Desde = 'ficha' | 'lista' | 'perfil' | 'que_veo_hoy' | 'guia'
 
 interface Props {
   que: Que
@@ -27,16 +27,28 @@ interface Props {
   imagen: string
   mensaje: string
   etiqueta: string
+  /**
+   * Un link para copiar al tocar, con el aviso para pegarlo con el sticker de
+   * enlace de la historia (Instagram no deja precargarlo). Lo usan las guías.
+   */
+  copiar?: string
   className?: string
 }
 
-export default function CompartirHistoria({ que, desde, imagen, mensaje, etiqueta, className }: Props) {
+export default function CompartirHistoria({ que, desde, imagen, mensaje, etiqueta, copiar, className }: Props) {
   const [armando, setArmando] = useState(false)
 
   async function compartir() {
     if (armando) return
     setArmando(true)
     track('compartir_abierto', { que, desde })
+    // Antes de bajar la imagen: el portapapeles pide que sea apenas se tocó.
+    if (copiar) {
+      try {
+        await navigator.clipboard.writeText(copiar)
+        toast.success('Link copiado: pegalo en la historia con el sticker de enlace')
+      } catch { /* sin permiso: se comparte igual */ }
+    }
     try {
       const res = await fetch(imagen, { cache: 'no-store' })
       if (!res.ok) throw new Error(`Imagen: ${res.status}`)

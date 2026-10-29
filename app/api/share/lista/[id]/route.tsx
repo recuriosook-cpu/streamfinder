@@ -9,9 +9,9 @@ import { getRequestUserId } from '@/lib/request-user'
  */
 export async function GET(req: Request, { params }: { params: Promise<{ id: string }> }) {
   const { id } = await params
-  const [found, { logo }] = await Promise.all([loadShareLista(id, () => getRequestUserId(req)), loadShareAssets()])
+  const [found, { logo, logoOscuro }] = await Promise.all([loadShareLista(id, () => getRequestUserId(req)), loadShareAssets()])
   if (!found) return new Response('No encontrada', { status: 404 })
-  return renderShareImage(<ListaStory l={found.lista} logo={logo} />, SIZES.historia, {
+  return renderShareImage(<ListaStory l={found.lista} logo={logo} logoOscuro={logoOscuro} />, SIZES.historia, {
     cache: found.privada ? 'privada' : 'publica',
     jpeg: pideJpeg(req),
   })

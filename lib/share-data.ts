@@ -1,7 +1,9 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { getAdminClient } from '@/lib/service-role'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
-import { avatarParaImagen, fondoDesenfocado, portadaLista, type ShareCalificacion, type ShareLista, type ShareMedia, type ShareReview, type ShareTop5 } from '@/lib/share-image'
+import { buildDetail, type GuiaItem } from '@/lib/guias-api'
+import { getGuideBySlug } from '@/lib/guides'
+import { avatarParaImagen, fondoDesenfocado, portadaGuia, portadaLista, type ShareCalificacion, type ShareLista, type ShareMedia, type ShareReview, type ShareTop5 } from '@/lib/share-image'
 
 /**
  * Datos para las imágenes de compartir (lib/share-image.tsx).
@@ -177,9 +179,7 @@ export async function loadShareLista(
     lista: {
       title: lista.title,
       description: lista.description,
-      username: autor.username,
-      avatarUrl,
-      verified: autor.verified === true,
+      autor: { username: autor.username, avatarUrl, verified: autor.verified === true },
       total: count ?? filas.length,
       items: filas.map((f, i) => ({
         title: f.title,
@@ -228,4 +228,80 @@ export async function loadShareTop5(viewerId: string): Promise<ShareTop5 | null>
     .slice(0, 4)
   if (posters.length === 0) return null
   return { username: autor.username, avatarUrl: await avatarParaImagen(autor.avatar_url), verified: autor.verified === true, posters }
+}
+
+/**
+ * Una guía, para "Compartir guía": la misma historia que una lista
+ * (`ListaStory`), sin autor porque las guías son de Glynbox. Los títulos en el
+ * orden en que aparecen en la guía, sin repetir. La portada es la de la guía;
+ * si no tiene, la imagen horizontal del primer título.
+ */
+export async function loadShareGuia(slug: string): Promise<ShareLista | null> {
+  const guia = getGuideBySlug(slug)
+  const detalle = guia ? await buildDetail(slug) : null
+  if (!detalle || !guia) return null
+
+  const vistos = new Set<string>()
+  const items: GuiaItem[] = []
+  for (const section of detalle.sections) {
+    const delBloque =
+      section.type === 'movie_grid' ? section.items : section.type === 'movie_card' ? [section.item] : []
+    for (const item of delBloque) {
+      const clave = `${item.mediaType}:${item.id}`
+      if (vistos.has(clave)) continue
+      vistos.add(clave)
+      items.push(item)
+    }
+  }
+
+  let portada = guia.heroImage ? await portadaGuia(guia.heroImage) : null
+  if (!portada && items[0]) {
+    const d = await detalleTmdb({ media_id: items[0].id, media_type: items[0].mediaType })
+    portada = await portadaLista(d?.backdrop_path ?? d?.poster_path ?? null)
+  }
+
+  return {
+    title: detalle.title,
+    description: detalle.tagline?.trim() || fraseDeGuia(items, detalle.itemCount),
+    autor: null,
+    total: detalle.itemCount,
+    items: items.slice(0, 10).map(i => ({ title: i.title, year: i.releaseYear, posterPath: i.posterPath })),
+    portada,
+    cronologica: esCronologica(items),
+  }
+}
+
+/**
+ * Si los títulos de la guía van en orden de estreno (como "Evolución del
+ * terror"). Se mira la guía entera y no sólo los 10 de la imagen, todos tienen
+ * que tener año, y se tolera algún salto chico: las guías van por épocas y
+ * "Evolución del terror" pone Pesadilla (1984) antes que El resplandor (1980).
+ * Cuenta qué parte de los pares de títulos está en orden: 0,9 deja entrar a
+ * esa (0,97) y deja afuera a "Studio Ghibli", que va por otro orden (0,61), y
+ * a "Cine argentino" (0,86), que se acerca pero no va por fecha.
+ */
+function esCronologica(items: GuiaItem[]): boolean {
+  const anios = items.map(i => i.releaseYear)
+  if (anios.length < 3 || anios.some(a => a == null)) return false
+  const a = anios as number[]
+  let enOrden = 0
+  let pares = 0
+  for (let i = 0; i < a.length; i++) {
+    for (let j = i + 1; j < a.length; j++) {
+      if (a[i] === a[j]) continue
+      pares++
+      if (a[i] < a[j]) enOrden++
+    }
+  }
+  return pares > 0 && enOrden / pares >= 0.9
+}
+
+/** Una línea para la guía que no tiene descripción, armada con lo que tiene adentro. */
+function fraseDeGuia(items: GuiaItem[], total: number): string {
+  const anios = items.map(i => i.releaseYear).filter((a): a is number => a != null)
+  const titulos = `${total} ${total === 1 ? 'título' : 'títulos'}`
+  if (anios.length >= 2 && Math.min(...anios) < Math.max(...anios)) {
+    return `${titulos} de ${Math.min(...anios)} a ${Math.max(...anios)}, elegidos por Glynbox.`
+  }
+  return `${titulos} elegidos por Glynbox.`
 }

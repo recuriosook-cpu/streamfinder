@@ -97,10 +97,28 @@ export type GuiaDetail = {
 
 const SITE_URL = 'https://www.glynbox.com'
 
-/** Los heros son rutas relativas en el frontmatter; la app necesita absolutas. */
-function absoluteHero(heroImage: string | undefined): string | null {
-  if (!heroImage) return null
-  return heroImage.startsWith('http') ? heroImage : `${SITE_URL}${heroImage}`
+/**
+ * La portada que ve la app: `/api/guias/portada/{slug}` y no el archivo de
+ * `public/guias/`. El firewall de Vercel ("Bot Protection: Challenge") deja
+ * pasar `/api/` pero a los archivos les contesta con la página de
+ * verificación, y la imagen de la app no la puede pasar: las guías salían
+ * sólo con el título. Esa ruta además usa la imagen horizontal del primer
+ * título cuando la guía no tiene portada, así que siempre hay una. `v` cambia
+ * con cada edición de la guía, para no quedarse con una portada vieja.
+ */
+function heroUrl(slug: string, updatedAt: string): string {
+  return `${SITE_URL}/api/guias/portada/${slug}?v=${encodeURIComponent(updatedAt)}`
+}
+
+/** El primer título de una guía, para la portada de las que no tienen. */
+export function primerTitulo(slug: string): { id: number; mediaType: MediaType } | null {
+  const guide = getGuideBySlug(slug)
+  if (!guide) return null
+  for (const section of parseGuideBody(guide.content)) {
+    if (section.type === 'movie_grid' && section.refs[0]) return section.refs[0]
+    if (section.type === 'movie_card') return section.ref
+  }
+  return null
 }
 
 // ── Parser del MDX ──────────────────────────────────────────────────────────
@@ -357,7 +375,7 @@ export function buildIndex(): GuiaIndexEntry[] {
       slug: guide.slug,
       title: guide.title,
       tagline: guide.description,
-      hero: absoluteHero(guide.heroImage),
+      hero: heroUrl(guide.slug, guide.updatedAt),
       heroColor: guide.heroColor ?? null,
       category: guide.category,
       itemCount: countItems(sections),
@@ -410,7 +428,7 @@ export async function buildDetail(slug: string): Promise<GuiaDetail | null> {
     slug: guide.slug,
     title: guide.title,
     tagline: guide.description,
-    hero: absoluteHero(guide.heroImage),
+    hero: heroUrl(guide.slug, guide.updatedAt),
     heroColor: guide.heroColor ?? null,
     category: guide.category,
     author: guide.author,
