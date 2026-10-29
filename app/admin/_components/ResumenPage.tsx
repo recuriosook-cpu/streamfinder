@@ -44,7 +44,7 @@ function StatCard({
 
 /**
  * "Siguen con Glynbox": el número, su porcentaje sobre los registrados y de
- * dónde sale. Viene sólo del precálculo de cada 10 minutos, nunca en vivo.
+ * dónde sale. Viene sólo del precálculo de cada hora, nunca en vivo.
  */
 function SiguenCard({ siguen, cargado }: { siguen: SiguenConGlynbox | null; cargado: boolean }) {
   const n = (x: number) => x.toLocaleString('es-AR')

@@ -196,7 +196,7 @@ export interface AdminOverview {
 /**
  * "Siguen con Glynbox": registrados con actividad en 30 días o con la app
  * instalada (un token que Expo no rechazó). Las tres primeras partes no se
- * pisan: cada usuario cae en una sola. Lo calcula pg_cron cada 10 minutos
+ * pisan: cada usuario cae en una sola. Lo calcula pg_cron cada hora
  * (supabase-siguen-con-glynbox-2026-10.sql) y acá sólo se lee: nunca en vivo.
  * `null` si todavía no se corrió el SQL.
  */

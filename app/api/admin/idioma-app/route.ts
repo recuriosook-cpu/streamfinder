@@ -20,7 +20,7 @@ import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
  * que la gente actualiza.
  *
  * Lo cuenta `admin_idioma_app()` en la base (`supabase-panel-app-2026-10.sql`)
- * y pg_cron lo deja calculado cada 10 minutos: con 29.000 `app_open` en 30
+ * y pg_cron lo deja calculado cada hora: con 29.000 `app_open` en 30
  * días, bajarlos de a 1000 filas se cortaba por tiempo desde el 26/10.
  */
 

@@ -9,8 +9,8 @@ import type { SupabaseClient } from '@supabase/supabase-js'
  * cortaban por tiempo (23/10, de 9:05 a 9:10: resumen, uso de la app, actividad
  * por hora, retención).
  *
- * `supabase-rendimiento-2026-10.sql` las corre con pg_cron cada 10 minutos (las
- * de hoy) o cada hora (retención) y guarda el resultado en
+ * `supabase-rendimiento-2026-10.sql` las corre con pg_cron (horarios abajo) y
+ * guarda el resultado en
  * `admin_panel_precalculado`. Acá se lee eso: una fila por clave, sin recorrer
  * los eventos.
  *
@@ -28,10 +28,16 @@ export interface Precalculado {
   calculadoEn: string | null
 }
 
-/** El cron de las de hoy corre cada 10 minutos: con 25 se tolera que falte uno. */
-export const FRESCO_RAPIDO = 25
-/** Retención corre a cada hora. */
-export const FRESCO_LENTO = 150
+/**
+ * Desde el 29/10 los crons corren cada hora (las de hoy a las :10, usuarios a
+ * las :30) y retención cinco veces al día fuera del pico (7:45 a 19:45 UTC):
+ * cada 10 minutos saturaban la base del plan Free (supabase-crons-escalonados-2026-10.sql).
+ * Los márgenes toleran que falte una corrida; si no, ir en vivo en cada vista
+ * del panel cargaría la base justo cuando el cron no pudo.
+ */
+export const FRESCO_RAPIDO = 150
+/** Retención: de 19:45 a 7:45 UTC pasan 12 horas sin correr. */
+export const FRESCO_LENTO = 16 * 60
 
 export async function precalculado(
   admin: SupabaseClient,

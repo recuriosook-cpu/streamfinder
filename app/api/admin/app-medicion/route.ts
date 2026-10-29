@@ -25,7 +25,7 @@ import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
  *
  * Los conteos sobre `analytics_events` y `client_errors` los hace
  * `admin_app_medicion()` en la base (`supabase-panel-app-2026-10.sql`) y
- * pg_cron los deja calculados cada 10 minutos: bajar los eventos de a 1000
+ * pg_cron los deja calculados cada hora: bajar los eventos de a 1000
  * filas se cortaba por tiempo desde el 26/10. Acá se les ponen los nombres y
  * el orden.
  */
