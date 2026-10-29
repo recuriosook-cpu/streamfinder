@@ -1,7 +1,7 @@
 import { createServerClient } from '@/lib/supabase-server'
 import { getAdminClient } from '@/lib/service-role'
 import { getMovieDetails, getTVDetails } from '@/lib/tmdb'
-import { fondoDesenfocado, type ShareCalificacion, type ShareLista, type ShareMedia, type ShareReview, type ShareTop5 } from '@/lib/share-image'
+import { avatarParaImagen, fondoDesenfocado, portadaLista, type ShareCalificacion, type ShareLista, type ShareMedia, type ShareReview, type ShareTop5 } from '@/lib/share-image'
 
 /**
  * Datos para las imágenes de compartir (lib/share-image.tsx).
@@ -136,40 +136,75 @@ export async function loadShareLista(
   id: string,
   getViewerId: () => Promise<string | null>
 ): Promise<{ lista: ShareLista; privada: boolean } | null> {
-  type ListaRow = { user_id: string; title: string; is_public: boolean | null }
+  type ListaRow = { user_id: string; title: string; description: string | null; is_public: boolean | null }
   const supabase = createServerClient()
   let privada = false
-  let { data: lista } = await supabase.from('lists').select('user_id, title, is_public').eq('id', id).maybeSingle<ListaRow>()
+  let { data: lista } = await supabase.from('lists').select('user_id, title, description, is_public').eq('id', id).maybeSingle<ListaRow>()
   let lector: ReturnType<typeof createServerClient> | ReturnType<typeof getAdminClient> = supabase
 
   if (!lista || !lista.is_public) {
     const viewerId = await getViewerId()
     if (!viewerId) return null
     const admin = getAdminClient()
-    ;({ data: lista } = await admin.from('lists').select('user_id, title, is_public').eq('id', id).maybeSingle<ListaRow>())
+    ;({ data: lista } = await admin.from('lists').select('user_id, title, description, is_public').eq('id', id).maybeSingle<ListaRow>())
     if (!lista || lista.user_id !== viewerId) return null
     lector = admin
     privada = true
   }
 
+  type ItemRow = { media_id: number; media_type: string; title: string; poster_path: string | null; release_year: number | null }
   const [{ data: items, count }, { data: autor }] = await Promise.all([
-    lector.from('list_items').select('poster_path', { count: 'exact' }).eq('list_id', id)
-      .order('position', { ascending: true }).limit(6),
+    lector.from('list_items').select('media_id, media_type, title, poster_path, release_year', { count: 'exact' })
+      .eq('list_id', id).order('position', { ascending: true }).limit(10),
     lector.from('profiles').select('username, avatar_url, verified').eq('id', lista.user_id)
       .maybeSingle<{ username: string; avatar_url: string | null; verified: boolean | null }>(),
   ])
   if (!autor?.username) return null
+  const filas = (items ?? []) as ItemRow[]
+
+  // De TMDB: la imagen horizontal de la primera y el año de las que no lo
+  // guardaron (las listas viejas y las oficiales no tienen `release_year`).
+  const detalles = await Promise.all(
+    filas.map((f, i) => (i === 0 || f.release_year == null ? detalleTmdb(f) : Promise.resolve(null)))
+  )
+  const [portada, avatarUrl] = await Promise.all([
+    portadaLista(detalles[0]?.backdrop_path ?? detalles[0]?.poster_path ?? null),
+    avatarParaImagen(autor.avatar_url),
+  ])
+
   return {
     privada,
     lista: {
       title: lista.title,
+      description: lista.description,
       username: autor.username,
-      avatarUrl: autor.avatar_url,
+      avatarUrl,
       verified: autor.verified === true,
-      total: count ?? items?.length ?? 0,
-      posters: ((items ?? []) as { poster_path: string | null }[]).map(i => i.poster_path),
+      total: count ?? filas.length,
+      items: filas.map((f, i) => ({
+        title: f.title,
+        year: f.release_year ?? anioDe(detalles[i]),
+        posterPath: f.poster_path,
+      })),
+      portada,
     },
   }
+}
+
+type DetalleTmdb = { backdrop_path?: string | null; poster_path?: string | null; release_date?: string; first_air_date?: string }
+
+/** La ficha de TMDB de un título de la lista, o null si no contesta. */
+async function detalleTmdb(f: { media_id: number; media_type: string }): Promise<DetalleTmdb | null> {
+  try {
+    return f.media_type === 'tv' ? await getTVDetails(f.media_id) : await getMovieDetails(f.media_id)
+  } catch {
+    return null
+  }
+}
+
+function anioDe(d: DetalleTmdb | null): number | null {
+  const fecha = d?.release_date || d?.first_air_date
+  return fecha ? Number(fecha.slice(0, 4)) || null : null
 }
 
 /**

@@ -822,63 +822,356 @@ export function CalificacionStory({ c, logo }: { c: ShareCalificacion; logo: str
   )
 }
 
+export type ShareListaItem = {
+  title: string
+  year: number | null
+  posterPath: string | null
+}
+
 export type ShareLista = {
   title: string
+  description: string | null
   username: string
   avatarUrl: string | null
   verified: boolean
   total: number
-  posters: (string | null)[]
+  /** Los primeros 10, en el orden de la lista. */
+  items: ShareListaItem[]
+  /** La imagen horizontal de la primera, ya recortada (`portadaLista`), o null. */
+  portada: string | null
 }
 
-/** "Compartir lista", 1080 × 1920: título, @dueño y una grilla de hasta 6 pósters. */
-export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
-  const { width, height } = SIZES.historia
-  const resto = l.total - l.posters.length
+/**
+ * Las medidas de la historia de la lista. Las zonas seguras son las de
+ * Instagram: arriba van la barra de progreso y el nombre de la cuenta, abajo
+ * "Enviar mensaje". Ahí no va texto; la portada sí, porque es fondo.
+ */
+const LISTA = {
+  portada: 640,
+  margen: 64,
+  seguroArriba: 230,
+  seguroAbajo: 250,
+  /** Entre la portada y los pósters: a la derecha va el sticker de enlace. */
+  franja: 130,
+  pie: 84,
+  porColumna: 5,
+} as const
+
+/**
+ * La portada de "Compartir lista": la imagen horizontal (backdrop) de TMDB de
+ * la primera, recortada al tamaño de la portada. Como `fondoDesenfocado`, la
+ * prepara sharp antes de dibujar, y se guardan las últimas en memoria.
+ */
+const portadas = new Map<string, Promise<string | null>>()
+
+export function portadaLista(path: string | null): Promise<string | null> {
+  if (!path) return Promise.resolve(null)
+  let portada = portadas.get(path)
+  if (!portada) {
+    portada = (async () => {
+      try {
+        const res = await fetch(`${TMDB_IMG}/w1280${path}`, { signal: AbortSignal.timeout(5000) })
+        if (!res.ok) return null
+        const jpg = await sharp(Buffer.from(await res.arrayBuffer()))
+          .resize(SIZES.historia.width, LISTA.portada, { fit: 'cover' })
+          .jpeg({ quality: 80 })
+          .toBuffer()
+        return `data:image/jpeg;base64,${jpg.toString('base64')}`
+      } catch {
+        return null
+      }
+    })()
+    portadas.set(path, portada)
+    if (portadas.size > FONDOS_EN_MEMORIA) portadas.delete(portadas.keys().next().value as string)
+  }
+  return portada
+}
+
+/**
+ * La foto de perfil lista para satori, que no lee WebP: desde que las fotos se
+ * guardan en WebP (e6b97e2) salía el círculo vacío. sharp la pasa a JPEG
+ * chico. Si no se puede, null y queda la inicial.
+ */
+export async function avatarParaImagen(url: string | null): Promise<string | null> {
+  if (!url) return null
+  try {
+    const res = await fetch(url, { signal: AbortSignal.timeout(4000) })
+    if (!res.ok) return null
+    const jpg = await sharp(Buffer.from(await res.arrayBuffer()))
+      .resize(160, 160, { fit: 'cover' })
+      .jpeg({ quality: 85 })
+      .toBuffer()
+    return `data:image/jpeg;base64,${jpg.toString('base64')}`
+  } catch {
+    return null
+  }
+}
+
+/** Un título de la lista: puesto, póster, título (hasta dos líneas) y año. */
+function FilaLista({
+  item,
+  puesto,
+  alto,
+  ancho,
+  grande,
+}: {
+  item: ShareListaItem
+  puesto: number
+  alto: number
+  ancho: number
+  grande: boolean
+}) {
+  const poster = Math.round((alto * 2) / 3)
+  const numero = grande ? 64 : 54
+  const gap = 22
   return (
-    <div style={{ display: 'flex', width, height, position: 'relative', background: C.bg }}>
-      <FondoMarca width={width} height={height} />
+    <div style={{ display: 'flex', alignItems: 'center', width: ancho, height: alto }}>
+      <div
+        style={{
+          display: 'flex',
+          width: numero,
+          flexShrink: 0,
+          fontSize: grande ? 48 : 40,
+          color: C.yellow,
+          fontFamily: 'Inter Tight',
+          fontWeight: 800,
+        }}
+      >
+        {puesto}
+      </div>
+      {item.posterPath ? (
+        // eslint-disable-next-line @next/next/no-img-element
+        <img
+          src={`${TMDB_IMG}/w185${item.posterPath}`}
+          alt=""
+          width={poster}
+          height={alto}
+          style={{
+            width: poster,
+            height: alto,
+            flexShrink: 0,
+            borderRadius: 12,
+            objectFit: 'cover',
+            border: '2px solid rgba(255,255,255,0.12)',
+          }}
+        />
+      ) : (
+        <div style={{ display: 'flex', width: poster, height: alto, flexShrink: 0, borderRadius: 12, background: C.card }} />
+      )}
       <div
         style={{
           display: 'flex',
           flexDirection: 'column',
-          alignItems: 'center',
-          width,
-          height,
-          padding: '120px 80px 100px',
-          position: 'relative',
+          justifyContent: 'center',
+          width: ancho - numero - poster - gap,
+          marginLeft: gap,
         }}
       >
+        {/* `lineClamp` corta con "…" lo que no entra en dos líneas. */}
+        <div
+          style={{
+            display: 'block',
+            lineClamp: 2,
+            fontSize: grande ? 38 : 29,
+            lineHeight: 1.15,
+            color: C.white,
+            fontFamily: 'Inter Tight',
+            fontWeight: 700,
+          }}
+        >
+          {item.title}
+        </div>
+        {item.year && (
+          <div
+            style={{
+              display: 'flex',
+              marginTop: 6,
+              fontSize: grande ? 30 : 24,
+              color: C.muted,
+              fontFamily: 'Manrope',
+              fontWeight: 600,
+            }}
+          >
+            {item.year}
+          </div>
+        )}
+      </div>
+    </div>
+  )
+}
+
+/**
+ * "Compartir lista", 1080 × 1920.
+ *
+ * Arriba la portada: la imagen horizontal de la primera, oscurecida hacia
+ * abajo, con la descripción en chico y el título en mayúsculas. Después una
+ * franja con la cantidad a la izquierda y la derecha libre para el sticker de
+ * enlace de Instagram, que se pega a mano y no tiene que tapar nada. Abajo los
+ * primeros 10, numerados: del 1 al 5 a la izquierda y del 6 al 10 a la
+ * derecha; con 5 o menos, una sola columna más grande. Al pie, @quien la armó
+ * y el logo.
+ */
+export function ListaStory({ l, logo }: { l: ShareLista; logo: string }) {
+  const { width, height } = SIZES.historia
+  const { margen } = LISTA
+  const resto = l.total - l.items.length
+  const dosColumnas = l.items.length > LISTA.porColumna
+  const columnas = dosColumnas
+    ? [l.items.slice(0, LISTA.porColumna), l.items.slice(LISTA.porColumna)]
+    : [l.items]
+  const gapColumnas = 40
+  const anchoColumna = dosColumnas ? (width - 2 * margen - gapColumnas) / 2 : width - 2 * margen
+  const gapFilas = dosColumnas ? 18 : 26
+
+  // El alto de cada fila: lo que queda entre la franja y el pie, repartido.
+  const disponible =
+    height - LISTA.portada - LISTA.franja - (resto > 0 ? 70 : 0) - 40 - LISTA.pie - LISTA.seguroAbajo
+  const filas = dosColumnas ? LISTA.porColumna : Math.max(l.items.length, 1)
+  const alto = Math.min(dosColumnas ? 150 : 210, Math.floor((disponible - (filas - 1) * gapFilas) / filas))
+
+  const titulo = excerpt(l.title, 70).toUpperCase()
+  const tamTitulo = titulo.length <= 14 ? 104 : titulo.length <= 26 ? 84 : titulo.length <= 44 ? 66 : 56
+
+  return (
+    <div style={{ display: 'flex', flexDirection: 'column', width, height, position: 'relative', background: C.bg }}>
+      {/* Portada */}
+      <div style={{ display: 'flex', position: 'relative', width, height: LISTA.portada, flexShrink: 0 }}>
+        {l.portada ? (
+          // eslint-disable-next-line @next/next/no-img-element
+          <img
+            src={l.portada}
+            alt=""
+            width={width}
+            height={LISTA.portada}
+            style={{ position: 'absolute', inset: 0, width, height: LISTA.portada, objectFit: 'cover' }}
+          />
+        ) : (
+          <FondoMarca width={width} height={LISTA.portada} />
+        )}
+        {/* Con medidas explícitas: un div vacío con `inset: 0` satori no lo dibuja. */}
         <div
           style={{
             display: 'flex',
-            fontSize: l.title.length > 30 ? 64 : 80,
-            lineHeight: 1.05,
-            color: C.white,
-            fontFamily: 'Inter Tight',
-            fontWeight: 800,
-            textAlign: 'center',
-            justifyContent: 'center',
+            position: 'absolute',
+            top: 0,
+            left: 0,
+            width,
+            height: LISTA.portada,
+            background: `linear-gradient(180deg, rgba(10,10,15,0.3) 0%, rgba(10,10,15,0.55) 35%, rgba(10,10,15,0.9) 72%, ${C.bg} 100%)`,
+          }}
+        />
+        <div
+          style={{
+            display: 'flex',
+            flexDirection: 'column',
+            justifyContent: 'flex-end',
+            position: 'absolute',
+            left: margen,
+            right: margen,
+            top: LISTA.seguroArriba,
+            bottom: 24,
           }}
         >
-          {excerpt(l.title, 60)}
-        </div>
-        <div style={{ display: 'flex', marginTop: 30, alignItems: 'center', gap: 20 }}>
-          <Author username={l.username} avatarUrl={l.avatarUrl} verified={l.verified} size={64} />
-          <div style={{ display: 'flex', fontSize: 32, color: C.muted, fontFamily: 'Manrope', fontWeight: 600 }}>
-            · {l.total} {l.total === 1 ? 'título' : 'títulos'}
+          <div style={{ display: 'flex', width: 72, height: 8, borderRadius: 8, background: C.yellow, marginBottom: 26 }} />
+          {l.description?.trim() && (
+            <div
+              style={{
+                display: 'block',
+                lineClamp: 2,
+                marginBottom: 16,
+                fontSize: 30,
+                lineHeight: 1.35,
+                color: 'rgba(255,255,255,0.82)',
+                fontFamily: 'Manrope',
+                fontWeight: 600,
+              }}
+            >
+              {excerpt(l.description, 120)}
+            </div>
+          )}
+          <div
+            style={{
+              display: 'block',
+              lineClamp: 3,
+              fontSize: tamTitulo,
+              lineHeight: 1.02,
+              letterSpacing: -1,
+              color: C.white,
+              fontFamily: 'Inter Tight',
+              fontWeight: 800,
+            }}
+          >
+            {titulo}
           </div>
         </div>
-        {/* La grilla, centrada en lo que queda entre el título y el pie. */}
-        <div style={{ display: 'flex', flexGrow: 1 }} />
-        <Grilla posters={l.posters} width={286} />
-        {resto > 0 && (
-          <div style={{ display: 'flex', marginTop: 34, fontSize: 36, color: C.yellow, fontFamily: 'Manrope', fontWeight: 700 }}>
-            y {resto} más
+      </div>
+
+      {/* La franja del sticker: la cantidad a la izquierda, la derecha libre. */}
+      <div style={{ display: 'flex', alignItems: 'center', height: LISTA.franja, flexShrink: 0, paddingLeft: margen }}>
+        <div
+          style={{
+            display: 'flex',
+            fontSize: 30,
+            letterSpacing: 3,
+            color: C.yellow,
+            fontFamily: 'Inter Tight',
+            fontWeight: 800,
+          }}
+        >
+          {l.total} {l.total === 1 ? 'TÍTULO' : 'TÍTULOS'}
+        </div>
+      </div>
+
+      {/* Los pósters */}
+      <div style={{ display: 'flex', gap: gapColumnas, paddingLeft: margen, paddingRight: margen }}>
+        {columnas.map((columna, c) => (
+          <div key={c} style={{ display: 'flex', flexDirection: 'column', gap: gapFilas, width: anchoColumna }}>
+            {columna.map((item, i) => (
+              <FilaLista
+                key={i}
+                item={item}
+                puesto={c * LISTA.porColumna + i + 1}
+                alto={alto}
+                ancho={anchoColumna}
+                grande={!dosColumnas}
+              />
+            ))}
           </div>
-        )}
-        <div style={{ display: 'flex', flexGrow: 1 }} />
-        <PieMarca logo={logo} />
+        ))}
+      </div>
+      {resto > 0 && (
+        <div
+          style={{
+            display: 'flex',
+            marginTop: 34,
+            paddingLeft: margen,
+            fontSize: 32,
+            color: C.yellow,
+            fontFamily: 'Manrope',
+            fontWeight: 700,
+          }}
+        >
+          +{resto} más en Glynbox
+        </div>
+      )}
+
+      {/* El pie, arriba de la zona segura de abajo */}
+      <div style={{ display: 'flex', flexGrow: 1 }} />
+      <div
+        style={{
+          display: 'flex',
+          alignItems: 'center',
+          justifyContent: 'space-between',
+          height: LISTA.pie,
+          marginLeft: margen,
+          marginRight: margen,
+          marginBottom: LISTA.seguroAbajo,
+          paddingTop: 24,
+          borderTop: `2px solid ${C.border}`,
+        }}
+      >
+        <Author username={l.username} avatarUrl={l.avatarUrl} verified={l.verified} size={56} />
+        <Logo src={logo} height={44} />
       </div>
     </div>
   )

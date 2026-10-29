@@ -233,7 +233,7 @@ export default function ListPage() {
             que="lista"
             desde="lista"
             // `v` cambia con lo que se ve en la imagen: la pública se cachea un día.
-            imagen={`/api/share/lista/${id}?v=${items.length}-${encodeURIComponent(list.title)}-${items.slice(0, 6).map(i => i.id).join('.')}`}
+            imagen={`/api/share/lista/${id}?v=${items.length}-${encodeURIComponent(list.title)}-${items.slice(0, 10).map(i => i.id).join('.')}`}
             mensaje={`Mirá mi lista "${list.title}" en Glynbox`}
             etiqueta="Compartir lista"
           />
