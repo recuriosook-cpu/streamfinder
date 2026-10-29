@@ -32,8 +32,15 @@ function markReported(contentId: string) {
   } catch { /* ignore */ }
 }
 
+/**
+ * Qué se reporta. `comment` es un comentario de reseña (así quedó de antes);
+ * los de listas y guías tienen el suyo, para que `/admin/reportes` sepa de qué
+ * tabla borrarlos.
+ */
+export type ContenidoReportable = 'review' | 'comment' | 'list_comment' | 'guide_comment'
+
 interface ReportModalProps {
-  contentType: 'review' | 'comment'
+  contentType: ContenidoReportable
   contentId: string
   contentAuthorId: string
   isOpen: boolean

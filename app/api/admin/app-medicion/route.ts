@@ -362,7 +362,7 @@ const LUGARES: Record<string, string> = {
   inicio: 'Inicio, abajo (después de las series)',
   persona: 'Ficha de un famoso',
   lista: 'Detalle de una lista',
-  guia: 'Guías',
+  guia: 'Guías (después del 5.º título, y del 12.º en las largas)',
   comunidad: 'Comunidad',
   perfil: 'Perfil',
 }

@@ -12,9 +12,19 @@ import {
 
 type ReportStatus = 'pending' | 'resolved' | 'dismissed'
 
+/** `comment` es un comentario de reseña (así quedó de antes de que hubiera otros). */
+type TipoReportado = 'review' | 'comment' | 'list_comment' | 'guide_comment'
+
+const ETIQUETA: Record<TipoReportado, string> = {
+  review: 'Reseña',
+  comment: 'Comentario de reseña',
+  list_comment: 'Comentario de lista',
+  guide_comment: 'Comentario de guía',
+}
+
 interface Report {
   id: string
-  content_type: 'review' | 'comment'
+  content_type: TipoReportado
   content_id: string
   content_author_id: string
   reason: string
@@ -25,7 +35,8 @@ interface Report {
   reporter?: { username: string | null; display_name: string | null } | null
   author?:   { username: string | null; display_name: string | null } | null
   contentPreview?: string | null
-  reviewId?: string | null
+  /** Dónde está lo reportado: la reseña, la lista o la guía. */
+  enlace?: string | null
 }
 
 export default function AdminReportesPage() {
@@ -73,19 +84,30 @@ export default function AdminReportesPage() {
     const reviewIds  = rawReports.filter((r: Report) => r.content_type === 'review').map((r: Report) => r.content_id)
     const commentIds = rawReports.filter((r: Report) => r.content_type === 'comment').map((r: Report) => r.content_id)
 
+    const listCommentIds  = rawReports.filter((r: Report) => r.content_type === 'list_comment').map((r: Report) => r.content_id)
+    const guideCommentIds = rawReports.filter((r: Report) => r.content_type === 'guide_comment').map((r: Report) => r.content_id)
+
     type ReviewRow  = { id: string; body: string | null }
-    type CommentRow = { id: string; content: string; review_id: string }
+    /** Un comentario de cualquiera de las tres tablas, con su texto y dónde está. */
+    type Comentario = { content: string; enlace: string }
 
-    let reviewMap:  Record<string, ReviewRow>  = {}
-    let commentMap: Record<string, CommentRow> = {}
+    const comentarios: Record<string, Comentario> = {}
 
-    if (reviewIds.length) {
-      const { data } = await supabase.from('reviews').select('id, body').in('id', reviewIds)
-      reviewMap = Object.fromEntries((data ?? []).map((r: ReviewRow) => [r.id, r]))
+    const [reviewsRes, commentsRes, listCommentsRes, guideCommentsRes] = await Promise.all([
+      reviewIds.length ? supabase.from('reviews').select('id, body').in('id', reviewIds) : null,
+      commentIds.length ? supabase.from('review_comments').select('id, content, review_id').in('id', commentIds) : null,
+      listCommentIds.length ? supabase.from('list_comments').select('id, content, list_id').in('id', listCommentIds) : null,
+      guideCommentIds.length ? supabase.from('guide_comments').select('id, content, guide_slug').in('id', guideCommentIds) : null,
+    ])
+    const reviewMap: Record<string, ReviewRow> = Object.fromEntries(((reviewsRes?.data ?? []) as ReviewRow[]).map(r => [r.id, r]))
+    for (const c of (commentsRes?.data ?? []) as { id: string; content: string; review_id: string }[]) {
+      comentarios[c.id] = { content: c.content, enlace: `/review/${c.review_id}` }
     }
-    if (commentIds.length) {
-      const { data } = await supabase.from('review_comments').select('id, content, review_id').in('id', commentIds)
-      commentMap = Object.fromEntries((data ?? []).map((c: CommentRow) => [c.id, c]))
+    for (const c of (listCommentsRes?.data ?? []) as { id: string; content: string; list_id: string }[]) {
+      comentarios[c.id] = { content: c.content, enlace: `/listas/${c.list_id}#comentarios` }
+    }
+    for (const c of (guideCommentsRes?.data ?? []) as { id: string; content: string; guide_slug: string }[]) {
+      comentarios[c.id] = { content: c.content, enlace: `/guias/${c.guide_slug}#comentarios` }
     }
 
     const enriched: Report[] = rawReports.map((r: Report) => ({
@@ -94,8 +116,8 @@ export default function AdminReportesPage() {
       author:         profileMap[r.content_author_id] ?? null,
       contentPreview: r.content_type === 'review'
         ? (reviewMap[r.content_id]?.body ?? null)
-        : (commentMap[r.content_id]?.content ?? null),
-      reviewId: r.content_type === 'comment' ? (commentMap[r.content_id]?.review_id ?? null) : null,
+        : (comentarios[r.content_id]?.content ?? null),
+      enlace: r.content_type === 'review' ? `/review/${r.content_id}` : (comentarios[r.content_id]?.enlace ?? null),
     }))
 
     setReports(enriched)
@@ -122,12 +144,23 @@ export default function AdminReportesPage() {
   }
 
   async function deleteContent(report: Report) {
-    if (!confirm(`¿Eliminar esta ${report.content_type === 'review' ? 'reseña' : 'comentario'}? No se puede deshacer.`)) return
+    if (!confirm(`¿Eliminar ${report.content_type === 'review' ? 'esta reseña' : 'este comentario'}? No se puede deshacer.`)) return
     setProcessingId(report.id)
-    const table = report.content_type === 'review' ? 'reviews' : 'review_comments'
-    const { error } = await supabase.from(table).delete().eq('id', report.content_id)
-    if (error) {
-      toast.error('Error al eliminar: ' + error.message)
+    let mensajeError: string | null = null
+    if (report.content_type === 'review') {
+      const { error } = await supabase.from('reviews').delete().eq('id', report.content_id)
+      mensajeError = error?.message ?? null
+    } else {
+      // Los comentarios, con la service role: la RLS sólo deja borrarlos a su autor.
+      const res = await fetch('/api/admin/borrar-comentario', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ tipo: report.content_type, id: report.content_id }),
+      })
+      if (!res.ok) mensajeError = ((await res.json().catch(() => null)) as { error?: string } | null)?.error ?? `HTTP ${res.status}`
+    }
+    if (mensajeError) {
+      toast.error('Error al eliminar: ' + mensajeError)
       setProcessingId(null)
       return
     }
@@ -231,7 +264,7 @@ export default function AdminReportesPage() {
                   <span className={`text-[10px] font-semibold px-2 py-0.5 rounded-full ${
                     report.content_type === 'review' ? 'bg-purple-900/40 text-purple-300' : 'bg-blue-900/40 text-blue-300'
                   }`}>
-                    {report.content_type === 'review' ? 'Reseña' : 'Comentario'}
+                    {ETIQUETA[report.content_type] ?? 'Comentario'}
                   </span>
                   <span className="text-xs font-semibold text-white">{report.reason}</span>
                 </div>
@@ -272,7 +305,7 @@ export default function AdminReportesPage() {
             {statusFilter === 'pending' && (
               <div className="px-5 py-3 flex items-center gap-2 flex-wrap">
                 <Link
-                  href={report.content_type === 'review' ? `/review/${report.content_id}` : `/review/${report.reviewId ?? ''}`}
+                  href={report.enlace ?? '#'}
                   target="_blank"
                   className="inline-flex items-center gap-1.5 text-xs px-3 py-1.5 rounded-lg bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white transition-colors border border-[#2A2A3A]"
                 >

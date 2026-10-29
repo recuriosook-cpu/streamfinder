@@ -1,5 +1,9 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import type { Idioma } from './idioma'
+import { getGuideBySlug } from './guides'
+import { notificationUrl, type NotificationRow } from './notification-url'
+
+export { notificationUrl, type NotificationRow }
 
 /**
  * Tipo de notificación → a dónde lleva y qué dice.
@@ -18,7 +22,9 @@ import type { Idioma } from './idioma'
  * ── Por qué está partido en dos ────────────────────────────────────────────
  *
  * `notificationUrl()` es **pura**: no hace I/O y no importa nada del servidor,
- * así que la puede usar un client component como el Navbar.
+ * así que la puede usar un client component como el Navbar. Vive aparte, en
+ * `notification-url.ts`, porque este módulo lee los archivos de las guías y no
+ * puede ir al navegador.
  *
  * `buildNotificationContent()` además arma el texto, y para eso necesita leer
  * la base con la service role (resolver el nombre del actor, el texto del
@@ -27,24 +33,6 @@ import type { Idioma } from './idioma'
  * Si algún día hay que agregar un tipo nuevo, se agrega acá y aparece en los
  * tres lados solo.
  */
-
-/** Una fila de `notifications`, con todo opcional: el webhook manda lo que hay. */
-export interface NotificationRow {
-  id?: string
-  user_id?: string
-  actor_id?: string | null
-  type?: string | null
-  review_id?: string | null
-  review_title?: string | null
-  comment_id?: string | null
-  entity_id?: string | null
-  entity_type?: string | null
-  entity_title?: string | null
-  actor_username?: string | null
-  created_at?: string | null
-  /** Los avisos del cron de famosos y disponibilidad (desde 2026-10): ver `DatosAviso`. */
-  datos?: unknown
-}
 
 /**
  * Lo que guarda el cron en `notifications.datos` para redactar en cada
@@ -64,60 +52,6 @@ export interface DatosAviso {
 
 function datosDe(row: NotificationRow): DatosAviso {
   return row.datos && typeof row.datos === 'object' ? (row.datos as DatosAviso) : {}
-}
-
-/** La ficha de un aviso de película o serie. */
-function fichaUrl(row: NotificationRow): string {
-  if (!row.entity_id) return '/'
-  return `/${row.entity_type === 'tv' ? 'tv' : 'movie'}/${row.entity_id}`
-}
-
-/**
- * A dónde lleva una notificación. Ruta de glynbox.com, siempre.
- *
- * Devolver una ruta y no una pantalla es lo que permite que sirva para los tres
- * consumidores: la web hace `router.push()`, la app la resuelve con su parser
- * de deep links (el mismo que usa para los links compartidos), y el push la
- * manda en `data.url`. Un solo vocabulario.
- *
- * Nunca devuelve `null`: ante un tipo desconocido o datos incompletos cae a
- * `/comunidad`, que es un destino razonable y evita que un toque no haga nada.
- * Los datos incompletos son el caso normal, no el raro: `actor_birthday` y
- * `new_release` vienen sin `actor_id`, y las notificaciones viejas pueden venir
- * sin `entity_id`.
- */
-export function notificationUrl(
-  type: string,
-  row: NotificationRow,
-  username: string | null
-): string {
-  const profileUrl = username ? `/usuario/${username}` : '/comunidad'
-  const reviewUrl = row.review_id ? `/review/${row.review_id}` : '/comunidad'
-  const listUrl = row.entity_id ? `/listas/${row.entity_id}` : '/listas'
-
-  switch (type) {
-    case 'follow':
-      return profileUrl
-    case 'review_like':
-    case 'review_comment':
-    case 'comment_reply':
-    case 'mention':
-      return reviewUrl
-    case 'level_up':
-      return '/profile'
-    case 'list_like':
-    case 'list_comment':
-      return listUrl
-    case 'actor_birthday':
-      return row.entity_id ? `/actor/${row.entity_id}` : '/comunidad'
-    case 'new_release':
-    case 'famoso_proyecto':
-    case 'famoso_disponible':
-    case 'watchlist_disponible':
-      return fichaUrl(row)
-    default:
-      return '/comunidad'
-  }
 }
 
 /** Los tipos que este módulo sabe redactar. Un tipo fuera de acá no tiene texto. */
@@ -285,6 +219,31 @@ async function resolveListCommentText(
 }
 
 /**
+ * Título de la guía, de sus archivos y no de `entity_title`, que lo manda el
+ * cliente (mismo motivo que `resolveReviewTitle`).
+ */
+function resolveGuideTitle(row: NotificationRow): string {
+  if (!row.entity_id) return ''
+  return getGuideBySlug(row.entity_id)?.title?.trim() ?? ''
+}
+
+/** Último comentario del actor en la guía, de la base. */
+async function resolveGuideCommentText(
+  admin: SupabaseClient,
+  row: NotificationRow
+): Promise<string> {
+  if (!row.entity_id || !row.actor_id) return ''
+  const { data } = await admin
+    .from('guide_comments')
+    .select('content')
+    .eq('guide_slug', row.entity_id)
+    .eq('user_id', row.actor_id)
+    .order('created_at', { ascending: false })
+    .limit(1)
+  return excerpt((data as { content: string | null }[] | null)?.[0]?.content)
+}
+
+/**
  * Los nombres de los niveles, como los escribe `add_points` en la fila
  * ("🎬 Cinéfilo"). En inglés se cambia sólo el nombre y queda el emoji.
  */
@@ -363,6 +322,23 @@ export async function buildNotificationContent(
     }
 
     case 'comment_reply': {
+      // En una lista o una guía (desde 2026-10) el lugar va en `entity_*`; en
+      // una reseña, en `review_id`.
+      if (row.entity_type === 'list' || row.entity_type === 'guide') {
+        const guia = row.entity_type === 'guide'
+        const [comment, lugar] = await Promise.all([
+          guia ? resolveGuideCommentText(admin, row) : resolveListCommentText(admin, row),
+          guia ? Promise.resolve(resolveGuideTitle(row)) : resolveListTitle(admin, row),
+        ])
+        return {
+          title: lugar
+            ? (en ? `${actor} replied to your comment on ${lugar}` : `${actor} respondió tu comentario en ${lugar}`)
+            : (en ? `${actor} replied to your comment` : `${actor} respondió tu comentario`),
+          accion: en ? 'replied to your comment' : 'respondió tu comentario',
+          body:  comment,
+          url,
+        }
+      }
       const comment = await resolveCommentText(admin, row)
       return {
         title: en ? `${actor} replied to your comment` : `${actor} respondió tu comentario`,

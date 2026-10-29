@@ -4,15 +4,14 @@ import { useState, useEffect, useRef, useMemo } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useParams, useRouter } from 'next/navigation'
-import { Heart, MessageCircle, Plus, Eye, Send, Trash2, Pencil, Tag, Search } from 'lucide-react'
+import { Heart, Plus, Eye, Pencil, Tag, Search } from 'lucide-react'
 import Breadcrumb from '@/components/Breadcrumb'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
-import { toast } from 'sonner'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 import CompartirHistoria from '@/components/CompartirHistoria'
+import ComentariosHilo from '@/components/comentarios/ComentariosHilo'
 
 interface ListData {
   id: string; user_id: string; title: string; description: string | null
@@ -25,10 +24,6 @@ interface ListItem {
 }
 interface Author {
   id: string; username: string | null; display_name: string | null; avatar_url: string | null
-}
-interface Comment {
-  id: string; user_id: string; content: string; created_at: string
-  author: Author | null
 }
 
 function timeAgo(d: string) {
@@ -48,14 +43,11 @@ export default function ListPage() {
   const [list,     setList]     = useState<ListData | null>(null)
   const [items,    setItems]    = useState<ListItem[]>([])
   const [author,   setAuthor]   = useState<Author | null>(null)
-  const [comments, setComments] = useState<Comment[]>([])
   const [likeCount, setLikeCount] = useState(0)
   const [liked,     setLiked]    = useState(false)
   const [likeBusy,  setLikeBusy] = useState(false)
   const [watchedIds, setWatchedIds] = useState<Set<string>>(new Set())
   const [currentUserId, setCurrentUserId] = useState<string | null>(null)
-  const [newComment, setNewComment] = useState('')
-  const [submitting, setSubmitting] = useState(false)
   const [loading, setLoading] = useState(true)
   const [notFound, setNotFound] = useState(false)
   const [search, setSearch] = useState('')
@@ -75,28 +67,16 @@ export default function ListPage() {
       const listData = listRes.data as ListData
       setList(listData)
 
-      const [itemsRes, authorRes, likesRes, commentsRes] = await Promise.all([
+      const [itemsRes, authorRes, likesRes] = await Promise.all([
         supabase.from('list_items').select('*').eq('list_id', id).order('position').limit(1000),
         supabase.from('profiles').select('id,username,display_name,avatar_url').eq('id', listData.user_id).maybeSingle(),
         supabase.from('list_likes').select('user_id').eq('list_id', id),
-        supabase.from('list_comments').select('*').eq('list_id', id).order('created_at'),
       ])
 
       setItems((itemsRes.data ?? []) as ListItem[])
       setAuthor(authorRes.data as Author | null)
       setLikeCount((likesRes.data ?? []).length)
       setLiked(!!(uid && (likesRes.data ?? []).some((l: { user_id: string }) => l.user_id === uid)))
-
-      // Load comments with authors
-      const commentRows = (commentsRes.data ?? []) as Comment[]
-      const userIds = [...new Set(commentRows.map(c => c.user_id))]
-      let profileMap: Record<string, Author> = {}
-      if (userIds.length > 0) {
-        const { data: profiles } = await supabase.from('profiles')
-          .select('id,username,display_name,avatar_url').in('id', userIds)
-        profileMap = Object.fromEntries((profiles ?? []).map(p => [p.id, p]))
-      }
-      setComments(commentRows.map(c => ({ ...c, author: profileMap[c.user_id] ?? null })))
 
       // Watched items for progress
       if (uid && itemsRes.data?.length) {
@@ -134,40 +114,6 @@ export default function ListPage() {
       setLiked(true); setLikeCount(c => c + 1)
     }
     setLikeBusy(false)
-  }
-
-  const submitComment = async () => {
-    if (!currentUserId || !newComment.trim() || submitting) return
-    const aviso = avisoDeLinks('comentario', newComment)
-    if (aviso) { toast.error(aviso); return }
-    setSubmitting(true)
-    const { data, error } = await supabase.from('list_comments')
-      .insert({ list_id: id, user_id: currentUserId, content: newComment.trim() })
-      .select('*').single()
-    if (esRechazoPorLinks(error)) toast.error(MENSAJE_SIN_LINKS.comentario)
-    if (data) {
-      const { data: profile } = await supabase.from('profiles')
-        .select('id,username,display_name,avatar_url').eq('id', currentUserId).maybeSingle()
-      setComments(prev => [...prev, { ...(data as Comment), author: profile as Author | null }])
-      setNewComment('')
-      // Notify list owner (fire-and-forget)
-      if (list && list.user_id !== currentUserId) {
-        sendNotification(supabase as Parameters<typeof sendNotification>[0], {
-          user_id:      list.user_id,
-          actor_id:     currentUserId,
-          type:         'list_comment',
-          entity_id:    id,
-          entity_type:  'list',
-          entity_title: list.title,
-        })
-      }
-    }
-    setSubmitting(false)
-  }
-
-  const deleteComment = async (cId: string) => {
-    await supabase.from('list_comments').delete().eq('id', cId).eq('user_id', currentUserId!)
-    setComments(prev => prev.filter(c => c.id !== cId))
   }
 
   const displayItems = useMemo(() => {
@@ -403,63 +349,8 @@ export default function ListPage() {
         </div>
       )}
 
-      {/* Comments */}
-      <div className="border-t border-[#2A2A3A] pt-8">
-        <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
-          <MessageCircle size={18} /> {comments.length > 0 ? `${comments.length} comentarios` : 'Comentarios'}
-        </h2>
-
-        {currentUserId && (
-          <div className="flex gap-3 mb-6">
-            <textarea
-              value={newComment}
-              onChange={e => setNewComment(e.target.value)}
-              placeholder="Escribí un comentario..."
-              rows={2}
-              className="flex-1 bg-[#13131A] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none resize-none transition-colors"
-              onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() } }}
-            />
-            <button onClick={submitComment} disabled={!newComment.trim() || submitting}
-              className="px-4 py-2 rounded-xl bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 text-black text-sm font-semibold transition-colors self-end">
-              <Send size={16} />
-            </button>
-          </div>
-        )}
-
-        {comments.length === 0 && (
-          <p className="text-[#A0A0B0] text-sm text-center py-6">Sin comentarios todavía.</p>
-        )}
-
-        <div className="space-y-4">
-          {comments.map(c => {
-            const name = c.author?.display_name ?? c.author?.username ?? 'Usuario'
-            return (
-              <div key={c.id} className="flex gap-3">
-                <div className="w-8 h-8 rounded-full overflow-hidden bg-zinc-700 shrink-0 mt-0.5">
-                  {c.author?.avatar_url
-                    // eslint-disable-next-line @next/next/no-img-element
-                    ? <img src={c.author.avatar_url} alt={name} className="w-full h-full object-cover" />
-                    : <div className="w-full h-full flex items-center justify-center text-xs font-bold bg-[#2A2A3A] text-[#FFFD02]">{name[0]?.toUpperCase()}</div>
-                  }
-                </div>
-                <div className="flex-1 min-w-0">
-                  <div className="flex items-center gap-2 mb-0.5 flex-wrap">
-                    <Link href={`/usuario/${c.author?.username}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">{name}</Link>
-                    <VerifiedBadge userId={c.user_id} size={13} />
-                    <span className="text-[11px] text-[#A0A0B0]">{timeAgo(c.created_at)}</span>
-                    {(currentUserId === c.user_id || isOwner) && (
-                      <button onClick={() => deleteComment(c.id)} className="text-zinc-700 hover:text-red-400 transition-colors ml-auto">
-                        <Trash2 size={12} />
-                      </button>
-                    )}
-                  </div>
-                  <p className="text-sm text-zinc-300 leading-relaxed">{c.content}</p>
-                </div>
-              </div>
-            )
-          })}
-        </div>
-      </div>
+      {/* Comentarios: respuestas, me gusta y reportar (`ComentariosHilo`). */}
+      <ComentariosHilo tipo="list" destino={id} tituloDestino={list.title} duenioId={list.user_id} />
     </div>
   )
 }

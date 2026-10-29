@@ -4,7 +4,7 @@ import Link from 'next/link'
 import { useRouter } from 'next/navigation'
 import { useState, useEffect, useRef, useCallback } from 'react'
 import { Search, LogOut, LogIn, Menu, X, UserCircle, Compass, Users, Bell, Clock, Settings } from 'lucide-react'
-import { notificationUrl } from '@/lib/notification-content'
+import { notificationUrl } from '@/lib/notification-url'
 import { formatNotifTime } from '@/lib/format-fecha-notificacion'
 import { track } from '@/lib/analytics'
 import { createClient } from '@/lib/supabase'
@@ -745,7 +745,8 @@ export default function Navbar() {
                                     <>{actorEl} comentó tu reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>
                                   )}
                                   {n.type === 'comment_reply' && (
-                                    <>{actorEl} respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title}</span></>
+                                    // En reseñas el título viene en `review_title`; en listas y guías, en `entity_title`.
+                                    <>{actorEl} respondió tu comentario en <span className="text-[#FFFD02]">{n.review_title ?? n.entity_title}</span></>
                                   )}
                                   {n.type === 'mention' && (
                                     <>{actorEl} te mencionó en su reseña de <span className="text-[#FFFD02]">{n.review_title}</span></>

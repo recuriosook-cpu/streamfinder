@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
-import { ArrowLeft, Heart, MessageSquare, Send, Share2, Trash2, X } from 'lucide-react'
+import { ArrowLeft, Flag, Heart, MessageSquare, Send, Share2, Trash2, X } from 'lucide-react'
 import { getPosterUrl } from '@/lib/tmdb'
 import { createClient } from '@/lib/supabase'
 import StarDisplay from '@/components/StarDisplay'
@@ -13,6 +13,9 @@ import ShareDropdown from '@/components/ShareDropdown'
 import { reviewImagePath } from '@/lib/share-urls'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import ReportModal from '@/components/ReportModal'
+import MeGustaComentario from '@/components/comentarios/MeGustaComentario'
+import { useMeGustaComentarios } from '@/lib/comentarios'
 import { toast } from 'sonner'
 import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 
@@ -107,6 +110,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
   const [newComment,      setNewComment]      = useState('')
   const [replyTo, setReplyTo] = useState<{ id: string; username: string; authorId: string } | null>(null)
   const [submitting,      setSubmitting]      = useState(false)
+  const [reporte,         setReporte]         = useState<{ id: string; authorId: string } | null>(null)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -270,6 +274,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
     return acc
   }, {})
   const commentCount = comments.length
+  const meGusta = useMeGustaComentarios('review', comments.map(c => c.id), currentUserId)
 
   return (
     <div className="min-h-screen bg-[#0A0A0F] py-10 px-4">
@@ -506,7 +511,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                 </Link>
                                 <VerifiedBadge userId={comment.user_id} size={14} />
                                 <span className="text-xs text-zinc-600">{cDate}</span>
-                                {comment.user_id === currentUserId && (
+                                {comment.user_id === currentUserId ? (
                                   <button
                                     onClick={() => deleteComment(comment.id)}
                                     className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
@@ -514,17 +519,34 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                   >
                                     <Trash2 size={13} />
                                   </button>
-                                )}
+                                ) : currentUserId ? (
+                                  <button
+                                    onClick={() => setReporte({ id: comment.id, authorId: comment.user_id })}
+                                    className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[#A0A0B0] hover:text-[#FFFD02] transition-all"
+                                    title="Reportar comentario"
+                                  >
+                                    <Flag size={12} />
+                                  </button>
+                                ) : null}
                               </div>
                               <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed"><WithMentions text={comment.content} /></p>
-                              {currentUserId && (
-                                <button
-                                  onClick={() => startReply(comment)}
-                                  className="text-xs text-zinc-600 hover:text-[#A0A0B0] transition-colors mt-1"
-                                >
-                                  Responder
-                                </button>
-                              )}
+                              <div className="flex items-center gap-3 mt-1">
+                                <MeGustaComentario
+                                  cantidad={meGusta.cuenta[comment.id] ?? 0}
+                                  mio={meGusta.mios.has(comment.id)}
+                                  onClick={() => void meGusta.alternar(comment.id)}
+                                  puedeTocar={!!currentUserId}
+                                  size={12}
+                                />
+                                {currentUserId && (
+                                  <button
+                                    onClick={() => startReply(comment)}
+                                    className="text-xs text-zinc-600 hover:text-[#A0A0B0] transition-colors"
+                                  >
+                                    Responder
+                                  </button>
+                                )}
+                              </div>
                             </div>
                           </div>
 
@@ -559,7 +581,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                         </Link>
                                         <VerifiedBadge userId={reply.user_id} size={14} />
                                         <span className="text-xs text-zinc-600">{rDate}</span>
-                                        {reply.user_id === currentUserId && (
+                                        {reply.user_id === currentUserId ? (
                                           <button
                                             onClick={() => deleteComment(reply.id)}
                                             className="ml-auto opacity-0 group-hover/reply:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
@@ -567,9 +589,25 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
                                           >
                                             <Trash2 size={12} />
                                           </button>
-                                        )}
+                                        ) : currentUserId ? (
+                                          <button
+                                            onClick={() => setReporte({ id: reply.id, authorId: reply.user_id })}
+                                            className="ml-auto opacity-0 group-hover/reply:opacity-100 text-[#A0A0B0] hover:text-[#FFFD02] transition-all"
+                                            title="Reportar comentario"
+                                          >
+                                            <Flag size={11} />
+                                          </button>
+                                        ) : null}
                                       </div>
                                       <p className="text-sm text-zinc-300 mt-0.5 leading-relaxed"><WithMentions text={reply.content} /></p>
+                                      <div className="mt-1">
+                                        <MeGustaComentario
+                                          cantidad={meGusta.cuenta[reply.id] ?? 0}
+                                          mio={meGusta.mios.has(reply.id)}
+                                          onClick={() => void meGusta.alternar(reply.id)}
+                                          puedeTocar={!!currentUserId}
+                                        />
+                                      </div>
                                     </div>
                                   </div>
                                 )
@@ -586,6 +624,16 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
           )}
         </div>
       </div>
+
+      {reporte && (
+        <ReportModal
+          contentType="comment"
+          contentId={reporte.id}
+          contentAuthorId={reporte.authorId}
+          isOpen
+          onClose={() => setReporte(null)}
+        />
+      )}
     </div>
   )
 }

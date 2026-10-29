@@ -11,6 +11,8 @@ import MentionTextarea from '@/components/MentionTextarea'
 import ShareDropdown from '@/components/ShareDropdown'
 import { reviewImagePath } from '@/lib/share-urls'
 import ReportModal from '@/components/ReportModal'
+import MeGustaComentario from '@/components/comentarios/MeGustaComentario'
+import { useMeGustaComentarios } from '@/lib/comentarios'
 import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
@@ -266,6 +268,7 @@ function ReviewCard({
     return acc
   }, {})
   const commentCount = comments.length
+  const meGusta = useMeGustaComentarios('review', comments.map(c => c.id), currentUserId)
 
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl overflow-hidden">
@@ -601,14 +604,22 @@ function ReviewCard({
                           <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
                             <BodyWithMentions text={comment.content} />
                           </p>
-                          {currentUserId && (
-                            <button
-                              onClick={() => startReply(comment)}
-                              className="text-[10px] text-zinc-600 hover:text-[#A0A0B0] transition-colors mt-0.5"
-                            >
-                              Responder
-                            </button>
-                          )}
+                          <div className="flex items-center gap-3 mt-0.5">
+                            <MeGustaComentario
+                              cantidad={meGusta.cuenta[comment.id] ?? 0}
+                              mio={meGusta.mios.has(comment.id)}
+                              onClick={() => void meGusta.alternar(comment.id)}
+                              puedeTocar={!!currentUserId}
+                            />
+                            {currentUserId && (
+                              <button
+                                onClick={() => startReply(comment)}
+                                className="text-[10px] text-zinc-600 hover:text-[#A0A0B0] transition-colors"
+                              >
+                                Responder
+                              </button>
+                            )}
+                          </div>
                         </div>
                       </div>
 
@@ -675,6 +686,15 @@ function ReviewCard({
                                   <p className="text-xs text-zinc-300 mt-0.5 leading-relaxed">
                                     <BodyWithMentions text={reply.content} />
                                   </p>
+                                  <div className="mt-0.5">
+                                    <MeGustaComentario
+                                      cantidad={meGusta.cuenta[reply.id] ?? 0}
+                                      mio={meGusta.mios.has(reply.id)}
+                                      onClick={() => void meGusta.alternar(reply.id)}
+                                      puedeTocar={!!currentUserId}
+                                      size={10}
+                                    />
+                                  </div>
                                 </div>
                               </div>
                             )

@@ -8,7 +8,11 @@ const nextConfig: NextConfig = {
   // del disco en runtime. El rastreo de archivos suele encontrarlos solo; esto
   // lo asegura, porque si faltan cada imagen da 500.
   outputFileTracingIncludes: {
-    '/api/share/**': ['./assets/share-fonts/**/*', './public/logo.png'],
+    '/api/share/**': ['./assets/share-fonts/**/*', './public/logo.png', './public/guias/**/*', './content/guides/**/*'],
+    '/api/guias/**': ['./public/guias/**/*', './content/guides/**/*'],
+    // El texto de las respuestas en guías lleva el título de la guía (`lib/notification-content.ts`).
+    '/api/push/**': ['./content/guides/**/*'],
+    '/api/notifications/**': ['./content/guides/**/*'],
   },
   async redirects() {
     return [

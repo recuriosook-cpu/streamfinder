@@ -45,3 +45,6 @@ next-env.d.ts
 /public/sw.js.map
 /public/workbox-*.js
 /public/workbox-*.js.map
+
+# El CLI de Supabase (supabase db query --linked) deja acá su estado local.
+supabase/.temp/

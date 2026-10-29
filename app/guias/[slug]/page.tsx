@@ -3,6 +3,9 @@ import { itunesPara } from '@/lib/tiendas'
 import { notFound } from 'next/navigation'
 import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
+import CompartirHistoria from '@/components/CompartirHistoria'
+import ComentariosHilo from '@/components/comentarios/ComentariosHilo'
+import CantidadComentarios from '@/components/comentarios/CantidadComentarios'
 import { getGuideBySlug, getAllGuideSlugs } from '@/lib/guides'
 import { MovieGrid } from '@/components/guides/MovieGrid'
 import { MovieCard } from '@/components/guides/MovieCard'
@@ -103,20 +106,14 @@ export default async function GuideSlugPage(
 
         {/* Hero */}
         <div className="relative h-[420px] overflow-hidden">
-          {/* Background: hero image or gradient fallback */}
-          {guide.heroImage ? (
-            // eslint-disable-next-line @next/next/no-img-element
-            <img
-              src={guide.heroImage}
-              alt={guide.title}
-              className="absolute inset-0 w-full h-full object-cover"
-            />
-          ) : (
-            <div
-              className="absolute inset-0"
-              style={{ background: `linear-gradient(135deg, ${guide.heroColor ?? '#1a1a2e'} 0%, #0A0A0F 100%)` }}
-            />
-          )}
+          {/* La portada. Sin una propia, `/api/guias/portada` manda la imagen
+              horizontal del primer título. */}
+          {/* eslint-disable-next-line @next/next/no-img-element */}
+          <img
+            src={guide.heroImage ?? `/api/guias/portada/${guide.slug}`}
+            alt={guide.title}
+            className="absolute inset-0 w-full h-full object-cover"
+          />
           {/* Dark overlay for text legibility */}
           <div className="absolute inset-0 bg-gradient-to-t from-[#0A0A0F] via-black/60 to-black/30" />
 
@@ -146,6 +143,18 @@ export default async function GuideSlugPage(
               <span>{date}</span>
               <span>·</span>
               <span>{guide.movies.length} películas</span>
+            </div>
+            <div className="mt-5 flex items-center gap-5">
+              <CompartirHistoria
+                que="guia"
+                desde="guia"
+                // `v` cambia con cada edición: la imagen se cachea un día.
+                imagen={`/api/share/guia/${guide.slug}?jpg=1&v=${encodeURIComponent(guide.updatedAt)}`}
+                mensaje={`Mirá la guía "${guide.title}" en Glynbox`}
+                etiqueta="Compartir guía"
+                copiar={`https://www.glynbox.com/guias/${guide.slug}`}
+              />
+              <CantidadComentarios slug={guide.slug} />
             </div>
           </div>
           </div>
@@ -200,6 +209,11 @@ export default async function GuideSlugPage(
                 </Link>
               </div>
             </div>
+          </div>
+
+          {/* Comentarios, al final de la guía. */}
+          <div className="mt-12">
+            <ComentariosHilo tipo="guide" destino={guide.slug} tituloDestino={guide.title} />
           </div>
         </div>
       </div>
