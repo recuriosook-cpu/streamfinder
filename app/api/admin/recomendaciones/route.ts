@@ -1,9 +1,10 @@
 import { NextResponse, type NextRequest } from 'next/server'
-import { revalidatePath } from 'next/cache'
+import { revalidateTag } from 'next/cache'
 import { cookies } from 'next/headers'
 import { createServerClient } from '@supabase/ssr'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
+import { TAG_INDICE_RECOMENDACIONES, tagFicha } from '@/lib/creator-recommendations'
 import { BUCKET, subirPortada } from '@/lib/recommendation-images'
 import { codigoDePost, fichaDeLink, bajarPortada } from '@/lib/instagram-covers'
 
@@ -301,9 +302,20 @@ export async function POST(req: NextRequest) {
     return error(500, 'db', errInsert.message)
   }
 
-  revalidatePath(`/${media.mediaType}/${media.tmdbId}`)
+  verAlInstante(media.mediaType, media.tmdbId)
 
   return NextResponse.json({ item: aRecomendacion(admin, fila, titulo) }, { status: 201 })
+}
+
+/**
+ * Que la ficha muestre el cambio en la próxima visita: vence la lista de
+ * títulos con recomendación y borra de la CDN la copia de esa ficha. Con
+ * `expire: 0` la próxima visita la arma de nuevo en el momento, en vez de
+ * mostrar una vez la vieja mientras se renueva.
+ */
+function verAlInstante(mediaType: 'movie' | 'tv', tmdbId: number) {
+  revalidateTag(TAG_INDICE_RECOMENDACIONES, { expire: 0 })
+  revalidateTag(tagFicha(mediaType, tmdbId), { expire: 0 })
 }
 
 // ── DELETE: borrar una ─────────────────────────────────────────────────────
@@ -325,7 +337,7 @@ export async function DELETE(req: NextRequest) {
   if (errDelete) return error(500, 'db', errDelete.message)
   if (!borrada) return error(404, 'no_existe', 'Esa recomendación ya no está. Actualizá la lista.')
 
-  revalidatePath(`/${borrada.media_type}/${borrada.tmdb_id}`)
+  verAlInstante(borrada.media_type, borrada.tmdb_id)
 
   return NextResponse.json({ ok: true })
 }

@@ -36,36 +36,56 @@ interface Row {
 }
 
 /**
- * Qué títulos tienen alguna recomendación, guardado en la memoria de la
- * instancia (Fluid Compute la reusa entre pedidos) por `INDICE_TTL_MS`.
- *
- * Son ~200 títulos entre decenas de miles de fichas: antes cada render hacía
- * la consulta y casi siempre volvía vacía. Eran ~8 pedidos por minuto a
- * Supabase, cada uno una línea más en sus logs, y el plan Free tiene 1 GB de
- * logs por mes (2026-10-28 iba por 2,12). Una recomendación nueva tarda hasta
- * `INDICE_TTL_MS` en aparecer, que igual es menos que el día de CDN de la ficha.
+ * La etiqueta de la lista de títulos con recomendación (ver `indice`). El
+ * panel la vence al cargar o borrar una, así la próxima ficha ya la ve.
  */
-const INDICE_TTL_MS = 30 * 60 * 1000
-let indice: { claves: Set<string>; hasta: number } | null = null
+export const TAG_INDICE_RECOMENDACIONES = 'recomendaciones-indice'
 
-async function tieneRecomendaciones(
-  supabase: SupabaseClient,
-  mediaType: 'movie' | 'tv',
-  mediaId: number,
-): Promise<boolean> {
-  if (!indice || indice.hasta < Date.now()) {
-    const { data, error } = await supabase
-      .from('creator_recommendations')
-      .select('media_type, tmdb_id')
-      .range(0, 9999)
-    // Si falla, se sigue como antes (consulta por ficha) hasta la próxima vuelta.
-    if (error || !data) return true
-    indice = {
-      claves: new Set(data.map(r => `${r.media_type}:${r.tmdb_id}`)),
-      hasta: Date.now() + INDICE_TTL_MS,
-    }
-  }
-  return indice.claves.has(`${mediaType}:${mediaId}`)
+/**
+ * La etiqueta de caché de una ficha en la CDN: la pone `next.config.ts`
+ * (`Vercel-Cache-Tag`) y el panel la purga al cargar o borrar una
+ * recomendación de ese título. `revalidatePath` no alcanza: las fichas no usan
+ * ISR, se cachean con `Vercel-CDN-Cache-Control`, y esa copia sólo se borra
+ * por etiqueta.
+ */
+export function tagFicha(mediaType: 'movie' | 'tv', mediaId: number): string {
+  return `ficha-${mediaType}-${mediaId}`
+}
+
+/**
+ * Qué títulos tienen alguna recomendación, armado desde la base.
+ *
+ * Son ~200 títulos entre decenas de miles de fichas: consultar las
+ * recomendaciones en cada render casi siempre volvía vacío, y eran ~8 pedidos
+ * por minuto a Supabase (cada uno una línea más en sus logs; el plan Free
+ * tiene 1 GB por mes). Con esta lista sólo se consulta en las fichas que
+ * tienen alguna.
+ *
+ * Va en la caché de datos de Vercel y no en la memoria de la instancia: el
+ * 28/10 vivía 30 minutos en cada instancia, y una recomendación nueva no
+ * aparecía hasta que vencía en todas (Mr. Nobody, 29/10). La caché de datos es
+ * una sola para todas las instancias y el panel la vence con
+ * `TAG_INDICE_RECOMENDACIONES` al cargar o borrar. El día es sólo por las
+ * dudas: una carga hecha a mano en la base o con el script de importación.
+ */
+async function indice(): Promise<Set<string> | null> {
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY!
+  const res = await fetch(
+    `${process.env.NEXT_PUBLIC_SUPABASE_URL}/rest/v1/creator_recommendations?select=media_type,tmdb_id&limit=10000`,
+    {
+      headers: { apikey: key, Authorization: `Bearer ${key}` },
+      next: { tags: [TAG_INDICE_RECOMENDACIONES], revalidate: 86_400 },
+    },
+  )
+  if (!res.ok) return null
+  const filas = (await res.json()) as { media_type: string; tmdb_id: number }[]
+  return new Set(filas.map(r => `${r.media_type}:${r.tmdb_id}`))
+}
+
+async function tieneRecomendaciones(mediaType: 'movie' | 'tv', mediaId: number): Promise<boolean> {
+  const claves = await indice()
+  // Si falla, se consulta la ficha como antes de existir la lista.
+  return claves ? claves.has(`${mediaType}:${mediaId}`) : true
 }
 
 /**
@@ -79,7 +99,7 @@ export async function getCreatorRecommendations(
   mediaId: number,
 ): Promise<CreatorRecommendation[]> {
   try {
-    if (!(await tieneRecomendaciones(supabase, mediaType, mediaId))) return []
+    if (!(await tieneRecomendaciones(mediaType, mediaId))) return []
 
     const { data, error } = await supabase
       .from('creator_recommendations')

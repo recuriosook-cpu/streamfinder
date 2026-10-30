@@ -50,6 +50,13 @@ const nextConfig: NextConfig = {
         source,
         headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=86400' }],
       })),
+      // La etiqueta de la ficha de cada película y serie, para poder borrar su
+      // copia de la CDN (`tagFicha` en lib/creator-recommendations.ts): el
+      // panel de recomendaciones la purga al cargar o borrar una.
+      ...(['movie', 'tv'] as const).map(tipo => ({
+        source: `/${tipo}/:id(\\d+)`,
+        headers: [{ key: 'Vercel-Cache-Tag', value: `ficha-${tipo}-:id` }],
+      })),
     ]
   },
   images: {
