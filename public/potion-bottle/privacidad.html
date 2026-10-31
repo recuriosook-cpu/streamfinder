@@ -97,7 +97,7 @@
 <header>
   <p class="juego">Potion Bottle: Water Sort Puzzle</p>
   <h1>Política de Privacidad</h1>
-  <p class="fecha">Última actualización: 1 de octubre de 2026</p>
+  <p class="fecha">Última actualización: 31 de octubre de 2026</p>
 </header>
 
 <main>
@@ -107,7 +107,7 @@
 <p>El responsable del juego es <strong>Fernando Darío Lage Muñoz</strong>, con domicilio en Argentina. Para cualquier consulta sobre esta política podés escribir a <a href="mailto:soporte@glynbox.com">soporte@glynbox.com</a>.</p>
 
 <div class="aparte">
-  <p><strong>En resumen:</strong> el juego no te pide ningún dato personal y no tiene registro ni cuenta. Tu progreso se guarda en tu dispositivo. Del teléfono salen tres cosas: estadísticas de juego anónimas que usamos para mejorar los niveles —y que podés desactivar desde los ajustes—, los datos que recopila Google AdMob para mostrar publicidad y los que recopila Google Play para procesar compras.</p>
+  <p><strong>En resumen:</strong> el juego no te pide ningún dato personal y no tiene registro ni cuenta. Tu progreso se guarda en tu dispositivo. Del teléfono salen cuatro cosas: estadísticas de juego anónimas que usamos para mejorar los niveles —y que podés desactivar desde los ajustes—, los datos que recopila Google AdMob para mostrar publicidad, los que recopila la tienda (App Store de Apple o Google Play) para procesar compras y, si comprás algo, los datos de esa compra que necesitamos para verificarla con la tienda.</p>
 </div>
 
 <h2>1. Información que no recopilamos</h2>
@@ -128,7 +128,7 @@
   <li>El estado de tus compras dentro de la aplicación</li>
 </ul>
 
-<p>Esta información se guarda en tu dispositivo. Si desinstalás el juego, se borra por completo. No la copiamos a nuestros servidores: lo único que recibimos son las estadísticas anónimas que describe la sección siguiente, que incluyen el número de nivel que estás jugando pero no tus monedas, tus compras ni tus preferencias.</p>
+<p>Esta información se guarda en tu dispositivo. Si desinstalás el juego, se borra por completo. No la copiamos a nuestros servidores. Lo que recibimos son las estadísticas anónimas que describe la sección siguiente, que incluyen el número de nivel que estás jugando pero no tus monedas, tus compras ni tus preferencias, y, si comprás algo, el registro de esa compra que describe la sección 4.</p>
 
 <h2>3. Estadísticas de juego anónimas</h2>
 
@@ -152,19 +152,33 @@
 
 <h2>4. Servicios de terceros</h2>
 
-<p>El juego utiliza servicios de Google que recopilan información por su cuenta. Cada uno se rige por su propia política de privacidad.</p>
+<p>El juego utiliza servicios de terceros. Google y Apple recopilan información por su cuenta y cada uno se rige por su propia política de privacidad.</p>
 
 <p><strong>Google AdMob</strong> muestra los anuncios del juego. Para hacerlo puede recopilar el identificador de publicidad de tu dispositivo, el modelo y sistema operativo del equipo, tu país o región aproximada y datos sobre tu interacción con los anuncios. Podés consultar cómo Google usa esta información en <a href="https://policies.google.com/technologies/partner-sites" target="_blank" rel="noopener">policies.google.com/technologies/partner-sites</a>.</p>
 
-<p><strong>Google Play Facturación</strong> procesa las compras y suscripciones. Nosotros no vemos ni almacenamos los datos de tu tarjeta ni de tu método de pago: esa información la maneja Google directamente. Podés consultar su política en <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.</p>
+<p><strong>Apple (App Store)</strong> procesa las compras y suscripciones hechas en iPhone. Nosotros no vemos ni almacenamos los datos de tu tarjeta ni de tu método de pago: esa información la maneja Apple directamente. Podés consultar su política en <a href="https://www.apple.com/legal/privacy/" target="_blank" rel="noopener">apple.com/legal/privacy</a>.</p>
 
-<p><strong>Supabase</strong> aloja la base de datos donde guardamos las estadísticas anónimas de la sección 3. No las usa para fines propios. Podés consultar su política en <a href="https://supabase.com/privacy" target="_blank" rel="noopener">supabase.com/privacy</a>.</p>
+<p><strong>Google Play Facturación</strong> procesa las compras y suscripciones hechas en Android. Nosotros no vemos ni almacenamos los datos de tu tarjeta ni de tu método de pago: esa información la maneja Google directamente. Podés consultar su política en <a href="https://policies.google.com/privacy" target="_blank" rel="noopener">policies.google.com/privacy</a>.</p>
+
+<p><strong>Supabase</strong> aloja la base de datos donde guardamos las estadísticas anónimas de la sección 3 y el registro de compras que se describe abajo, y ejecuta la función que verifica las compras. No usa esos datos para fines propios. Podés consultar su política en <a href="https://supabase.com/privacy" target="_blank" rel="noopener">supabase.com/privacy</a>.</p>
+
+<p><strong>Verificación y registro de compras.</strong> Cuando comprás algo, el juego le manda a nuestra función en Supabase el producto y el identificador de la compra, y la función le pregunta a Apple o a Google si es una compra pagada de este juego. Por cada compra verificada guardamos:</p>
+
+<ul>
+  <li>El identificador de la compra: el número de transacción en Apple o el token de compra en Google. En una suscripción de Apple, el de la transacción original.</li>
+  <li>La tienda (Apple o Google) y el producto comprado.</li>
+  <li>El número de pedido o de transacción y el estado de la compra, por ejemplo pagada, cancelada o suscripción activa.</li>
+  <li>Si fue una compra de prueba y, en una suscripción, hasta cuándo vale.</li>
+  <li>La fecha de la primera y de la última verificación.</li>
+</ul>
+
+<p>Este registro no incluye tu nombre, tu correo electrónico ni tus datos de pago. Lo usamos para decidir si corresponde entregar la compra, para consultar ventas y reembolsos, y no lo compartimos ni lo vendemos. Hoy no tiene un plazo de borrado automático: lo conservamos mientras haga falta para esos fines.</p>
 
 <h2>5. Publicidad</h2>
 
 <p>El juego muestra anuncios entre niveles y ofrece anuncios opcionales con recompensa, que solo se reproducen si elegís verlos.</p>
 
-<p>Podés limitar la publicidad personalizada desde la configuración de tu propio dispositivo:</p>
+<p>En iPhone, el juego te pide permiso con el aviso de seguimiento de Apple antes de iniciar la publicidad. Podés limitar la publicidad personalizada desde la configuración de tu propio dispositivo:</p>
 
 <ul>
   <li><strong>Android:</strong> Ajustes → Google → Anuncios</li>
@@ -179,14 +193,16 @@
 
 <h2>7. Tus derechos</h2>
 
-<p>Lo único que guardamos en nuestros servidores son las estadísticas anónimas de la sección 3. Como no están asociadas a tu nombre, a tu correo ni a ningún otro dato que te identifique, no tenemos forma de saber cuáles corresponden a tu instalación, y por eso no podemos entregártelas ni borrarlas una por una a pedido. Lo que sí podés hacer es:</p>
+<p>En nuestros servidores guardamos las estadísticas anónimas de la sección 3 y el registro de compras de la sección 4. Como las estadísticas no están asociadas a tu nombre, a tu correo ni a ningún otro dato que te identifique, no tenemos forma de saber cuáles corresponden a tu instalación, y por eso no podemos entregártelas ni borrarlas una por una a pedido. Lo que sí podés hacer es:</p>
 
 <ul>
   <li><strong>Dejar de enviarlas</strong> en cualquier momento, desde Ajustes → Estadísticas.</li>
   <li><strong>Desinstalar el juego</strong>, que borra todo lo que guarda en tu teléfono, incluido el identificador anónimo de la instalación. A partir de ahí, las estadísticas ya enviadas no pueden volver a relacionarse con ningún dispositivo.</li>
 </ul>
 
-<p>Respecto de los datos que recopilan Google AdMob y Google Play, podés ejercer tus derechos directamente ante Google a través de las políticas enlazadas más arriba, o limitar la publicidad personalizada desde la configuración de tu dispositivo.</p>
+<p>Sobre el registro de una compra, podés escribirnos a <a href="mailto:soporte@glynbox.com">soporte@glynbox.com</a> con su número de transacción o de pedido, que figura en el recibo de la tienda, para consultarlo o pedir que lo borremos, salvo lo que debamos conservar por obligación legal.</p>
+
+<p>Respecto de los datos que recopilan Google AdMob, Google Play y Apple, podés ejercer tus derechos directamente ante cada empresa a través de las políticas enlazadas más arriba, o limitar la publicidad personalizada desde la configuración de tu dispositivo.</p>
 
 <p>Si residís en la Unión Europea, el Reino Unido o California, la legislación de tu jurisdicción puede otorgarte derechos adicionales de acceso, rectificación, supresión y oposición al tratamiento de tus datos. Podés ejercerlos escribiendo a <a href="mailto:soporte@glynbox.com">soporte@glynbox.com</a>.</p>
 
@@ -194,7 +210,7 @@
 
 <p>Tu progreso y tus preferencias permanecen en tu dispositivo, así que su seguridad depende de las protecciones de tu propio teléfono. Te recomendamos mantener el sistema operativo actualizado y descargar el juego únicamente desde tiendas oficiales.</p>
 
-<p>Las estadísticas anónimas viajan cifradas y se guardan en una base de datos a la que solo nosotros tenemos acceso de lectura. El juego puede agregar eventos, pero no puede leer los de otras instalaciones.</p>
+<p>Las estadísticas anónimas viajan cifradas y se guardan en una base de datos a la que solo nosotros tenemos acceso de lectura. El juego puede agregar eventos, pero no puede leer los de otras instalaciones. El registro de compras también viaja cifrado y solo lo escribe nuestra función de verificación: el juego no puede leerlo ni modificarlo.</p>
 
 <h2>9. Cambios en esta política</h2>
 
