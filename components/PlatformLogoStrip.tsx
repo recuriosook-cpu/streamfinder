@@ -117,9 +117,6 @@ export default function PlatformLogoStrip({ platforms }: Props) {
         <div
           ref={scrollRef}
           className="flex gap-3 overflow-x-auto no-scrollbar pb-1 carousel-scroll"
-          // `carousel-scroll` deja sólo el gesto de costado: empezar a deslizar
-          // sobre esta fila no tiene que trabar el scroll de la página.
-          style={{ touchAction: 'pan-x pan-y' }}
         >
           {platforms.map(platform => {
             const showLogo = !!platform.logoPath && !imgErrors.has(platform.id)

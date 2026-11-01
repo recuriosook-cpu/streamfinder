@@ -57,7 +57,8 @@ button, input, select, textarea, label {
 .carousel-scroll {
   -webkit-overflow-scrolling: touch;
   scroll-snap-type: x mandatory;
-  touch-action: pan-x;
+  /* Los dos: con sólo pan-x, empezar a deslizar sobre un carrusel trababa la página. */
+  touch-action: pan-x pan-y;
   scroll-behavior: smooth;
 }
 .carousel-snap {
