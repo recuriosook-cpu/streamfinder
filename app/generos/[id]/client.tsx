@@ -32,7 +32,7 @@ function GridSkeleton() {
 
 function MediaCard({ item }: { item: MediaItem }) {
   return (
-    <Link
+    <Link prefetch={false}
       href={`/${item.type}/${item.id}`}
       className="group block"
     >

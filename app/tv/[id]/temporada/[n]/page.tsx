@@ -142,7 +142,7 @@ export default async function SeasonPage({ params }: Props) {
           {poster && <Image src={getPosterUrl(poster, 'w342')} alt={nombre} fill className="object-cover" />}
         </div>
         <div className="min-w-0 flex-1">
-          <Link href={`/tv/${show.id}`} className="text-sm text-[#A0A0B0] hover:text-white">{show.name}</Link>
+          <Link prefetch={false} href={`/tv/${show.id}`} className="text-sm text-[#A0A0B0] hover:text-white">{show.name}</Link>
           <h1 className="text-2xl sm:text-3xl font-bold text-white mt-0.5">{nombre}</h1>
           <div className="mt-2 flex flex-wrap items-center gap-x-3 gap-y-1 text-sm text-[#A0A0B0]">
             {fecha && <span className="inline-flex items-center gap-1"><Calendar size={14} /> {fecha}</span>}
@@ -240,12 +240,12 @@ export default async function SeasonPage({ params }: Props) {
       {(anterior || siguiente) && (
         <nav className="mt-10 flex justify-between gap-4 text-sm">
           {anterior ? (
-            <Link href={`/tv/${show.id}/temporada/${anterior.season_number}`} className="inline-flex items-center gap-1 text-[#A0A0B0] hover:text-white">
+            <Link prefetch={false} href={`/tv/${show.id}/temporada/${anterior.season_number}`} className="inline-flex items-center gap-1 text-[#A0A0B0] hover:text-white">
               <ChevronLeft size={16} /> {nombreTemporada(anterior)}
             </Link>
           ) : <span />}
           {siguiente && (
-            <Link href={`/tv/${show.id}/temporada/${siguiente.season_number}`} className="inline-flex items-center gap-1 text-[#A0A0B0] hover:text-white">
+            <Link prefetch={false} href={`/tv/${show.id}/temporada/${siguiente.season_number}`} className="inline-flex items-center gap-1 text-[#A0A0B0] hover:text-white">
               {nombreTemporada(siguiente)} <ChevronRight size={16} />
             </Link>
           )}

@@ -75,7 +75,7 @@ export default function DirectorCollaborators({ films }: { films: FilmRef[] }) {
       <h2 className="text-xl font-bold mb-4">Actores frecuentes</h2>
       <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-6 gap-4">
         {data.map(actor => (
-          <Link
+          <Link prefetch={false}
             key={actor.id}
             href={`/actor/${actor.id}`}
             className="flex flex-col items-center text-center group"

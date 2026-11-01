@@ -54,7 +54,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
           className="flex gap-3 sm:gap-4 overflow-x-auto no-scrollbar pb-2 carousel-scroll"
         >
           {cast.map(person => (
-            <Link
+            <Link prefetch={false}
               key={person.id}
               href={`/actor/${person.id}`}
               className="shrink-0 w-[72px] sm:w-[88px] flex flex-col items-center text-center group/actor carousel-snap"
@@ -110,7 +110,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
       {expanded && (
         <div className="mt-4 grid grid-cols-4 sm:grid-cols-6 md:grid-cols-8 gap-3">
           {cast.map(person => (
-            <Link
+            <Link prefetch={false}
               key={`grid-${person.id}`}
               href={`/actor/${person.id}`}
               className="flex flex-col items-center text-center group/actor"

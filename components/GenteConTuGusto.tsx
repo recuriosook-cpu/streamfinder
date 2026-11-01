@@ -60,7 +60,7 @@ export default function GenteConTuGusto() {
             </Link>
             <div className="mt-3 flex gap-1.5">
               {p.posters.map(poster => (
-                <Link key={`${poster.mediaType}:${poster.id}`} href={`/${poster.mediaType}/${poster.id}`} title={poster.title}>
+                <Link prefetch={false} key={`${poster.mediaType}:${poster.id}`} href={`/${poster.mediaType}/${poster.id}`} title={poster.title}>
                   {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={`https://image.tmdb.org/t/p/w154${poster.posterPath}`}

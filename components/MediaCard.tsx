@@ -19,7 +19,7 @@ function MediaCard({ id, title, posterPath, rating, year, mediaType }: MediaCard
   const href = mediaType === 'movie' ? `/movie/${id}` : `/tv/${id}`
 
   return (
-    <Link href={href} className="group block">
+    <Link prefetch={false} href={href} className="group block">
       <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
         {posterPath ? (
           <Image

@@ -28,7 +28,7 @@ export default function SimilarTitles({
           const title = item.title ?? item.name ?? 'Sin título'
           const year = (item.release_date ?? item.first_air_date ?? '').slice(0, 4)
           return (
-            <Link key={item.id} href={`/${mediaType}/${item.id}`} className="shrink-0 w-32 group">
+            <Link prefetch={false} key={item.id} href={`/${mediaType}/${item.id}`} className="shrink-0 w-32 group">
               <div className="relative w-32 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                 {item.poster_path ? (
                   <Image

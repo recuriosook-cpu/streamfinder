@@ -14,7 +14,7 @@ export default function TopRankedCard({ id, title, posterPath, mediaType, rank }
   const href = mediaType === 'movie' ? `/movie/${id}` : `/tv/${id}`
 
   return (
-    <Link href={href} className="flex-shrink-0 flex items-end group">
+    <Link prefetch={false} href={href} className="flex-shrink-0 flex items-end group">
       {/* Ranking number */}
       <span
         className="text-7xl md:text-8xl font-black leading-none select-none text-zinc-800 group-hover:text-zinc-700 transition-colors"

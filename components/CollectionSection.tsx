@@ -91,7 +91,7 @@ export default function CollectionSection({
             const isWatched = watchedIds.has(film.id)
             const year = film.release_date?.slice(0, 4)
             return (
-              <Link
+              <Link prefetch={false}
                 key={film.id}
                 href={`/movie/${film.id}`}
                 className="shrink-0 w-28 sm:w-32 group/item"

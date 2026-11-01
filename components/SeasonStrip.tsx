@@ -30,7 +30,7 @@ export default function SeasonStrip({
     const unica = seasons[0]
     if (activa !== undefined) return null
     return (
-      <Link href={url(unica.season_number)} className="inline-flex items-center gap-1 text-sm text-[#FFFD02] hover:underline mb-4">
+      <Link prefetch={false} href={url(unica.season_number)} className="inline-flex items-center gap-1 text-sm text-[#FFFD02] hover:underline mb-4">
         {unica.episode_count ? `Ver los ${unica.episode_count} episodios` : 'Ver episodios'} ›
       </Link>
     )
@@ -45,7 +45,7 @@ export default function SeasonStrip({
         {pestanias.map(s => {
           const esActiva = s.season_number === activa
           return (
-            <Link
+            <Link prefetch={false}
               key={s.season_number}
               href={url(s.season_number)}
               aria-current={esActiva ? 'page' : undefined}
@@ -61,7 +61,7 @@ export default function SeasonStrip({
         })}
       </div>
       {activa === undefined && (
-        <Link href={url(primera.season_number)} className="hidden sm:inline shrink-0 text-sm text-[#FFFD02] hover:underline">
+        <Link prefetch={false} href={url(primera.season_number)} className="hidden sm:inline shrink-0 text-sm text-[#FFFD02] hover:underline">
           Ver episodios ›
         </Link>
       )}

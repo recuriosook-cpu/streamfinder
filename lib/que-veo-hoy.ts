@@ -257,10 +257,13 @@ const VOTOS_MINIMOS = 300
  */
 const VOTOS_MINIMOS_AMPLIO = 50
 
-/** La palabra clave "anime" de TMDB, para pedirle que no las traiga en ese intento. */
+/** La palabra clave "anime" de TMDB, para pedirle que no las traiga. */
 const PALABRA_ANIME = '210024'
 
 const ANIMACION = 16
+
+/** Comedia, familia e infantiles: con "asustarme" no van (Henry Danger, Fantasmas). */
+const NO_ASUSTAN = [35, 10751, 10762]
 
 /** Animación japonesa. TMDB no tiene un género "anime". */
 function esAnime(f: Fila): boolean {
@@ -353,14 +356,22 @@ export async function queVeoHoy(
   // sería siempre "no encontramos nada". Lo más cercano es misterio y lo sobrenatural.
   const generosDeSerie = opts.ganas === 'asustarme' && opts.compania !== 'familia' ? [9648, 878, 14] : generos
   const generosDe = (tipo: MediaType) => (tipo === 'tv' ? generosDeSerie : generos)
+  // En familia no: ahí "asustarme" es a propósito misterio y fantasía para chicos.
+  const quiereMiedo = opts.ganas === 'asustarme' && opts.compania !== 'familia'
 
   // Lo suyo: plataformas, lo que calificó alto y lo que ya marcó.
   let plataformas = new Map<number, string>()
   const logos = new Map<number, string | null>()
   const semillas: { tipo: MediaType; id: number; titulo: string }[] = []
   const marcados = new Set<string>(opts.excluir)
-  /** Si la tiene entre sus géneros favoritos. Sin sesión, no. */
+  /** Si la tiene entre sus géneros favoritos. Sin sesión, no. Sin eso, nada de anime. */
   let eligioAnimacion = false
+  const descartada = (f: Fila): boolean => {
+    if (!eligioAnimacion && esAnime(f)) return true
+    if (!quiereMiedo) return false
+    const g = f.genre_ids ?? []
+    return g.some(id => NO_ASUSTAN.includes(id)) || (!eligioAnimacion && g.includes(ANIMACION))
+  }
   if (admin && opts.userId) {
     const uid = opts.userId
     const [perfil, notas, vistas, resenas] = await Promise.all([
@@ -428,7 +439,7 @@ export async function queVeoHoy(
   desde.forEach((s, i) => {
     for (const f of recos[i]) {
       const k = clave(s.tipo, f.id)
-      if (marcados.has(k) || !tipoPermitido(s.tipo, opts.duracion, opts.tipo) || !encaja(f, s.tipo, generosDe(s.tipo), opts.compania)) continue
+      if (marcados.has(k) || descartada(f) || !tipoPermitido(s.tipo, opts.duracion, opts.tipo) || !encaja(f, s.tipo, generosDe(s.tipo), opts.compania)) continue
       candidatos.push({ f, tipo: s.tipo, porque: s.titulo })
     }
   })
@@ -460,7 +471,8 @@ export async function queVeoHoy(
       with_watch_monetization_types: 'flatrate|free|ads',
     }
     if (plataformas.size > 0) base.with_watch_providers = [...plataformas.keys()].join('|')
-    if (amplio && !eligioAnimacion) base.without_keywords = PALABRA_ANIME
+    if (!eligioAnimacion) base.without_keywords = PALABRA_ANIME
+    if (quiereMiedo) base.without_genres = [...NO_ASUSTAN, ...(eligioAnimacion ? [] : [ANIMACION])].join(',')
     // En familia, las series se piden por familiares e infantiles: el género
     // de las ganas lo mira `encaja`, entre todos los suyos.
     const generosSerie = opts.compania === 'familia'
@@ -484,10 +496,7 @@ export async function queVeoHoy(
     for (let i = 0; i < pozo.length && resultados.length < RESULTADOS; i += 6) {
       const tanda = pozo.slice(i, i + 6).filter(c => {
         const k = clave(c.tipo, c.f.id)
-        return !usados.has(k) && !marcados.has(k) && encaja(c.f, c.tipo, generosDe(c.tipo), opts.compania, amplio) &&
-          // En el intento amplio, anime sólo si eligió animación. Y "asustarme"
-          // traía dibujitos en general (Futurama): tampoco.
-          !(amplio && !eligioAnimacion && (esAnime(c.f) || (opts.ganas === 'asustarme' && (c.f.genre_ids ?? []).includes(ANIMACION))))
+        return !usados.has(k) && !marcados.has(k) && !descartada(c.f) && encaja(c.f, c.tipo, generosDe(c.tipo), opts.compania, amplio)
       })
       const dondes = await Promise.all(tanda.map(c => revisar(c.tipo, c.f.id)))
       tanda.forEach((c, j) => {

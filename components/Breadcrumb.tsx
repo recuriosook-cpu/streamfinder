@@ -21,7 +21,7 @@ export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
       {items.map((item, i) => (
         <span key={i} className="flex items-center gap-2">
           {item.href ? (
-            <Link href={item.href} className="hover:text-white transition-colors">{item.label}</Link>
+            <Link prefetch={false} href={item.href} className="hover:text-white transition-colors">{item.label}</Link>
           ) : (
             <span className="text-white">{item.label}</span>
           )}

@@ -199,7 +199,7 @@ function Poster({ path, title, mediaType, mediaId, large }: {
 }) {
   const w = large ? 48 : 40
   return (
-    <Link href={`/${mediaType}/${mediaId}`} className="shrink-0">
+    <Link prefetch={false} href={`/${mediaType}/${mediaId}`} className="shrink-0">
       <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] hover:opacity-90 transition-opacity" style={{ width: w }}>
         {path ? (
           <Image
@@ -227,7 +227,7 @@ function ReviewCard({ item, profiles, currentUserId, onLike }: {
   return (
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl overflow-hidden transition-colors">
       {/* Backdrop / poster image area */}
-      <Link href={`/${item.mediaType}/${item.mediaId}`} className="block relative overflow-hidden bg-[#1C1C27]" style={{ height: 180 }}>
+      <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`} className="block relative overflow-hidden bg-[#1C1C27]" style={{ height: 180 }}>
         {item.mediaPosterPath && (
           <Image
             src={`https://image.tmdb.org/t/p/w780${item.mediaPosterPath}`}
@@ -300,7 +300,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
       <div className="flex gap-3">
         {/* Poster */}
-        <Link href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
+        <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
           <div className="rounded-lg overflow-hidden bg-[#1C1C27]" style={{ width: 47, height: 70 }}>
             {item.mediaPosterPath ? (
               <Image src={`https://image.tmdb.org/t/p/w185${item.mediaPosterPath}`} alt={item.mediaTitle} width={47} height={70} className="w-full h-full object-cover" />
@@ -319,7 +319,7 @@ function RatingCard({ item, profiles }: { item: RatingFeed; profiles: Map<string
             </Link>
             <VerifiedBadge userId={p.id} size={13} />
             <span className="text-xs text-[#A0A0B0]">vio</span>
-            <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
+            <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
               {item.mediaTitle}
             </Link>
           </div>
@@ -344,7 +344,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
     <div className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/30 rounded-2xl p-4 transition-colors">
       <div className="flex gap-3">
         {/* Poster */}
-        <Link href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
+        <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`} className="shrink-0">
           <div className="rounded-lg overflow-hidden bg-[#1C1C27]" style={{ width: 47, height: 70 }}>
             {item.mediaPosterPath ? (
               <Image src={`https://image.tmdb.org/t/p/w185${item.mediaPosterPath}`} alt={item.mediaTitle} width={47} height={70} className="w-full h-full object-cover" />
@@ -363,7 +363,7 @@ function WatchlistCard({ item, profiles, currentUserId, onAdd }: {
             </Link>
             <VerifiedBadge userId={p.id} size={13} />
             <span className="text-xs text-[#A0A0B0]">quiere ver</span>
-            <Link href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
+            <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`} className="text-xs font-semibold line-clamp-1 hover:opacity-80 transition-opacity" style={{ color: '#FFFD02' }}>
               {item.mediaTitle}
             </Link>
           </div>
@@ -551,7 +551,7 @@ function RecommendationCard({ item, currentUserId, supabase, onAuthRequired }: {
       )}
       <div className="p-4 -mt-2">
         <div className="flex gap-3 items-start">
-          <Link href={`/movie/${item.movieId}`} className="shrink-0">
+          <Link prefetch={false} href={`/movie/${item.movieId}`} className="shrink-0">
             <div className="rounded-lg overflow-hidden bg-[#1C1C27]"
               style={{ width: 80, height: 120, marginTop: item.backdropPath ? '-32px' : 0 }}>
               {item.posterPath && (
@@ -569,7 +569,7 @@ function RecommendationCard({ item, currentUserId, supabase, onAuthRequired }: {
               <Sparkles size={12} style={{ color: '#FFFD02' }} />
               <span className="text-[10px] font-semibold" style={{ color: '#FFFD02' }}>Recomendado para vos</span>
             </div>
-            <Link href={`/movie/${item.movieId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
+            <Link prefetch={false} href={`/movie/${item.movieId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-1 block">
               {item.title}
             </Link>
             {item.year && <p className="text-xs text-[#A0A0B0] mt-0.5">{item.year}</p>}
@@ -792,7 +792,7 @@ function ActorBirthdayCard({ item }: { item: ActorBirthdayFeed }) {
           <Badge label="Cumpleaños" color="gold" />
           <p className="text-sm font-semibold text-white mt-1">
             Hoy es el cumpleaños de{' '}
-            <Link href={`/actor/${item.actorId}`} className="text-[#FFFD02] hover:underline">{item.actorName}</Link>
+            <Link prefetch={false} href={`/actor/${item.actorId}`} className="text-[#FFFD02] hover:underline">{item.actorName}</Link>
           </p>
           <p className="text-xs text-[#A0A0B0]">¡{item.age} años!</p>
         </div>
@@ -819,7 +819,7 @@ function ActorReleaseCard({ item }: { item: ActorReleaseFeed }) {
         </div>
         <div className="flex-1 min-w-0">
           <div className="flex items-center gap-1.5 flex-wrap mb-1">
-            <Link href={`/actor/${item.actorId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
+            <Link prefetch={false} href={`/actor/${item.actorId}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">
               {item.actorName}
             </Link>
             <Badge label="Nuevo estreno" color="blue" />
@@ -828,7 +828,7 @@ function ActorReleaseCard({ item }: { item: ActorReleaseFeed }) {
           <div className="flex gap-3 mt-1">
             <Poster path={item.mediaPosterPath} title={item.mediaTitle} mediaType={item.mediaType} mediaId={item.mediaId} />
             <div className="min-w-0">
-              <Link href={`/${item.mediaType}/${item.mediaId}`}
+              <Link prefetch={false} href={`/${item.mediaType}/${item.mediaId}`}
                 className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors line-clamp-2 block">
                 {item.mediaTitle}
               </Link>

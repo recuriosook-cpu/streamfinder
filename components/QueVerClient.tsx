@@ -501,7 +501,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
 
         <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-3 md:gap-4">
           {displayItems.map(item => (
-            <Link
+            <Link prefetch={false}
               key={`${item.mediaType}-${item.id}`}
               href={`/${item.mediaType}/${item.id}`}
               className="group"

@@ -563,7 +563,7 @@ export default function ResumenPage() {
               : (
                 <div className="space-y-3">
                   {topRated.map((item, i) => (
-                    <Link
+                    <Link prefetch={false}
                       key={`${item.media_id}-${item.media_type}`}
                       href={`/${item.media_type === 'tv' ? 'series' : 'movie'}/${item.media_id}`}
                       className="flex items-center gap-3 hover:bg-[#1C1C27] -mx-2 px-2 py-1.5 rounded-xl transition-colors"
@@ -599,7 +599,7 @@ export default function ResumenPage() {
               : (
                 <div className="space-y-3">
                   {topWatchlist.map((item, i) => (
-                    <Link
+                    <Link prefetch={false}
                       key={`${item.media_id}-${item.media_type}-wl`}
                       href={`/${item.media_type === 'tv' ? 'series' : 'movie'}/${item.media_id}`}
                       className="flex items-center gap-3 hover:bg-[#1C1C27] -mx-2 px-2 py-1.5 rounded-xl transition-colors"

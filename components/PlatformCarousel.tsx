@@ -75,7 +75,7 @@ function PlatformCarousel({ name, color, items }: PlatformCarouselProps) {
           const href = item.mediaType === 'movie' ? `/movie/${item.id}` : `/tv/${item.id}`
           return (
             <div key={`${item.mediaType}-${item.id}`} className="flex-shrink-0 w-36 sm:w-36 carousel-snap group">
-              <Link href={href} className="block">
+              <Link prefetch={false} href={href} className="block">
                 <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105 will-change-transform">
                   <Image
                     src={getPosterUrl(item.posterPath, 'w185')}
@@ -116,7 +116,7 @@ function PlatformCarousel({ name, color, items }: PlatformCarouselProps) {
                 </div>
               </Link>
 
-              <Link href={href}>
+              <Link prefetch={false} href={href}>
                 <p className="text-xs font-semibold text-white line-clamp-1 group-hover:text-zinc-300 transition-colors">
                   {item.title}
                 </p>

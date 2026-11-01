@@ -53,7 +53,7 @@ export function MovieCard({ tmdbId, mediaType = 'movie' }: MovieCardProps) {
   }
 
   return (
-    <Link href={href} className="group rounded-xl overflow-hidden bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/50 transition-all block">
+    <Link prefetch={false} href={href} className="group rounded-xl overflow-hidden bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/50 transition-all block">
       <div className="aspect-[2/3] relative overflow-hidden bg-zinc-800">
         {data?.poster_path ? (
           // eslint-disable-next-line @next/next/no-img-element

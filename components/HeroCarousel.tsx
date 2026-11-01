@@ -171,13 +171,13 @@ export default function HeroCarousel({ slides, user, userName }: Props) {
         <div className="flex flex-col sm:flex-row items-start sm:items-center gap-3">
           {!user ? (
             <>
-              <Link href="/auth?mode=register"
+              <Link prefetch={false} href="/auth?mode=register"
                 className="inline-flex items-center gap-2 text-black font-semibold px-6 py-3 rounded-full transition-all active:scale-95 text-sm hover:opacity-90"
                 style={{ backgroundColor: '#FFFD02' }}
               >
                 Crear cuenta gratis
               </Link>
-              <Link href={href}
+              <Link prefetch={false} href={href}
                 className="inline-flex items-center gap-2 text-white font-medium px-6 py-3 rounded-full border border-white/30 hover:border-white/60 transition-all text-sm"
               >
                 Ver detalles →
@@ -185,13 +185,13 @@ export default function HeroCarousel({ slides, user, userName }: Props) {
             </>
           ) : (
             <>
-              <Link href={href}
+              <Link prefetch={false} href={href}
                 className="inline-flex items-center gap-2 text-black font-semibold px-6 py-3 rounded-full transition-all active:scale-95 text-sm hover:opacity-90"
                 style={{ backgroundColor: '#FFFD02' }}
               >
                 Ver detalles →
               </Link>
-              <Link href={href}
+              <Link prefetch={false} href={href}
                 className="inline-flex items-center gap-2 text-white font-medium px-6 py-3 rounded-full border border-white/30 hover:border-white/60 transition-all text-sm"
               >
                 + Agregar a watchlist

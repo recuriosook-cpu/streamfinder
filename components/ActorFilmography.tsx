@@ -90,7 +90,7 @@ export default function ActorFilmography({ credits }: Props) {
               const year  = (credit.release_date ?? credit.first_air_date ?? '').slice(0, 4)
               const href  = `/${credit.media_type}/${credit.id}`
               return (
-                <Link key={`${credit.media_type}-${credit.id}`} href={href} className="shrink-0 w-28 group">
+                <Link prefetch={false} key={`${credit.media_type}-${credit.id}`} href={href} className="shrink-0 w-28 group">
                   <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5">
                     <Image
                       src={getPosterUrl(credit.poster_path, 'w185')}

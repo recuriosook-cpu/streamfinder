@@ -378,7 +378,7 @@ function TrendingSection({ items }: { items: TrendingItem[] }) {
 
       <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         {items.map((item, idx) => (
-          <Link
+          <Link prefetch={false}
             key={`${item.mediaType}-${item.mediaId}`}
             href={`/${item.mediaType}/${item.mediaId}`}
             className="flex items-center gap-3 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-3 hover:border-[#FFFD02]/50 transition-colors group"
@@ -650,7 +650,7 @@ function ContinueWatchingSection({
       <div className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
         {items.map(item => (
           <div key={item.id} className="flex-shrink-0 w-36 carousel-snap group">
-            <Link href={`/${item.media_type}/${item.media_id}`} className="block mb-1.5">
+            <Link prefetch={false} href={`/${item.media_type}/${item.media_id}`} className="block mb-1.5">
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] transition-transform duration-200 group-hover:scale-105 will-change-transform">
                 {item.poster_path ? (
                   <Image src={`https://image.tmdb.org/t/p/w185${item.poster_path}`} alt={item.title} fill className="object-cover" sizes="144px" />
@@ -722,7 +722,7 @@ function ForYouSection({ items, loading }: { items: ForYouItem[]; loading: boole
       ) : (
         <div ref={scrollRef} className="flex gap-3 overflow-x-auto pb-2 no-scrollbar carousel-scroll">
           {items.map(item => (
-            <Link key={item.id} href={`/movie/${item.id}`} className="flex-shrink-0 w-36 carousel-snap group block">
+            <Link prefetch={false} key={item.id} href={`/movie/${item.id}`} className="flex-shrink-0 w-36 carousel-snap group block">
               <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-1.5 transition-transform duration-200 group-hover:scale-105 will-change-transform">
                 {item.posterPath ? (
                   <Image src={`https://image.tmdb.org/t/p/w185${item.posterPath}`} alt={item.title} fill className="object-cover" sizes="144px" />
@@ -1337,7 +1337,7 @@ export default function HomeClient() {
               { icon: '🔍', label: 'Probá el recomendador', sub: 'Descubrí qué ver hoy', href: '/que-ver' },
               { icon: '👥', label: 'Seguí a cinéfilos', sub: 'Encontrá tu comunidad', href: '/comunidad' },
             ] as { icon: string; label: string; sub: string; href: string }[]).map(card => (
-              <Link key={card.label} href={card.href}
+              <Link prefetch={false} key={card.label} href={card.href}
                 className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5 flex flex-col gap-3 hover:border-[#FFFD02]/50 hover:bg-[#1C1C27] transition-all group"
               >
                 <span className="text-3xl select-none">{card.icon}</span>

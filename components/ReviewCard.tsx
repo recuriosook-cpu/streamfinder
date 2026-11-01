@@ -301,7 +301,7 @@ function ReviewCard({
               </Link>
               <VerifiedBadge userId={authorId} size={14} />
             </div>
-            <Link
+            <Link prefetch={false}
               href={`/${mediaType}/${mediaId}`}
               className="block text-sm font-semibold text-zinc-300 hover:text-[#FFFD02] transition-colors mt-0.5 line-clamp-1"
             >
@@ -323,7 +323,7 @@ function ReviewCard({
           {/* Right column: poster + "..." menu */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             {showPoster && mediaPosterPath && (
-              <Link href={`/${mediaType}/${mediaId}`}>
+              <Link prefetch={false} href={`/${mediaType}/${mediaId}`}>
                 <div className="relative w-10 aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                   <Image
                     src={getPosterUrl(mediaPosterPath, 'w92')}

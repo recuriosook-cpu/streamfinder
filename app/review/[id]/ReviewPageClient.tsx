@@ -325,7 +325,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
               {/* Poster thumbnail */}
               {review.mediaPosterPath && (
-                <Link href={`/${review.mediaType}/${review.mediaId}`} className="shrink-0">
+                <Link prefetch={false} href={`/${review.mediaType}/${review.mediaId}`} className="shrink-0">
                   <div className="relative w-16 aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                     <Image
                       src={getPosterUrl(review.mediaPosterPath, 'w185')}
@@ -341,7 +341,7 @@ export default function ReviewPageClient({ review, initialLikeCount }: Props) {
 
             {/* Movie title + year */}
             <div className="mt-4 mb-3">
-              <Link
+              <Link prefetch={false}
                 href={`/${review.mediaType}/${review.mediaId}`}
                 className="text-xl font-bold text-white hover:text-[#FFFD02] transition-colors"
               >

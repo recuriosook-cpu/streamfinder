@@ -108,7 +108,7 @@ function BirthdayCarousel() {
           className="flex gap-4 overflow-x-auto no-scrollbar pb-2"
         >
           {people!.map(person => (
-            <Link
+            <Link prefetch={false}
               key={person.id}
               href={`/actor/${person.id}`}
               className="shrink-0 w-28 group"

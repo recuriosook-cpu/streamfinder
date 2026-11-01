@@ -194,7 +194,7 @@ function PosterLink({
   width?: string; overlay?: React.ReactNode
 }) {
   return (
-    <Link href={`/${mediaType}/${mediaId}`} className="group block">
+    <Link prefetch={false} href={`/${mediaType}/${mediaId}`} className="group block">
       <div className={`relative ${width} aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27]`}>
         {posterPath ? (
           <Image
@@ -1218,7 +1218,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       const slot = idx + 1
                       return item ? (
                         <div key={slot} className="relative group/pin">
-                          <Link href={`/${item.media_type}/${item.media_id}`}>
+                          <Link prefetch={false} href={`/${item.media_type}/${item.media_id}`}>
                             <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]">
                               {item.poster_path ? (
                                 <Image
@@ -1295,7 +1295,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                       return (
                         <div key={`${item.kind}-${d.id}-${i}`} className="flex items-start gap-3 py-3">
                           {/* Poster */}
-                          <Link href={href} className="shrink-0">
+                          <Link prefetch={false} href={href} className="shrink-0">
                             <div className="relative w-10 aspect-[2/3] rounded overflow-hidden bg-[#1C1C27]">
                               {d.poster_path && (
                                 <Image src={getPosterUrl(d.poster_path, 'w92')} alt={d.title} fill className="object-cover" sizes="40px" />
@@ -1305,7 +1305,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                           {/* Info */}
                           <div className="flex-1 min-w-0 pt-0.5">
                             <div className="flex items-start justify-between gap-2">
-                              <Link href={href} className="text-sm font-medium text-white hover:text-[#FFFD02] transition-colors line-clamp-1">
+                              <Link prefetch={false} href={href} className="text-sm font-medium text-white hover:text-[#FFFD02] transition-colors line-clamp-1">
                                 {d.title}
                               </Link>
                               <span className="text-[11px] text-zinc-600 shrink-0">{date}</span>
@@ -1430,7 +1430,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                 {displayed.map(w => {
                   const rating = watchedRatings.get(`${w.media_type}:${w.media_id}`)
                   return (
-                    <Link key={w.id} href={`/${w.media_type}/${w.media_id}`} className="group block">
+                    <Link prefetch={false} key={w.id} href={`/${w.media_type}/${w.media_id}`} className="group block">
                       <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] mb-1.5">
                         {w.poster_path ? (
                           <Image
@@ -1595,7 +1595,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
               <p className="text-xs text-zinc-600 mb-4">{allFavorites.length} título{allFavorites.length !== 1 ? 's' : ''}</p>
               <div className="grid grid-cols-3 sm:grid-cols-4 md:grid-cols-5 lg:grid-cols-6 xl:grid-cols-7 gap-3">
                 {allFavorites.map(f => (
-                  <Link key={f.id} href={`/${f.media_type}/${f.media_id}`} className="group block">
+                  <Link prefetch={false} key={f.id} href={`/${f.media_type}/${f.media_id}`} className="group block">
                     <div className="relative w-full aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] mb-1.5">
                       {f.poster_path ? (
                         <Image
@@ -1957,7 +1957,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                     <p className="text-[13px] font-semibold uppercase tracking-wider mb-3" style={{ color: '#FFFD02' }}>Tus valoraciones extremas</p>
                     <div className="grid grid-cols-2 gap-3">
                       {extTopRating && (
-                        <Link href={`/${extTopRating.mediaType}/${extTopRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/40 rounded-2xl p-4 flex gap-3 transition-colors">
+                        <Link prefetch={false} href={`/${extTopRating.mediaType}/${extTopRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-[#FFFD02]/40 rounded-2xl p-4 flex gap-3 transition-colors">
                           {extTopRating.posterPath && (
                             <Image src={getPosterUrl(extTopRating.posterPath, 'w92')} alt={extTopRating.title} width={40} height={60} className="rounded-md object-cover shrink-0" />
                           )}
@@ -1969,7 +1969,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
                         </Link>
                       )}
                       {extLowRating && extLowRating.mediaId !== extTopRating?.mediaId && (
-                        <Link href={`/${extLowRating.mediaType}/${extLowRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-red-900/40 rounded-2xl p-4 flex gap-3 transition-colors">
+                        <Link prefetch={false} href={`/${extLowRating.mediaType}/${extLowRating.mediaId}`} className="bg-[#13131A] border border-[#2A2A3A] hover:border-red-900/40 rounded-2xl p-4 flex gap-3 transition-colors">
                           {extLowRating.posterPath && (
                             <Image src={getPosterUrl(extLowRating.posterPath, 'w92')} alt={extLowRating.title} width={40} height={60} className="rounded-md object-cover shrink-0" />
                           )}

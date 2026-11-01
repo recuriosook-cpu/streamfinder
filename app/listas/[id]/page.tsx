@@ -323,7 +323,7 @@ export default function ListPage() {
           {displayItems.map(item => {
             const seen = watchedIds.has(`${item.media_type}:${item.media_id}`)
             return (
-              <Link key={item.id} href={`/${item.media_type}/${item.media_id}`} className="group relative">
+              <Link prefetch={false} key={item.id} href={`/${item.media_type}/${item.media_id}`} className="group relative">
                 <div className="aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27]">
                   {item.poster_path ? (
                     <Image src={getPosterUrl(item.poster_path, 'w185')} alt={item.title} fill

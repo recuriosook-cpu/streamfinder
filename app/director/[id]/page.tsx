@@ -258,7 +258,7 @@ export default async function DirectorPage({ params }: Props) {
                 const title = credit.title ?? credit.name ?? ''
                 const year  = (credit.release_date ?? credit.first_air_date ?? '').slice(0, 4)
                 return (
-                  <Link key={`${credit.media_type}-${credit.id}`} href={`/${credit.media_type}/${credit.id}`} className="group">
+                  <Link prefetch={false} key={`${credit.media_type}-${credit.id}`} href={`/${credit.media_type}/${credit.id}`} className="group">
                     <div className="relative aspect-[2/3] rounded-lg overflow-hidden bg-[#1C1C27] mb-2">
                       <Image src={getPosterUrl(credit.poster_path, 'w342')} alt={title} fill className="object-cover transition-transform duration-300 group-hover:scale-105" />
                       <div className="absolute bottom-1.5 right-1.5 flex items-center gap-0.5 bg-[#13131A]/90 rounded px-1.5 py-0.5">

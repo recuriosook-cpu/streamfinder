@@ -493,7 +493,7 @@ export default function Navbar() {
                 <div>
                   <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Personas</p>
                   {searchResults.people.map(p => (
-                    <Link
+                    <Link prefetch={false}
                       key={p.id}
                       href={`/actor/${p.id}`}
                       onClick={handleResultClick}
@@ -529,7 +529,7 @@ export default function Navbar() {
                 <div>
                   <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Películas</p>
                   {searchResults.movies.map(m => (
-                    <Link
+                    <Link prefetch={false}
                       key={m.id}
                       href={`/movie/${m.id}`}
                       onClick={handleResultClick}
@@ -565,7 +565,7 @@ export default function Navbar() {
                 <div>
                   <p className="px-4 pt-3 pb-1 text-[11px] font-semibold text-[#A0A0B0] uppercase tracking-wider">Series</p>
                   {searchResults.tv.map(t => (
-                    <Link
+                    <Link prefetch={false}
                       key={t.id}
                       href={`/tv/${t.id}`}
                       onClick={handleResultClick}

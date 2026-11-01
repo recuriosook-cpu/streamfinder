@@ -272,7 +272,7 @@ export default function FilmographyGrid({ credits, title = 'Filmografía' }: Pro
             const itemTitle = credit.title ?? credit.name ?? ''
             const year      = getYear(credit)
             return (
-              <Link
+              <Link prefetch={false}
                 key={`${credit.media_type}-${credit.id}`}
                 href={`/${credit.media_type}/${credit.id}`}
                 className="group block"

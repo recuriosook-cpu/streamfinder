@@ -36,7 +36,7 @@ function CrewCard({ member }: { member: CrewMember }) {
       </div>
       <div className="min-w-0">
         {member.job === 'Director' ? (
-          <Link href={`/director/${member.id}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors leading-tight truncate block">
+          <Link prefetch={false} href={`/director/${member.id}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors leading-tight truncate block">
             {member.name}
           </Link>
         ) : (

@@ -239,7 +239,7 @@ function FirstRecommendations({
             {items.map(item => {
               const src = poster(item.posterPath)
               return (
-                <Link
+                <Link prefetch={false}
                   key={keyOf(item)}
                   href={`/${item.type}/${item.id}`}
                   onClick={e => { if (finishing) e.preventDefault(); else onOpen() }}
