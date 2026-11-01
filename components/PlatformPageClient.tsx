@@ -4,7 +4,7 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ArrowLeft, Star } from 'lucide-react'
-import { getPosterUrl } from '@/lib/tmdb'
+import { getPosterUrl, getProviderCatalog, getProviderTopMovies, getProviderTopTV } from '@/lib/tmdb'
 import TopRankedCard from '@/components/TopRankedCard'
 import MediaCard from '@/components/MediaCard'
 import { useCountry } from '@/context/CountryContext'
@@ -72,6 +72,9 @@ const GENRES = [
   { id: 10752, name: 'Guerra'          },
 ]
 
+/** El país de lo que arma `app/platform/[slug]/page.tsx`: sin sesión ni navegador, no sabe otro. */
+const PAIS_DEL_SERVIDOR = 'AR'
+
 // ── URL builder ────────────────────────────────────────────────────────────
 
 function buildUrl(
@@ -125,10 +128,56 @@ export default function PlatformPageClient({
   topTV,
   catalog,
 }: Props) {
-  const { country } = useCountry()
+  const { country, countryData } = useCountry()
   // Prime Video no tiene el mismo id en todos los países: los del elegido.
-  const { plataformas: plataformasPais } = usePlataformasPais(country)
-  const idsEnElPais = plataformaDeId(plataformasPais, platform.id)?.ids.join('|') ?? platform.id
+  const { plataformas: plataformasPais, cargando: cargandoLista } = usePlataformasPais(country)
+  const enElPais = plataformaDeId(plataformasPais, platform.id)
+  const idsEnElPais = enElPais?.ids.join('|') ?? platform.id
+
+  // Lo que viene armado del servidor es de Argentina (`PAIS_DEL_SERVIDOR`). Para
+  // cualquier otro país, el top y el catálogo se piden acá.
+  const [delPais, setDelPais] = useState<{ pais: string; ids: string; topMovies: Props['topMovies']; topTV: Props['topTV']; catalog: CatalogItem[] } | null>(null)
+  const claveIds = String(idsEnElPais)
+  const esDelServidor = country === PAIS_DEL_SERVIDOR
+  const vista = esDelServidor
+    ? { topMovies, topTV, catalog }
+    : delPais?.pais === country && delPais.ids === claveIds ? delPais : null
+  const cargandoPais = !esDelServidor && vista === null
+
+  useEffect(() => {
+    if (esDelServidor || cargandoLista) return
+    let vivo = true
+    const conTipo = (filas: CatalogItem[] | undefined, tipo: 'movie' | 'tv') =>
+      (filas ?? []).map(f => ({ ...f, _mediaType: tipo }))
+    Promise.all([
+      getProviderTopMovies(claveIds, country),
+      getProviderTopTV(claveIds, country),
+      getProviderCatalog(claveIds, 'movie', 1, country),
+      getProviderCatalog(claveIds, 'tv', 1, country),
+    ])
+      .then(([top, topSeries, cine, tv]) => {
+        if (!vivo) return
+        setDelPais({
+          pais: country,
+          ids: claveIds,
+          topMovies: (top.results ?? []).slice(0, 10),
+          topTV: (topSeries.results ?? []).slice(0, 10),
+          catalog: [...conTipo(cine.results, 'movie'), ...conTipo(tv.results, 'tv')].sort((a, b) =>
+            (b.release_date ?? b.first_air_date ?? '').localeCompare(a.release_date ?? a.first_air_date ?? '')),
+        })
+      })
+      .catch(() => {
+        // Sin datos se dice que no hay, y no se deja el esqueleto para siempre.
+        if (vivo) setDelPais({ pais: country, ids: claveIds, topMovies: [], topTV: [], catalog: [] })
+      })
+    return () => { vivo = false }
+  }, [esDelServidor, cargandoLista, claveIds, country])
+
+  const logoDelPais = enElPais?.logoPath ?? logoPath
+  const nombreDelPais = enElPais?.name ?? platform.name
+
+  // Otro país: la búsqueda filtrada vuelve a la primera página.
+  useEffect(() => { setFiltPage(1) }, [country])
 
   // Filter state — null means "no filter active"
   const [activeType, setActiveType] = useState<ContentType | null>(null)
@@ -232,10 +281,10 @@ export default function PlatformPageClient({
             <ArrowLeft size={15} /> Inicio
           </Link>
           <div className="flex items-center gap-4">
-            {logoPath ? (
+            {logoDelPais ? (
               <Image
-                src={`https://image.tmdb.org/t/p/w154${logoPath}`}
-                alt={platform.name}
+                src={`https://image.tmdb.org/t/p/w154${logoDelPais}`}
+                alt={nombreDelPais}
                 width={64}
                 height={64}
                 className="rounded-xl shadow-lg"
@@ -249,7 +298,7 @@ export default function PlatformPageClient({
               </div>
             )}
             <div>
-              <h1 className="text-3xl font-bold text-white">{platform.name}</h1>
+              <h1 className="text-3xl font-bold text-white">{nombreDelPais}</h1>
               <div className="flex items-center gap-1.5 mt-1">
                 <span className="text-[#A0A0B0] text-sm">Disponible en</span>
                 <CountrySelector variant="compact" align="left" />
@@ -382,14 +431,20 @@ export default function PlatformPageClient({
         ) : (
           /* ── Default layout: Top 10s + Catalog ── */
           <>
-            {topMovies.length > 0 && (
+            {cargandoPais && (
+              <div className="flex justify-center py-16" role="status" aria-label={`Buscando en ${countryData.name}`}>
+                <div className="w-10 h-10 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+              </div>
+            )}
+
+            {vista && vista.topMovies.length > 0 && (
               <section>
                 <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                   <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: platform.color }} />
                   Top 10 Películas
                 </h2>
                 <div className="flex gap-1 overflow-x-auto no-scrollbar pb-3">
-                  {topMovies.map((movie, i) => (
+                  {vista.topMovies.map((movie, i) => (
                     <TopRankedCard
                       key={movie.id}
                       id={movie.id}
@@ -403,14 +458,14 @@ export default function PlatformPageClient({
               </section>
             )}
 
-            {topTV.length > 0 && (
+            {vista && vista.topTV.length > 0 && (
               <section>
                 <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                   <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: platform.color }} />
                   Top 10 Series
                 </h2>
                 <div className="flex gap-1 overflow-x-auto no-scrollbar pb-3">
-                  {topTV.map((show, i) => (
+                  {vista.topTV.map((show, i) => (
                     <TopRankedCard
                       key={show.id}
                       id={show.id}
@@ -424,15 +479,15 @@ export default function PlatformPageClient({
               </section>
             )}
 
-            <section>
+            {vista && <section>
               <h2 className="text-xl font-bold text-white mb-6 flex items-center gap-3">
                 <span className="w-1 h-6 rounded-full inline-block" style={{ backgroundColor: platform.color }} />
                 Catálogo completo
                 <span className="text-[#A0A0B0] text-sm font-normal">· ordenado por fecha de estreno</span>
               </h2>
-              {catalog.length > 0 ? (
+              {vista.catalog.length > 0 ? (
                 <div className="grid grid-cols-2 sm:grid-cols-3 md:grid-cols-4 lg:grid-cols-5 xl:grid-cols-6 gap-4">
-                  {catalog.map((item: CatalogItem) => (
+                  {vista.catalog.map((item: CatalogItem) => (
                     <MediaCard
                       key={`${item._mediaType}-${item.id}`}
                       id={item.id}
@@ -446,10 +501,10 @@ export default function PlatformPageClient({
                 </div>
               ) : (
                 <p className="text-[#A0A0B0] text-sm">
-                  No se encontró contenido disponible en Argentina para esta plataforma.
+                  No se encontró contenido disponible en {countryData.name} para esta plataforma.
                 </p>
               )}
-            </section>
+            </section>}
           </>
         )}
 

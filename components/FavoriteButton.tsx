@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useCountry } from '@/context/CountryContext'
 
 interface Props {
   mediaId: number
@@ -14,8 +15,8 @@ interface Props {
   genreIds?: number[]
   runtime?: number        // minutes (movies)
   seasonsCount?: number   // TV seasons
-  providerId?: number
-  providerName?: string
+  /** Dónde está el título, por país: se guarda el del país elegido. */
+  proveedoresPorPais?: Record<string, { flatrate?: { provider_id: number; provider_name: string }[] } | undefined>
 }
 
 export default function FavoriteButton({
@@ -26,13 +27,14 @@ export default function FavoriteButton({
   genreIds,
   runtime,
   seasonsCount,
-  providerId,
-  providerName,
+  proveedoresPorPais,
 }: Props) {
   const [isFav, setIsFav] = useState(false)
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const { country } = useCountry()
+  const proveedor = proveedoresPorPais?.[country]?.flatrate?.[0]
   const supabase = createClient()
 
   useEffect(() => {
@@ -72,8 +74,8 @@ export default function FavoriteButton({
         genre_ids: genreIds ?? [],
         runtime: runtime ?? null,
         seasons_count: seasonsCount ?? null,
-        provider_id: providerId ?? null,
-        provider_name: providerName ?? null,
+        provider_id: proveedor?.provider_id ?? null,
+        provider_name: proveedor?.provider_name ?? null,
       })
       setIsFav(true)
     }

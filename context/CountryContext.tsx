@@ -33,8 +33,11 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
       !!code && COUNTRIES.some(c => c.code === code)
 
     async function init() {
-      const { data: { user } } = await supabase.auth.getUser()
+      // Lo guardado, de entrada: si no, hasta que responden la sesión y el
+      // servidor se ve y se pide todo de Argentina.
       const saved = localStorage.getItem(LS_KEY)
+      if (valido(saved)) setCountryState(saved)
+      const { data: { user } } = await supabase.auth.getUser()
 
       // Sin sesión y con un país ya guardado en este navegador (elegido o
       // detectado antes): se respeta, sin pedir nada.

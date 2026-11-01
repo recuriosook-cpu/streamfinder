@@ -6,12 +6,13 @@ export async function GET(req: NextRequest) {
   const type = sp.get('type') ?? 'movie'
   const genre = sp.get('genre') ?? ''
   const provider = sp.get('provider') ?? ''
+  const pais = (sp.get('country') ?? 'AR').toUpperCase()
 
   const params: Record<string, string> = { sort_by: 'popularity.desc' }
   if (genre) params.with_genres = genre
   if (provider) {
     params.with_watch_providers = provider
-    params.watch_region = 'AR'
+    params.watch_region = /^[A-Z]{2}$/.test(pais) ? pais : 'AR'
   }
 
   const data = type === 'tv' ? await discoverTV(params) : await discoverMovies(params)

@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Film, Tv, LayoutGrid, Star } from 'lucide-react'
 import { GENRE_NAMES, GENRE_EMOJIS } from './genre-constants'
+import { useCountry } from '@/context/CountryContext'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
@@ -88,10 +89,12 @@ export default function GenreClient({ genreId }: { genreId: number }) {
   const [loading, setLoading] = useState(true)
   const [loadingMore, setLoadingMore] = useState(false)
 
+  const { country } = useCountry()
+
   const fetchMovies = useCallback(async (page: number) => {
     if (!TMDB_KEY) return
     const res = await fetch(
-      `${TMDB}/discover/movie?api_key=${TMDB_KEY}&with_genres=${genreId}&language=es-AR&region=AR&sort_by=popularity.desc&vote_count.gte=50&page=${page}`
+      `${TMDB}/discover/movie?api_key=${TMDB_KEY}&with_genres=${genreId}&language=es-AR&region=${country}&sort_by=popularity.desc&vote_count.gte=50&page=${page}`
     )
     if (!res.ok) return
     const data = await res.json()
@@ -107,7 +110,7 @@ export default function GenreClient({ genreId }: { genreId: number }) {
     setMovies(prev => page === 1 ? items : [...prev, ...items.filter(m => !prev.find(p => p.id === m.id))])
     setMovieHasMore(data.page < data.total_pages && data.page < 5)
     setMoviePage(data.page)
-  }, [genreId])
+  }, [genreId, country])
 
   const fetchTV = useCallback(async (page: number) => {
     if (!TMDB_KEY) return

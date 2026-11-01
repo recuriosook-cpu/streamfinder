@@ -20,23 +20,53 @@ interface Props {
 }
 
 const SCROLL_AMOUNT = 320
+/** Un margen para no marcar como "queda más" una diferencia de redondeo. */
+const TOLERANCIA = 2
 
 export default function PlatformLogoStrip({ platforms }: Props) {
   const { countryData } = useCountry()
   const scrollRef = useRef<HTMLDivElement>(null)
-  // Only show arrows when logos don't all fit on screen
-  const [showArrows, setShowArrows] = useState(false)
+  // Hasta dónde se puede mover: las flechas se apagan en cada punta.
+  const [puedeIzquierda, setPuedeIzquierda] = useState(false)
+  const [puedeDerecha, setPuedeDerecha] = useState(false)
   // Track images that failed to load so we show the text fallback instead
   const [imgErrors, setImgErrors] = useState<Set<number>>(new Set())
 
   useEffect(() => {
     const el = scrollRef.current
     if (!el) return
-    const check = () => setShowArrows(el.scrollWidth > el.clientWidth + 2)
+    const check = () => {
+      setPuedeIzquierda(el.scrollLeft > TOLERANCIA)
+      setPuedeDerecha(el.scrollLeft + el.clientWidth < el.scrollWidth - TOLERANCIA)
+    }
     check()
     const ro = new ResizeObserver(check)
     ro.observe(el)
-    return () => ro.disconnect()
+    el.addEventListener('scroll', check, { passive: true })
+    return () => {
+      ro.disconnect()
+      el.removeEventListener('scroll', check)
+    }
+    // `platforms`: la lista cambia con el país, y con ella lo que entra.
+  }, [platforms])
+
+  // La rueda del mouse mueve la fila mientras tenga para dónde; en las puntas
+  // sigue la página. React registra `onWheel` como pasivo y no dejaría frenar
+  // el scroll vertical. El trackpad, de costado, ya lo resuelve el navegador.
+  useEffect(() => {
+    const el = scrollRef.current
+    if (!el) return
+    const rueda = (e: WheelEvent) => {
+      if (e.ctrlKey || Math.abs(e.deltaX) >= Math.abs(e.deltaY)) return
+      const puede = e.deltaY > 0
+        ? el.scrollLeft + el.clientWidth < el.scrollWidth - TOLERANCIA
+        : el.scrollLeft > TOLERANCIA
+      if (!puede) return
+      e.preventDefault()
+      el.scrollBy({ left: e.deltaY, behavior: 'instant' })
+    }
+    el.addEventListener('wheel', rueda, { passive: false })
+    return () => el.removeEventListener('wheel', rueda)
   }, [])
 
   const scroll = (dir: 'left' | 'right') => {
@@ -61,30 +91,35 @@ export default function PlatformLogoStrip({ platforms }: Props) {
             </p>
             <CountrySelector variant="compact" align="left" />
           </div>
-          {/* Arrows only render when logos overflow the container */}
-          {showArrows && (
-            <div className="flex gap-2">
-              <button
-                onClick={() => scroll('left')}
-                className="w-7 h-7 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
-                aria-label="Scroll izquierda"
-              >
-                <ChevronLeft size={14} />
-              </button>
-              <button
-                onClick={() => scroll('right')}
-                className="w-7 h-7 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors"
-                aria-label="Scroll derecha"
-              >
-                <ChevronRight size={14} />
-              </button>
-            </div>
-          )}
+          {/* Siempre a la vista, como en "Para vos"; se apagan si no hay más para ver. */}
+          <div className="flex gap-2 shrink-0">
+            <button
+              type="button"
+              onClick={() => scroll('left')}
+              disabled={!puedeIzquierda}
+              className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:hover:bg-[#1C1C27] disabled:cursor-default"
+              aria-label="Plataformas anteriores"
+            >
+              <ChevronLeft size={16} />
+            </button>
+            <button
+              type="button"
+              onClick={() => scroll('right')}
+              disabled={!puedeDerecha}
+              className="w-8 h-8 bg-[#1C1C27] hover:bg-zinc-700 rounded-full flex items-center justify-center text-white transition-colors disabled:opacity-40 disabled:hover:bg-[#1C1C27] disabled:cursor-default"
+              aria-label="Plataformas siguientes"
+            >
+              <ChevronRight size={16} />
+            </button>
+          </div>
         </div>
 
         <div
           ref={scrollRef}
-          className={`flex gap-3 overflow-x-auto no-scrollbar pb-1 carousel-scroll ${!showArrows ? 'justify-center' : ''}`}
+          className="flex gap-3 overflow-x-auto no-scrollbar pb-1 carousel-scroll"
+          // `carousel-scroll` deja sólo el gesto de costado: empezar a deslizar
+          // sobre esta fila no tiene que trabar el scroll de la página.
+          style={{ touchAction: 'pan-x pan-y' }}
         >
           {platforms.map(platform => {
             const showLogo = !!platform.logoPath && !imgErrors.has(platform.id)

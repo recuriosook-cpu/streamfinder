@@ -10,6 +10,7 @@ import CarouselCard from '@/components/CarouselCard'
 import PlatformLogoStrip from '@/components/PlatformLogoStrip'
 import StarDisplay from '@/components/StarDisplay'
 import { useCountry } from '@/context/CountryContext'
+import { usePlataformasPais } from '@/lib/use-plataformas-pais'
 import { createClient } from '@/lib/supabase'
 import type { User } from '@supabase/supabase-js'
 import HeroCarousel, { type HeroSlide } from '@/components/HeroCarousel'
@@ -34,7 +35,8 @@ const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
 // Max va con los dos ids: 1899 es el de hoy y 384 el viejo, que TMDB todavía
 // usa en algunos títulos (ver PLATAFORMAS_GRANDES en lib/providers.ts).
-const PROVIDER_IDS = '8|337|119|1899|384|531|350'
+/** De cuántas plataformas del país salen los estrenos del inicio: las más populares. */
+const PLATAFORMAS_DE_ESTRENOS = 7
 
 const GENRE_TO_ID: Record<string, number> = {
   'Acción': 28, 'Comedia': 35, 'Drama': 18, 'Terror': 27,
@@ -864,6 +866,8 @@ function FriendActivitySection({ activity, hasFollowing }: { activity: FriendAct
 
 export default function HomeClient() {
   const { country } = useCountry()
+  const { plataformas: plataformasPais } = usePlataformasPais(country)
+  const idsDeEstrenos = plataformasPais.filter(p => p.destacada).slice(0, PLATAFORMAS_DE_ESTRENOS).flatMap(p => p.ids).join('|')
   const supabase = useRef(createClient()).current
   const router = useRouter()
 
@@ -1087,10 +1091,11 @@ export default function HomeClient() {
   useEffect(() => {
     if (!secondaryReady) return
     if (!TMDB_KEY || !country) { setRecentLoading(false); return }
+    if (!idsDeEstrenos) return
     setRecentLoading(true)
 
     async function loadRecent() {
-      const base = `api_key=${TMDB_KEY}&language=es-AR&page=1&watch_region=${country}&with_watch_providers=${PROVIDER_IDS}`
+      const base = `api_key=${TMDB_KEY}&language=es-AR&page=1&watch_region=${country}&with_watch_providers=${idsDeEstrenos}`
       const [movRes, tvRes, nowPlayingRes] = await Promise.all([
         fetch(`${TMDB}/discover/movie?${base}&sort_by=release_date.desc`).then(r => r.ok ? r.json() : { results: [] }),
         fetch(`${TMDB}/discover/tv?${base}&sort_by=first_air_date.desc`).then(r => r.ok ? r.json() : { results: [] }),
@@ -1142,7 +1147,7 @@ export default function HomeClient() {
     }
 
     loadRecent().catch(() => setRecentLoading(false))
-  }, [country, secondaryReady]) // eslint-disable-line react-hooks/exhaustive-deps
+  }, [country, secondaryReady, idsDeEstrenos]) // eslint-disable-line react-hooks/exhaustive-deps
 
   // ── Trending (Supabase watched, last 7 days) ──────────────────────────────
   useEffect(() => {

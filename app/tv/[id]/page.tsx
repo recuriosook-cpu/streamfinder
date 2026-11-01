@@ -193,7 +193,6 @@ export default async function TVPage({ params }: Props) {
   const allProviders = watchData?.results ?? {}
   const originalTitle = originalTitleIfDifferent(show.name, show.original_name)
   const backdrop = getBackdropUrl(show.backdrop_path)
-  const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = show.genres?.map((g: { id: number }) => g.id) ?? []
 
   const LANG: Record<string, string> = {
@@ -343,8 +342,7 @@ export default async function TVPage({ params }: Props) {
                 posterPath={show.poster_path}
                 genreIds={genreIds}
                 seasonsCount={show.number_of_seasons}
-                providerId={firstProvider?.provider_id}
-                providerName={firstProvider?.provider_name}
+                proveedoresPorPais={allProviders}
               />
               <WatchedButton
                 mediaId={show.id}

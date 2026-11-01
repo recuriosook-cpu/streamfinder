@@ -211,7 +211,6 @@ export default async function MoviePage({ params }: Props) {
   const allProviders = watchData?.results ?? {}
   const originalTitle = originalTitleIfDifferent(movie.title, movie.original_title)
   const backdrop = getBackdropUrl(movie.backdrop_path)
-  const firstProvider = (allProviders.AR?.flatrate ?? allProviders[Object.keys(allProviders)[0]]?.flatrate)?.[0]
   const genreIds: number[] = movie.genres?.map((g: { id: number }) => g.id) ?? []
 
   const LANG: Record<string, string> = {
@@ -389,8 +388,7 @@ export default async function MoviePage({ params }: Props) {
                 posterPath={movie.poster_path}
                 genreIds={genreIds}
                 runtime={movie.runtime}
-                providerId={firstProvider?.provider_id}
-                providerName={firstProvider?.provider_name}
+                proveedoresPorPais={allProviders}
               />
               <WatchedButton
                 mediaId={movie.id}

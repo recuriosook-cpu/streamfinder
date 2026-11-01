@@ -20,6 +20,7 @@ import VerifiedBadge from '@/components/VerifiedBadge'
 import { toast } from 'sonner'
 import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
 import CompartirHistoria from '@/components/CompartirHistoria'
+import { useCountry } from '@/context/CountryContext'
 import CompletarPerfil, { perfilCompleto } from '@/components/CompletarPerfil'
 
 // ── Social icons ───────────────────────────────────────────────────────────
@@ -272,6 +273,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
   // Extended stats
   const [monthlyData,    setMonthlyData]    = useState<MonthlyData[]>([])
   const [favPlatform,    setFavPlatform]    = useState<FavPlatform | null>(null)
+  const { country } = useCountry()
   const [extTopRating,   setExtTopRating]   = useState<ExtRating | null>(null)
   const [extLowRating,   setExtLowRating]   = useState<ExtRating | null>(null)
   const [topInteractors, setTopInteractors] = useState<TopInteractor[]>([])
@@ -852,7 +854,7 @@ export default function UserProfileClient({ profile }: { profile: PublicProfile 
             const res = await fetch(`https://api.themoviedb.org/3/movie/${item.media_id}/watch/providers?api_key=${TMDB_KEY}`)
             if (!res.ok) return
             const d = await res.json()
-            const providers = d.results?.AR?.flatrate ?? d.results?.US?.flatrate ?? []
+            const providers = d.results?.[country]?.flatrate ?? []
             if (providers[0]) {
               const p = providers[0]; const key = p.provider_name
               const existing = providerCounts.get(key)
