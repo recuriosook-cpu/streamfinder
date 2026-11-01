@@ -3,11 +3,13 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { plataformasDe } from './resumen-semanal'
 import { idiomaTmdb, type Idioma } from './idioma'
+import { plataformaDeId, plataformasDelPais } from './plataformas-pais'
+import type { Duracion, Tipo } from './que-veo-hoy-opciones'
 
 /**
- * "¿Qué veo hoy?" (octubre de 2026): tres preguntas —con quién, qué ganas y
- * cuánto tiempo— y UNA recomendación de sus plataformas, con "Porque te
- * gustó X". Reemplaza al
+ * "¿Qué veo hoy?" (octubre de 2026): cuatro preguntas —película o serie, con
+ * quién, qué ganas y cuánto tiempo— y UNA recomendación de sus plataformas, con
+ * "Porque te gustó X". Reemplaza al
  * recomendador por ánimo (`/api/mood-recommendations` y `lib/mood.ts` de la
  * app). Lo usan la web y la app por `/api/que-veo-hoy`, así hay un solo
  * motor.
@@ -27,12 +29,8 @@ import { idiomaTmdb, type Idioma } from './idioma'
 
 export type Compania = 'solo' | 'pareja' | 'amigos' | 'familia'
 export type Ganas = 'reirme' | 'emocionarme' | 'asustarme' | 'accion' | 'intriga'
-/**
- * Cuánto tiempo tiene. Se mira la duración real: en películas, la película; en
- * series, el episodio. "Más de 2 h" son sólo películas y "Un capítulo", sólo
- * series.
- */
-export type Duracion = 'corta' | 'hasta2' | 'larga' | 'capitulo' | 'sinApuro'
+export type { Duracion, Tipo } from './que-veo-hoy-opciones'
+export { DURACIONES_POR_TIPO, TIPOS } from './que-veo-hoy-opciones'
 
 export const COMPANIAS: Compania[] = ['solo', 'pareja', 'amigos', 'familia']
 export const GANAS: Ganas[] = ['reirme', 'emocionarme', 'asustarme', 'accion', 'intriga']
@@ -61,7 +59,7 @@ export interface ResultadoQueVeoHoy {
   backdropPath: string | null
   nota: number
   /** La plataforma suya donde está, o `null` si no eligió plataformas. */
-  plataforma: { id: number; nombre: string } | null
+  plataforma: { id: number; nombre: string; logoPath?: string | null } | null
   /** El título que calificó alto y la trajo; `null` si vino de las populares. */
   porque: string | null
   /** Minutos: la película, o un episodio de la serie. `null` si no se miró o TMDB no lo sabe. */
@@ -112,8 +110,14 @@ function generosPara(ganas: Ganas, compania: Compania): number[] {
 
 // ── Duración ───────────────────────────────────────────────────────────────
 
-/** Si la duración deja ese tipo: "Más de 2 h" no tiene series, "Un capítulo" no tiene películas. */
-function tipoPermitido(tipo: MediaType, duracion: Duracion): boolean {
+/** Hasta cuántos minutos es un episodio corto, y uno de "un rato". */
+const EPISODIO_CORTO = 35
+const EPISODIO_MEDIO = 60
+
+/** Si se puede recomendar ese tipo: el que pidió, y que la duración lo deje. */
+function tipoPermitido(tipo: MediaType, duracion: Duracion, pedido: Tipo): boolean {
+  if (pedido === 'pelicula' && tipo === 'tv') return false
+  if (pedido === 'serie' && tipo === 'movie') return false
   if (duracion === 'capitulo') return tipo === 'tv'
   if (duracion === 'larga') return tipo === 'movie'
   return true
@@ -127,19 +131,28 @@ function hayQueMedir(tipo: MediaType, duracion: Duracion): boolean {
 
 /**
  * Si los minutos entran. Una película sin duración conocida no entra (no se
- * puede prometer "menos de 1:30 h"); una serie sin duración del episodio sí,
- * porque casi todos los episodios duran menos de una hora.
+ * puede prometer "menos de 1:30 h"), ni una serie cuando pidió episodios cortos.
+ * En "hasta 1 h", una serie sin duración sí: casi todos los episodios duran eso.
  */
 function entraEnElTiempo(tipo: MediaType, minutos: number | null, duracion: Duracion): boolean {
   if (!hayQueMedir(tipo, duracion)) return true
-  if (minutos === null) return tipo === 'tv'
+  if (tipo === 'tv') {
+    if (minutos === null) return duracion !== 'corta'
+    return minutos <= (duracion === 'corta' ? EPISODIO_CORTO : EPISODIO_MEDIO)
+  }
+  if (minutos === null) return false
   if (duracion === 'corta') return minutos < 90
   if (duracion === 'hasta2') return minutos <= 120
   return minutos > 120
 }
 
 /** Para que TMDB filtre de entrada (en series, `with_runtime` mira el episodio). */
-function filtroDuracion(duracion: Duracion): Record<string, string> {
+function filtroDuracion(duracion: Duracion, tipo: MediaType): Record<string, string> {
+  if (tipo === 'tv') {
+    if (duracion === 'corta') return { 'with_runtime.lte': String(EPISODIO_CORTO) }
+    if (duracion === 'hasta2') return { 'with_runtime.lte': String(EPISODIO_MEDIO) }
+    return {}
+  }
   if (duracion === 'corta') return { 'with_runtime.lte': '89' }
   if (duracion === 'hasta2') return { 'with_runtime.lte': '120' }
   if (duracion === 'larga') return { 'with_runtime.gte': '121' }
@@ -215,9 +228,18 @@ class Tmdb {
     return m && m > 0 ? m : null
   }
 
-  async descubrir(tipo: MediaType, params: Record<string, string>): Promise<Fila[]> {
+  /** `todas`: las tres páginas, para cuando pidió un solo tipo y el pozo es más chico. */
+  async descubrir(tipo: MediaType, params: Record<string, string>, todas = false): Promise<Fila[]> {
+    if (todas) {
+      const paginas = await Promise.all(['1', '2', '3'].map(page =>
+        this.get<{ results?: Fila[] }>(`/discover/${tipo}`, { ...params, page })))
+      return paginas.flatMap(p => p?.results ?? [])
+    }
     const pagina = String(1 + Math.floor(Math.random() * 3))
-    return (await this.get<{ results?: Fila[] }>(`/discover/${tipo}`, { ...params, page: pagina }))?.results ?? []
+    const filas = (await this.get<{ results?: Fila[] }>(`/discover/${tipo}`, { ...params, page: pagina }))?.results ?? []
+    if (filas.length > 0 || pagina === '1') return filas
+    // Con filtros angostos (episodios cortos de un género) puede no haber esa página.
+    return (await this.get<{ results?: Fila[] }>(`/discover/${tipo}`, { ...params, page: '1' }))?.results ?? []
   }
 }
 
@@ -227,6 +249,12 @@ const clave = (tipo: string, id: number) => `${tipo}:${id}`
 
 /** Conocida y bien puntuada: lo que se recomienda sin dudar. */
 const VOTOS_MINIMOS = 300
+/**
+ * El último intento, antes de decir "no encontramos nada": con cualquiera de sus
+ * géneros y menos votos. Hay pocas series de intriga de 30 minutos, y las que hay
+ * tienen la comedia como género principal (Only Murders in the Building).
+ */
+const VOTOS_MINIMOS_AMPLIO = 50
 const NOTA_MINIMA = 6.3
 
 function aResultado(
@@ -267,18 +295,20 @@ function aResultado(
  *     En series, el principal traducido a cine ("Acción y aventura" es acción
  *     o aventura).
  */
-function encaja(f: Fila, tipo: MediaType, generos: number[], compania: Compania): boolean {
+function encaja(f: Fila, tipo: MediaType, generos: number[], compania: Compania, amplio = false): boolean {
   const ids = f.genre_ids ?? []
   const propios = tipo === 'tv' ? comoCine(ids) : ids
   if (compania === 'familia') {
     if (propios.some(g => NO_EN_FAMILIA.has(g))) return false
     if (!propios.includes(10751)) return false
     if (!generos.some(g => propios.includes(g))) return false
+  } else if (amplio) {
+    if (!generos.some(g => propios.includes(g))) return false
   } else {
     const principal = ids.length === 0 ? [] : tipo === 'tv' ? comoCine([ids[0]]) : [ids[0]]
     if (!principal.some(g => generos.includes(g))) return false
   }
-  return (f.vote_count ?? 0) >= VOTOS_MINIMOS && (f.vote_average ?? 0) >= NOTA_MINIMA
+  return (f.vote_count ?? 0) >= (amplio ? VOTOS_MINIMOS_AMPLIO : VOTOS_MINIMOS) && (f.vote_average ?? 0) >= NOTA_MINIMA
 }
 
 function mezclar<T>(lista: T[]): T[] {
@@ -294,6 +324,7 @@ export async function queVeoHoy(
   admin: SupabaseClient | null,
   opts: {
     userId: string | null
+    tipo: Tipo
     compania: Compania
     ganas: Ganas
     duracion: Duracion
@@ -306,9 +337,14 @@ export async function queVeoHoy(
   if (!key) throw new Error('Falta NEXT_PUBLIC_TMDB_API_KEY.')
   const tmdb = new Tmdb(key, opts.idioma)
   const generos = generosPara(opts.ganas, opts.compania)
+  // TMDB no tiene terror ni suspenso entre los géneros de series: "asustarme"
+  // sería siempre "no encontramos nada". Lo más cercano es misterio y lo sobrenatural.
+  const generosDeSerie = opts.ganas === 'asustarme' && opts.compania !== 'familia' ? [9648, 878, 14] : generos
+  const generosDe = (tipo: MediaType) => (tipo === 'tv' ? generosDeSerie : generos)
 
   // Lo suyo: plataformas, lo que calificó alto y lo que ya marcó.
   let plataformas = new Map<number, string>()
+  const logos = new Map<number, string | null>()
   const semillas: { tipo: MediaType; id: number; titulo: string }[] = []
   const marcados = new Set<string>(opts.excluir)
   if (admin && opts.userId) {
@@ -320,7 +356,24 @@ export async function queVeoHoy(
       admin.from('watched').select('media_type, media_id').eq('user_id', uid).limit(5000),
       admin.from('reviews').select('media_type, media_id').eq('user_id', uid).limit(5000),
     ])
-    plataformas = plataformasDe((perfil.data as { favorite_platforms: string[] | null } | null)?.favorite_platforms ?? null)
+    const favoritas = (perfil.data as { favorite_platforms: string[] | null } | null)?.favorite_platforms ?? null
+    plataformas = plataformasDe(favoritas)
+    // Contra la lista del país: los ids de ahí (Prime Video es otro en Estados
+    // Unidos), los nombres y logos que no conoce `plataformasDe`, y afuera lo que
+    // en este país no existe. Si no queda ninguna, como quien no eligió. Si TMDB
+    // no responde, queda lo que eligió.
+    const lista = await plataformasDelPais(opts.pais).catch(() => null)
+    if (lista) {
+      plataformas = new Map()
+      for (const fav of favoritas ?? []) {
+        const p = plataformaDeId(lista, Number(fav))
+        if (!p) continue
+        for (const id of p.ids) {
+          plataformas.set(id, p.name)
+          logos.set(id, p.logoPath ?? p.fallbackLogoPath ?? null)
+        }
+      }
+    }
     type N = { media_type: string; media_id: number; rating: number | string | null; title: string | null }
     for (const n of (notas.data ?? []) as N[]) {
       marcados.add(clave(n.media_type, n.media_id))
@@ -351,7 +404,9 @@ export async function queVeoHoy(
     if (!entraEnElTiempo(tipo, minutos, opts.duracion)) return undefined
     if (plataformas.size === 0) return { plataforma: null, minutos }
     const suya = ids.find(p => plataformas.has(p))
-    return suya === undefined ? undefined : { plataforma: { id: suya, nombre: plataformas.get(suya) || '' }, minutos }
+    return suya === undefined
+      ? undefined
+      : { plataforma: { id: suya, nombre: plataformas.get(suya) || '', logoPath: logos.get(suya) ?? null }, minutos }
   }
 
   // 1. De lo que calificó alto: las 12 más altas, en otro orden cada vez.
@@ -361,7 +416,7 @@ export async function queVeoHoy(
   desde.forEach((s, i) => {
     for (const f of recos[i]) {
       const k = clave(s.tipo, f.id)
-      if (marcados.has(k) || !tipoPermitido(s.tipo, opts.duracion) || !encaja(f, s.tipo, generos, opts.compania)) continue
+      if (marcados.has(k) || !tipoPermitido(s.tipo, opts.duracion, opts.tipo) || !encaja(f, s.tipo, generosDe(s.tipo), opts.compania)) continue
       candidatos.push({ f, tipo: s.tipo, porque: s.titulo })
     }
   })
@@ -383,32 +438,32 @@ export async function queVeoHoy(
   }
 
   // 2. Si no alcanzó: conocidas de sus plataformas, con los géneros pedidos.
-  if (resultados.length < RESULTADOS) {
+  async function desdeElPozo(amplio: boolean): Promise<void> {
     const base: Record<string, string> = {
       sort_by: 'popularity.desc',
       include_adult: 'false',
-      'vote_count.gte': '500',
+      'vote_count.gte': amplio ? String(VOTOS_MINIMOS_AMPLIO) : '500',
       'vote_average.gte': String(NOTA_MINIMA),
       watch_region: opts.pais,
       with_watch_monetization_types: 'flatrate|free|ads',
     }
     if (plataformas.size > 0) base.with_watch_providers = [...plataformas.keys()].join('|')
-    const tiempo = filtroDuracion(opts.duracion)
     // En familia, las series se piden por familiares e infantiles: el género
     // de las ganas lo mira `encaja`, entre todos los suyos.
     const generosSerie = opts.compania === 'familia'
       ? [10751, 10762]
-      : [...new Set(generos.map(g => CINE_A_SERIE[g]).filter(Boolean))]
+      : [...new Set(generosDeSerie.map(g => CINE_A_SERIE[g]).filter(Boolean))]
+    const unSoloTipo = opts.tipo !== 'igual'
     const pedidos: Promise<{ tipo: MediaType; filas: Fila[] }>[] = []
-    if (tipoPermitido('movie', opts.duracion)) {
+    if (tipoPermitido('movie', opts.duracion, opts.tipo)) {
       pedidos.push(
-        tmdb.descubrir('movie', { ...base, ...tiempo, with_genres: generos.join('|') })
+        tmdb.descubrir('movie', { ...base, ...filtroDuracion(opts.duracion, 'movie'), with_genres: generos.join('|') }, unSoloTipo)
           .then(filas => ({ tipo: 'movie' as const, filas }))
       )
     }
-    if (tipoPermitido('tv', opts.duracion) && generosSerie.length > 0) {
+    if (tipoPermitido('tv', opts.duracion, opts.tipo) && generosSerie.length > 0) {
       pedidos.push(
-        tmdb.descubrir('tv', { ...base, ...tiempo, 'vote_count.gte': '200', with_genres: generosSerie.join('|') })
+        tmdb.descubrir('tv', { ...base, ...filtroDuracion(opts.duracion, 'tv'), 'vote_count.gte': amplio ? String(VOTOS_MINIMOS_AMPLIO) : '200', with_genres: generosSerie.join('|') }, unSoloTipo)
           .then(filas => ({ tipo: 'tv' as const, filas }))
       )
     }
@@ -416,7 +471,9 @@ export async function queVeoHoy(
     for (let i = 0; i < pozo.length && resultados.length < RESULTADOS; i += 6) {
       const tanda = pozo.slice(i, i + 6).filter(c => {
         const k = clave(c.tipo, c.f.id)
-        return !usados.has(k) && !marcados.has(k) && encaja(c.f, c.tipo, generos, opts.compania)
+        return !usados.has(k) && !marcados.has(k) && encaja(c.f, c.tipo, generosDe(c.tipo), opts.compania, amplio) &&
+          // En el intento amplio, "asustarme" traía Pokémon: de animación, nada.
+          !(amplio && opts.ganas === 'asustarme' && (c.f.genre_ids ?? []).includes(16))
       })
       const dondes = await Promise.all(tanda.map(c => revisar(c.tipo, c.f.id)))
       tanda.forEach((c, j) => {
@@ -429,6 +486,9 @@ export async function queVeoHoy(
       })
     }
   }
+
+  if (resultados.length < RESULTADOS) await desdeElPozo(false)
+  if (resultados.length === 0) await desdeElPozo(true)
 
   return resultados
 }

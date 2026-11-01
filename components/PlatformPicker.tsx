@@ -2,21 +2,24 @@
 
 import { useState } from 'react'
 import { Check } from 'lucide-react'
-import { ALL_PLATFORMS, type PlatformConfig } from '@/lib/providers'
+import type { Platform } from '@/lib/providers'
+import { plataformasAMostrar, type PlataformaPais } from '@/lib/plataformas-pais'
 
 /**
  * La grilla para elegir plataformas de streaming. La usan el paso 1 del
- * onboarding y "Mis plataformas" en Ajustes, así que las dos muestran lo mismo
- * y guardan lo mismo: ids de TMDB de `ALL_PLATFORMS`.
+ * onboarding, "Mis plataformas" en Ajustes y el aviso de cambio de país, así que
+ * muestran lo mismo y guardan lo mismo: ids de TMDB. La lista es la del país
+ * (`usePlataformasPais`) y la pasa quien la usa.
  */
 
-export function PlatformLogo({ platform, size }: { platform: PlatformConfig; size: number }) {
+export function PlatformLogo({ platform, size }: { platform: Pick<Platform, 'name' | 'color' | 'fallbackLogoPath'> & { logoPath?: string | null }; size: number }) {
   const [failed, setFailed] = useState(false)
-  if (platform.fallbackLogoPath && !failed) {
+  const path = platform.logoPath ?? platform.fallbackLogoPath
+  if (path && !failed) {
     return (
       // eslint-disable-next-line @next/next/no-img-element
       <img
-        src={`https://image.tmdb.org/t/p/w154${platform.fallbackLogoPath}`}
+        src={`https://image.tmdb.org/t/p/w154${path}`}
         alt=""
         width={size}
         height={size}
@@ -36,19 +39,37 @@ export function PlatformLogo({ platform, size }: { platform: PlatformConfig; siz
   )
 }
 
+/** Las elegidas con una más o una menos. Saca todos los ids que tenga esa plataforma. */
+export function alternarPlataforma(elegidas: number[], p: PlataformaPais): number[] {
+  return p.ids.some(id => elegidas.includes(id))
+    ? elegidas.filter(id => !p.ids.includes(id))
+    : [...elegidas, p.id]
+}
+
 export default function PlatformPicker({
+  plataformas,
+  cargando = false,
   selected,
   onToggle,
   disabled = false,
 }: {
+  plataformas: PlataformaPais[]
+  cargando?: boolean
   selected: number[]
-  onToggle: (id: number) => void
+  onToggle: (p: PlataformaPais) => void
   disabled?: boolean
 }) {
+  if (cargando) {
+    return (
+      <div className="flex justify-center py-10">
+        <div className="w-6 h-6 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
+      </div>
+    )
+  }
   return (
     <div className="grid grid-cols-4 sm:grid-cols-5 gap-x-3 gap-y-4">
-      {ALL_PLATFORMS.map(p => {
-        const active = selected.includes(p.id)
+      {plataformasAMostrar(plataformas, selected).map(p => {
+        const active = p.ids.some(id => selected.includes(id))
         return (
           <button
             key={p.id}
@@ -57,7 +78,7 @@ export default function PlatformPicker({
             aria-checked={active}
             aria-label={p.name}
             disabled={disabled}
-            onClick={() => onToggle(p.id)}
+            onClick={() => onToggle(p)}
             className="flex flex-col items-center gap-1.5 transition-transform active:scale-95 disabled:cursor-wait"
           >
             <span

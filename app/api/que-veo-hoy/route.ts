@@ -7,18 +7,22 @@ import { normalizarIdioma } from '@/lib/idioma'
 import {
   COMPANIAS,
   DURACIONES,
+  DURACIONES_POR_TIPO,
   GANAS,
   GANAS_VIEJAS,
   queVeoHoy,
+  TIPOS,
   type Compania,
   type Duracion,
   type Ganas,
+  type Tipo,
 } from '@/lib/que-veo-hoy'
 
 /**
  * /api/que-veo-hoy — "¿Qué veo hoy?". La lógica está en `lib/que-veo-hoy.ts`.
  *
- *   GET ?compania=solo|pareja|amigos|familia
+ *   GET ?tipo=pelicula|serie|igual  (sin él, igual: la app de antes no lo manda)
+ *       &compania=solo|pareja|amigos|familia
  *       &ganas=reirme|emocionarme|asustarme|accion|intriga
  *       &duracion=corta|hasta2|larga|capitulo|sinApuro  (sin ella, sin apuro)
  *       &pais=AR  &idioma=es|en  &excluir=movie:1,tv:2  (lo mostrado hace poco)
@@ -41,7 +45,12 @@ export async function GET(req: NextRequest) {
   const ganasPedidas = q.get('ganas') ?? ''
   const ganas = (GANAS_VIEJAS[ganasPedidas] ?? ganasPedidas) as Ganas
   const duracion = (q.get('duracion') ?? 'sinApuro') as Duracion
-  if (!COMPANIAS.includes(compania) || !GANAS.includes(ganas) || !DURACIONES.includes(duracion)) {
+  const tipoPedido = q.get('tipo') as Tipo | null
+  const tipo: Tipo = tipoPedido ?? 'igual'
+  if (
+    !TIPOS.includes(tipo) || !COMPANIAS.includes(compania) || !GANAS.includes(ganas) || !DURACIONES.includes(duracion) ||
+    (tipoPedido !== null && !DURACIONES_POR_TIPO[tipo].includes(duracion))
+  ) {
     return jsonError('Respuestas inválidas', 400)
   }
   const paisPedido = (q.get('pais') ?? 'AR').toUpperCase()
@@ -54,6 +63,7 @@ export async function GET(req: NextRequest) {
     const userId = await getRequestUserId(req)
     const resultados = await queVeoHoy(userId ? getAdminClient() : null, {
       userId,
+      tipo,
       compania,
       ganas,
       duracion,

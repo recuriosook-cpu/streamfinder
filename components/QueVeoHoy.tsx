@@ -10,16 +10,22 @@ import { buildProviderUrl } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
 import { mediaImagePath } from '@/lib/share-urls'
 import CompartirHistoria from '@/components/CompartirHistoria'
-import type { Compania, Duracion, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
+import type { Compania, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
+import { DURACIONES_POR_TIPO, type Duracion, type Tipo } from '@/lib/que-veo-hoy-opciones'
 
 /**
- * "¿Qué veo hoy?": tres preguntas (con quién, qué ganas y cuánto tiempo) y
- * UNA recomendación a pantalla completa, con "La veo", "Otra" (hasta 3) y "Guardar para
+ * "¿Qué veo hoy?": cuatro preguntas (película o serie, con quién, qué ganas y
+ * cuánto tiempo, que en series es lo que dura el episodio) y UNA recomendación a pantalla completa, con "La veo", "Otra" (hasta 3) y "Guardar para
  * después". La próxima vez ofrece "¿Lo mismo que la última vez?". Reemplaza al
  * recomendador por ánimo. Es lo mismo que `QueVeoHoy` de la app; las dos usan
  * `/api/que-veo-hoy` (`lib/que-veo-hoy.ts`).
  */
 
+const TIPOS: { id: Tipo; texto: string }[] = [
+  { id: 'pelicula', texto: 'Película' },
+  { id: 'serie', texto: 'Serie' },
+  { id: 'igual', texto: 'Me da igual' },
+]
 const COMPANIAS: { id: Compania; texto: string }[] = [
   { id: 'solo', texto: 'Solo' },
   { id: 'pareja', texto: 'En pareja' },
@@ -33,20 +39,33 @@ const GANAS: { id: Ganas; texto: string }[] = [
   { id: 'accion', texto: 'Acción' },
   { id: 'intriga', texto: 'Intriga' },
 ]
-const DURACIONES: { id: Duracion; texto: string }[] = [
-  { id: 'corta', texto: 'Menos de 1:30 h' },
-  { id: 'hasta2', texto: 'Hasta 2 h' },
-  { id: 'larga', texto: 'Más de 2 h' },
-  { id: 'capitulo', texto: 'Un capítulo de serie' },
-  { id: 'sinApuro', texto: 'Sin apuro' },
-]
+/** La pregunta del tiempo y sus opciones cambian con el tipo: en series se habla del episodio. */
+const TIEMPO: Record<Tipo, { pregunta: string; opciones: Partial<Record<Duracion, string>> }> = {
+  pelicula: {
+    pregunta: '¿Cuánto tiempo tenés?',
+    opciones: { corta: 'Menos de 1:30 h', hasta2: 'Hasta 2 h', larga: 'Más de 2 h', sinApuro: 'Sin apuro' },
+  },
+  serie: {
+    pregunta: '¿Cuánto tiempo tenés por episodio?',
+    opciones: { corta: 'Poco: episodios de 20-30 min', hasta2: 'Un rato: episodios de hasta 1 h', sinApuro: 'Sin apuro' },
+  },
+  igual: {
+    pregunta: '¿Cuánto tiempo tenés?',
+    opciones: {
+      corta: 'Poco: menos de 1:30 h o episodios cortos',
+      hasta2: 'Un rato: hasta 2 h o episodios de hasta 1 h',
+      larga: 'Mucho: una película de más de 2 h',
+      sinApuro: 'Sin apuro',
+    },
+  },
+}
 const OTRAS_MAXIMO = 3
 
 const ULTIMA_KEY = 'glynbox_que_veo_hoy_ultima'
 const MOSTRADAS_KEY = 'glynbox_que_veo_hoy_mostradas'
 const SEMANA_MS = 7 * 24 * 60 * 60 * 1000
 
-type Respuestas = { compania: Compania; ganas: Ganas; duracion: Duracion }
+type Respuestas = { tipo: Tipo; compania: Compania; ganas: Ganas; duracion: Duracion }
 type Paso = 'inicio' | 'preguntas' | 'buscando' | 'nada' | 'error'
 
 function leer<T>(clave: string): T | null {
@@ -65,11 +84,11 @@ function anotarMostrada(r: ResultadoQueVeoHoy): void {
   escribir(MOSTRADAS_KEY, { ...mostradas(), [`${r.mediaType}:${r.id}`]: Date.now() })
 }
 
-/** Las últimas respuestas, si siguen siendo opciones de hoy (las ganas cambiaron el 23/10). */
+/** Las últimas respuestas, si siguen siendo opciones de hoy (las de antes de la pregunta de película o serie no). */
 function ultimasValidas(): Respuestas | null {
   const r = leer<Respuestas>(ULTIMA_KEY)
-  return r && COMPANIAS.some(c => c.id === r.compania) && GANAS.some(g => g.id === r.ganas) &&
-    DURACIONES.some(d => d.id === r.duracion) ? r : null
+  return r && TIPOS.some(t => t.id === r.tipo) && COMPANIAS.some(c => c.id === r.compania) && GANAS.some(g => g.id === r.ganas) &&
+    DURACIONES_POR_TIPO[r.tipo].includes(r.duracion) ? r : null
 }
 
 /** "1 h 52 min", o "Episodios de 45 min" en series. */
@@ -85,6 +104,7 @@ export default function QueVeoHoy() {
   const router = useRouter()
   const { country } = useCountry()
   const [paso, setPaso] = useState<Paso>('inicio')
+  const [tipo, setTipo] = useState<Tipo | null>(null)
   const [compania, setCompania] = useState<Compania | null>(null)
   const [ganas, setGanas] = useState<Ganas | null>(null)
   const [duracion, setDuracion] = useState<Duracion | null>(null)
@@ -103,10 +123,10 @@ export default function QueVeoHoy() {
     setPaso('buscando')
     escribir(ULTIMA_KEY, r)
     setUltima(r)
-    track('que_veo_hoy_respuestas', { compania: r.compania, ganas: r.ganas, duracion: r.duracion, repetida })
+    track('que_veo_hoy_respuestas', { tipo: r.tipo, compania: r.compania, ganas: r.ganas, duracion: r.duracion, repetida })
     try {
       const qs = new URLSearchParams({
-        compania: r.compania, ganas: r.ganas, duracion: r.duracion, pais: country, idioma: 'es',
+        tipo: r.tipo, compania: r.compania, ganas: r.ganas, duracion: r.duracion, pais: country, idioma: 'es',
         excluir: Object.keys(mostradas()).slice(-60).join(','),
       })
       const res = await fetch(`/api/que-veo-hoy?${qs}`, { cache: 'no-store' })
@@ -116,7 +136,7 @@ export default function QueVeoHoy() {
       setResultados(encontradas)
       setIndice(0)
       anotarMostrada(encontradas[0])
-      track('que_veo_hoy_resultado', { intento: 1, fuente: encontradas[0].porque ? 'calificadas' : 'plataformas', media_type: encontradas[0].mediaType, media_id: encontradas[0].id })
+      track('que_veo_hoy_resultado', { intento: 1, fuente: encontradas[0].porque ? 'calificadas' : 'plataformas', media_type: encontradas[0].mediaType, media_id: encontradas[0].id, tipo: r.tipo })
       setAbierto(true)
       setPaso('inicio')
     } catch {
@@ -124,16 +144,20 @@ export default function QueVeoHoy() {
     }
   }
 
-  function elegir(c: Compania | null, g: Ganas | null, d: Duracion | null) {
+  function elegir(ti: Tipo | null, c: Compania | null, g: Ganas | null, d: Duracion | null) {
+    // Cambiar a serie con "Más de 2 h" elegido: esa opción ya no está.
+    const dur = ti && d && DURACIONES_POR_TIPO[ti].includes(d) ? d : null
+    setTipo(ti)
     setCompania(c)
     setGanas(g)
-    setDuracion(d)
-    if (c && g && d) void buscar({ compania: c, ganas: g, duracion: d }, false)
+    setDuracion(dur)
+    if (ti && c && g && dur) void buscar({ tipo: ti, compania: c, ganas: g, duracion: dur }, false)
   }
 
   function empezar(repetida = false) {
     track('que_veo_hoy_abierto', { desde: 'que_ver', ...(repetida ? { repetida } : {}) })
     if (repetida && ultima) { void buscar(ultima, true); return }
+    setTipo(null)
     setCompania(null)
     setGanas(null)
     setDuracion(null)
@@ -148,7 +172,7 @@ export default function QueVeoHoy() {
     if (!actual) return
     accion('la_veo')
     setAbierto(false)
-    const url = actual.plataforma ? buildProviderUrl(actual.plataforma.id, actual.titulo) : null
+    const url = actual.plataforma ? buildProviderUrl(actual.plataforma.id, actual.titulo, country) : null
     if (url) window.open(url, '_blank', 'noopener')
     else router.push(`/${actual.mediaType}/${actual.id}`)
   }
@@ -159,7 +183,7 @@ export default function QueVeoHoy() {
     const siguiente = indice + 1
     setIndice(siguiente)
     anotarMostrada(resultados[siguiente])
-    track('que_veo_hoy_resultado', { intento: siguiente + 1, fuente: resultados[siguiente].porque ? 'calificadas' : 'plataformas', media_type: resultados[siguiente].mediaType, media_id: resultados[siguiente].id })
+    track('que_veo_hoy_resultado', { intento: siguiente + 1, fuente: resultados[siguiente].porque ? 'calificadas' : 'plataformas', media_type: resultados[siguiente].mediaType, media_id: resultados[siguiente].id, tipo: ultima?.tipo ?? null })
   }
 
   async function guardar() {
@@ -197,7 +221,7 @@ export default function QueVeoHoy() {
             </button>
           )}
         </div>
-        <p className="mt-1 text-sm text-[#A0A0B0]">Tres preguntas y te decimos qué ver de tus plataformas.</p>
+        <p className="mt-1 text-sm text-[#A0A0B0]">Cuatro preguntas y te decimos qué ver de tus plataformas.</p>
 
         {paso === 'inicio' && (
           <div className="mt-4 flex flex-wrap items-center gap-4">
@@ -216,8 +240,8 @@ export default function QueVeoHoy() {
               >
                 ¿Lo mismo que la última vez?{' '}
                 <span className="font-normal text-[#A0A0B0]">
-                  {COMPANIAS.find(c => c.id === ultima.compania)?.texto} · {GANAS.find(g => g.id === ultima.ganas)?.texto} ·{' '}
-                  {DURACIONES.find(d => d.id === ultima.duracion)?.texto}
+                  {TIPOS.find(t => t.id === ultima.tipo)?.texto} · {COMPANIAS.find(c => c.id === ultima.compania)?.texto} ·{' '}
+                  {GANAS.find(g => g.id === ultima.ganas)?.texto} · {TIEMPO[ultima.tipo].opciones[ultima.duracion]}
                 </span>
               </button>
             )}
@@ -227,29 +251,42 @@ export default function QueVeoHoy() {
         {paso === 'preguntas' && (
           <div className="mt-4 space-y-4">
             <div>
-              <p className="mb-2 text-sm font-semibold text-white">¿Con quién?</p>
+              <p className="mb-2 text-sm font-semibold text-white">¿Película o serie?</p>
               <div className="flex flex-wrap gap-2">
-                {COMPANIAS.map(c => (
-                  <button key={c.id} type="button" onClick={() => elegir(c.id, ganas, duracion)} className={chip(compania === c.id)}>{c.texto}</button>
+                {TIPOS.map(t => (
+                  <button key={t.id} type="button" onClick={() => elegir(t.id, compania, ganas, duracion)} className={chip(tipo === t.id)}>{t.texto}</button>
                 ))}
               </div>
             </div>
-            <div>
-              <p className="mb-2 text-sm font-semibold text-white">¿Qué tenés ganas?</p>
-              <div className="flex flex-wrap gap-2">
-                {GANAS.map(g => (
-                  <button key={g.id} type="button" onClick={() => elegir(compania, g.id, duracion)} className={chip(ganas === g.id)}>{g.texto}</button>
-                ))}
-              </div>
-            </div>
-            <div>
-              <p className="mb-2 text-sm font-semibold text-white">¿Cuánto tiempo tenés?</p>
-              <div className="flex flex-wrap gap-2">
-                {DURACIONES.map(d => (
-                  <button key={d.id} type="button" onClick={() => elegir(compania, ganas, d.id)} className={chip(duracion === d.id)}>{d.texto}</button>
-                ))}
-              </div>
-            </div>
+            {/* El resto, recién con el tipo: de él depende la pregunta del tiempo. */}
+            {tipo && (
+              <>
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-white">¿Con quién?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {COMPANIAS.map(c => (
+                      <button key={c.id} type="button" onClick={() => elegir(tipo, c.id, ganas, duracion)} className={chip(compania === c.id)}>{c.texto}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-white">¿Qué tenés ganas?</p>
+                  <div className="flex flex-wrap gap-2">
+                    {GANAS.map(g => (
+                      <button key={g.id} type="button" onClick={() => elegir(tipo, compania, g.id, duracion)} className={chip(ganas === g.id)}>{g.texto}</button>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <p className="mb-2 text-sm font-semibold text-white">{TIEMPO[tipo].pregunta}</p>
+                  <div className="flex flex-wrap gap-2">
+                    {DURACIONES_POR_TIPO[tipo].map(d => (
+                      <button key={d} type="button" onClick={() => elegir(tipo, compania, ganas, d)} className={chip(duracion === d)}>{TIEMPO[tipo].opciones[d]}</button>
+                    ))}
+                  </div>
+                </div>
+              </>
+            )}
           </div>
         )}
 

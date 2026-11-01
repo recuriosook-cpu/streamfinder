@@ -10,16 +10,22 @@ interface CountryCtx {
   country: string
   countryData: Country
   setCountry: (code: string) => void
+  /** El último cambio hecho a mano (`n` sube con cada uno). Lo mira `AvisoPlataformasPais`. */
+  cambio: { n: number; de: string; a: string } | null
 }
 
 const CountryContext = createContext<CountryCtx>({
   country: DEFAULT_COUNTRY,
   countryData: getCountry(DEFAULT_COUNTRY),
   setCountry: () => {},
+  cambio: null,
 })
 
 export function CountryProvider({ children }: { children: React.ReactNode }) {
   const [country, setCountryState] = useState(DEFAULT_COUNTRY)
+  const [cambio, setCambio] = useState<CountryCtx['cambio']>(null)
+  const actual = useRef(country)
+  useEffect(() => { actual.current = country }, [country])
   const supabase = useRef(createClient()).current
 
   useEffect(() => {
@@ -63,6 +69,8 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
    * como `manual`, y la detección automática no lo vuelve a pisar.
    */
   const setCountry = useCallback(async (code: string) => {
+    const de = actual.current
+    if (de !== code) setCambio(c => ({ n: (c?.n ?? 0) + 1, de, a: code }))
     setCountryState(code)
     localStorage.setItem(LS_KEY, code)
     const { data: { user } } = await supabase.auth.getUser()
@@ -77,7 +85,7 @@ export function CountryProvider({ children }: { children: React.ReactNode }) {
   }, [supabase])
 
   return (
-    <CountryContext.Provider value={{ country, countryData: getCountry(country), setCountry }}>
+    <CountryContext.Provider value={{ country, countryData: getCountry(country), setCountry, cambio }}>
       {children}
     </CountryContext.Provider>
   )

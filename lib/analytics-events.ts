@@ -365,14 +365,16 @@ export const EVENT_NAMES = [
   /** Empezó. props: { desde: 'inicio' | 'que_ver', repetida? } (repetida = "¿Lo mismo que la última vez?") */
   'que_veo_hoy_abierto',
   /**
-   * Respondió las dos preguntas. props: { compania: 'solo' | 'pareja' |
-   * 'amigos' | 'familia', ganas: 'reirme' | 'tension' | 'emocionarme' |
-   * 'liviano' | 'sorprendeme', repetida }
+   * Respondió las preguntas. props: { tipo: 'pelicula' | 'serie' | 'igual',
+   * compania: 'solo' | 'pareja' | 'amigos' | 'familia', ganas: 'reirme' |
+   * 'emocionarme' | 'asustarme' | 'accion' | 'intriga', duracion, repetida }
    */
   'que_veo_hoy_respuestas',
   /**
    * Se mostró una recomendación. props: { intento (1 = la primera, 2 a 4 =
-   * "Otra"), fuente: 'calificadas' | 'plataformas', media_type, media_id }
+   * "Otra"), fuente: 'calificadas' | 'plataformas', media_type, media_id, tipo }.
+   * `tipo` es lo que eligió (película, serie o me da igual) y `media_type`, lo que
+   * le salió. Sin `tipo`: la app de antes de esa pregunta.
    */
   'que_veo_hoy_resultado',
   /** Tocó un botón. props: { accion: 'la_veo' | 'otra' | 'guardar' | 'cerrar', intento, media_type, media_id } */

@@ -6,7 +6,12 @@ import Link from 'next/link'
 import { ArrowLeft } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { normalizeSavedPlatforms } from '@/lib/onboarding'
-import PlatformPicker from '@/components/PlatformPicker'
+import PlatformPicker, { alternarPlataforma } from '@/components/PlatformPicker'
+import CountrySelector from '@/components/CountrySelector'
+import { useCountry } from '@/context/CountryContext'
+import { usePlataformasPais } from '@/lib/use-plataformas-pais'
+import { juntarNombres, separarElegidas } from '@/lib/plataformas-pais'
+import { nombresDePlataformas } from '@/lib/nombres-plataformas'
 
 /**
  * "Mis plataformas": cambiar `profiles.favorite_platforms` después del
@@ -18,16 +23,34 @@ import PlatformPicker from '@/components/PlatformPicker'
  * así que guardar acá también los deja al día.
  *
  * Se guarda en cada toque, como Notificaciones. Si falla, vuelve atrás.
+ *
+ * La grilla es la del país elegido. Lo elegido que en ese país no existe se avisa
+ * y se saca del perfil con el próximo toque: hasta entonces, volver al país de
+ * antes lo recupera sin hacer nada.
  */
 export default function PlataformasPage() {
   const router = useRouter()
   const supabase = createClient()
+  const { country, countryData } = useCountry()
+  const { plataformas: lista, cargando, fiable } = usePlataformasPais(country)
 
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const [platforms, setPlatforms] = useState<number[]>([])
   const [saving, setSaving] = useState(false)
   const [toast, setToast] = useState<string | null>(null)
+  const [nombresFaltantes, setNombresFaltantes] = useState<string[]>([])
+
+  // Con la lista de respaldo no se puede saber qué falta: no se dice ni se saca nada.
+  const { vigentes, faltantes } = fiable ? separarElegidas(platforms, lista) : { vigentes: platforms, faltantes: [] as number[] }
+  const faltantesClave = faltantes.join(',')
+
+  useEffect(() => {
+    if (!faltantesClave) return
+    let vivo = true
+    void nombresDePlataformas(faltantesClave.split(',').map(Number)).then(n => { if (vivo) setNombresFaltantes(n) })
+    return () => { vivo = false }
+  }, [faltantesClave])
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => {
@@ -45,10 +68,10 @@ export default function PlataformasPage() {
     })
   }, []) // eslint-disable-line react-hooks/exhaustive-deps
 
-  async function handleToggle(id: number) {
+  async function handleToggle(p: Parameters<typeof alternarPlataforma>[1]) {
     if (!userId || saving) return
     const previas = platforms
-    const next = platforms.includes(id) ? platforms.filter(p => p !== id) : [...platforms, id]
+    const next = alternarPlataforma(vigentes, p)
     setPlatforms(next)
     setSaving(true)
     const { error } = await supabase
@@ -83,17 +106,27 @@ export default function PlataformasPage() {
         </div>
 
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
+          <div className="flex items-center justify-between gap-3 mb-4">
+            <p className="text-sm font-semibold text-white">Plataformas en {countryData.name}</p>
+            <CountrySelector variant="compact" align="right" />
+          </div>
+          {faltantes.length > 0 && (
+            <p className="text-xs text-[#FFFD02] mb-4 leading-relaxed">
+              {nombresFaltantes.length > 0 ? juntarNombres(nombresFaltantes) : 'Algunas de tus plataformas'} no{' '}
+              {faltantes.length === 1 ? 'está' : 'están'} en {countryData.name}. Elegí las que tengas acá.
+            </p>
+          )}
           <p className="text-xs text-zinc-500 mb-5 leading-relaxed">
             Las que tenés. Con esto te decimos dónde ver cada título, te recomendamos lo que está
             en tus plataformas y te avisamos cuando algo de tu &quot;Ver después&quot; llega a una de ellas.
           </p>
-          <PlatformPicker selected={platforms} onToggle={handleToggle} disabled={saving} />
+          <PlatformPicker plataformas={lista} cargando={cargando} selected={vigentes} onToggle={handleToggle} disabled={saving} />
         </div>
 
         <p className="text-xs text-zinc-600 text-center">
-          {platforms.length === 0
+          {vigentes.length === 0
             ? 'No elegiste ninguna. Los cambios se guardan automáticamente.'
-            : `${platforms.length} ${platforms.length === 1 ? 'elegida' : 'elegidas'}. Los cambios se guardan automáticamente.`}
+            : `${vigentes.length} ${vigentes.length === 1 ? 'elegida' : 'elegidas'}. Los cambios se guardan automáticamente.`}
         </p>
       </div>
 

@@ -37,7 +37,7 @@ export const ALL_PLATFORMS: PlatformConfig[] = [
   { id: 119,  slug: 'amazon-prime',   name: 'Amazon Prime Video', color: '#00A8E0', fallbackLogoPath: '/68MNrwlkpF7WnmNPXLah69CR5xh.jpg'  },
   { id: 1899, slug: 'max',            name: 'Max',                color: '#5822B4', fallbackLogoPath: '/jbe4gVSfRlbPTdESXhEKpornsfu.jpg'  },
   { id: 531,  slug: 'paramount-plus', name: 'Paramount+',         color: '#0064FF', fallbackLogoPath: '/h5DcR0J2EESLitnhR8xLG1QymTE.jpg'  },
-  { id: 350,  slug: 'apple-tv-plus',  name: 'Apple TV+',          color: '#3A3A3C', fallbackLogoPath: null                                },
+  { id: 350,  slug: 'apple-tv-plus',  name: 'Apple TV',           color: '#3A3A3C', fallbackLogoPath: null                                },
   { id: 283,  slug: 'crunchyroll',    name: 'Crunchyroll',        color: '#F47521', fallbackLogoPath: '/fzN5Jok5Ig1eJ7gyNGoMhnLSCfh.jpg'  },
   { id: 300,  slug: 'pluto-tv',       name: 'Pluto TV',           color: '#00C8FA', fallbackLogoPath: '/xm8xr6LDdY5j2gjYf1S3yqaeRbE.jpg'  },
   // Latin America / AR-specific
@@ -79,21 +79,28 @@ export type Platform = PlatformConfig & { logoPath?: string | null }
 
 // ── Per-provider search URLs ─────────────────────────────────────────────────
 
-const PROVIDER_URL_TEMPLATES: Record<number, (q: string) => string> = {
+/** El país de Claro Video en su URL. */
+const CLARO_PAIS: Record<string, string> = {
+  AR: 'argentina', BO: 'bolivia', BR: 'brasil', CL: 'chile', CO: 'colombia', CR: 'costarica', DO: 'dominicana',
+  EC: 'ecuador', GT: 'guatemala', HN: 'honduras', MX: 'mexico', NI: 'nicaragua', PA: 'panama', PE: 'peru',
+  PY: 'paraguay', SV: 'elsalvador', UY: 'uruguay',
+}
+
+const PROVIDER_URL_TEMPLATES: Record<number, (q: string, pais: string) => string | null> = {
   8:    q => `https://www.netflix.com/search?q=${q}`,
   337:  q => `https://www.disneyplus.com/es-419/search?q=${q}`,
   119:  q => `https://www.primevideo.com/search?phrase=${q}`,
-  1899: q => `https://www.max.com/es-ar/search?q=${q}`,
+  1899: (q, pais) => (pais === 'AR' ? `https://www.max.com/es-ar/search?q=${q}` : `https://www.max.com/search?q=${q}`),
   350:  q => `https://tv.apple.com/search?term=${q}`,
-  531:  q => `https://www.paramountplus.com/ar/search/${q}/`,
+  531:  (q, pais) => (pais === 'AR' ? `https://www.paramountplus.com/ar/search/${q}/` : `https://www.paramountplus.com/search/${q}/`),
   11:   q => `https://mubi.com/es/search?q=${q}`,
   283:  q => `https://www.crunchyroll.com/es/search?q=${q}`,
   300:  q => `https://pluto.tv/es/search?q=${q}`,
   457:  q => `https://www.vix.com/es/search?q=${q}`,
   619:  q => `https://www.disneyplus.com/es-419/search?q=${q}`, // Star+ → Disney+ in LATAM
-  167:  q => `https://www.clarovideo.com/argentina/search?q=${q}`,
+  167:  (q, pais) => (CLARO_PAIS[pais] ? `https://www.clarovideo.com/${CLARO_PAIS[pais]}/search?q=${q}` : null),
   467:  q => `https://www.directvgo.com/buscar?q=${q}`,
-  339:  q => `https://www.movistartv.com.ar/search?q=${q}`,
+  339:  (q, pais) => (pais === 'AR' ? `https://www.movistartv.com.ar/search?q=${q}` : null),
   2302: q => `https://www.mercadoplay.com/search?q=${q}`,
   491:  q => `https://cine.ar/search?q=${q}`,
 }
@@ -102,9 +109,9 @@ const PROVIDER_URL_TEMPLATES: Record<number, (q: string) => string> = {
  * Returns a direct search URL for the given provider and title.
  * Falls back to null if the provider has no known URL template.
  */
-export function buildProviderUrl(providerId: number, title: string): string | null {
-  const fn = PROVIDER_URL_TEMPLATES[providerId]
-  return fn ? fn(encodeURIComponent(title)) : null
+export function buildProviderUrl(providerId: number, title: string, pais = 'AR'): string | null {
+  const fn = PROVIDER_URL_TEMPLATES[providerId] ?? PROVIDER_URL_TEMPLATES[idCanonico(providerId)]
+  return fn ? fn(encodeURIComponent(title), pais) : null
 }
 
 // ── Las "plataformas grandes" ────────────────────────────────────────────────
@@ -196,6 +203,34 @@ export function familiaGrande(providerId: number): string | null {
 
 export function esPlataformaGrande(providerId: number): boolean {
   return FAMILIA_POR_ID.has(providerId)
+}
+
+/**
+ * Los proveedores que son una misma plataforma para quien elige "cuáles tengo".
+ * El primer id de cada una es el que se guarda en el perfil, sea cual sea el país.
+ *
+ * Las grandes con el id de hoy adelante (`PLATAFORMAS_GRANDES` es la regla de la
+ * VPN y no se toca), y algunas que TMDB parte en planes o reventas.
+ */
+export const FAMILIAS_DE_PLATAFORMA: { name: string; ids: number[] }[] = [
+  { name: 'Netflix', ids: [8, 1796, 175] },
+  { name: 'Prime Video', ids: [119, 9, 2100, 613] },
+  { name: 'Disney+', ids: [337, 122] },
+  { name: 'HBO Max', ids: [1899, 384, 1825, 2284] },
+  { name: 'Paramount+', ids: [531, 2303, 2304, 2616, 582, 1853, 633] },
+  { name: 'Apple TV', ids: [350, 2243] },
+  { name: 'ViX', ids: [457, 1866] },
+  { name: 'Peacock', ids: [386, 387] },
+  { name: 'Filmin', ids: [63, 64] },
+]
+
+const CANONICO_POR_ID = new Map<number, number>(
+  FAMILIAS_DE_PLATAFORMA.flatMap(f => f.ids.map(id => [id, f.ids[0]] as [number, number])),
+)
+
+/** El id con que se guarda una plataforma: Prime Video de Estados Unidos (9) pasa a 119. */
+export function idCanonico(providerId: number): number {
+  return CANONICO_POR_ID.get(providerId) ?? providerId
 }
 
 // ── Reventas: la misma plataforma entrando por otra puerta ───────────────────

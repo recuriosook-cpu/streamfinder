@@ -93,7 +93,7 @@ async function porTandas<T>(ids: (string | number)[], n: number, fn: (tanda: (st
   return salida
 }
 
-type Proveedor = { provider_id: number }
+type Proveedor = { provider_id: number; provider_name?: string }
 type PorPais = Record<string, { flatrate?: Proveedor[]; free?: Proveedor[]; ads?: Proveedor[] }>
 
 function proveedoresDe(pais: PorPais[string] | undefined): number[] {
@@ -245,7 +245,13 @@ export async function novedadesDeDisponibilidad(
         if (pais.get(i.userId) !== p) continue
         const suyas = plataformas.get(i.userId)!
         const proveedor = llegaron.find(id => suyas.has(id))
-        if (proveedor !== undefined) llegadas.push({ t, i, proveedor, nombre: suyas.get(proveedor)! })
+        if (proveedor === undefined) continue
+        // Una plataforma de fuera de la lista conocida: el nombre lo da TMDB.
+        const r = json.results?.[p]
+        const nombre = suyas.get(proveedor)
+          || [...(r?.flatrate ?? []), ...(r?.free ?? []), ...(r?.ads ?? [])].find(x => x.provider_id === proveedor)?.provider_name
+          || 'tu plataforma'
+        llegadas.push({ t, i, proveedor, nombre })
       }
     }
   })

@@ -137,7 +137,7 @@ export async function getARProviders() {
   return getRegionProviders('AR')
 }
 
-export async function getProviderTopMovies(providerId: number, country = 'AR') {
+export async function getProviderTopMovies(providerId: number | string, country = 'AR') {
   return tmdbFetch('/discover/movie', {
     with_watch_providers: String(providerId),
     watch_region: country,
@@ -146,7 +146,7 @@ export async function getProviderTopMovies(providerId: number, country = 'AR') {
   })
 }
 
-export async function getProviderTopTV(providerId: number, country = 'AR') {
+export async function getProviderTopTV(providerId: number | string, country = 'AR') {
   return tmdbFetch('/discover/tv', {
     with_watch_providers: String(providerId),
     watch_region: country,
@@ -155,7 +155,7 @@ export async function getProviderTopTV(providerId: number, country = 'AR') {
   })
 }
 
-export async function getProviderCatalog(providerId: number, type: 'movie' | 'tv', page = 1, country = 'AR') {
+export async function getProviderCatalog(providerId: number | string, type: 'movie' | 'tv', page = 1, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   if (type === 'movie') {
     return tmdbFetch('/discover/movie', {
@@ -189,7 +189,7 @@ export async function getUpcomingMovies(country = 'AR', page = 1) {
   return tmdbFetch('/movie/upcoming', { region: country, page: String(page) })
 }
 
-export async function getProviderMovies(providerId: number, country = 'AR') {
+export async function getProviderMovies(providerId: number | string, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   return tmdbFetch('/discover/movie', {
     with_watch_providers: String(providerId),
@@ -200,7 +200,7 @@ export async function getProviderMovies(providerId: number, country = 'AR') {
   })
 }
 
-export async function getProviderTV(providerId: number, country = 'AR') {
+export async function getProviderTV(providerId: number | string, country = 'AR') {
   const today = new Date().toISOString().split('T')[0]
   return tmdbFetch('/discover/tv', {
     with_watch_providers: String(providerId),

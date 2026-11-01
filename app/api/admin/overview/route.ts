@@ -6,6 +6,7 @@ import { requireAdminClient } from '@/lib/service-role'
 import { fetchAllRows, mesAR } from '@/lib/admin-filas'
 import { ALL_PLATFORMS, LOGOS_TMDB } from '@/lib/providers'
 import { normalizeSavedPlatforms } from '@/lib/onboarding'
+import { nombresDeProveedores } from '@/lib/nombres-plataformas'
 import { leerMedicionDesde } from '@/lib/analytics-medicion'
 import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
 
@@ -593,18 +594,20 @@ async function buildOverview(admin: SupabaseClient): Promise<AdminOverview> {
   const provCounts = new Map<number, number>(ALL_PLATFORMS.map(pl => [pl.id, 0]))
   let conPlataformas = 0
   for (const p of profiles) {
-    const ids = normalizeSavedPlatforms(p.favorite_platforms).filter(id => provCounts.has(id))
+    const ids = normalizeSavedPlatforms(p.favorite_platforms)
     if (ids.length === 0) continue
     conPlataformas++
     for (const id of ids) provCounts.set(id, (provCounts.get(id) ?? 0) + 1)
   }
-  const plataformasFavoritas = ALL_PLATFORMS
-    .map(pl => {
-      const count = provCounts.get(pl.id) ?? 0
-      const path = LOGOS_TMDB[pl.id] ?? pl.fallbackLogoPath
+  const delCatalogo = await nombresDeProveedores().catch(() => new Map<number, { nombre: string; logoPath: string | null }>())
+  const plataformasFavoritas = [...provCounts.entries()]
+    .map(([id, count]) => {
+      const pl = ALL_PLATFORMS.find(x => x.id === id)
+      const otra = delCatalogo.get(id)
+      const path = LOGOS_TMDB[id] ?? pl?.fallbackLogoPath ?? otra?.logoPath
       return {
-        id: pl.id,
-        provider: pl.name,
+        id,
+        provider: pl?.name ?? otra?.nombre ?? `Proveedor ${id}`,
         logo: path ? `https://image.tmdb.org/t/p/w154${path}` : null,
         count,
         pct: conPlataformas > 0 ? Math.round((count / conPlataformas) * 100) : 0,

@@ -1,4 +1,5 @@
-import { ALL_PLATFORMS, type PlatformConfig } from '@/lib/providers'
+import { idCanonico, type PlatformConfig } from '@/lib/providers'
+import { plataformaDeId, plataformasDelPais, PLATAFORMAS_DE_RESPALDO, type PlataformaPais } from '@/lib/plataformas-pais'
 
 /**
  * Onboarding de cuenta nueva, flujo corto (2026-10).
@@ -77,11 +78,12 @@ export function genreIdsFromNames(names: string[]): number[] {
 const OLD_PROVIDER_IDS: Record<number, number> = { 384: 1899 }
 
 export function canonicalProviderId(id: number): number {
-  return OLD_PROVIDER_IDS[id] ?? id
+  return idCanonico(OLD_PROVIDER_IDS[id] ?? id)
 }
 
 /** Todos los ids con que TMDB puede nombrar a la plataforma: el de hoy y los viejos. */
-export function providerIdsOf(platform: PlatformConfig): number[] {
+export function providerIdsOf(platform: PlatformConfig | PlataformaPais): number[] {
+  if ('ids' in platform) return platform.ids
   return [
     platform.id,
     ...Object.entries(OLD_PROVIDER_IDS).filter(([, now]) => now === platform.id).map(([old]) => Number(old)),
@@ -224,7 +226,7 @@ async function recommendationsOf(item: TasteItem): Promise<TasteItem[]> {
 }
 
 /** La plataforma del usuario en la que está el título en ese país, o `null`. */
-async function platformFor(item: TasteItem, platforms: PlatformConfig[], country: string): Promise<PlatformConfig | null> {
+async function platformFor(item: TasteItem, platforms: PlataformaPais[], country: string): Promise<PlataformaPais | null> {
   try {
     const data = await tmdb<{ results: Record<string, Record<string, { provider_id: number }[] | undefined>> }>(
       `/${item.type}/${item.id}/watch/providers`,
@@ -251,7 +253,10 @@ export async function getFirstRecommendations(input: {
   genreNames: string[]
   country: string
 }): Promise<FirstRecommendation[]> {
-  const platforms = ALL_PLATFORMS.filter(p => input.platformIds.includes(p.id))
+  // Las de su país: lo que eligió y acá no existe no sirve para buscar. Si TMDB
+  // no responde, las conocidas que eligió.
+  const lista = await plataformasDelPais(input.country).catch(() => PLATAFORMAS_DE_RESPALDO)
+  const platforms = [...new Set(input.platformIds.map(id => plataformaDeId(lista, id)).filter((p): p is PlataformaPais => !!p))]
   const excluded = new Set(input.liked.map(keyOf))
 
   const lists = await Promise.all(

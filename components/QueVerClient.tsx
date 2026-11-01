@@ -6,7 +6,8 @@ import Link from 'next/link'
 import { Star, EyeOff } from 'lucide-react'
 import QueVeoHoy from '@/components/QueVeoHoy'
 import { getPosterUrl } from '@/lib/tmdb'
-import { ALL_PLATFORMS } from '@/lib/providers'
+import { usePlataformasPais } from '@/lib/use-plataformas-pais'
+import { plataformasAMostrar, plataformaDeId } from '@/lib/plataformas-pais'
 import { useCountry } from '@/context/CountryContext'
 import { createClient } from '@/lib/supabase'
 import CountrySelector from '@/components/CountrySelector'
@@ -23,6 +24,8 @@ interface Params {
   yearTo: string
   minScore: number
   provider: number | null
+  /** Todos los ids de TMDB de esa plataforma en ese país (`usePlataformasPais`). */
+  providerIds?: number[]
   watchRegion: string
   page: number
 }
@@ -137,7 +140,7 @@ function buildDiscoverUrl(p: Params): string {
 
   // Streaming platform filter
   if (p.provider !== null) {
-    url.searchParams.set('with_watch_providers', String(p.provider))
+    url.searchParams.set('with_watch_providers', p.providerIds?.join('|') ?? String(p.provider))
     url.searchParams.set('watch_region', p.watchRegion)
   }
 
@@ -153,6 +156,7 @@ interface Props {
 
 export default function QueVerClient({ initialGenre, initialType }: Props) {
   const { country } = useCountry()
+  const { plataformas: plataformasPais, fiable: plataformasFiables } = usePlataformasPais(country)
 
   const [params, setParams] = useState<Params>({
     contentType: initialType ?? 'movies',
@@ -216,6 +220,18 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
     setParams(p => p.watchRegion === country ? p : { ...p, watchRegion: country, page: 1 })
   }, [country])
 
+  // La plataforma elegida en el país nuevo: otros ids, o afuera si ahí no existe.
+  useEffect(() => {
+    if (!plataformasFiables) return
+    setParams(p => {
+      if (p.provider === null) return p
+      const enElPais = plataformaDeId(plataformasPais, p.provider)
+      const ids = enElPais?.ids
+      if (ids?.join() === p.providerIds?.join()) return p
+      return { ...p, provider: enElPais?.id ?? null, providerIds: ids, page: 1 }
+    })
+  }, [plataformasPais, plataformasFiables])
+
   // Fetch whenever params change
   useEffect(() => {
     const ac = new AbortController()
@@ -276,7 +292,10 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
     })
 
   const toggleProvider = (id: number) =>
-    updateFilter({ provider: params.provider === id ? null : id })
+    updateFilter({
+      provider: params.provider === id ? null : id,
+      providerIds: plataformaDeId(plataformasPais, id)?.ids,
+    })
 
   const genreList = (params.contentType === 'series' || params.contentType === 'miniseries' || params.contentType === 'anime')
     ? TV_GENRES
@@ -330,9 +349,10 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
           {/* Platform strip + country selector */}
           <div className="flex items-center gap-2">
           <div className="flex gap-2.5 overflow-x-auto no-scrollbar pb-0.5 flex-1">
-            {ALL_PLATFORMS.map(p => {
+            {plataformasAMostrar(plataformasPais, params.provider !== null ? [params.provider] : []).map(p => {
               const selected  = params.provider === p.id
-              const showLogo  = !!p.fallbackLogoPath && !logoErrors.has(p.id)
+              const logo      = p.logoPath ?? p.fallbackLogoPath
+              const showLogo  = !!logo && !logoErrors.has(p.id)
               return (
                 <button
                   key={p.id}
@@ -347,7 +367,7 @@ export default function QueVerClient({ initialGenre, initialType }: Props) {
                   {showLogo ? (
                     // eslint-disable-next-line @next/next/no-img-element
                     <img
-                      src={`https://image.tmdb.org/t/p/w154${p.fallbackLogoPath}`}
+                      src={`https://image.tmdb.org/t/p/w154${logo}`}
                       alt={p.name}
                       className="w-full h-full object-cover"
                       onError={() => setLogoErrors(prev => new Set(prev).add(p.id))}

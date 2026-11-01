@@ -6,7 +6,10 @@ import { useRouter } from 'next/navigation'
 import { Check, Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { track, registrarAlta } from '@/lib/analytics'
-import PlatformPicker, { PlatformLogo } from '@/components/PlatformPicker'
+import PlatformPicker, { alternarPlataforma, PlatformLogo } from '@/components/PlatformPicker'
+import CountrySelector from '@/components/CountrySelector'
+import { usePlataformasPais } from '@/lib/use-plataformas-pais'
+import { separarElegidas } from '@/lib/plataformas-pais'
 import { useCountry } from '@/context/CountryContext'
 import {
   ONBOARDING_GENRES,
@@ -293,7 +296,8 @@ function BottomBar({ children }: { children: React.ReactNode }) {
 export default function OnboardingPage() {
   const router = useRouter()
   const supabase = useRef(createClient()).current
-  const { country } = useCountry()
+  const { country, countryData } = useCountry()
+  const { plataformas: listaPlataformas, cargando: cargandoPlataformas, fiable: plataformasFiables } = usePlataformasPais(country)
 
   const [user, setUser] = useState<User | null>(null)
   const [loading, setLoading] = useState(true)
@@ -301,7 +305,9 @@ export default function OnboardingPage() {
   const [saving, setSaving] = useState(false)
   const [error, setError] = useState<string | null>(null)
 
-  const [platforms, setPlatforms] = useState<number[]>([])
+  // Lo guardado o tocado, de cualquier país: `platforms` son las que valen en este.
+  const [platformsElegidas, setPlatforms] = useState<number[]>([])
+  const platforms = plataformasFiables ? separarElegidas(platformsElegidas, listaPlataformas).vigentes : platformsElegidas
   const [genres, setGenres] = useState<string[]>([])
 
   // Paso 3. `itemsFor` dice con qué géneros se pidió la grilla.
@@ -702,7 +708,20 @@ export default function OnboardingPage() {
         <p className="text-sm text-[#A0A0B0] leading-5 mt-1.5">{copy.subtitle}</p>
         <div className="h-5" />
 
-        {step === 1 && <PlatformPicker selected={platforms} onToggle={id => setPlatforms(prev => toggle(prev, id))} />}
+        {step === 1 && (
+          <>
+            <div className="flex items-center justify-between gap-3 mb-4">
+              <p className="text-sm font-semibold text-white">Plataformas en {countryData.name}</p>
+              <CountrySelector variant="compact" align="right" />
+            </div>
+            <PlatformPicker
+              plataformas={listaPlataformas}
+              cargando={cargandoPlataformas}
+              selected={platforms}
+              onToggle={p => setPlatforms(alternarPlataforma(platforms, p))}
+            />
+          </>
+        )}
         {step === 2 && <GenresStep selected={genres} onToggle={name => setGenres(prev => toggle(prev, name))} />}
         {step === 3 && (
           <TasteGridStep

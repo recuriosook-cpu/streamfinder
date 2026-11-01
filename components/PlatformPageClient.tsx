@@ -9,6 +9,8 @@ import TopRankedCard from '@/components/TopRankedCard'
 import MediaCard from '@/components/MediaCard'
 import { useCountry } from '@/context/CountryContext'
 import CountrySelector from '@/components/CountrySelector'
+import { usePlataformasPais } from '@/lib/use-plataformas-pais'
+import { plataformaDeId } from '@/lib/plataformas-pais'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -73,7 +75,7 @@ const GENRES = [
 // ── URL builder ────────────────────────────────────────────────────────────
 
 function buildUrl(
-  providerId: number,
+  providerId: number | string,
   contentType: ContentType,
   genres: number[],
   country: string,
@@ -124,6 +126,9 @@ export default function PlatformPageClient({
   catalog,
 }: Props) {
   const { country } = useCountry()
+  // Prime Video no tiene el mismo id en todos los países: los del elegido.
+  const { plataformas: plataformasPais } = usePlataformasPais(country)
+  const idsEnElPais = plataformaDeId(plataformasPais, platform.id)?.ids.join('|') ?? platform.id
 
   // Filter state — null means "no filter active"
   const [activeType, setActiveType] = useState<ContentType | null>(null)
@@ -156,7 +161,7 @@ export default function PlatformPageClient({
     const isTV: boolean = type === 'series' || type === 'miniseries' || type === 'anime'
     const mediaType: 'movie' | 'tv' = isTV ? 'tv' : 'movie'
 
-    fetch(buildUrl(platform.id, type, genres, country, filtPage), { signal: ac.signal })
+    fetch(buildUrl(idsEnElPais, type, genres, country, filtPage), { signal: ac.signal })
       .then(r => r.json())
       .then(data => {
         const mapped: FilteredItem[] = (data.results ?? [])
@@ -181,7 +186,7 @@ export default function PlatformPageClient({
 
     return () => ac.abort()
   // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [activeType, genres, filtPage, country, isFiltered])
+  }, [activeType, genres, filtPage, country, isFiltered, idsEnElPais])
 
   // Infinite scroll for filtered results
   useEffect(() => {

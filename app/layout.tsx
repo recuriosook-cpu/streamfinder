@@ -3,6 +3,7 @@ import './globals.css'
 import Navbar from '@/components/Navbar'
 import Footer from '@/components/Footer'
 import { CountryProvider } from '@/context/CountryContext'
+import AvisoPlataformasPais from '@/components/AvisoPlataformasPais'
 import { ConditionalShell } from '@/components/ConditionalShell'
 import { PingActive } from '@/components/PingActive'
 import { AnalyticsBoot } from '@/components/AnalyticsBoot'
@@ -120,6 +121,7 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <ConditionalShell><Navbar /></ConditionalShell>
           <main>{children}</main>
           <ConditionalShell><Footer /></ConditionalShell>
+          <AvisoPlataformasPais />
           <PingActive />
           <AnalyticsBoot />
           <PageViewTracker />
