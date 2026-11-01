@@ -175,6 +175,19 @@ export function separarElegidas(elegidas: number[], lista: PlataformaPais[]): { 
   return { vigentes: [...vigentes], faltantes }
 }
 
+/**
+ * Las plataformas guardadas que existen en ese país, listas para buscar: cada id
+ * de TMDB que tienen ahí → la plataforma. Vacío si ninguna existe en el país.
+ */
+export function elegidasEnElPais(favoritas: (string | number)[] | null, lista: PlataformaPais[]): Map<number, PlataformaPais> {
+  const mapa = new Map<number, PlataformaPais>()
+  for (const fav of favoritas ?? []) {
+    const p = plataformaDeId(lista, Number(fav))
+    if (p) for (const id of p.ids) mapa.set(id, p)
+  }
+  return mapa
+}
+
 /** Lo que se ofrece: las destacadas y, aunque sean raras, las que ya eligió. */
 export function plataformasAMostrar(lista: PlataformaPais[], elegidas: number[] = []): PlataformaPais[] {
   return lista.filter(p => p.destacada || p.ids.some(id => elegidas.includes(id)))

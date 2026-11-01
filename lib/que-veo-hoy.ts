@@ -3,7 +3,7 @@
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { plataformasDe } from './resumen-semanal'
 import { idiomaTmdb, type Idioma } from './idioma'
-import { plataformaDeId, plataformasDelPais } from './plataformas-pais'
+import { elegidasEnElPais, plataformasDelPais } from './plataformas-pais'
 import type { Duracion, Tipo } from './que-veo-hoy-opciones'
 
 /**
@@ -180,6 +180,7 @@ const TMDB = 'https://api.themoviedb.org/3'
 
 type Fila = {
   id: number; title?: string; name?: string; genre_ids?: number[]
+  origin_country?: string[]; original_language?: string
   vote_average?: number; vote_count?: number; popularity?: number
   poster_path?: string | null; backdrop_path?: string | null
   release_date?: string; first_air_date?: string
@@ -255,6 +256,17 @@ const VOTOS_MINIMOS = 300
  * tienen la comedia como género principal (Only Murders in the Building).
  */
 const VOTOS_MINIMOS_AMPLIO = 50
+
+/** La palabra clave "anime" de TMDB, para pedirle que no las traiga en ese intento. */
+const PALABRA_ANIME = '210024'
+
+const ANIMACION = 16
+
+/** Animación japonesa. TMDB no tiene un género "anime". */
+function esAnime(f: Fila): boolean {
+  return (f.genre_ids ?? []).includes(ANIMACION) &&
+    ((f.origin_country ?? []).includes('JP') || f.original_language === 'ja')
+}
 const NOTA_MINIMA = 6.3
 
 function aResultado(
@@ -347,16 +359,20 @@ export async function queVeoHoy(
   const logos = new Map<number, string | null>()
   const semillas: { tipo: MediaType; id: number; titulo: string }[] = []
   const marcados = new Set<string>(opts.excluir)
+  /** Si la tiene entre sus géneros favoritos. Sin sesión, no. */
+  let eligioAnimacion = false
   if (admin && opts.userId) {
     const uid = opts.userId
     const [perfil, notas, vistas, resenas] = await Promise.all([
-      admin.from('profiles').select('favorite_platforms').eq('id', uid).maybeSingle(),
+      admin.from('profiles').select('favorite_platforms, favorite_genres').eq('id', uid).maybeSingle(),
       admin.from('ratings').select('media_type, media_id, rating, title').eq('user_id', uid)
         .order('rating', { ascending: false }).order('rated_at', { ascending: false }).limit(1000),
       admin.from('watched').select('media_type, media_id').eq('user_id', uid).limit(5000),
       admin.from('reviews').select('media_type, media_id').eq('user_id', uid).limit(5000),
     ])
-    const favoritas = (perfil.data as { favorite_platforms: string[] | null } | null)?.favorite_platforms ?? null
+    const fila = perfil.data as { favorite_platforms: string[] | null; favorite_genres: string[] | null } | null
+    const favoritas = fila?.favorite_platforms ?? null
+    eligioAnimacion = (fila?.favorite_genres ?? []).includes('Animación')
     plataformas = plataformasDe(favoritas)
     // Contra la lista del país: los ids de ahí (Prime Video es otro en Estados
     // Unidos), los nombres y logos que no conoce `plataformasDe`, y afuera lo que
@@ -365,13 +381,9 @@ export async function queVeoHoy(
     const lista = await plataformasDelPais(opts.pais).catch(() => null)
     if (lista) {
       plataformas = new Map()
-      for (const fav of favoritas ?? []) {
-        const p = plataformaDeId(lista, Number(fav))
-        if (!p) continue
-        for (const id of p.ids) {
-          plataformas.set(id, p.name)
-          logos.set(id, p.logoPath ?? p.fallbackLogoPath ?? null)
-        }
+      for (const [id, p] of elegidasEnElPais(favoritas, lista)) {
+        plataformas.set(id, p.name)
+        logos.set(id, p.logoPath ?? p.fallbackLogoPath ?? null)
       }
     }
     type N = { media_type: string; media_id: number; rating: number | string | null; title: string | null }
@@ -448,6 +460,7 @@ export async function queVeoHoy(
       with_watch_monetization_types: 'flatrate|free|ads',
     }
     if (plataformas.size > 0) base.with_watch_providers = [...plataformas.keys()].join('|')
+    if (amplio && !eligioAnimacion) base.without_keywords = PALABRA_ANIME
     // En familia, las series se piden por familiares e infantiles: el género
     // de las ganas lo mira `encaja`, entre todos los suyos.
     const generosSerie = opts.compania === 'familia'
@@ -472,8 +485,9 @@ export async function queVeoHoy(
       const tanda = pozo.slice(i, i + 6).filter(c => {
         const k = clave(c.tipo, c.f.id)
         return !usados.has(k) && !marcados.has(k) && encaja(c.f, c.tipo, generosDe(c.tipo), opts.compania, amplio) &&
-          // En el intento amplio, "asustarme" traía Pokémon: de animación, nada.
-          !(amplio && opts.ganas === 'asustarme' && (c.f.genre_ids ?? []).includes(16))
+          // En el intento amplio, anime sólo si eligió animación. Y "asustarme"
+          // traía dibujitos en general (Futurama): tampoco.
+          !(amplio && !eligioAnimacion && (esAnime(c.f) || (opts.ganas === 'asustarme' && (c.f.genre_ids ?? []).includes(ANIMACION))))
       })
       const dondes = await Promise.all(tanda.map(c => revisar(c.tipo, c.f.id)))
       tanda.forEach((c, j) => {

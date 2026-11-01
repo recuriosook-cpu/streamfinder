@@ -2,6 +2,7 @@
 
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { ALL_PLATFORMS, PLATAFORMAS_GRANDES } from './providers'
+import { elegidasEnElPais, plataformasDelPais, type PlataformaPais } from './plataformas-pais'
 import { deleteDeadTokens, sendExpoPushMessages, type ExpoMessage } from './expo-push'
 import { envioApagado, faltaLaTabla } from './push-envios'
 import { idiomaDe, idiomaTmdb, idiomasDe, type Idioma } from './idioma'
@@ -14,7 +15,7 @@ import { idiomaDe, idiomaTmdb, idiomasDe, type Idioma } from './idioma'
  * ── Qué se recomienda ──────────────────────────────────────────────────────
  *
  *   a. Algo de su watchlist que esté en una de sus plataformas
- *      (`favorite_platforms`) en Argentina, suscripción o gratis.
+ *      (`favorite_platforms`) en su país, suscripción o gratis.
  *      "Ya está en Netflix: X, que tenías guardada".
  *   b. Si no hay, un estreno reciente en sus plataformas que coincida con sus
  *      géneros favoritos Y con lo que calificó con 4 o más.
@@ -24,6 +25,14 @@ import { idiomaDe, idiomaTmdb, idiomasDe, type Idioma } from './idioma'
  * TMDB no dice desde cuándo un título está en una plataforma, sólo si está
  * hoy. Así que (a) es "está disponible y nunca se lo mandamos", empezando por
  * lo último que guardó; y (b) es "estrenado hace poco y disponible hoy".
+ *
+ * ── El país ────────────────────────────────────────────────────────────────
+ *
+ * El de cada persona (`profiles.country`; si no se sabe, Argentina): de ahí salen
+ * qué hay en cada plataforma y los estrenos. Sus plataformas se miran contra la
+ * lista de ese país (`lib/plataformas-pais.ts`): lo que ahí no existe no cuenta,
+ * y si no queda ninguna, esa semana no se le manda nada. La hora de la corrida
+ * sigue siendo una sola, los viernes a las 18 de Argentina.
  *
  * ── Qué nunca se recomienda ────────────────────────────────────────────────
  *
@@ -134,7 +143,7 @@ export function plataformasDe(favoritas: string[] | null): Map<number, string> {
 interface Ficha {
   nombre: string
   generos: number[]
-  /** En Argentina, por suscripción, gratis o con publicidad. En el orden de TMDB. */
+  /** En el país pedido, por suscripción, gratis o con publicidad. En el orden de TMDB. */
   proveedores: { id: number; nombre: string }[]
 }
 
@@ -152,8 +161,19 @@ interface Candidato {
  */
 class Tmdb {
   private memoria = new Map<string, Promise<unknown>>()
+  private listas = new Map<string, Promise<PlataformaPais[] | null>>()
 
   constructor(private key: string) {}
+
+  /** Las plataformas del país, una vez por corrida. `null` si TMDB no respondió. */
+  plataformasDe(pais: string): Promise<PlataformaPais[] | null> {
+    let lista = this.listas.get(pais)
+    if (!lista) {
+      lista = plataformasDelPais(pais).catch(() => null)
+      this.listas.set(pais, lista)
+    }
+    return lista
+  }
 
   private get<T>(ruta: string, params: Record<string, string> = {}): Promise<T | null> {
     const qs = new URLSearchParams({ api_key: this.key, language: 'es-AR', ...params })
@@ -168,7 +188,7 @@ class Tmdb {
     return p
   }
 
-  async ficha(mediaType: MediaType, id: number): Promise<Ficha | null> {
+  async ficha(mediaType: MediaType, id: number, pais: string): Promise<Ficha | null> {
     type Proveedor = { provider_id: number; provider_name: string }
     const json = await this.get<{
       title?: string; name?: string
@@ -179,9 +199,9 @@ class Tmdb {
     const nombre = (mediaType === 'movie' ? json.title : json.name)?.trim()
     if (!nombre) return null
 
-    const ar = json['watch/providers']?.results?.AR
+    const region = json['watch/providers']?.results?.[pais]
     const proveedores: Ficha['proveedores'] = []
-    for (const p of [...(ar?.flatrate ?? []), ...(ar?.free ?? []), ...(ar?.ads ?? [])]) {
+    for (const p of [...(region?.flatrate ?? []), ...(region?.free ?? []), ...(region?.ads ?? [])]) {
       if (!proveedores.some(x => x.id === p.provider_id)) {
         proveedores.push({ id: p.provider_id, nombre: p.provider_name })
       }
@@ -193,13 +213,13 @@ class Tmdb {
     }
   }
 
-  /** Estrenos recientes disponibles hoy en alguna de esas plataformas, en Argentina. */
-  async estrenos(mediaType: MediaType, proveedores: number[]): Promise<Candidato[]> {
+  /** Estrenos recientes disponibles hoy en alguna de esas plataformas, en ese país. */
+  async estrenos(mediaType: MediaType, proveedores: number[], pais: string): Promise<Candidato[]> {
     const hoy = fechaArgentina(0)
     const desde = fechaArgentina(mediaType === 'movie' ? 180 : 90)
     const campo = mediaType === 'movie' ? 'primary_release_date' : 'first_air_date'
     const params = {
-      watch_region: 'AR',
+      watch_region: pais,
       with_watch_providers: [...proveedores].sort((a, b) => a - b).join('|'),
       with_watch_monetization_types: 'flatrate|free|ads',
       sort_by: 'popularity.desc',
@@ -271,6 +291,7 @@ export async function enParalelo<T, R>(items: T[], cuantos: number, fn: (item: T
 
 export interface Perfil {
   id: string
+  country: string | null
   favorite_platforms: string[] | null
   favorite_genres: string[] | null
   notification_preferences: unknown
@@ -287,7 +308,14 @@ export interface Eleccion {
   url: string
 }
 
-export type SinEleccion = 'sin_plataformas' | 'nada_encaja'
+export type SinEleccion = 'sin_plataformas' | 'sin_plataformas_en_su_pais' | 'nada_encaja'
+
+const PAIS_POR_DEFECTO = 'AR'
+
+/** El país de la persona. El que no se sabe, Argentina. */
+function paisDe(perfil: Perfil): string {
+  return perfil.country && /^[A-Z]{2}$/.test(perfil.country) ? perfil.country : PAIS_POR_DEFECTO
+}
 
 type Fila = { media_id: number; media_type: string }
 
@@ -331,12 +359,13 @@ async function primeroDisponible(
   tmdb: Tmdb,
   titulos: { mediaType: MediaType; id: number }[],
   plataformas: Map<number, string>,
-  motivo: Motivo
+  motivo: Motivo,
+  pais: string
 ): Promise<Eleccion | null> {
   // De a tandas, para respetar el orden sin mirar uno por uno.
   for (let i = 0; i < titulos.length; i += 6) {
     const tanda = titulos.slice(i, i + 6)
-    const fichas = await Promise.all(tanda.map(t => tmdb.ficha(t.mediaType, t.id)))
+    const fichas = await Promise.all(tanda.map(t => tmdb.ficha(t.mediaType, t.id, pais)))
     for (let j = 0; j < tanda.length; j++) {
       const ficha = fichas[j]
       if (!ficha) continue
@@ -370,8 +399,19 @@ async function elegir(
   perfil: Perfil,
   yaRecomendados: Set<string>
 ): Promise<Eleccion | SinEleccion> {
-  const plataformas = plataformasDe(perfil.favorite_platforms)
+  let plataformas = plataformasDe(perfil.favorite_platforms)
   if (plataformas.size === 0) return 'sin_plataformas'
+
+  // Las de su país, con los ids de ahí (Prime Video es 9 en Estados Unidos) y el
+  // nombre de las que no son de las conocidas. Si TMDB no responde, lo que eligió.
+  const pais = paisDe(perfil)
+  const lista = await tmdb.plataformasDe(pais)
+  if (lista) {
+    plataformas = new Map(
+      [...elegidasEnElPais(perfil.favorite_platforms, lista)].map(([id, p]) => [id, p.name] as [number, string])
+    )
+    if (plataformas.size === 0) return 'sin_plataformas_en_su_pais'
+  }
 
   const [watchlist, vistas, notas, resenas, enviadas, avisadas] = await Promise.all([
     filasDe<Fila>(admin, 'watchlist', 'media_id, media_type', perfil.id, 'added_at'),
@@ -395,7 +435,7 @@ async function elegir(
     .filter(f => esTipo(f.media_type) && !excluidos.has(clave(f.media_type, f.media_id)))
     .slice(0, WATCHLIST_A_MIRAR)
     .map(f => ({ mediaType: f.media_type as MediaType, id: f.media_id }))
-  const deLaLista = await primeroDisponible(tmdb, guardados, plataformas, 'watchlist')
+  const deLaLista = await primeroDisponible(tmdb, guardados, plataformas, 'watchlist', pais)
   if (deLaLista) return deLaLista
 
   // b. Un estreno que encaje con sus géneros y con lo que calificó alto.
@@ -414,7 +454,7 @@ async function elegir(
   if (altos.length === 0) return 'nada_encaja'
 
   const [fichasAltas, recos] = await Promise.all([
-    Promise.all(altos.map(a => tmdb.ficha(a.mediaType, a.id))),
+    Promise.all(altos.map(a => tmdb.ficha(a.mediaType, a.id, pais))),
     Promise.all(altos.slice(0, ALTOS_CON_RECOS).map(a => tmdb.recomendaciones(a.mediaType, a.id))),
   ])
   const gusto = new Map<number, number>()
@@ -426,8 +466,8 @@ async function elegir(
   const enLista = new Set(watchlist.map(f => clave(f.media_type, f.media_id)))
   const proveedores = [...plataformas.keys()]
   const [peliculas, series] = await Promise.all([
-    tmdb.estrenos('movie', proveedores),
-    tmdb.estrenos('tv', proveedores),
+    tmdb.estrenos('movie', proveedores, pais),
+    tmdb.estrenos('tv', proveedores, pais),
   ])
 
   const puntuados = [...peliculas, ...series]
@@ -459,7 +499,7 @@ async function elegir(
     .map(p => ({ mediaType: p.c.mediaType, id: p.c.id }))
 
   // Se confirma con la ficha en qué plataforma está: discover puede estar atrasado.
-  return (await primeroDisponible(tmdb, puntuados, plataformas, 'estreno')) ?? 'nada_encaja'
+  return (await primeroDisponible(tmdb, puntuados, plataformas, 'estreno', pais)) ?? 'nada_encaja'
 }
 
 // ── Lo que comparten la corrida y la prueba ────────────────────────────────
@@ -589,7 +629,7 @@ async function perfilesDe(admin: SupabaseClient, ids: string[]): Promise<Perfil[
   for (let i = 0; i < ids.length; i += 200) {
     const { data, error } = await admin
       .from('profiles')
-      .select('id, favorite_platforms, favorite_genres, notification_preferences')
+      .select('id, country, favorite_platforms, favorite_genres, notification_preferences')
       .in('id', ids.slice(i, i + 200))
     if (error) throw new Error(`profiles: ${error.message}`)
     perfiles.push(...((data ?? []) as Perfil[]))
@@ -740,7 +780,7 @@ async function armarCorrida(admin: SupabaseClient, envioId: number, resumen: Res
   const elegidos: { userId: string; eleccion: Eleccion }[] = []
   for (const { perfil, eleccion } of elecciones) {
     if (eleccion === null) resumen.errores++
-    else if (eleccion === 'sin_plataformas') resumen.sinPlataformas++
+    else if (eleccion === 'sin_plataformas' || eleccion === 'sin_plataformas_en_su_pais') resumen.sinPlataformas++
     else if (eleccion === 'nada_encaja') resumen.nadaEncaja++
     else elegidos.push({ userId: perfil.id, eleccion })
   }
@@ -811,6 +851,9 @@ export async function probarSemanal(admin: SupabaseClient, userId: string): Prom
   const eleccion = typeof elegida === 'string' ? elegida : await enSuIdioma(tmdb, elegida, idioma)
   if (eleccion === 'sin_plataformas') {
     return { ...vacio, eleccion: null, sinEleccion: 'No elegiste plataformas en tu perfil: no te tocaría ninguna.' }
+  }
+  if (eleccion === 'sin_plataformas_en_su_pais') {
+    return { ...vacio, eleccion: null, sinEleccion: `Ninguna de tus plataformas está en tu país (${paisDe(perfil)}): no te tocaría ninguna.` }
   }
   if (eleccion === 'nada_encaja') {
     return {
