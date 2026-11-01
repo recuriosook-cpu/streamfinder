@@ -10,7 +10,7 @@ import { buildProviderUrl } from '@/lib/providers'
 import { useCountry } from '@/context/CountryContext'
 import { mediaImagePath } from '@/lib/share-urls'
 import CompartirHistoria from '@/components/CompartirHistoria'
-import type { Compania, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
+import type { AvisoQueVeoHoy, Compania, Ganas, ResultadoQueVeoHoy } from '@/lib/que-veo-hoy'
 import { DURACIONES_POR_TIPO, type Duracion, type Tipo } from '@/lib/que-veo-hoy-opciones'
 
 /**
@@ -111,6 +111,7 @@ export default function QueVeoHoy() {
   const [ultima, setUltima] = useState<Respuestas | null>(null)
   const [resultados, setResultados] = useState<ResultadoQueVeoHoy[]>([])
   const [indice, setIndice] = useState(0)
+  const [aviso, setAviso] = useState<AvisoQueVeoHoy | null>(null)
   const [abierto, setAbierto] = useState(false)
 
   // localStorage sólo existe en el navegador: se lee después de montar.
@@ -131,7 +132,9 @@ export default function QueVeoHoy() {
       })
       const res = await fetch(`/api/que-veo-hoy?${qs}`, { cache: 'no-store' })
       if (!res.ok) throw new Error(`${res.status}`)
-      const encontradas = ((await res.json()) as { resultados?: ResultadoQueVeoHoy[] }).resultados ?? []
+      const cuerpo = (await res.json()) as { resultados?: ResultadoQueVeoHoy[]; aviso?: AvisoQueVeoHoy | null }
+      const encontradas = cuerpo.resultados ?? []
+      setAviso(cuerpo.aviso ?? null)
       if (encontradas.length === 0) { setPaso('nada'); return }
       setResultados(encontradas)
       setIndice(0)
@@ -333,6 +336,11 @@ export default function QueVeoHoy() {
             </button>
           </div>
           <div className="relative flex flex-1 flex-col items-center overflow-y-auto px-4">
+            {aviso === 'series_largas' && (
+              <p role="status" className="mb-4 max-w-md text-center text-sm font-semibold text-[#FFFD02]">
+                No encontramos series cortas de terror, te mostramos algunas con episodios más largos
+              </p>
+            )}
             {actual.posterPath && (
               // eslint-disable-next-line @next/next/no-img-element
               <img

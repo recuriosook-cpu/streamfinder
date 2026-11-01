@@ -335,6 +335,26 @@ function mezclar<T>(lista: T[]): T[] {
   return copia
 }
 
+/** Lo que el recomendador le tiene que aclarar a la persona junto con el resultado. */
+export type AvisoQueVeoHoy = 'series_largas'
+
+/**
+ * El recomendador con lo que hace si no encuentra nada: casi no hay series de
+ * miedo de 20-30 minutos, así que en ese caso se amplía a episodios de hasta
+ * 1 hora y se avisa. Es lo que usa `/api/que-veo-hoy`.
+ */
+export async function queVeoHoyConAviso(
+  admin: SupabaseClient | null,
+  opts: Parameters<typeof queVeoHoy>[1]
+): Promise<{ resultados: ResultadoQueVeoHoy[]; aviso: AvisoQueVeoHoy | null }> {
+  const resultados = await queVeoHoy(admin, opts)
+  const seriesDeMiedoCortas = opts.tipo === 'serie' && opts.ganas === 'asustarme' &&
+    opts.compania !== 'familia' && opts.duracion === 'corta'
+  if (resultados.length > 0 || !seriesDeMiedoCortas) return { resultados, aviso: null }
+  const masLargas = await queVeoHoy(admin, { ...opts, duracion: 'hasta2' })
+  return { resultados: masLargas, aviso: masLargas.length > 0 ? 'series_largas' : null }
+}
+
 export async function queVeoHoy(
   admin: SupabaseClient | null,
   opts: {

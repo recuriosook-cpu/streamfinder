@@ -10,7 +10,7 @@ import {
   DURACIONES_POR_TIPO,
   GANAS,
   GANAS_VIEJAS,
-  queVeoHoy,
+  queVeoHoyConAviso,
   TIPOS,
   type Compania,
   type Duracion,
@@ -29,7 +29,8 @@ import {
  *
  * Con sesión (Bearer desde la app, cookie desde la web) usa sus plataformas y
  * lo que calificó; sin sesión, conocidas del país. Responde `{ resultados }`,
- * hasta 4: la primera y las 3 de "Otra".
+ * hasta 4: la primera y las 3 de "Otra", y `aviso` si tuvo que ampliar la búsqueda
+ * (`AvisoQueVeoHoy`) o `null`.
  */
 
 export const OPTIONS = corsPreflight
@@ -61,7 +62,7 @@ export async function GET(req: NextRequest) {
 
   try {
     const userId = await getRequestUserId(req)
-    const resultados = await queVeoHoy(userId ? getAdminClient() : null, {
+    const { resultados, aviso } = await queVeoHoyConAviso(userId ? getAdminClient() : null, {
       userId,
       tipo,
       compania,
@@ -72,7 +73,7 @@ export async function GET(req: NextRequest) {
       excluir,
     })
     return NextResponse.json(
-      { resultados },
+      { resultados, aviso },
       { headers: { ...CORS_HEADERS, 'Cache-Control': 'private, no-store' } }
     )
   } catch (err) {
