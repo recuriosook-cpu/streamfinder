@@ -5,6 +5,7 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { useCountry } from '@/context/CountryContext'
+import CountrySelector from '@/components/CountrySelector'
 
 interface PlatformWithLogo {
   id: number
@@ -52,10 +53,14 @@ export default function PlatformLogoStrip({ platforms }: Props) {
   return (
     <div className="bg-[#13131A]/60 border-y border-[#2A2A3A] py-5">
       <div className="max-w-7xl mx-auto px-4">
-        <div className="flex items-center justify-between mb-4">
-          <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-widest">
-            Plataformas disponibles en {countryData.name}
-          </p>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          {/* Como en la app: el país al lado del título. Lo guarda en el perfil. */}
+          <div className="flex items-center gap-3 min-w-0">
+            <p className="text-xs font-semibold text-[#A0A0B0] uppercase tracking-widest">
+              Plataformas disponibles en {countryData.name}
+            </p>
+            <CountrySelector variant="compact" align="left" />
+          </div>
           {/* Arrows only render when logos overflow the container */}
           {showArrows && (
             <div className="flex gap-2">

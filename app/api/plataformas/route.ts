@@ -1,7 +1,7 @@
 import { NextRequest, NextResponse } from 'next/server'
 import { CORS_HEADERS, corsPreflight, jsonError } from '@/lib/community-api'
 import { enforceRateLimit } from '@/lib/rate-limit'
-import { plataformasDelPais } from '@/lib/plataformas-pais'
+import { plataformasParaOfrecer } from '@/lib/plataformas-pais'
 
 /**
  * /api/plataformas?pais=AR — las plataformas de un país, ordenadas por
@@ -10,6 +10,8 @@ import { plataformasDelPais } from '@/lib/plataformas-pais'
  */
 
 export const OPTIONS = corsPreflight
+// La primera vez en el día de cada país cuenta el catálogo de cada plataforma.
+export const maxDuration = 60
 
 export async function GET(req: NextRequest) {
   const limited = enforceRateLimit(req, CORS_HEADERS)
@@ -19,7 +21,7 @@ export async function GET(req: NextRequest) {
   if (!/^[A-Z]{2}$/.test(pais)) return jsonError('País inválido', 400)
 
   try {
-    const plataformas = await plataformasDelPais(pais)
+    const plataformas = await plataformasParaOfrecer(pais)
     return NextResponse.json(
       { pais, plataformas },
       { headers: { ...CORS_HEADERS, 'Cache-Control': 'public, s-maxage=86400, stale-while-revalidate=604800' } },

@@ -5,7 +5,7 @@ import {
   getProviderTV,
 } from '@/lib/tmdb'
 import { COUNTRIES } from '@/lib/countries'
-import { PLATAFORMAS_DE_RESPALDO, plataformasDelPais } from '@/lib/plataformas-pais'
+import { PLATAFORMAS_DE_RESPALDO, plataformasParaOfrecer } from '@/lib/plataformas-pais'
 
 /** Cuántas plataformas del país tienen carrusel en el inicio: las más populares. */
 const CARRUSELES = 9
@@ -28,7 +28,7 @@ export async function GET(req: NextRequest) {
     return NextResponse.json({ error: 'Unknown country' }, { status: 400 })
   }
 
-  const lista = await plataformasDelPais(country).catch(() => PLATAFORMAS_DE_RESPALDO)
+  const lista = (await plataformasParaOfrecer(country).catch(() => PLATAFORMAS_DE_RESPALDO)).filter(p => p.destacada)
   const carruseles = lista.slice(0, CARRUSELES)
 
   // Use Promise.allSettled so one TMDB failure doesn't kill all platform data
@@ -46,7 +46,7 @@ export async function GET(req: NextRequest) {
     .filter(m => m.backdrop_path)
     .slice(0, 10)
 
-  const platformsWithLogos = lista.filter(p => p.destacada).map(p => ({
+  const platformsWithLogos = lista.map(p => ({
     id: p.id, slug: p.slug, name: p.name, color: p.color,
     logoPath: p.logoPath ?? p.fallbackLogoPath ?? null,
   }))

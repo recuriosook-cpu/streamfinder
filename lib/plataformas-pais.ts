@@ -21,9 +21,10 @@ import { ALL_PLATFORMS, FAMILIAS_DE_PLATAFORMA, PLATAFORMAS_GRANDES, esReventa, 
  *   · El orden de TMDB (`display_priorities`) es bueno salvo por las grandes:
  *     HBO Max está 33ª en Argentina y 18ª en España. Las grandes van primero y
  *     el resto como lo ordena TMDB.
- *   · Argentina tiene 63 proveedores y Estados Unidos 339, casi todos de nicho.
- *     Se devuelven todos (una plataforma rara que eligió alguien tiene que
- *     seguir contando como disponible) pero sólo se ofrecen las `destacada`.
+ *   · Argentina tiene 63 proveedores y Estados Unidos 339, casi todos de nicho
+ *     (Hoichoi, DocAlliance, Dekkoo). Se devuelven todos, porque una rara que
+ *     eligió alguien tiene que seguir contando como disponible, pero sólo se
+ *     ofrecen las `destacada`. Ver `plataformasParaOfrecer`.
  */
 
 export interface PlataformaPais extends Platform {
@@ -31,10 +32,45 @@ export interface PlataformaPais extends Platform {
   ids: number[]
   /** Si se ofrece en las grillas y los filtros. Las demás sólo se muestran si ya las había elegido. */
   destacada: boolean
+  /** Si se vende por su cuenta, y no sólo como canal de Amazon o Apple. */
+  directa?: boolean
 }
 
-/** Cuántas se ofrecen como mínimo, además de las conocidas de `ALL_PLATFORMS`. */
-const DESTACADAS = 24
+/**
+ * Las que se ofrecen en un país salen de una de estas dos puertas:
+ *
+ *   1. CONOCIDAS, que la gente busca por su nombre: con tener un catálogo mínimo
+ *      en ese país (`MINIMO_CONOCIDA`) alcanza. Por votos no llegarían: el catálogo
+ *      de Cine.Ar es cine argentino, con 13 títulos de más de 100 votos.
+ *   2. Las demás, si se venden por su cuenta (no sólo como canal de Amazon o Apple)
+ *      y tienen al menos `MINIMO_OTRA` títulos con 100 votos o más. Contar títulos
+ *      a secas no separa nada: Filmzie tiene 2.592 en Argentina, y 66 con votos.
+ *
+ * Se cuenta sólo suscripción, gratis y con publicidad: lo que se alquila no.
+ */
+const CONOCIDAS_IDS = new Set([
+  ...ALL_PLATFORMS.map(p => p.id),
+  1889, // Universal+: en TMDB sólo figura como canal de Amazon.
+  62, // Atres Player
+  207, // The Roku Channel: el sufijo la haría parecer una reventa.
+  520, // Discovery+: casi todo reality, con pocos votos.
+  151, // BritBox
+  73, // Tubi
+])
+const MINIMO_CONOCIDA = 40
+const MINIMO_OTRA = 300
+const VOTOS_DE_TITULO_CONOCIDO = 100
+/** De la 2, sólo se miran las que TMDB pone más arriba: más abajo son relleno (Fawesome, Mometu). */
+const OTRAS_A_REVISAR = 70
+
+/** Pasan la cuenta, pero nadie las "tiene": catálogos de relleno o gratis de ocasión. */
+const NO_OFRECER = new Set([
+  538, // Plex
+  331, // FlixFling
+  439, // Shout! Factory TV
+  25, // Fandor
+  235, // YouTube Free
+])
 
 /** Sin logo en una plataforma que no es de las conocidas: un gris neutro de fondo. */
 const COLOR_GENERICO = '#2A2A3A'
@@ -124,16 +160,14 @@ export function armarPlataformas(filas: Fila[], pais: string): PlataformaPais[] 
       fallbackLogoPath: conocida?.fallbackLogoPath ?? null,
       logoPath: delId.logo_path ?? directo.logo_path ?? null,
       ids: [...new Set([id, ...ordenados.map(f => f.provider_id)])],
-      destacada: false,
+      destacada: CONOCIDAS_IDS.has(id) && !NO_OFRECER.has(id),
+      directa: ordenados.some(f => !esReventa(f.provider_name)),
     }
     return { plataforma, orden: prio(ordenados[0]), grande: GRANDES.has(id) }
   })
 
   lista.sort((a, b) => (a.grande === b.grande ? a.orden - b.orden : a.grande ? -1 : 1))
-  return lista.map(({ plataforma }, i) => ({
-    ...plataforma,
-    destacada: i < DESTACADAS || CONOCIDAS.has(plataforma.id),
-  }))
+  return lista.map(({ plataforma }) => plataforma)
 }
 
 const TMDB = 'https://api.themoviedb.org/3'
@@ -152,6 +186,51 @@ async function pedir(ruta: string, pais: string): Promise<Fila[]> {
 export async function plataformasDelPais(pais: string): Promise<PlataformaPais[]> {
   const [cine, tv] = await Promise.all([pedir('/watch/providers/movie', pais), pedir('/watch/providers/tv', pais)])
   return armarPlataformas([...cine, ...tv], pais)
+}
+
+/** Cuántos títulos tiene en el país. `null` si TMDB no respondió. */
+async function contarTitulos(p: PlataformaPais, pais: string, votos: number): Promise<number | null> {
+  const contar = async (tipo: 'movie' | 'tv') => {
+    const qs = new URLSearchParams({
+      api_key: process.env.NEXT_PUBLIC_TMDB_API_KEY ?? '',
+      watch_region: pais,
+      with_watch_providers: p.ids.join('|'),
+      with_watch_monetization_types: 'flatrate|free|ads',
+      include_adult: 'false',
+      'vote_count.gte': String(votos),
+    })
+    const res = await fetch(`${TMDB}/discover/${tipo}?${qs}`, { next: { revalidate: 86400 } })
+    if (!res.ok) throw new Error(`TMDB ${res.status}`)
+    return ((await res.json()) as { total_results?: number }).total_results ?? 0
+  }
+  try {
+    const [cine, tv] = await Promise.all([contar('movie'), contar('tv')])
+    return cine + tv
+  } catch {
+    return null
+  }
+}
+
+/**
+ * La lista del país con `destacada` decidido por el catálogo real. Es la de las
+ * pantallas (`/api/plataformas` y el inicio). Se calcula una vez al día por país.
+ *
+ * Lo que no alcanza a contarse no se ofrece, salvo las conocidas: si TMDB falla,
+ * quedan las de siempre y no una lista vacía.
+ */
+export async function plataformasParaOfrecer(pais: string): Promise<PlataformaPais[]> {
+  const lista = await plataformasDelPais(pais)
+  const aRevisar = lista.filter((p, i) =>
+    !NO_OFRECER.has(p.id) && (CONOCIDAS_IDS.has(p.id) || (p.directa && i < OTRAS_A_REVISAR)))
+  const queda = new Set<number>()
+  for (let i = 0; i < aRevisar.length; i += 10) {
+    await Promise.all(aRevisar.slice(i, i + 10).map(async p => {
+      const conocida = CONOCIDAS_IDS.has(p.id)
+      const titulos = await contarTitulos(p, pais, conocida ? 0 : VOTOS_DE_TITULO_CONOCIDO)
+      if (titulos === null ? conocida : titulos >= (conocida ? MINIMO_CONOCIDA : MINIMO_OTRA)) queda.add(p.id)
+    }))
+  }
+  return lista.map(p => ({ ...p, destacada: queda.has(p.id) }))
 }
 
 /** La de la lista que corresponde a un id guardado, sea el `id` o uno de sus `ids`. */
