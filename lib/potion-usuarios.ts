@@ -52,6 +52,21 @@ export interface PotionUsuarios {
    * lanzamiento, sin mirar el rango. Lo usa la ganancia por usuario de AdMob.
    */
   activosPorDia: Record<string, number>
+  /**
+   * Lo mismo que las tarjetas de arriba, pero ayer hasta esta misma hora:
+   * comparar "hoy" a media tarde contra todo el día de ayer daría siempre
+   * peor.
+   */
+  ayer: { nuevos: number; jugaron: number; jugandoAhora: number }
+  /** Ver `iosDesdeMs` en `contarUsuarios`. */
+  ios: {
+    /** Aparatos iOS con algún evento en los últimos 30 días. */
+    activos30: number
+    /** Lo mismo, pero hace 7 días: los 30 días que terminaron hace una semana. */
+    activos30Hace7: number
+    /** Aparatos iOS que sólo jugaron antes de que la app saliera en la App Store. */
+    dePrueba: number
+  }
 }
 
 export interface Cohorte {
@@ -80,6 +95,7 @@ export interface NivelEmbudo {
 
 const AHORA_MS = 15 * 60_000
 const SE_FUE_MS = 7 * 24 * 3600_000
+const DIA_MS = 24 * 3600_000
 const PAGINA = 1000
 
 /**
@@ -103,21 +119,31 @@ type Fila = {
   recibido: string
   nivel: number | null
   props: Record<string, unknown> | null
+  plataforma: string | null
 }
 
 interface Instalacion {
   primerDia: string
+  primerMs: number
   ultimaMs: number
   dias: Set<string>
   /** Niveles empezados en el rango, sin contar los repetidos. */
   niveles: Set<number>
 }
 
-/** `null` si la consulta falló; el detalle va al log con `etiqueta`. */
+/**
+ * `null` si la consulta falló; el detalle va al log con `etiqueta`.
+ *
+ * `iosDesdeMs` es desde cuándo la app de iPhone está en la App Store (el
+ * primer día con descargas según Apple). Lo de iOS anterior es de TestFlight y
+ * de la revisión de Apple: no cuenta para "tienen la app". `null` = todavía
+ * no salió, y todo lo de iOS es de prueba.
+ */
 export async function contarUsuarios(
   potion: SupabaseClient,
   rango: Rango,
   etiqueta: string,
+  iosDesdeMs: number | null = null,
 ): Promise<PotionUsuarios | null> {
   // Ordenados por llegada: el primer evento de cada instalación es el primero
   // que aparece. `id` desempata para que la
@@ -126,7 +152,7 @@ export async function contarUsuarios(
   for (let desde = 0; ; desde += PAGINA) {
     const { data, error } = await potion
       .from('potion_eventos')
-      .select('instalacion, nombre, recibido, nivel, props')
+      .select('instalacion, nombre, recibido, nivel, props, plataforma')
       .gte('recibido', LANZAMIENTO)
       .or('version.is.null,version.neq.prueba')
       .order('recibido', { ascending: true })
@@ -145,6 +171,18 @@ export async function contarUsuarios(
   const hace7 = restarDias(hoy, 6)
   const desdeRango = rango === 'hoy' ? hoy : rango === '7d' ? hace7 : null
 
+  // Ayer a esta misma hora, para las flechitas de las tarjetas.
+  const inicioAyer = Date.parse(`${restarDias(hoy, 1)}T00:00:00-03:00`)
+  const ayerAhora = ahora - DIA_MS
+  const jugaronAyer = new Set<string>()
+  const jugandoAyer = new Set<string>()
+
+  // iOS: los de la App Store, no los de prueba.
+  const iosTodos = new Set<string>()
+  const iosReales = new Set<string>()
+  const ios30 = new Set<string>()
+  const ios30Hace7 = new Set<string>()
+
   const instalaciones = new Map<string, Instalacion>()
   for (const f of filas) {
     if (!f.instalacion) continue
@@ -152,8 +190,18 @@ export async function contarUsuarios(
     const dia = diaAR(ms)
     let i = instalaciones.get(f.instalacion)
     if (!i) {
-      i = { primerDia: dia, ultimaMs: ms, dias: new Set(), niveles: new Set() }
+      i = { primerDia: dia, primerMs: ms, ultimaMs: ms, dias: new Set(), niveles: new Set() }
       instalaciones.set(f.instalacion, i)
+    }
+    if (ms >= inicioAyer && ms <= ayerAhora) jugaronAyer.add(f.instalacion)
+    if (ms >= ayerAhora - AHORA_MS && ms <= ayerAhora) jugandoAyer.add(f.instalacion)
+    if (f.plataforma === 'ios') {
+      iosTodos.add(f.instalacion)
+      if (iosDesdeMs !== null && ms >= iosDesdeMs) {
+        iosReales.add(f.instalacion)
+        if (ms >= ahora - 30 * DIA_MS) ios30.add(f.instalacion)
+        if (ms >= ahora - 37 * DIA_MS && ms <= ahora - 7 * DIA_MS) ios30Hace7.add(f.instalacion)
+      }
     }
     i.ultimaMs = Math.max(i.ultimaMs, ms)
     i.dias.add(dia)
@@ -169,12 +217,15 @@ export async function contarUsuarios(
   const r: PotionUsuarios = {
     total: 0, nuevosHoy: 0, nuevos7d: 0, jugaronHoy: 0, jugandoAhora: 0, enRango: 0, retencion: [], embudo: [],
     activosPorDia: {},
+    ayer: { nuevos: 0, jugaron: jugaronAyer.size, jugandoAhora: jugandoAyer.size },
+    ios: { activos30: ios30.size, activos30Hace7: ios30Hace7.size, dePrueba: iosTodos.size - iosReales.size },
   }
   const cohortes = new Map<string, Cohorte>()
   const porNivel = new Map<number, NivelEmbudo>()
   for (const i of instalaciones.values()) {
     r.total++
     if (i.primerDia === hoy) r.nuevosHoy++
+    if (i.primerMs >= inicioAyer && i.primerMs <= ayerAhora) r.ayer.nuevos++
     if (i.primerDia >= hace7) r.nuevos7d++
     if (i.dias.has(hoy)) r.jugaronHoy++
     if (i.ultimaMs >= ahora - AHORA_MS) r.jugandoAhora++

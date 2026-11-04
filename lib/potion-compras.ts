@@ -202,12 +202,17 @@ export function comprasVacias(motivo: PotionCompras['motivo']): PotionCompras {
 /**
  * Baja las filas de `potion_compras` (paginando) y las resume para el rango.
  * `null` si la consulta falla; el detalle va al log con `etiqueta`.
+ *
+ * `dias` (7 o 30) reemplaza al rango por los últimos N días, hoy incluido:
+ * lo usa "¿Cuánto genera?" para sumar las compras con AdMob en la misma
+ * ventana.
  */
 export async function calcularCompras(
   potion: SupabaseClient,
   rango: Rango,
   desdeLanzamiento: boolean,
   etiqueta: string,
+  dias?: number,
 ): Promise<PotionCompras | null> {
   const filas: FilaCompra[] = []
   for (let desde = 0; ; desde += PAGINA) {
@@ -228,6 +233,7 @@ export async function calcularCompras(
   const ahora = Date.now()
   const hoy = diaAR(ahora)
   const inicioRango =
+    dias ? Date.parse(`${restarDias(hoy, dias - 1)}T00:00:00-03:00`) :
     rango === 'hoy' ? Date.parse(`${hoy}T00:00:00-03:00`) :
     rango === '7d' ? Date.parse(`${restarDias(hoy, 6)}T00:00:00-03:00`) :
     null

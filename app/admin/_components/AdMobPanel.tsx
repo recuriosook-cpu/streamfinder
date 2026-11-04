@@ -22,7 +22,7 @@ import type { AdMobResumen, GrupoAdMob } from '@/app/api/admin/admob/route'
 const numero = (n: number) => n.toLocaleString('es-AR')
 
 /** Dinero con los decimales que hagan falta: centavos de dólar se ven con 4. */
-function dinero(v: number | null, moneda: string, decimales = 2): string {
+export function dinero(v: number | null, moneda: string, decimales = 2): string {
   if (v === null) return '—'
   return v.toLocaleString('es-AR', {
     style: 'currency', currency: moneda, minimumFractionDigits: decimales, maximumFractionDigits: decimales,
@@ -35,7 +35,7 @@ function etiquetaFecha(iso: string): string {
   return `${Number(d)}/${Number(m)}`
 }
 
-const NOMBRE_FORMATO: Record<string, string> = {
+export const NOMBRE_FORMATO: Record<string, string> = {
   REWARDED: 'Recompensado',
   INTERSTITIAL: 'Intersticial',
   BANNER: 'Banner',
@@ -52,7 +52,7 @@ const nombresDePais = (() => {
   }
 })()
 
-function nombrePais(codigo: string): string {
+export function nombrePais(codigo: string): string {
   if (codigo === 'ZZ') return 'Sin país'
   try {
     return nombresDePais?.of(codigo) ?? codigo
@@ -222,7 +222,7 @@ export function AdMobPanel({
 
 // ── Tablas ─────────────────────────────────────────────────────────────────
 
-function TablaGrupos({
+export function TablaGrupos({
   titulo, columna, grupos, nombre, moneda, codigo = false, alto = false,
 }: {
   titulo: string
@@ -272,7 +272,7 @@ function TablaGrupos({
 }
 
 /** El día más reciente arriba. */
-function TablaDiaria({ serie, moneda }: { serie: AdMobResumen['serie']; moneda: string }) {
+export function TablaDiaria({ serie, moneda }: { serie: AdMobResumen['serie']; moneda: string }) {
   return (
     <div className="mb-5">
       <p className="text-[11px] uppercase tracking-wide text-[#A0A0B0] mb-2">Ganancia por usuario por día</p>
@@ -310,7 +310,7 @@ function TablaDiaria({ serie, moneda }: { serie: AdMobResumen['serie']; moneda: 
 
 // ── Vacío ──────────────────────────────────────────────────────────────────
 
-function VacioAdMob({ datos, dias }: { datos: AdMobResumen | null; dias: Ventana }) {
+export function VacioAdMob({ datos, dias }: { datos: AdMobResumen | null; dias: Ventana }) {
   if (!datos) return <p className="text-[#A0A0B0] text-sm py-8 text-center">No se pudo cargar la sección.</p>
 
   if (datos.motivo === 'sin_migracion') {

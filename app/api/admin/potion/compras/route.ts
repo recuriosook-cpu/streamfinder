@@ -6,7 +6,7 @@ import { calcularCompras, comprasVacias } from '@/lib/potion-compras'
 import { esRango, RANGO_POR_DEFECTO, type Rango } from '@/lib/potion-panel'
 
 /**
- * GET /api/admin/potion/compras?rango=hoy|7d|todo&lanzamiento=1
+ * GET /api/admin/potion/compras?rango=hoy|7d|todo&lanzamiento=1[&dias=7|30]
  *
  * La sección "Compras" de `/admin/potion`: lee `potion_compras` del Supabase
  * DEL JUEGO con su clave secreta y devuelve los números ya calculados. Mismos
@@ -50,6 +50,9 @@ export async function GET(req: NextRequest) {
   const pedido = params.get('rango')
   const rango: Rango = esRango(pedido) ? pedido : RANGO_POR_DEFECTO
   const desdeLanzamiento = params.get('lanzamiento') === '1'
+  // Opcional: los últimos 7 o 30 días en vez del rango.
+  const diasPedidos = Number(params.get('dias'))
+  const dias = diasPedidos === 7 || diasPedidos === 30 ? diasPedidos : undefined
 
   const potion = getPotionClient()
   if (!potion) {
@@ -57,6 +60,6 @@ export async function GET(req: NextRequest) {
     return NextResponse.json(comprasVacias('sin_configurar'))
   }
 
-  const compras = await calcularCompras(potion, rango, desdeLanzamiento, 'admin/potion/compras')
+  const compras = await calcularCompras(potion, rango, desdeLanzamiento, 'admin/potion/compras', dias)
   return NextResponse.json(compras ?? comprasVacias('error'))
 }

@@ -357,7 +357,7 @@ export function GooglePlayPanel({
  * (ver `Cuadre` en el endpoint): aparatos que pasaron 30 días sin abrir la app,
  * que salen de la base sin desinstalar, y reinstalaciones en el mismo aparato.
  */
-function TablaCuadre({
+export function TablaCuadre({
   ventana, historico, dias, bajasInformadas,
 }: {
   ventana: Cuadre | null
@@ -438,7 +438,7 @@ function TablaCuadre({
 // ── Tabla día por día ──────────────────────────────────────────────────────
 
 /** El día más reciente arriba. Un `—` es un día sin dato, no un cero. */
-function TablaDiaria({ serie }: { serie: PlayResumen['serie'] }) {
+export function TablaDiaria({ serie }: { serie: PlayResumen['serie'] }) {
   const celda = (v: number | null) => (v === null ? '—' : numero(v))
   return (
     <div className="mt-5 overflow-x-auto max-h-[320px] overflow-y-auto">
@@ -490,7 +490,7 @@ function nombrePais(codigo: string): string {
   }
 }
 
-function TablaPaises({
+export function TablaPaises({
   paises, dias, rango,
 }: {
   paises: PlayResumen['paises']
@@ -547,7 +547,7 @@ function TablaPaises({
 
 // ── Vacío ──────────────────────────────────────────────────────────────────
 
-function VacioPlay({ datos, dias }: { datos: PlayResumen | null; dias: Ventana }) {
+export function VacioPlay({ datos, dias }: { datos: PlayResumen | null; dias: Ventana }) {
   const rango = datos?.rangos?.dias ?? null
   if (!datos) {
     return <p className="text-[#A0A0B0] text-sm py-8 text-center">No se pudo cargar el panel.</p>
