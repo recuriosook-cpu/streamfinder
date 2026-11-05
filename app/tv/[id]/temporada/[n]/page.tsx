@@ -1,10 +1,10 @@
-import { notFound } from 'next/navigation'
+import { notFound, permanentRedirect } from 'next/navigation'
 import Image from 'next/image'
 import Link from 'next/link'
 import type { Metadata } from 'next'
 import { itunesPara } from '@/lib/tiendas'
 import { Calendar, ChevronLeft, ChevronRight, Tv, Star } from 'lucide-react'
-import { getTVDetails, getTVSeason, getPosterUrl } from '@/lib/tmdb'
+import { getTVDetails, getTVSeason, getPosterUrl, TMDBError } from '@/lib/tmdb'
 import {
   duracion,
   fechaCorta,
@@ -81,20 +81,30 @@ async function cargar(id: number, n: number): Promise<Datos | null> {
       } catch { /* sin respaldo: se muestra lo que hay */ }
     }
     return { show, temporada }
-  } catch {
-    return null
+  } catch (e) {
+    // `null` (404) sólo si TMDB dice que no existe. Si TMDB falla, error: un
+    // 404 lo guarda la CDN un día y hace que Google saque la página.
+    if (e instanceof TMDBError && e.status === 404) return null
+    throw e
   }
 }
 
+/**
+ * Los números de la URL. `null` (404) si no son números; con ceros adelante
+ * (`/tv/01399/temporada/01`), redirección permanente a la URL sin ceros.
+ */
 function parsear(p: { id: string; n: string }) {
+  if (!/^\d+$/.test(p.id) || !/^\d+$/.test(p.n)) return null
   const id = Number(p.id), n = Number(p.n)
-  return Number.isInteger(id) && id > 0 && Number.isInteger(n) && n >= 0 ? { id, n } : null
+  if (!Number.isSafeInteger(id) || id <= 0 || !Number.isSafeInteger(n)) return null
+  if (String(id) !== p.id || String(n) !== p.n) permanentRedirect(`/tv/${id}/temporada/${n}`)
+  return { id, n }
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
   const p = parsear(await params)
   const datos = p && await cargar(p.id, p.n)
-  if (!datos) return { title: 'Temporada — Glynbox' }
+  if (!datos) notFound()
   const nombre = nombreTemporada(datos.temporada)
   const title = `${datos.show.name}: ${nombre} — Glynbox`
   const description = datos.temporada.overview?.slice(0, 160)

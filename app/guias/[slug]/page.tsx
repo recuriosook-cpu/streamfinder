@@ -47,6 +47,7 @@ export async function generateMetadata(
       description: guide.description,
       ...(ogImage && { images: [ogImage] }),
     },
+    alternates: { canonical: `https://www.glynbox.com/guias/${encodeURIComponent(slug)}` },
     itunes: itunesPara(`/guias/${encodeURIComponent(slug)}`),
   }
 }

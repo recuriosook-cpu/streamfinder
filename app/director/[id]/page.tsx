@@ -20,6 +20,7 @@ import { createServerClient } from '@/lib/supabase-server'
  */
 
 import { notFound } from 'next/navigation'
+import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
 import type { Metadata } from 'next'
 import { itunesPara } from '@/lib/tiendas'
 import Image from 'next/image'
@@ -63,11 +64,11 @@ function personAge(birthday: string | null | undefined, deathday: string | null 
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  try {
-    const { id } = await params
-    // eslint-disable-next-line @typescript-eslint/no-explicit-any
-    const person: any = await getPersonDetails(Number(id))
-    if (!person?.name) return {}
+  const id = String(idDeFicha((await params).id, n => `/director/${n}`))
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const person: any = await oNoExiste(getPersonDetails(Number(id)))
+  if (!person?.name) notFound()
+  {
     const photoUrl = person.profile_path
       ? `https://image.tmdb.org/t/p/w500${person.profile_path}`
       : 'https://www.glynbox.com/logo.png'
@@ -80,19 +81,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates:  { canonical: `https://www.glynbox.com/director/${id}` },
       itunes: itunesPara(`/director/${id}`),
     }
-  } catch { return {} }
+  }
 }
 
 export default async function DirectorPage({ params }: Props) {
-  const { id } = await params
-  const numId = Number(id)
+  const numId = idDeFicha((await params).id, n => `/director/${n}`)
 
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let person: any = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let creditsData: any = { cast: [], crew: [] }
 
-  try { person = await getPersonDetails(numId) } catch { notFound() }
+  // 404 sólo si TMDB dice que no existe; si TMDB falla, error (y no un 404 que la CDN guarda un día).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const person: any = await oNoExiste(getPersonDetails(numId))
   if (!person?.name) notFound()
   try { creditsData = await getPersonCredits(numId) } catch { /* no credits */ }
 

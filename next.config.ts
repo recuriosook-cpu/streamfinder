@@ -4,6 +4,14 @@ import createMDX from "@next/mdx";
 
 const nextConfig: NextConfig = {
   pageExtensions: ['ts', 'tsx', 'js', 'jsx', 'md', 'mdx'],
+  // Metadata siempre en el <head>, para todos. Por defecto Next la manda en
+  // streaming (al final del <body>) a quien no esté en su lista de bots, y
+  // Googlebot no está: le llegaban el <title> y la canonical dentro del body,
+  // donde Google ignora la canonical. Además la CDN cachea la ficha sin mirar
+  // el user agent, así que según quién la pidiera primero quedaba una versión
+  // u otra. Con /.*/ todos reciben el mismo HTML. Cuesta poco: la página
+  // espera los mismos datos de TMDB que la metadata.
+  htmlLimitedBots: /.*/,
   // Las imágenes de compartir (lib/share-image.tsx) leen las fuentes y el logo
   // del disco en runtime. El rastreo de archivos suele encontrarlos solo; esto
   // lo asegura, porque si faltan cada imagen da 500.
@@ -17,6 +25,13 @@ const nextConfig: NextConfig = {
   async redirects() {
     return [
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
+      // Ids de ficha con ceros adelante (`/movie/027205`) a la URL sin ceros.
+      // Acá y no en la página: el `loading.tsx` raíz hace que la página empiece
+      // a mandar el HTML (con 200) antes de poder redirigir, y la redirección
+      // quedaba en el navegador. Ver `lib/ficha-id.ts`.
+      { source: '/:tipo(movie|tv|actor|director)/:ceros(0+):id(\\d+)', destination: '/:tipo/:id', permanent: true },
+      { source: '/tv/:ceros(0+):id(\\d+)/temporada/:n', destination: '/tv/:id/temporada/:n', permanent: true },
+      { source: '/tv/:id(\\d+)/temporada/:ceros(0+):n(\\d+)', destination: '/tv/:id/temporada/:n', permanent: true },
     ]
   },
   async rewrites() {
@@ -24,6 +39,13 @@ const nextConfig: NextConfig = {
       // public/ no sirve index.html al pedir la carpeta: la página de soporte de
       // Potion Bottle (la que figura en las tiendas) se pide sin el archivo.
       { source: '/potion-bottle', destination: '/potion-bottle/index.html' },
+      // Fichas con un id que no es un número (`/movie/abc`, `/movie/27205-origen`):
+      // a una ruta que no existe, para que salgan con 404 de verdad. Desde la
+      // página no se puede, por lo mismo que las redirecciones de arriba.
+      { source: '/:tipo(movie|tv|actor|director)/:id((?!\\d+$)[^/]+)', destination: '/_ficha-inexistente' },
+      // `(?:/|$)` y no `$`: el `$` mira el final de toda la URL, no del tramo.
+      { source: '/:tipo(movie|tv|actor|director)/:id((?!\\d+(?:/|$))[^/]+)/:resto*', destination: '/_ficha-inexistente' },
+      { source: '/tv/:id(\\d+)/temporada/:n((?!\\d+$)[^/]+)', destination: '/_ficha-inexistente' },
     ]
   },
   async headers() {

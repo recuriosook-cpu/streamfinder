@@ -52,9 +52,9 @@ export const metadata: Metadata = {
     follow:    true,
     googleBot: { index: true, follow: true, 'max-image-preview': 'large' },
   },
-  alternates: {
-    canonical: 'https://www.glynbox.com',
-  },
+  // Sin canonical acá: la heredaban todas las páginas que no definían la suya
+  // (guías, reseñas, búsquedas, ids inexistentes) y le decían a Google que eran
+  // la portada. Cada página pone la suya; la de la portada está en app/page.tsx.
   manifest: '/manifest.json',
   // El aviso nativo de Safari en iPhone ("Abrir" / "Obtener"), con el Apple ID
   // de la app en App Store Connect. Los demás navegadores ignoran la etiqueta.

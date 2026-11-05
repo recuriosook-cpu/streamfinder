@@ -1,5 +1,6 @@
 ﻿import { getPersonDetails, getPersonCredits, getPosterUrl } from '@/lib/tmdb'
 import { notFound } from 'next/navigation'
+import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
 
 /**
  * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
@@ -67,10 +68,10 @@ function age(birthday: string | null | undefined, deathday: string | null | unde
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  try {
-    const { id } = await params
-    const person = await getPersonDetails(Number(id))
-    if (!person?.name) return {}
+  const id = String(idDeFicha((await params).id, n => `/actor/${n}`))
+  const person = await oNoExiste(getPersonDetails(Number(id)))
+  if (!person?.name) notFound()
+  {
     const photoUrl = person.profile_path
       ? `https://image.tmdb.org/t/p/w500${person.profile_path}`
       : 'https://www.glynbox.com/logo.png'
@@ -93,24 +94,18 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `https://www.glynbox.com/actor/${id}` },
       itunes: itunesPara(`/actor/${id}`),
     }
-  } catch { return {} }
+  }
 }
 
 export default async function ActorPage({ params }: Props) {
-  const { id } = await params
+  const id = String(idDeFicha((await params).id, n => `/actor/${n}`))
 
-  // If TMDB returns 404 or any error, show a "not found" page instead of crashing
-  // eslint-disable-next-line @typescript-eslint/no-explicit-any
-  let person: any = null
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   let creditsData: any = { cast: [] }
 
-  try {
-    person = await getPersonDetails(Number(id))
-  } catch {
-    notFound()
-  }
-
+  // 404 sólo si TMDB dice que no existe; si TMDB falla, error (y no un 404 que la CDN guarda un día).
+  // eslint-disable-next-line @typescript-eslint/no-explicit-any
+  const person: any = await oNoExiste(getPersonDetails(Number(id)))
   if (!person?.name) notFound()
 
   try {

@@ -52,8 +52,16 @@ async function tmdbFetch(
   const res = await fetch(url.toString(), {
     next: { revalidate: options.revalidate ?? DEFAULT_REVALIDATE },
   })
-  if (!res.ok) throw new Error(`TMDB error: ${res.status}`)
+  if (!res.ok) throw new TMDBError(res.status)
   return res.json()
+}
+
+/** Lo que tira `tmdbFetch` si TMDB no responde 2xx; `status` distingue "no existe" (404) de una caída. */
+export class TMDBError extends Error {
+  constructor(readonly status: number) {
+    super(`TMDB error: ${status}`)
+    this.name = 'TMDBError'
+  }
 }
 
 export async function getPopularMovies(page = 1, options?: FetchOptions) {

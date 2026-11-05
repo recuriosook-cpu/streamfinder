@@ -58,6 +58,7 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       type:        'article',
       siteName:    'Glynbox',
     },
+    alternates: { canonical: `https://www.glynbox.com/review/${id}` },
     itunes: itunesPara(`/review/${id}`),
     twitter: {
       card:        'summary_large_image',

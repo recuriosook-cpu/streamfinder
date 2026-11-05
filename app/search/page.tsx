@@ -6,9 +6,19 @@ import Image from 'next/image'
 import { Search, UserCircle } from 'lucide-react'
 import SearchNoResultsTracker from '@/components/SearchNoResultsTracker'
 import VerifiedBadge from '@/components/VerifiedBadge'
+import type { Metadata } from 'next'
 
 interface Props {
   searchParams: Promise<{ q?: string; page?: string }>
+}
+
+/**
+ * Los resultados de búsqueda no se indexan: cada `?q=` sería otra página casi
+ * igual a las demás. `follow` deja que Google siga los links a las fichas.
+ */
+export const metadata: Metadata = {
+  title: 'Buscar películas, series y personas — Glynbox',
+  robots: { index: false, follow: true },
 }
 
 interface UserResult {

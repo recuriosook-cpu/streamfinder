@@ -3,6 +3,8 @@ import { parseAwards } from '@/lib/omdb'
 import { getOMDBRatings } from '@/lib/omdb-cache'
 import { createServerClient } from '@/lib/supabase-server'
 import { mediaImageUrl } from '@/lib/share-urls'
+import { notFound } from 'next/navigation'
+import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
 
 /**
  * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
@@ -89,9 +91,10 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  try {
-    const { id } = await params
-    const show = await getTVDetails(Number(id))
+  const id = String(idDeFicha((await params).id, n => `/tv/${n}`))
+  const show = await oNoExiste(getTVDetails(Number(id)))
+  if (!show?.name && !show?.title) notFound()
+  {
     const posterUrl = show.poster_path
       ? `https://image.tmdb.org/t/p/w500${show.poster_path}`
       : 'https://www.glynbox.com/logo.png'
@@ -124,43 +127,24 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `https://www.glynbox.com/tv/${id}` },
       itunes: itunesPara(`/tv/${id}`),
     }
-  } catch { return {} }
+  }
 }
 
 export default async function TVPage({ params }: Props) {
-  const { id } = await params
-  const numId = Number(id)
-  const [show, watchData, externalIds, credits, trailerKey, similar] = await Promise.all([
+  const numId = idDeFicha((await params).id, n => `/tv/${n}`)
+  // Todo junto en `oNoExiste`: si la serie no existe, los créditos y las
+  // plataformas también dan 404, y cualquiera de ellos puede llegar primero.
+  const [show, watchData, externalIds, credits, trailerKey, similar] = await oNoExiste(Promise.all([
     getTVDetails(numId),
     getTVProviders(numId),
     getTVExternalIds(numId),
     getTVCredits(numId),
     getTrailerKey(numId, 'tv'),
     getRecommendations(numId, 'tv'),
-  ])
-  if (!show || show.success === false || (!show.name && !show.title)) {
-    return (
-      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center gap-6 px-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Glynbox" style={{ height: '48px' }} />
-        <div style={{ fontSize: '80px' }}>📺</div>
-        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 700, textAlign: 'center' }}>
-          Esta serie no existe
-        </h1>
-        <p style={{ color: '#A0A0B0', textAlign: 'center', maxWidth: '400px' }}>
-          No encontramos información sobre este título. Puede que el ID sea incorrecto o que la serie haya sido eliminada de nuestra base de datos.
-        </p>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <a href="/" style={{ background: '#FFFD02', color: '#000', padding: '12px 24px', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>
-            Volver al inicio
-          </a>
-          <a href="/que-ver" style={{ border: '1px solid #2A2A3A', color: '#fff', padding: '12px 24px', borderRadius: '50px', textDecoration: 'none' }}>
-            Explorar títulos
-          </a>
-        </div>
-      </div>
-    )
-  }
+  ]))
+  // Responde 404 (con `not-found.tsx`), no 200: si no, Google la cuenta como
+  // una página más, igual a todas las demás que no existen.
+  if (!show || show.success === false || (!show.name && !show.title)) notFound()
 
   const supabase = createServerClient()
   const [omdb, { count: watchedCount }, creatorRecs] = await Promise.all([

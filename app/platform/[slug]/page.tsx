@@ -1,4 +1,5 @@
 import { notFound } from 'next/navigation'
+import type { Metadata } from 'next'
 import { ALL_PLATFORMS } from '@/lib/providers'
 import {
   getProviderTopMovies,
@@ -11,6 +12,20 @@ import { nombresDeProveedores } from '@/lib/nombres-plataformas'
 
 export async function generateStaticParams() {
   return ALL_PLATFORMS.map(p => ({ slug: p.slug }))
+}
+
+/** Título y canonical propios: antes heredaba los de la portada. */
+export async function generateMetadata({ params }: { params: Promise<{ slug: string }> }): Promise<Metadata> {
+  const { slug } = await params
+  const conocida = ALL_PLATFORMS.find(p => p.slug === slug)
+  const idSlug = conocida ? conocida.id : idDeSlug(slug)
+  const nombre = conocida?.name ?? (idSlug === null ? null : (await nombresDeProveedores()).get(idSlug)?.nombre)
+  if (!nombre) return {}
+  return {
+    title: `Qué ver en ${nombre}: películas y series — Glynbox`,
+    description: `Las películas y series más vistas y los estrenos de ${nombre}, con reseñas y calificaciones de la comunidad de Glynbox.`,
+    alternates: { canonical: `https://www.glynbox.com/platform/${encodeURIComponent(slug)}` },
+  }
 }
 
 interface RawItem {

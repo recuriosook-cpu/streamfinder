@@ -27,6 +27,8 @@ export const metadata: Metadata = {
   title: { absolute: 'Glynbox — Descubrí qué ver en tus plataformas' },
   description:
     'Glynbox es una app gratuita para encontrar películas y series según tus plataformas de streaming, calificar lo que viste y recibir recomendaciones a tu medida.',
+  // También para `?explorar=1`, que es la misma portada.
+  alternates: { canonical: 'https://www.glynbox.com' },
 }
 
 function tieneSesion(nombres: string[]): boolean {

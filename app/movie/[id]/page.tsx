@@ -42,6 +42,8 @@ import AddToListButton from '@/components/AddToListButton'
 import CollectionSection, { type CollectionData } from '@/components/CollectionSection'
 import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
+import { notFound } from 'next/navigation'
+import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
 import { itunesPara } from '@/lib/tiendas'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -99,9 +101,10 @@ interface Props {
 }
 
 export async function generateMetadata({ params }: Props): Promise<Metadata> {
-  try {
-    const { id } = await params
-    const movie = await getMovieDetails(Number(id))
+  const id = String(idDeFicha((await params).id, n => `/movie/${n}`))
+  const movie = await oNoExiste(getMovieDetails(Number(id)))
+  if (!movie?.title) notFound()
+  {
     const year = movie.release_date?.slice(0, 4)
     const posterUrl = movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
@@ -133,42 +136,23 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       alternates: { canonical: `https://www.glynbox.com/movie/${id}` },
       itunes: itunesPara(`/movie/${id}`),
     }
-  } catch { return {} }
+  }
 }
 
 export default async function MoviePage({ params }: Props) {
-  const { id } = await params
-  const numId = Number(id)
-  const [movie, watchData, credits, trailerKey, similar] = await Promise.all([
+  const numId = idDeFicha((await params).id, n => `/movie/${n}`)
+  // Todo junto en `oNoExiste`: si la película no existe, los créditos y las
+  // plataformas también dan 404, y cualquiera de ellos puede llegar primero.
+  const [movie, watchData, credits, trailerKey, similar] = await oNoExiste(Promise.all([
     getMovieDetails(numId),
     getMovieProviders(numId),
     getMovieCredits(numId),
     getTrailerKey(numId, 'movie'),
     getRecommendations(numId, 'movie'),
-  ])
-  if (!movie || movie.success === false || !movie.title) {
-    return (
-      <div className="min-h-screen bg-[#0A0A0F] flex flex-col items-center justify-center gap-6 px-4">
-        {/* eslint-disable-next-line @next/next/no-img-element */}
-        <img src="/logo.png" alt="Glynbox" style={{ height: '48px' }} />
-        <div style={{ fontSize: '80px' }}>🎬</div>
-        <h1 style={{ color: '#fff', fontSize: '24px', fontWeight: 700, textAlign: 'center' }}>
-          Esta película no existe
-        </h1>
-        <p style={{ color: '#A0A0B0', textAlign: 'center', maxWidth: '400px' }}>
-          No encontramos información sobre este título. Puede que el ID sea incorrecto o que la película haya sido eliminada de nuestra base de datos.
-        </p>
-        <div style={{ display: 'flex', gap: '12px', flexWrap: 'wrap', justifyContent: 'center' }}>
-          <a href="/" style={{ background: '#FFFD02', color: '#000', padding: '12px 24px', borderRadius: '50px', fontWeight: 600, textDecoration: 'none' }}>
-            Volver al inicio
-          </a>
-          <a href="/que-ver" style={{ border: '1px solid #2A2A3A', color: '#fff', padding: '12px 24px', borderRadius: '50px', textDecoration: 'none' }}>
-            Explorar títulos
-          </a>
-        </div>
-      </div>
-    )
-  }
+  ]))
+  // Responde 404 (con `not-found.tsx`), no 200: si no, Google la cuenta como
+  // una página más, igual a todas las demás que no existen.
+  if (!movie || movie.success === false || !movie.title) notFound()
 
   const supabase = createServerClient()
   const [omdbResult, collectionData, { count: watchedCount }, creatorRecs] = await Promise.all([
@@ -228,15 +212,8 @@ export default async function MoviePage({ params }: Props) {
     description: movie.overview,
     image: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
     datePublished: movie.release_date,
-    ...(movie.vote_average > 0 && movie.vote_count > 0 && {
-      aggregateRating: {
-        '@type': 'AggregateRating',
-        ratingValue: movie.vote_average,
-        ratingCount: movie.vote_count,
-        bestRating: 10,
-        worstRating: 0,
-      },
-    }),
+    // Sin aggregateRating: la nota de TMDB es de otro sitio, y Google no admite
+    // publicar como propias notas tomadas de otro lado.
   }
 
   return (
