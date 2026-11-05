@@ -44,6 +44,9 @@ import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
+import { notaGlynbox, resenasIniciales, sinopsis } from '@/lib/ficha-datos'
+import { descripcionDondeVer, disponibilidad, tituloDondeVer } from '@/lib/donde-ver'
+import DondeVer from '@/components/DondeVer'
 import { itunesPara } from '@/lib/tiendas'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -109,8 +112,20 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
     const posterUrl = movie.poster_path
       ? `https://image.tmdb.org/t/p/w500${movie.poster_path}`
       : 'https://www.glynbox.com/logo.png'
-    const description = movie.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${movie.title} en Glynbox`
-    const fullTitle = year ? `${movie.title} (${year}) — Glynbox` : `${movie.title} — Glynbox`
+    // Los mismos pedidos que la página (Data Cache de TMDB y `cache()`): no se piden dos veces.
+    const [providers, credits, nota, texto] = await Promise.all([
+      getMovieProviders(Number(id)).catch(() => null),
+      getMovieCredits(Number(id)).catch(() => null),
+      notaGlynbox('movie', Number(id)).catch(() => null),
+      sinopsis('movie', Number(id), movie.overview),
+    ])
+    const ar = disponibilidad(providers?.results?.AR)
+    const director = (credits?.crew ?? []).find((p: { job: string }) => p.job === 'Director')?.name as string | undefined
+    const description = descripcionDondeVer({
+      titulo: movie.title, anio: year, ar, nota, sinopsis: texto?.texto,
+      autor: director ? { rol: 'de', nombre: director } : null,
+    })
+    const fullTitle = tituloDondeVer(movie.title, year, ar)
     return {
       title:       fullTitle,
       description,
@@ -155,11 +170,15 @@ export default async function MoviePage({ params }: Props) {
   if (!movie || movie.success === false || !movie.title) notFound()
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, { count: watchedCount }, creatorRecs] = await Promise.all([
+  const [omdbResult, collectionData, { count: watchedCount }, creatorRecs, nota, resenas, texto] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
     getCreatorRecommendations(supabase, 'movie', numId),
+    // Si Supabase falla, la ficha sale igual y el navegador lo pide como antes.
+    notaGlynbox('movie', numId).catch(() => null),
+    resenasIniciales('movie', numId).catch(() => null),
+    sinopsis('movie', numId, movie.overview),
   ])
   const omdb = omdbResult
 
@@ -209,7 +228,7 @@ export default async function MoviePage({ params }: Props) {
     '@context': 'https://schema.org',
     '@type': 'Movie',
     name: movie.title,
-    description: movie.overview,
+    description: texto?.texto,
     image: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
     datePublished: movie.release_date,
     // Sin aggregateRating: la nota de TMDB es de otro sitio, y Google no admite
@@ -349,10 +368,11 @@ export default async function MoviePage({ params }: Props) {
             )}
 
             {/* Synopsis */}
-            {movie.overview && (
+            {texto && (
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Sinopsis</h2>
-                <p className="text-zinc-300 leading-relaxed">{movie.overview}</p>
+                {/* En inglés sólo cuando TMDB no tiene sinopsis en castellano. */}
+                <p className="text-zinc-300 leading-relaxed" lang={texto.ingles ? 'en' : undefined}>{texto.texto}</p>
               </div>
             )}
 
@@ -407,6 +427,9 @@ export default async function MoviePage({ params }: Props) {
         </div>
 
         <CreatorRecommendations items={creatorRecs} mediaType="movie" mediaId={movie.id} />
+        {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
+        <StreamingSection results={allProviders} mediaType="movie" mediaId={movie.id} />
+        <DondeVer titulo={movie.title} tipo="movie" results={allProviders} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         {collectionData && collectionData.parts?.length > 1 && (
           <CollectionSection collection={collectionData} currentMovieId={movie.id} />
@@ -422,12 +445,12 @@ export default async function MoviePage({ params }: Props) {
           mediaId={movie.id}
           mediaType="movie"
         />
-        <StreamingSection results={allProviders} mediaType="movie" mediaId={movie.id} />
         <ReviewsSection
           mediaId={movie.id}
           mediaType="movie"
           title={movie.title}
           posterPath={movie.poster_path}
+          inicial={resenas ? { ...resenas, stats: nota } : undefined}
         />
         <SimilarTitles items={similar} mediaType="movie" />
       </div>

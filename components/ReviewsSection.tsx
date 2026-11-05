@@ -27,27 +27,40 @@ interface Review extends RawReview {
   profile: Profile
 }
 
+export type ResenaFicha = Review
+export interface NotaGlynbox { avg: number; count: number; dist: Record<number, number> }
+/**
+ * Lo que la ficha manda armado del servidor (`lib/ficha-datos.ts`), para que la
+ * nota y las primeras reseñas estén en el HTML. Después se pide igual que antes.
+ */
+export interface ResenasIniciales { reviews: Review[]; total: number; stats: NotaGlynbox | null }
+
 interface Props {
   mediaId: number
   mediaType: 'movie' | 'tv'
   title: string
   posterPath: string | null
+  inicial?: ResenasIniciales
 }
 
 // ── Component ──────────────────────────────────────────────────────────────
 
-export default function ReviewsSection({ mediaId, mediaType, title, posterPath }: Props) {
+export default function ReviewsSection({ mediaId, mediaType, title, posterPath, inicial }: Props) {
   const supabase = createClient()
 
-  const [reviews, setReviews]                 = useState<Review[]>([])
+  const [reviews, setReviews]                 = useState<Review[]>(inicial?.reviews ?? [])
   // Cuántas reseñas tiene el título en total. No es `reviews.length`: la lista
   // trae sólo las 10 más recientes, y el contador se quedaba clavado en 10.
-  const [totalReviews, setTotalReviews]       = useState(0)
+  const [totalReviews, setTotalReviews]       = useState(inicial?.total ?? 0)
   // currentUserId starts null — hook reads it after auth resolves
   const [currentUserId, setCurrentUserId]     = useState<string | null>(null)
   // Reseña resaltada al llegar desde un link `#review-{id}`
   const [highlightedId, setHighlightedId]     = useState<string | null>(null)
-  const [loading, setLoading]                 = useState(true)
+  // Con datos del servidor no hay esqueleto: la lista ya está y se completa sola.
+  const [loading, setLoading]                 = useState(!inicial)
+  // Si ya llegó la lista del navegador (hasta 10). Las del servidor son 5: el
+  // salto a `#review-{id}` espera esta, o mandaría a /review/ a una que sí está.
+  const [listaCompleta, setListaCompleta]     = useState(false)
   const [showForm, setShowForm]               = useState(false)
   const [editingId, setEditingId]             = useState<string | null>(null)
   const [formRating, setFormRating]           = useState(0)
@@ -57,13 +70,13 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   const [formHasSpoiler, setFormHasSpoiler]   = useState(false)
   const [submitting, setSubmitting]           = useState(false)
   const [ratingLocked, setRatingLocked]       = useState(false)
-  const [glynboxStats, setGlynboxStats]       = useState<{ avg: number; count: number; dist: Record<number, number> } | null>(null)
+  const [glynboxStats, setGlynboxStats]       = useState<NotaGlynbox | null>(inicial?.stats ?? null)
 
   const { promptForPush } = usePushPrompt(currentUserId)
 
   useEffect(() => {
     supabase.auth.getUser().then(({ data }) => setCurrentUserId(data.user?.id ?? null))
-    loadReviews()
+    loadReviews({ mostrarCarga: !inicial })
     // Fetch Glynbox rating distribution
     supabase.from('ratings').select('rating').eq('media_id', mediaId).eq('media_type', mediaType)
       .then(({ data }) => {
@@ -96,7 +109,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
   // no puede saltar solo porque las reseñas se cargan en el cliente: cuando
   // resuelve el hash, el elemento todavía no existe.
   useEffect(() => {
-    if (loading || reviews.length === 0) return
+    if (loading || !listaCompleta || reviews.length === 0) return
 
     const match = /^#review-(.+)$/.exec(window.location.hash)
     if (!match) return
@@ -118,10 +131,10 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
 
     const timer = setTimeout(() => setHighlightedId(null), 3000)
     return () => clearTimeout(timer)
-  }, [loading, reviews])
+  }, [loading, listaCompleta, reviews])
 
-  async function loadReviews() {
-    setLoading(true)
+  async function loadReviews({ mostrarCarga = true }: { mostrarCarga?: boolean } = {}) {
+    if (mostrarCarga) setLoading(true)
 
     // Step 1 — fetch the 10 most recent reviews + their like rows, and the
     // total count in the same query
@@ -133,7 +146,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
       .order('created_at', { ascending: false })
       .limit(10)
 
-    if (error || !raw) { setLoading(false); return }
+    if (error || !raw) { setLoading(false); setListaCompleta(true); return }
 
     // Step 2 — fetch author profiles in one query
     const userIds = [...new Set((raw as RawReview[]).map(r => r.user_id))]
@@ -158,6 +171,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath }
     setReviews(merged)
     setTotalReviews(count ?? merged.length)
     setLoading(false)
+    setListaCompleta(true)
   }
 
   const myReview = reviews.find(r => r.user_id === currentUserId)

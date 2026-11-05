@@ -76,12 +76,13 @@ export async function searchMulti(query: string, page = 1) {
   return tmdbFetch('/search/multi', { query, page: String(page) })
 }
 
-export async function getMovieDetails(id: number) {
-  return tmdbFetch(`/movie/${id}`)
+/** `language` sólo para pedir otro idioma (la sinopsis en inglés cuando no hay en castellano). */
+export async function getMovieDetails(id: number, language?: string) {
+  return tmdbFetch(`/movie/${id}`, language ? { language } : {})
 }
 
-export async function getTVDetails(id: number) {
-  return tmdbFetch(`/tv/${id}`)
+export async function getTVDetails(id: number, language?: string) {
+  return tmdbFetch(`/tv/${id}`, language ? { language } : {})
 }
 
 /**

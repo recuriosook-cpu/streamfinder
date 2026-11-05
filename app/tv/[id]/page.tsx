@@ -5,6 +5,9 @@ import { createServerClient } from '@/lib/supabase-server'
 import { mediaImageUrl } from '@/lib/share-urls'
 import { notFound } from 'next/navigation'
 import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
+import { notaGlynbox, resenasIniciales, sinopsis } from '@/lib/ficha-datos'
+import { descripcionDondeVer, disponibilidad, tituloDondeVer } from '@/lib/donde-ver'
+import DondeVer from '@/components/DondeVer'
 
 /**
  * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
@@ -100,8 +103,19 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       : 'https://www.glynbox.com/logo.png'
     const title       = show.name ?? show.title ?? 'Serie'
     const year        = (show.first_air_date ?? '').slice(0, 4)
-    const description = show.overview?.slice(0, 160) ?? `Reseñas y recomendaciones de ${title} en Glynbox`
-    const fullTitle   = year ? `${title} (${year}) — Glynbox` : `${title} — Glynbox`
+    // Los mismos pedidos que la página (Data Cache de TMDB y `cache()`): no se piden dos veces.
+    const [providers, nota, texto] = await Promise.all([
+      getTVProviders(Number(id)).catch(() => null),
+      notaGlynbox('tv', Number(id)).catch(() => null),
+      sinopsis('tv', Number(id), show.overview),
+    ])
+    const ar          = disponibilidad(providers?.results?.AR)
+    const creador     = (show.created_by ?? [])[0]?.name as string | undefined
+    const description = descripcionDondeVer({
+      titulo: title, anio: year || undefined, ar, nota, sinopsis: texto?.texto,
+      autor: creador ? { rol: 'creada por', nombre: creador } : null,
+    })
+    const fullTitle   = tituloDondeVer(title, year || undefined, ar)
     return {
       title:       fullTitle,
       description,
@@ -147,10 +161,14 @@ export default async function TVPage({ params }: Props) {
   if (!show || show.success === false || (!show.name && !show.title)) notFound()
 
   const supabase = createServerClient()
-  const [omdb, { count: watchedCount }, creatorRecs] = await Promise.all([
+  const [omdb, { count: watchedCount }, creatorRecs, nota, resenas, texto] = await Promise.all([
     getOMDBRatings(externalIds?.imdb_id),
     supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'tv'),
     getCreatorRecommendations(supabase, 'tv', numId),
+    // Si Supabase falla, la ficha sale igual y el navegador lo pide como antes.
+    notaGlynbox('tv', numId).catch(() => null),
+    resenasIniciales('tv', numId).catch(() => null),
+    sinopsis('tv', numId, show.overview),
   ])
 
   // Cast: top 10
@@ -278,10 +296,11 @@ export default async function TVPage({ params }: Props) {
                 página, con episodios, tu nota y las reseñas de la temporada. */}
             <SeasonStrip seriesId={show.id} seasons={show.seasons} />
 
-            {show.overview && (
+            {texto && (
               <div className="mb-6">
                 <h2 className="text-lg font-semibold mb-2">Sinopsis</h2>
-                <p className="text-zinc-300 leading-relaxed">{show.overview}</p>
+                {/* En inglés sólo cuando TMDB no tiene sinopsis en castellano. */}
+                <p className="text-zinc-300 leading-relaxed" lang={texto.ingles ? 'en' : undefined}>{texto.texto}</p>
               </div>
             )}
 
@@ -368,6 +387,9 @@ export default async function TVPage({ params }: Props) {
         </div>
 
         <CreatorRecommendations items={creatorRecs} mediaType="tv" mediaId={show.id} />
+        {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
+        <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
+        <DondeVer titulo={show.name ?? show.title} tipo="tv" results={allProviders} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         <CastCarousel cast={cast} />
         <CrewSection crew={creators} title="Creadores" />
@@ -380,13 +402,13 @@ export default async function TVPage({ params }: Props) {
           mediaId={show.id}
           mediaType="tv"
         />
-        <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
         <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>
           <ReviewsSection
             mediaId={show.id}
             mediaType="tv"
             title={show.name}
             posterPath={show.poster_path}
+            inicial={resenas ? { ...resenas, stats: nota } : undefined}
           />
         </SeriesReviewsBlock>
         <SimilarTitles items={similar} mediaType="tv" />

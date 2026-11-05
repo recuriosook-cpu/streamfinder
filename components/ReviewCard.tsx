@@ -95,8 +95,11 @@ function ReviewCard({
   const menuRef       = useRef<HTMLDivElement>(null)
   const displayName   = authorDisplayName ?? authorUsername
   const initials      = displayName[0]?.toUpperCase() ?? '?'
+  // Con zona horaria fija: las reseñas de la ficha vienen armadas del servidor
+  // (UTC en Vercel), y una de las 22 h de Argentina salía con otro día en el
+  // HTML que en el navegador.
   const formattedDate = new Date(date).toLocaleDateString('es-AR', {
-    day: 'numeric', month: 'short', year: 'numeric',
+    day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires',
   })
 
   const { blockUser } = useBlockedUsers()
