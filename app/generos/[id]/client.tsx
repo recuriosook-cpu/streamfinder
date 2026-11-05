@@ -1,6 +1,7 @@
 'use client'
 
-import { useState, useEffect, useCallback } from 'react'
+import { useState, useEffect, useCallback, useRef } from 'react'
+import { DEFAULT_COUNTRY } from '@/lib/countries'
 import Image from 'next/image'
 import Link from 'next/link'
 import { Film, Tv, LayoutGrid, Star } from 'lucide-react'
@@ -10,7 +11,7 @@ import { useCountry } from '@/context/CountryContext'
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
 const TMDB = 'https://api.themoviedb.org/3'
 
-interface MediaItem {
+export interface MediaItem {
   id: number
   title: string
   posterPath: string | null
@@ -18,6 +19,9 @@ interface MediaItem {
   year: string
   type: 'movie' | 'tv'
 }
+
+/** La primera página de películas y series, armada en el servidor (`page.tsx`) con Argentina. */
+export interface InicialGenero { movies: MediaItem[]; tvShows: MediaItem[] }
 
 type Filter = 'all' | 'movie' | 'tv'
 
@@ -75,21 +79,24 @@ function MediaCard({ item }: { item: MediaItem }) {
   )
 }
 
-export default function GenreClient({ genreId }: { genreId: number }) {
+export default function GenreClient({ genreId, inicial }: { genreId: number; inicial?: InicialGenero }) {
   const genreName = GENRE_NAMES[genreId] ?? 'Género'
   const emoji = GENRE_EMOJIS[genreId] ?? '🎬'
 
   const [filter, setFilter] = useState<Filter>('all')
-  const [movies, setMovies] = useState<MediaItem[]>([])
-  const [tvShows, setTvShows] = useState<MediaItem[]>([])
+  const [movies, setMovies] = useState<MediaItem[]>(inicial?.movies ?? [])
+  const [tvShows, setTvShows] = useState<MediaItem[]>(inicial?.tvShows ?? [])
   const [moviePage, setMoviePage] = useState(1)
   const [tvPage, setTvPage] = useState(1)
   const [movieHasMore, setMovieHasMore] = useState(true)
   const [tvHasMore, setTvHasMore] = useState(true)
-  const [loading, setLoading] = useState(true)
+  const [loading, setLoading] = useState(!inicial)
   const [loadingMore, setLoadingMore] = useState(false)
 
   const { country } = useCountry()
+  // Lo del servidor ya es la primera página de Argentina: no se vuelve a pedir
+  // (ni se muestra el esqueleto) salvo que el país sea otro.
+  const usarInicial = useRef(!!inicial)
 
   const fetchMovies = useCallback(async (page: number) => {
     if (!TMDB_KEY) return
@@ -134,8 +141,13 @@ export default function GenreClient({ genreId }: { genreId: number }) {
   }, [genreId])
 
   useEffect(() => {
+    if (usarInicial.current) {
+      usarInicial.current = false
+      if (country === DEFAULT_COUNTRY) return
+    }
     setLoading(true)
     Promise.all([fetchMovies(1), fetchTV(1)]).finally(() => setLoading(false))
+  // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [fetchMovies, fetchTV])
 
   const handleLoadMore = async () => {

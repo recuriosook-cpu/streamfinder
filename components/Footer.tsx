@@ -1,5 +1,7 @@
 import Link from 'next/link'
 import { BadgesTiendas } from './BadgesTiendas'
+import { ALL_PLATFORMS } from '@/lib/providers'
+import { GENRE_NAMES } from '@/app/generos/[id]/genre-constants'
 
 function XIcon() {
   return (
@@ -27,6 +29,11 @@ function TikTokIcon() {
   )
 }
 
+/** Las más usadas en Argentina y Latinoamérica. */
+const PLATAFORMAS_FOOTER = ALL_PLATFORMS.filter(p =>
+  ['netflix', 'amazon-prime', 'disney-plus', 'max', 'paramount-plus', 'apple-tv-plus', 'mercado-play', 'crunchyroll'].includes(p.slug))
+const GENEROS_FOOTER = [28, 35, 18, 27, 878, 16, 10749, 99]
+
 const COL_TITLE = 'text-[13px] font-semibold uppercase tracking-wider mb-4'
 const NAV_LINK  = 'text-[#A0A0B0] hover:text-white transition-colors text-sm leading-relaxed'
 
@@ -35,11 +42,11 @@ export default function Footer() {
     <footer className="bg-[#0A0A0F] border-t border-[#2A2A3A]">
       <div className="max-w-7xl mx-auto px-4 pt-12 pb-6">
 
-        {/* Three-column grid */}
-        <div className="grid grid-cols-1 sm:grid-cols-3 gap-10 mb-10">
+        {/* Marca arriba a todo el ancho en celular; cinco columnas en compu. */}
+        <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-5 gap-10 mb-10">
 
           {/* Col 1 — Brand */}
-          <div>
+          <div className="col-span-2 sm:col-span-4 lg:col-span-1">
             {/* eslint-disable-next-line @next/next/no-img-element */}
             <img src="/logo.png" alt="Glynbox" style={{ height: '32px', width: 'auto', objectFit: 'contain' }} className="mb-4" />
             <p className="text-[#A0A0B0] text-sm leading-relaxed mb-5">
@@ -96,6 +103,33 @@ export default function Footer() {
               ].map(l => (
                 <li key={l.href}>
                   <Link href={l.href} className={NAV_LINK}>{l.label}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          {/*
+            Plataformas y géneros: en todas las páginas, para que Google llegue
+            desde cualquier lado a las páginas que reúnen fichas (antes sólo se
+            llegaba a /platform desde el buscador, y a /generos desde las fichas).
+          */}
+          <div>
+            <p className={COL_TITLE} style={{ color: '#FFFD02' }}>Plataformas</p>
+            <ul className="space-y-2.5">
+              {PLATAFORMAS_FOOTER.map(p => (
+                <li key={p.slug}>
+                  <Link prefetch={false} href={`/platform/${p.slug}`} className={NAV_LINK}>{p.name}</Link>
+                </li>
+              ))}
+            </ul>
+          </div>
+
+          <div>
+            <p className={COL_TITLE} style={{ color: '#FFFD02' }}>Géneros</p>
+            <ul className="space-y-2.5">
+              {GENEROS_FOOTER.map(id => (
+                <li key={id}>
+                  <Link prefetch={false} href={`/generos/${id}`} className={NAV_LINK}>{GENRE_NAMES[id]}</Link>
                 </li>
               ))}
             </ul>

@@ -1,4 +1,4 @@
-import { FAMILIAS_DE_PLATAFORMA, PLATAFORMAS_GRANDES, nombreBase } from '@/lib/providers'
+import { ALL_PLATFORMS, FAMILIAS_DE_PLATAFORMA, PLATAFORMAS_GRANDES, idCanonico, nombreBase } from '@/lib/providers'
 import { COUNTRIES } from '@/lib/countries'
 
 /**
@@ -58,6 +58,19 @@ export function disponibilidad(region: RegionTMDB | undefined): DisponibilidadPa
   return { suscripcion, gratis, alquiler: nombres(region?.rent), compra: nombres(region?.buy) }
 }
 
+/**
+ * Las plataformas de suscripción o gratis del país que tienen página en
+ * Glynbox (`/platform/[slug]`), con el nombre con que las nombra la ficha.
+ */
+export function plataformasConPagina(region: RegionTMDB | undefined): { nombre: string; slug: string }[] {
+  const salida: { nombre: string; slug: string }[] = []
+  for (const p of [...(region?.flatrate ?? []), ...(region?.ads ?? []), ...(region?.free ?? [])].sort((a, b) => orden(a) - orden(b))) {
+    const conf = ALL_PLATFORMS.find(x => x.id === idCanonico(p.provider_id))
+    if (conf && !salida.some(s => s.slug === conf.slug)) salida.push({ nombre: nombre(p), slug: conf.slug })
+  }
+  return salida
+}
+
 export function hayAlgo(d: DisponibilidadPais): boolean {
   return d.suscripcion.length + d.gratis.length + d.alquiler.length + d.compra.length > 0
 }
@@ -70,6 +83,11 @@ export function enumerar(xs: string[]): string {
 
 /** Los países de Latinoamérica de `COUNTRIES` (sin el Caribe angloparlante), en ese orden. */
 export const LATAM = COUNTRIES.slice(0, COUNTRIES.findIndex(c => c.code === 'AG'))
+
+/** Si está en alguna plataforma (incluso para alquilar) en algún país de Latinoamérica. */
+export function enAlgunPaisLatam(results: Record<string, RegionTMDB> | undefined): boolean {
+  return LATAM.some(c => hayAlgo(disponibilidad(results?.[c.code])))
+}
 
 /**
  * El <title> de la ficha: "Dónde ver Origen (2010): HBO Max, Netflix | Glynbox".

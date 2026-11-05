@@ -5,8 +5,9 @@ import { createServerClient } from '@/lib/supabase-server'
 import { mediaImageUrl } from '@/lib/share-urls'
 import { notFound } from 'next/navigation'
 import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
-import { notaGlynbox, resenasIniciales, sinopsis } from '@/lib/ficha-datos'
-import { descripcionDondeVer, disponibilidad, tituloDondeVer } from '@/lib/donde-ver'
+import { fichaDelgada, notaGlynbox, resenasIniciales, sinopsis, vistas } from '@/lib/ficha-datos'
+import { descripcionDondeVer, disponibilidad, enAlgunPaisLatam, tituloDondeVer } from '@/lib/donde-ver'
+import { ldJson, migasLD, serieLD } from '@/lib/datos-estructurados'
 import DondeVer from '@/components/DondeVer'
 
 /**
@@ -116,7 +117,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       autor: creador ? { rol: 'creada por', nombre: creador } : null,
     })
     const fullTitle   = tituloDondeVer(title, year || undefined, ar)
+    const delgada     = await fichaDelgada({
+      tipo: 'tv', id: Number(id), sinopsis: texto?.texto, enLatam: enAlgunPaisLatam(providers?.results),
+    })
     return {
+      // Casi vacía: fuera del índice, pero Google sigue los links (ver `fichaDelgada`).
+      ...(delgada && { robots: { index: false, follow: true } }),
       title:       fullTitle,
       description,
       openGraph: {
@@ -161,9 +167,9 @@ export default async function TVPage({ params }: Props) {
   if (!show || show.success === false || (!show.name && !show.title)) notFound()
 
   const supabase = createServerClient()
-  const [omdb, { count: watchedCount }, creatorRecs, nota, resenas, texto] = await Promise.all([
+  const [omdb, watchedCount, creatorRecs, nota, resenas, texto] = await Promise.all([
     getOMDBRatings(externalIds?.imdb_id),
-    supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'tv'),
+    vistas('tv', numId).catch(() => null),
     getCreatorRecommendations(supabase, 'tv', numId),
     // Si Supabase falla, la ficha sale igual y el navegador lo pide como antes.
     notaGlynbox('tv', numId).catch(() => null),
@@ -204,8 +210,32 @@ export default async function TVPage({ params }: Props) {
   }
   const fmtCount = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n)
 
+  // La nota es la de Glynbox (no la de TMDB): ver `lib/datos-estructurados.ts`.
+  const jsonLd = [
+    serieLD({
+      id: show.id,
+      titulo: show.name,
+      tituloOriginal: originalTitle,
+      sinopsis: texto?.texto,
+      posterPath: show.poster_path,
+      inicio: show.first_air_date,
+      generos: (show.genres ?? []).map((g: { name: string }) => g.name),
+      creadores: creators,
+      actores: cast,
+      temporadas: show.number_of_seasons,
+      episodios: show.number_of_episodes,
+      imdbId: externalIds?.imdb_id,
+      nota,
+    }),
+    migasLD([{ nombre: 'Qué ver', ruta: '/que-ver' }, { nombre: show.name, ruta: `/tv/${show.id}` }]),
+  ]
+
   return (
     <div className="min-h-screen">
+      <script
+        type="application/ld+json"
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
+      />
       <HistoryTracker
         mediaId={show.id}
         mediaType="tv"

@@ -5,6 +5,7 @@ import type { Metadata } from 'next'
 import { itunesPara } from '@/lib/tiendas'
 import { Calendar, ChevronLeft, ChevronRight, Tv, Star } from 'lucide-react'
 import { getTVDetails, getTVSeason, getPosterUrl, TMDBError } from '@/lib/tmdb'
+import { ldJson, migasLD, temporadaLD } from '@/lib/datos-estructurados'
 import {
   duracion,
   fechaCorta,
@@ -136,8 +137,27 @@ export default async function SeasonPage({ params }: Props) {
   const anterior = i > 0 ? orden[i - 1] : null
   const siguiente = i >= 0 && i < orden.length - 1 ? orden[i + 1] : null
 
+  const jsonLd = [
+    temporadaLD({
+      serieId: show.id,
+      serie: show.name,
+      numero: temporada.season_number,
+      nombre: `${show.name}: ${nombre}`,
+      sinopsis: temporada.overview,
+      posterPath: poster,
+      inicio: temporada.air_date,
+      episodios: temporada.episodes.map(e => ({ numero: e.episode_number, nombre: e.name })),
+    }),
+    migasLD([
+      { nombre: 'Qué ver', ruta: '/que-ver' },
+      { nombre: show.name, ruta: `/tv/${show.id}` },
+      { nombre, ruta: `/tv/${show.id}/temporada/${temporada.season_number}` },
+    ]),
+  ]
+
   return (
     <div className="max-w-5xl mx-auto px-4 pt-6 pb-16">
+      <script type="application/ld+json" dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }} />
       <Breadcrumb items={[
         { label: 'Qué ver', href: '/que-ver' },
         { label: show.name, href: `/tv/${show.id}` },

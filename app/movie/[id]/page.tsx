@@ -44,8 +44,9 @@ import Breadcrumb from '@/components/Breadcrumb'
 import type { Metadata } from 'next'
 import { notFound } from 'next/navigation'
 import { idDeFicha, oNoExiste } from '@/lib/ficha-id'
-import { notaGlynbox, resenasIniciales, sinopsis } from '@/lib/ficha-datos'
-import { descripcionDondeVer, disponibilidad, tituloDondeVer } from '@/lib/donde-ver'
+import { fichaDelgada, notaGlynbox, resenasIniciales, sinopsis, vistas } from '@/lib/ficha-datos'
+import { descripcionDondeVer, disponibilidad, enAlgunPaisLatam, tituloDondeVer } from '@/lib/donde-ver'
+import { ldJson, migasLD, peliculaLD } from '@/lib/datos-estructurados'
 import DondeVer from '@/components/DondeVer'
 import { itunesPara } from '@/lib/tiendas'
 
@@ -126,7 +127,12 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
       autor: director ? { rol: 'de', nombre: director } : null,
     })
     const fullTitle = tituloDondeVer(movie.title, year, ar)
+    const delgada = await fichaDelgada({
+      tipo: 'movie', id: Number(id), sinopsis: texto?.texto, enLatam: enAlgunPaisLatam(providers?.results),
+    })
     return {
+      // Casi vacía: fuera del índice, pero Google sigue los links (ver `fichaDelgada`).
+      ...(delgada && { robots: { index: false, follow: true } }),
       title:       fullTitle,
       description,
       openGraph: {
@@ -170,10 +176,10 @@ export default async function MoviePage({ params }: Props) {
   if (!movie || movie.success === false || !movie.title) notFound()
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, { count: watchedCount }, creatorRecs, nota, resenas, texto] = await Promise.all([
+  const [omdbResult, collectionData, watchedCount, creatorRecs, nota, resenas, texto] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
-    supabase.from('watched').select('*', { count: 'exact', head: true }).eq('media_id', numId).eq('media_type', 'movie'),
+    vistas('movie', numId).catch(() => null),
     getCreatorRecommendations(supabase, 'movie', numId),
     // Si Supabase falla, la ficha sale igual y el navegador lo pide como antes.
     notaGlynbox('movie', numId).catch(() => null),
@@ -224,22 +230,30 @@ export default async function MoviePage({ params }: Props) {
   const fmtMoney = (n: number) => n >= 1e9 ? `$${(n/1e9).toFixed(1)}B` : `$${(n/1e6).toFixed(0)}M`
   const fmtCount = (n: number) => n >= 1000 ? `${(n/1000).toFixed(1)}K` : String(n)
 
-  const jsonLd = {
-    '@context': 'https://schema.org',
-    '@type': 'Movie',
-    name: movie.title,
-    description: texto?.texto,
-    image: movie.poster_path ? `https://image.tmdb.org/t/p/w500${movie.poster_path}` : undefined,
-    datePublished: movie.release_date,
-    // Sin aggregateRating: la nota de TMDB es de otro sitio, y Google no admite
-    // publicar como propias notas tomadas de otro lado.
-  }
+  // La nota es la de Glynbox (no la de TMDB): ver `lib/datos-estructurados.ts`.
+  const jsonLd = [
+    peliculaLD({
+      id: movie.id,
+      titulo: movie.title,
+      tituloOriginal: originalTitle,
+      sinopsis: texto?.texto,
+      posterPath: movie.poster_path,
+      estreno: movie.release_date,
+      minutos: movie.runtime,
+      generos: (movie.genres ?? []).map((g: { name: string }) => g.name),
+      directores: directors,
+      actores: cast,
+      imdbId: movie.imdb_id,
+      nota,
+    }),
+    migasLD([{ nombre: 'Qué ver', ruta: '/que-ver' }, { nombre: movie.title, ruta: `/movie/${movie.id}` }]),
+  ]
 
   return (
     <div className="min-h-screen">
       <script
         type="application/ld+json"
-        dangerouslySetInnerHTML={{ __html: JSON.stringify(jsonLd) }}
+        dangerouslySetInnerHTML={{ __html: ldJson(jsonLd) }}
       />
       {/* Records visit to watch_history for logged-in users */}
       <HistoryTracker

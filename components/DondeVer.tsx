@@ -1,4 +1,5 @@
-import { LATAM, disponibilidad, enumerar, fraseArgentina, hayAlgo, type RegionTMDB } from '@/lib/donde-ver'
+import Link from 'next/link'
+import { LATAM, disponibilidad, enumerar, fraseArgentina, hayAlgo, plataformasConPagina, type RegionTMDB } from '@/lib/donde-ver'
 import { FlagCircle } from '@/components/CountrySelector'
 
 /**
@@ -16,6 +17,8 @@ export default function DondeVer({ titulo, tipo, results }: {
   results: Record<string, RegionTMDB>
 }) {
   const ar = disponibilidad(results.AR)
+  // Links a la página de cada plataforma: de la ficha a lo demás que hay ahí.
+  const conPagina = plataformasConPagina(results.AR)
   const otros = LATAM
     .filter(c => c.code !== 'AR')
     .map(c => ({ pais: c, d: disponibilidad(results[c.code]) }))
@@ -25,6 +28,18 @@ export default function DondeVer({ titulo, tipo, results }: {
     <section className="mt-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5" aria-labelledby="donde-ver-titulo">
       <h2 id="donde-ver-titulo" className="text-lg font-bold mb-2">Dónde ver {titulo} en Argentina</h2>
       <p className="text-sm text-zinc-300 leading-relaxed">{fraseArgentina(titulo, ar, tipo).join(' ')}</p>
+      {conPagina.length > 0 && (
+        <p className="text-sm text-[#A0A0B0] mt-2">
+          Más para ver en{' '}
+          {conPagina.map((p, i) => (
+            <span key={p.slug}>
+              {i > 0 && (i === conPagina.length - 1 ? ' y ' : ', ')}
+              <Link prefetch={false} href={`/platform/${p.slug}`} className="text-white underline decoration-[#2A2A3A] underline-offset-2 hover:text-[#FFFD02]">{p.nombre}</Link>
+            </span>
+          ))}
+          .
+        </p>
+      )}
 
       {otros.length > 0 && (
         // Cerrado: abierto, en el celular empuja todo lo demás muy abajo. Google

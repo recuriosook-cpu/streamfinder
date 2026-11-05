@@ -22,7 +22,9 @@ export const RESENAS_EN_HTML = 5
 export const notaGlynbox = cache(async (tipo: Tipo, id: number): Promise<NotaGlynbox | null> => {
   const { data, error } = await createServerClient()
     .from('ratings').select('rating').eq('media_id', id).eq('media_type', tipo)
-  if (error || !data?.length) return null
+  // Un error se tira (y no `null`): `null` es "sin notas" y `fichaDelgada` lo usa.
+  if (error) throw error
+  if (!data?.length) return null
   const dist: Record<number, number> = {}
   let sum = 0
   for (const r of data) {
@@ -43,7 +45,8 @@ export const resenasIniciales = cache(async (tipo: Tipo, id: number): Promise<Om
     .eq('media_type', tipo)
     .order('created_at', { ascending: false })
     .limit(RESENAS_EN_HTML)
-  if (error || !raw) return null
+  if (error) throw error
+  if (!raw) return null
   const filas = raw as Omit<ResenaFicha, 'profile'>[]
   const userIds = [...new Set(filas.map(r => r.user_id))]
   const perfiles = new Map<string, ResenaFicha['profile']>()
@@ -56,6 +59,38 @@ export const resenasIniciales = cache(async (tipo: Tipo, id: number): Promise<Om
     total: count ?? filas.length,
   }
 })
+
+/** Cuántos la marcaron como vista ("X la vieron"). */
+export const vistas = cache(async (tipo: Tipo, id: number): Promise<number> => {
+  const { count, error } = await createServerClient()
+    .from('watched').select('*', { count: 'exact', head: true }).eq('media_id', id).eq('media_type', tipo)
+  if (error) throw error
+  return count ?? 0
+})
+
+/**
+ * Si la ficha es tan pobre que conviene `noindex`: nada de Glynbox (ni notas,
+ * ni reseñas, ni vistas) y, además, o no hay sinopsis (ni en inglés) o no está
+ * en ninguna plataforma de Latinoamérica. Son la mayoría de las ~250.000 que
+ * Google rastreaba sin indexar: títulos oscuros a los que se llega por
+ * "similares" o filmografías. Siguen existiendo y enlazadas (`follow`).
+ *
+ * Si algo de Supabase falla, la ficha no se marca: ante la duda, indexable.
+ */
+export async function fichaDelgada(o: {
+  tipo: Tipo
+  id: number
+  sinopsis: string | null | undefined
+  enLatam: boolean
+}): Promise<boolean> {
+  if (o.sinopsis && o.enLatam) return false
+  try {
+    const [nota, resenas, vistos] = await Promise.all([notaGlynbox(o.tipo, o.id), resenasIniciales(o.tipo, o.id), vistas(o.tipo, o.id)])
+    return !nota && !resenas?.total && vistos === 0
+  } catch {
+    return false
+  }
+}
 
 /**
  * La sinopsis en castellano o, si TMDB no tiene, la de inglés. `ingles` avisa

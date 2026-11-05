@@ -1,6 +1,8 @@
 import type { Metadata } from 'next'
 import { itunesPara } from '@/lib/tiendas'
-import GenreClient from './client'
+import { notFound } from 'next/navigation'
+import GenreClient, { type InicialGenero, type MediaItem } from './client'
+import { DEFAULT_COUNTRY } from '@/lib/countries'
 import { GENRE_NAMES } from './genre-constants'
 
 /**
@@ -55,7 +57,40 @@ export async function generateMetadata({ params }: Props): Promise<Metadata> {
   }
 }
 
+/**
+ * La primera página de películas y series, en el HTML: antes la pedía sólo el
+ * navegador y Google veía un género sin ningún título. Mismos pedidos que
+ * `GenreClient`, con Argentina (el país con que se arma la página).
+ */
+async function primeraPagina(genreId: number): Promise<InicialGenero | undefined> {
+  const key = process.env.NEXT_PUBLIC_TMDB_API_KEY
+  if (!key) return undefined
+  const base = `https://api.themoviedb.org/3/discover`
+  try {
+    const [m, t] = await Promise.all([
+      fetch(`${base}/movie?api_key=${key}&with_genres=${genreId}&language=es-AR&region=${DEFAULT_COUNTRY}&sort_by=popularity.desc&vote_count.gte=50&page=1`, { next: { revalidate: 3600 } }).then(r => (r.ok ? r.json() : null)),
+      fetch(`${base}/tv?api_key=${key}&with_genres=${genreId}&language=es-AR&sort_by=popularity.desc&vote_count.gte=20&page=1`, { next: { revalidate: 3600 } }).then(r => (r.ok ? r.json() : null)),
+    ])
+    if (!m || !t) return undefined
+    type R = { id: number; title?: string; name?: string; poster_path: string | null; vote_average: number; release_date?: string; first_air_date?: string }
+    const item = (tipo: 'movie' | 'tv') => (x: R): MediaItem => ({
+      id: x.id,
+      title: (tipo === 'movie' ? x.title : x.name) ?? '',
+      posterPath: x.poster_path,
+      voteAverage: x.vote_average,
+      year: ((tipo === 'movie' ? x.release_date : x.first_air_date) ?? '').slice(0, 4),
+      type: tipo,
+    })
+    return { movies: (m.results ?? []).map(item('movie')), tvShows: (t.results ?? []).map(item('tv')) }
+  } catch {
+    return undefined
+  }
+}
+
 export default async function GeneroPage({ params }: Props) {
   const { id } = await params
-  return <GenreClient genreId={Number(id)} />
+  // Un id que no es un género: 404 (y no una página "Género" vacía que, con
+  // ISR, además se guardaba por cada id que inventara un bot).
+  if (!GENRE_NAMES[Number(id)]) notFound()
+  return <GenreClient genreId={Number(id)} inicial={await primeraPagina(Number(id))} />
 }
