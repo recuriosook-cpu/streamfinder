@@ -33,16 +33,21 @@ export const APP_STORE_ID = '6817536332'
 export interface MarcaTienda {
   medio: 'landing' | 'web'
   campana: string
+  /** El `ct` de Apple, si no es igual a `campana` (el aviso usa `aviso` en Play y `aviso-web` en Apple). */
+  ct?: string
 }
 
 /** La del sitio, para todo lo que no es `/descargar`. */
 export const MARCA_WEB: MarcaTienda = { medio: 'web', campana: 'web' }
 
+/** La del aviso de pantalla completa del celular (`components/AvisoApp.tsx`). */
+export const MARCA_AVISO: MarcaTienda = { medio: 'web', campana: 'aviso', ct: 'aviso-web' }
+
 /** El "provider token" de la cuenta de App Store Connect. */
 const APP_STORE_PT = '129527694'
 
 export function appStoreUrl(marca: MarcaTienda = MARCA_WEB): string {
-  const query = new URLSearchParams({ pt: APP_STORE_PT, ct: marca.campana, mt: '8' })
+  const query = new URLSearchParams({ pt: APP_STORE_PT, ct: marca.ct ?? marca.campana, mt: '8' })
   return `https://apps.apple.com/app/apple-store/id${APP_STORE_ID}?${query}`
 }
 

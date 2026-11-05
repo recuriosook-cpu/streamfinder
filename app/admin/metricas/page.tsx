@@ -13,6 +13,7 @@ import type { AdminOverview } from '@/app/api/admin/overview/route'
 import type { AdminContenido } from '@/app/api/admin/contenido/route'
 import { LandingDescargarPanel } from '@/app/admin/_components/LandingDescargarPanel'
 import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
+import { AvisoAppPanel } from '@/app/admin/_components/AvisoAppPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
 import { AppMedicionPanel } from '@/app/admin/_components/AppMedicionPanel'
 import { IdiomaAppPanel } from '@/app/admin/_components/IdiomaAppPanel'
@@ -148,6 +149,9 @@ export default function MetricasPage() {
           <LandingDescargarPanel recarga={recarga} />
           <GooglePlayPanel recarga={recarga} />
         </div>
+
+        {/* El aviso de pantalla completa del celular: también es captación. */}
+        <AvisoAppPanel recarga={recarga} />
 
         {/* Retención — va a lo ancho y no en la grilla de arriba: son cuatro
             bloques, dos de ellos tablas, y en media columna no entran. Y va

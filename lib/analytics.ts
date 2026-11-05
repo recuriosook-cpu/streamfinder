@@ -156,6 +156,20 @@ function getSessionId(): string {
   return fresh
 }
 
+/**
+ * El id de la visita actual: el mismo que llevan los eventos (30 minutos sin
+ * actividad abren una nueva). Lo usa el aviso de la app para salir "una vez
+ * por visita" con la misma definición de visita que el panel.
+ */
+export function visitaActual(): string | null {
+  try {
+    if (typeof window === 'undefined') return null
+    return getSessionId()
+  } catch {
+    return null
+  }
+}
+
 // ── Origen de la sesión ────────────────────────────────────────────────────
 
 /**

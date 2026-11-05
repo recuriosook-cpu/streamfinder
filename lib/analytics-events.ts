@@ -144,6 +144,22 @@ export const EVENT_NAMES = [
    */
   'app_footer_clicked',
 
+  // ── Aviso de pantalla completa en el celular (`components/AvisoApp.tsx`) ──
+  //
+  // Reemplazó a la barra inferior (`app_banner_*`) el 2026-11-05. Sale una vez
+  // por visita en Android y iPhone. Todos llevan
+  // `{ tienda: 'app_store' | 'play_store', entrada: 'directa' | 'buscador' }`:
+  // `buscador` es quien llegó desde Google o Bing, a quien el aviso le sale
+  // recién en la segunda página. `mostrado` debería ser >= `descargar` +
+  // `seguir_web`; la diferencia es gente que se fue sin tocar nada.
+
+  /** Apareció el aviso. Una vez por visita. */
+  'aviso_app_mostrado',
+  /** Tocó "Descargar la app" y se fue a la tienda. */
+  'aviso_app_descargar',
+  /** Tocó "Seguir en la web" (o lo cerró con Escape). */
+  'aviso_app_seguir_web',
+
   // ── Landing de descarga (/descargar) ────────────────────────────────
   //
   // Los dos eventos de una pantalla que no tiene otra cosa que hacer: se ve y

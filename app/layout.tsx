@@ -8,7 +8,7 @@ import { ConditionalShell } from '@/components/ConditionalShell'
 import { PingActive } from '@/components/PingActive'
 import { AnalyticsBoot } from '@/components/AnalyticsBoot'
 import { PageViewTracker } from '@/components/PageViewTracker'
-import { AppDownloadBarGate } from '@/components/AppDownloadBarGate'
+import { AvisoAppGate } from '@/components/AvisoAppGate'
 import { Toaster } from 'sonner'
 import { itunesPara } from '@/lib/tiendas'
 
@@ -125,7 +125,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           <PingActive />
           <AnalyticsBoot />
           <PageViewTracker />
-          <ConditionalShell><AppDownloadBarGate /></ConditionalShell>
+          {/* Aviso de pantalla completa para bajar la app, en el celular. Reemplazó a la barra inferior. */}
+          <ConditionalShell><AvisoAppGate /></ConditionalShell>
           <Toaster theme="dark" position="top-right" richColors />
         </CountryProvider>
       </body>
