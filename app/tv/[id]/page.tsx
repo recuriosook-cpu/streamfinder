@@ -43,6 +43,7 @@ import SeriesReviewsBlock from '@/components/SeriesReviewsBlock'
 import SeasonStrip from '@/components/SeasonStrip'
 import TrailerSection from '@/components/TrailerSection'
 import CreatorRecommendations from '@/components/CreatorRecommendations'
+import GuiasRelacionadas from '@/components/GuiasRelacionadas'
 import { getCreatorRecommendations } from '@/lib/creator-recommendations'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
@@ -420,6 +421,17 @@ export default async function TVPage({ params }: Props) {
         {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
         <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
         <DondeVer titulo={show.name ?? show.title} tipo="tv" results={allProviders} />
+        {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
+        <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>
+          <ReviewsSection
+            mediaId={show.id}
+            mediaType="tv"
+            title={show.name}
+            posterPath={show.poster_path}
+            inicial={resenas ? { ...resenas, stats: nota } : undefined}
+          />
+        </SeriesReviewsBlock>
+        <GuiasRelacionadas tipo="tv" id={show.id} titulo={show.name ?? show.title} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         <CastCarousel cast={cast} />
         <CrewSection crew={creators} title="Creadores" />
@@ -432,15 +444,6 @@ export default async function TVPage({ params }: Props) {
           mediaId={show.id}
           mediaType="tv"
         />
-        <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>
-          <ReviewsSection
-            mediaId={show.id}
-            mediaType="tv"
-            title={show.name}
-            posterPath={show.poster_path}
-            inicial={resenas ? { ...resenas, stats: nota } : undefined}
-          />
-        </SeriesReviewsBlock>
         <SimilarTitles items={similar} mediaType="tv" />
       </div>
     </div>

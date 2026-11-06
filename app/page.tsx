@@ -3,6 +3,7 @@ import { cookies } from 'next/headers'
 import HomeClient from '@/components/HomeClient'
 import PortadaPublica from '@/components/PortadaPublica'
 import { obtenerPostersPopulares } from './descargar/posters'
+import { guiasRecientes, resenasDestacadas, ultimasRecomendaciones } from '@/lib/portada-contenido'
 
 /**
  * `/`: la portada pública para quien no tiene sesión, el inicio de siempre
@@ -20,7 +21,8 @@ import { obtenerPostersPopulares } from './descargar/posters'
  * listas), desde el link "Explorar sin cuenta" de la portada.
  *
  * Leer cookies hace dinámica la ruta; los posters del mosaico salen del Data
- * Cache de 6 horas de `obtenerPostersPopulares`.
+ * Cache de 6 horas de `obtenerPostersPopulares`, y las reseñas y
+ * recomendaciones del de `lib/portada-contenido.ts`.
  */
 
 export const metadata: Metadata = {
@@ -46,11 +48,15 @@ export default async function Home({
     return <HomeClient />
   }
 
-  const posters = await obtenerPostersPopulares()
+  const [posters, resenas, recomendaciones] = await Promise.all([
+    obtenerPostersPopulares(),
+    resenasDestacadas(),
+    ultimasRecomendaciones(),
+  ])
   return (
     <>
       <link rel="preconnect" href="https://image.tmdb.org" />
-      <PortadaPublica posters={posters} />
+      <PortadaPublica posters={posters} resenas={resenas} recomendaciones={recomendaciones} guias={guiasRecientes()} />
     </>
   )
 }

@@ -1,6 +1,9 @@
 import Link from 'next/link'
 import { BadgesTiendas } from '@/components/BadgesTiendas'
 import { MosaicoPosters } from '@/app/descargar/MosaicoPosters'
+import PortadaContenido from '@/components/PortadaContenido'
+import type { GuideFrontmatter } from '@/lib/guides'
+import type { RecomendacionPortada, ResenaPortada } from '@/lib/portada-contenido'
 
 /**
  * La portada de www.glynbox.com para quien no tiene sesión.
@@ -19,12 +22,26 @@ import { MosaicoPosters } from '@/app/descargar/MosaicoPosters'
  * Reusa las piezas de `/descargar` (los badges oficiales y el mosaico), pero
  * no la pantalla: aquella es de campañas, cuenta sus visitas en
  * `descargar_viewed` y no nombra la app.
+ *
+ * Debajo del encabezado va contenido propio (`PortadaContenido`): reseñas de
+ * la comunidad, recomendaciones de Fer y guías. Lo pidió la revisión de
+ * AdSense: sólo el encabezado y posters de TMDB es "contenido de poco valor".
  */
 
 /** La marca de los links a las tiendas, para separar estas descargas en Play y App Store. */
 const MARCA = { medio: 'web', campana: 'portada' } as const
 
-export default function PortadaPublica({ posters }: { posters: string[] }) {
+export default function PortadaPublica({
+  posters,
+  resenas,
+  recomendaciones,
+  guias,
+}: {
+  posters: string[]
+  resenas: ResenaPortada[]
+  recomendaciones: RecomendacionPortada[]
+  guias: GuideFrontmatter[]
+}) {
   const claseLegal =
     'text-[#A0A0B0] underline decoration-[#2A2A3A] underline-offset-4 transition-colors hover:text-white'
 
@@ -76,6 +93,8 @@ export default function PortadaPublica({ posters }: { posters: string[] }) {
         </div>
       </div>
 
+      <PortadaContenido resenas={resenas} recomendaciones={recomendaciones} guias={guias} />
+
       <div className="relative mt-10 flex h-48 min-h-0 sm:h-56">
         <MosaicoPosters posters={posters} />
       </div>
@@ -86,6 +105,8 @@ export default function PortadaPublica({ posters }: { posters: string[] }) {
       >
         <Link href="/privacidad" className={claseLegal}>Política de privacidad</Link>
         <Link href="/terminos" className={claseLegal}>Términos y condiciones</Link>
+        <Link href="/sobre" className={claseLegal}>Sobre Glynbox</Link>
+        <Link href="/contacto" className={claseLegal}>Contacto</Link>
         <Link href="/soporte" className={claseLegal}>Soporte</Link>
       </nav>
     </main>

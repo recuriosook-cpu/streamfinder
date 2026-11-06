@@ -81,6 +81,8 @@ export default function RootLayout({ children }: { children: React.ReactNode }) 
           href="https://fonts.googleapis.com/css2?family=Inter+Tight:wght@400;500;600;700&family=Manrope:wght@400;500;600&family=Inter:wght@400;500&display=swap"
           rel="stylesheet"
         />
+        {/* La otra forma de verificación de AdSense, además del script: la lee aunque el script no corra. */}
+        <meta name="google-adsense-account" content="ca-pub-7004694054304140" />
         <script
           async
           src="https://pagead2.googlesyndication.com/pagead/js/adsbygoogle.js?client=ca-pub-7004694054304140"

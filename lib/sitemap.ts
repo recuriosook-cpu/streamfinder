@@ -112,7 +112,7 @@ const masReciente = (a: string | undefined, b: string | null | undefined) => (!a
 
 // ── Páginas ──────────────────────────────────────────────────────────────────
 
-const FIJAS = ['', '/que-ver', '/comunidad', '/listas', '/guias', '/sobre', '/descargar', '/privacidad', '/terminos', '/soporte', '/anunciantes', '/eliminar-cuenta', '/en/privacy', '/en/terms', '/en/support', '/en/delete-account']
+const FIJAS = ['', '/que-ver', '/comunidad', '/listas', '/guias', '/sobre', '/contacto', '/descargar', '/privacidad', '/terminos', '/soporte', '/anunciantes', '/eliminar-cuenta', '/en/privacy', '/en/terms', '/en/support', '/en/delete-account']
 
 /** Una reseña corta ("Excelente") no justifica una página en Google; la ficha ya la muestra. */
 const MIN_CARACTERES_RESENA = 120

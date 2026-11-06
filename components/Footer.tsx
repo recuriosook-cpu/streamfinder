@@ -143,7 +143,7 @@ export default function Footer() {
                 { label: 'Soporte',    href: '/soporte'                     },
                 { label: 'Privacidad', href: '/privacidad'                  },
                 { label: 'Términos',   href: '/terminos'                    },
-                { label: 'Contacto',   href: 'mailto:contacto@glynbox.com' },
+                { label: 'Contacto',   href: '/contacto'                    },
               ].map(l => (
                 <li key={l.href}>
                   <Link href={l.href} className={NAV_LINK}>{l.label}</Link>

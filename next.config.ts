@@ -21,6 +21,11 @@ const nextConfig: NextConfig = {
     // El texto de las respuestas en guías lleva el título de la guía (`lib/notification-content.ts`).
     '/api/push/**': ['./content/guides/**/*'],
     '/api/notifications/**': ['./content/guides/**/*'],
+    // La portada y las fichas son dinámicas y leen las guías del disco en
+    // runtime (`lib/portada-contenido.ts`, `lib/guias-relacionadas.ts`).
+    '/': ['./content/guides/**/*'],
+    '/movie/**': ['./content/guides/**/*'],
+    '/tv/**': ['./content/guides/**/*'],
   },
   async redirects() {
     return [

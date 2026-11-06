@@ -35,6 +35,7 @@ import HistoryTracker from '@/components/HistoryTracker'
 import ReviewsSection from '@/components/ReviewsSection'
 import TrailerSection from '@/components/TrailerSection'
 import CreatorRecommendations from '@/components/CreatorRecommendations'
+import GuiasRelacionadas from '@/components/GuiasRelacionadas'
 import { getCreatorRecommendations } from '@/lib/creator-recommendations'
 import SimilarTitles from '@/components/SimilarTitles'
 import MediaShareButton from '@/components/MediaShareButton'
@@ -444,6 +445,15 @@ export default async function MoviePage({ params }: Props) {
         {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
         <StreamingSection results={allProviders} mediaType="movie" mediaId={movie.id} />
         <DondeVer titulo={movie.title} tipo="movie" results={allProviders} />
+        {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
+        <ReviewsSection
+          mediaId={movie.id}
+          mediaType="movie"
+          title={movie.title}
+          posterPath={movie.poster_path}
+          inicial={resenas ? { ...resenas, stats: nota } : undefined}
+        />
+        <GuiasRelacionadas tipo="movie" id={movie.id} titulo={movie.title} />
         {trailerKey && <TrailerSection videoKey={trailerKey} />}
         {collectionData && collectionData.parts?.length > 1 && (
           <CollectionSection collection={collectionData} currentMovieId={movie.id} />
@@ -458,13 +468,6 @@ export default async function MoviePage({ params }: Props) {
           imdbId={movie.imdb_id}
           mediaId={movie.id}
           mediaType="movie"
-        />
-        <ReviewsSection
-          mediaId={movie.id}
-          mediaType="movie"
-          title={movie.title}
-          posterPath={movie.poster_path}
-          inicial={resenas ? { ...resenas, stats: nota } : undefined}
         />
         <SimilarTitles items={similar} mediaType="movie" />
       </div>
