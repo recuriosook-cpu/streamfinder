@@ -24,6 +24,17 @@ const nextConfig: NextConfig = {
   },
   async redirects() {
     return [
+      // glynbox.com → www, salvo /.well-known/. Antes lo hacía el dominio en
+      // Vercel, pero esa redirección corre antes que todo y no admite
+      // excepciones: Android no sigue redirecciones al verificar los App Links,
+      // así que los links a glynbox.com no abrían la app (Play Console lo
+      // marcaba). Ver public/.well-known/README.md.
+      {
+        source: '/:path((?!\\.well-known/).*)',
+        has: [{ type: 'host', value: 'glynbox.com' }],
+        destination: 'https://www.glynbox.com/:path',
+        permanent: true,
+      },
       { source: '/siguiendo', destination: '/comunidad', permanent: true },
       // Ids de ficha con ceros adelante (`/movie/027205`) a la URL sin ceros.
       // Acá y no en la página: el `loading.tsx` raíz hace que la página empiece

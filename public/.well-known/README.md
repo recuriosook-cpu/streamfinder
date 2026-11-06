@@ -88,16 +88,33 @@ adb shell am start -a android.intent.action.VIEW -d "https://www.glynbox.com/mov
 Si abre la app en la ficha de Cadena perpetua, está listo. Si abre Chrome,
 falta el fingerprint o no coincide con el del APK instalado.
 
+### Los dos dominios, sin redirección
+
+El intent filter de `app.json` declara `www.glynbox.com` y `glynbox.com`, y
+Android baja `assetlinks.json` de cada uno **sin seguir redirecciones**. Por eso
+la redirección `glynbox.com → www` no está en el dominio de Vercel (corre antes
+que todo y no admite excepciones) sino en `next.config.ts`, con una excepción
+para `/.well-known/`. Si alguien vuelve a poner la redirección en
+Settings → Domains, los App Links de `glynbox.com` dejan de verificar y Play
+Console avisa que los links profundos no funcionan.
+
+Lo que ve Google, por dominio (tiene que devolver `statements`, no `errorCode`):
+
+```bash
+curl -s "https://digitalassetlinks.googleapis.com/v1/statements:list?source.web.site=https://glynbox.com&relation=delegate_permission/common.handle_all_urls"
+```
+
 ## `apple-app-site-association` — Universal Links de iOS
 
 Le dice a iOS que la app `NC56K84KJA.com.glynbox.app` (Team ID + bundle ID)
 puede abrir los links de glynbox.com. Va sin extensión y se sirve como
 `application/json` (lo fija `next.config.ts`).
 
-**Sólo funciona con `www`.** Apple baja este archivo desde su CDN y no sigue
-redirecciones, y `glynbox.com` responde 307 hacia `www.glynbox.com`. Por eso
-`app.json` declara únicamente `applinks:www.glynbox.com`. Un link al dominio
-sin www abre Safari, que redirige a www y se queda en la web.
+**Sólo se declara `www`.** `app.json` tiene únicamente
+`applinks:www.glynbox.com`, así que un link al dominio sin www abre Safari, que
+redirige a www y se queda en la web. Desde que `/.well-known/` responde sin
+redirección también en `glynbox.com` (ver arriba), se podría agregar
+`applinks:glynbox.com` en un build nuevo de iOS.
 
 Las rutas de `components` son las mismas que el intent filter de Android y
 las que entiende `src/lib/deepLinks.ts` de la app. `/review/*` abre la ficha de lo reseñado. `/generos` sin id no
