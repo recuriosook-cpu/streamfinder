@@ -8,6 +8,13 @@ import { track } from '@/lib/analytics'
 import ResenaEnUnaFrase, { anotarFraseOfrecida, puedeOfrecerFrase } from '@/components/ResenaEnUnaFrase'
 import CompartirHistoria from '@/components/CompartirHistoria'
 
+/**
+ * Evento de ventana que avisa que calificar marcó un título como visto, para
+ * que el botón "Ya la vi" de la misma ficha se actualice sin recargar.
+ * `detail`: { mediaId, mediaType }.
+ */
+export const VISTA_POR_CALIFICAR = 'glynbox:vista-por-calificar'
+
 interface Props {
   mediaId: number
   mediaType: 'movie' | 'tv'
@@ -76,6 +83,26 @@ export default function RatingStars({
   // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [mediaId, mediaType])
 
+  /**
+   * Calificar es haberla visto: la marca como vista (y suma los puntos de la
+   * vista, que los da el trigger `puntos_por_vista`).
+   *
+   * `ignoreDuplicates` = INSERT ... ON CONFLICT DO NOTHING: si ya estaba
+   * marcada no se le pisa la fecha. Borrar la nota después no la desmarca.
+   */
+  const marcarVistaPorCalificar = async (uid: string) => {
+    const { error } = await supabase.from('watched').upsert({
+      user_id:     uid,
+      media_id:    mediaId,
+      media_type:  mediaType,
+      title,
+      poster_path: posterPath,
+      watched_at:  new Date().toISOString(),
+    }, { onConflict: 'user_id,media_id,media_type', ignoreDuplicates: true })
+    if (error) { console.error('[RatingStars] marcar vista:', error); return }
+    window.dispatchEvent(new CustomEvent(VISTA_POR_CALIFICAR, { detail: { mediaId, mediaType } }))
+  }
+
   const handleRate = async (value: number) => {
     if (!userId) { router.push('/auth'); return }
     const newValue = value === rating ? 0 : value
@@ -96,6 +123,7 @@ export default function RatingStars({
         rated_at:    new Date().toISOString(),
       }, { onConflict: 'user_id,media_id,media_type' })
       if (error) console.error('[RatingStars] upsert rating:', error)
+      else await marcarVistaPorCalificar(userId)
     }
 
     setRating(newValue)

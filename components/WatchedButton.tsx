@@ -5,6 +5,7 @@ import { CheckCircle, Calendar, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
+import { VISTA_POR_CALIFICAR } from '@/components/RatingStars'
 
 interface Props {
   mediaId: number
@@ -51,6 +52,16 @@ export default function WatchedButton({
     }
     init()
   }, [mediaId, mediaType]) // eslint-disable-line react-hooks/exhaustive-deps
+
+  // Calificar en esta ficha la marca como vista (ver RatingStars).
+  useEffect(() => {
+    const handler = (e: Event) => {
+      const d = (e as CustomEvent<{ mediaId: number; mediaType: string }>).detail
+      if (d?.mediaId === mediaId && d.mediaType === mediaType) setIsWatched(true)
+    }
+    window.addEventListener(VISTA_POR_CALIFICAR, handler)
+    return () => window.removeEventListener(VISTA_POR_CALIFICAR, handler)
+  }, [mediaId, mediaType])
 
   // Close popup on outside click
   useEffect(() => {
