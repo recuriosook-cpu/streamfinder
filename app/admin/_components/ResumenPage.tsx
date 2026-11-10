@@ -1,9 +1,9 @@
 'use client'
 
-import { useEffect, useState } from 'react'
+import { useCallback, useEffect, useState } from 'react'
 import Link from 'next/link'
 import { getPosterUrl } from '@/lib/tmdb'
-import type { AdminOverview, Metrica, SiguenConGlynbox } from '@/app/api/admin/overview/route'
+import type { AdminOverview, Metrica, PorAparato, SiguenConGlynbox } from '@/app/api/admin/overview/route'
 import type { AdminContenido, TopMedia } from '@/app/api/admin/contenido/route'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from './Refresco'
@@ -139,6 +139,27 @@ function lineasDeLaApp(act: AdminOverview['actividad']): string[] {
   return lineas
 }
 
+/**
+ * Las líneas de "Se conectaron hoy" y "Sesiones hoy" repartidas en web desde
+ * computadora, web desde el celular y app, cada una con lo de ayer a la misma
+ * hora. `null` si falta supabase-conexiones-por-aparato-2026-11.sql.
+ */
+function lineasPorAparato(p: PorAparato | null | undefined, unidad: string): string[] {
+  if (!p) return []
+  const n = (x: number) => x.toLocaleString('es-AR')
+  const linea = (nombre: string, m: Metrica) =>
+    `${nombre}: ${n(m.valor ?? 0)} ${unidad}` + (m.previo != null ? ` · ayer ${n(m.previo)}` : '')
+  const lineas = [
+    linea('Web en computadora', p.computadora),
+    linea('Web en el celular', p.celular),
+    linea('App', p.app),
+  ]
+  if (p.webSinAparato > 0) {
+    lineas.push(`Web sin dato de aparato: ${n(p.webSinAparato)} (antes de que se empezara a medir, el 10/11)`)
+  }
+  return lineas
+}
+
 function MetricaCard({
   icon, label, metrica, formato, sub, color = 'yellow', contra = 'el período anterior',
 }: {
@@ -230,16 +251,10 @@ export default function ResumenPage() {
   const [overview,  setOverview]  = useState<AdminOverview | null>(null)
   const [contenido, setContenido] = useState<AdminContenido | null>(null)
 
-  useEffect(() => { fetchAll() }, []) // eslint-disable-line react-hooks/exhaustive-deps
-  useRefrescoAlVolver(fetchAll, actualizadoEn)
-
-  async function fetchAll() {
-    // La primera carga tapa la pantalla con el spinner. Las siguientes dejan
-    // los números a la vista y sólo hacen girar el botón.
-    if (actualizadoEn) setRefrescando(true)
-    else setLoading(true)
-    setError(null)
-
+  // Carga los datos. La primera vez la pantalla está tapada por el spinner
+  // (`loading` arranca en true); las siguientes pasan por `refrescar`, que
+  // deja los números a la vista y sólo hace girar el botón.
+  const fetchAll = useCallback(async () => {
     // Todo se calcula en el servidor, con service role: desde el navegador las
     // consultas pasan por RLS (no se ve a los usuarios privados) y PostgREST
     // corta en 1000 filas sin avisar.
@@ -254,14 +269,25 @@ export default function ResumenPage() {
     ])
 
     const fallas = [!ov && '/api/admin/overview', !cont && '/api/admin/contenido'].filter(Boolean)
-    if (fallas.length > 0) setError(`No se pudo leer ${fallas.join(' y ')}: parte del resumen no se muestra.`)
+    setError(fallas.length > 0 ? `No se pudo leer ${fallas.join(' y ')}: parte del resumen no se muestra.` : null)
 
     setOverview(ov)
     setContenido(cont)
     setLoading(false)
     setRefrescando(false)
     setActualizadoEn(new Date())
-  }
+  }, [])
+
+  const refrescar = useCallback(() => {
+    setRefrescando(true)
+    void fetchAll()
+  }, [fetchAll])
+
+  // La regla no ve el await: todos los setState de `fetchAll` corren cuando
+  // vuelve la respuesta, no durante el efecto.
+  // eslint-disable-next-line react-hooks/set-state-in-effect
+  useEffect(() => { void fetchAll() }, [fetchAll])
+  useRefrescoAlVolver(refrescar, actualizadoEn)
 
   if (loading) {
     return (
@@ -306,7 +332,7 @@ export default function ResumenPage() {
           <h1 className="text-xl font-bold text-white">Resumen</h1>
           <p className="text-sm text-[#A0A0B0] mt-0.5">Vista general de Glynbox</p>
         </div>
-        <RefrescoControl actualizadoEn={actualizadoEn} cargando={refrescando} onActualizar={fetchAll} />
+        <RefrescoControl actualizadoEn={actualizadoEn} cargando={refrescando} onActualizar={refrescar} />
       </div>
 
       <div className="px-6 py-6 space-y-6 max-w-6xl">
@@ -412,7 +438,14 @@ export default function ResumenPage() {
               label="Se conectaron hoy"
               metrica={act?.conectadosHoy ?? SIN_DATOS}
               contra={contraAyer}
-              sub="Usuarios distintos, en la web o en la app"
+              sub={
+                act?.conectadosHoyPorAparato
+                  ? [
+                      ...lineasPorAparato(act.conectadosHoyPorAparato, 'usuarios'),
+                      'Quien entró por más de un lado cuenta en cada uno',
+                    ]
+                  : 'Usuarios distintos, en la web o en la app'
+              }
               color="yellow"
             />
             <MetricaCard
@@ -436,6 +469,7 @@ export default function ResumenPage() {
               label="Sesiones hoy"
               metrica={act?.sesionesHoy ?? SIN_DATOS}
               contra={contraAyer}
+              sub={lineasPorAparato(act?.sesionesHoyPorAparato, 'sesiones')}
               color="teal"
             />
             <MetricaCard

@@ -2,6 +2,7 @@
 
 import { createClient } from '@/lib/supabase'
 import type { EventName, EventProps } from '@/lib/analytics-events'
+import { aparatoDe, detectarDispositivo, refinarDispositivo, type Aparato } from '@/lib/device'
 
 /**
  * Cliente de analytics.
@@ -161,6 +162,20 @@ function getSessionId(): string {
  * actividad abren una nueva). Lo usa el aviso de la app para salir "una vez
  * por visita" con la misma definición de visita que el panel.
  */
+let aparatoCache: Aparato | null = null
+
+/** Computadora o celular (tablets incluidas). Se calcula una vez por carga. */
+function aparatoActual(): Aparato | null {
+  if (aparatoCache) return aparatoCache
+  try {
+    if (typeof navigator === 'undefined') return null
+    aparatoCache = aparatoDe(refinarDispositivo(detectarDispositivo(navigator.userAgent)))
+    return aparatoCache
+  } catch {
+    return null
+  }
+}
+
 export function visitaActual(): string | null {
   try {
     if (typeof window === 'undefined') return null
@@ -506,7 +521,15 @@ export function track(name: EventName, props: EventProps = {}, options: { path?:
     // que infiere la sesión.
     const origen = leerOrigen(sessionId)
     const propsFinales: EventProps =
-      origen && props.origen === undefined ? { ...props, origen } : props
+      origen && props.origen === undefined ? { ...props, origen } : { ...props }
+
+    // Computadora o celular, para separar la web en el panel. Lo pone el
+    // navegador porque es el único que distingue un iPad de una Mac;
+    // `/api/track` lo completa con el user-agent si falta.
+    if (propsFinales.aparato === undefined) {
+      const aparato = aparatoActual()
+      if (aparato) propsFinales.aparato = aparato
+    }
 
     // Se encola YA, con el user_id que haya cacheado. Si todavía no se resolvió,
     // se completa cuando llegue: encolar es sincrónico para que `track()` no

@@ -138,3 +138,20 @@ export function sistemaDeLaApp(userAgent: string | null | undefined): 'android' 
   if (ua.includes('cfnetwork') || ua.includes('darwin') || ua.includes('iphone') || ua.includes('ipad')) return 'ios'
   return null
 }
+
+/**
+ * Lo que guardan los eventos de la web en `props.aparato`, para separar en el
+ * panel la web desde la computadora de la web desde el celular (tarjetas "Se
+ * conectaron hoy" y "Sesiones hoy"; ver supabase-conexiones-por-aparato-2026-11.sql).
+ *
+ * Las tablets cuentan como celular, igual que para el aviso de la app.
+ */
+export type Aparato = 'computadora' | 'celular'
+
+export function aparatoDe(d: Dispositivo): Aparato {
+  return d === 'desktop' ? 'computadora' : 'celular'
+}
+
+export function esAparato(v: unknown): v is Aparato {
+  return v === 'computadora' || v === 'celular'
+}

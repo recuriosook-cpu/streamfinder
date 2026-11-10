@@ -109,6 +109,13 @@ export interface ActividadResumen {
   anonimosHoyWeb:   Metrica | null
   anonimosHoyApp:   Metrica | null
   sesionesHoy:      Metrica
+  /**
+   * "Se conectaron hoy" y "Sesiones hoy" separados en web desde computadora,
+   * web desde el celular y app. `null` si falta
+   * supabase-conexiones-por-aparato-2026-11.sql.
+   */
+  conectadosHoyPorAparato: PorAparato | null
+  sesionesHoyPorAparato:   PorAparato | null
   /** Promedio en SEGUNDOS. La UI lo formatea. */
   duracionSesion:   Metrica
   /** Promedio de toda la medición, para contexto debajo de la tarjeta. */
@@ -309,6 +316,18 @@ async function fetchProfiles(admin: SupabaseClient): Promise<PerfilFila[]> {
 // ── Actividad (analytics) ─────────────────────────────────────────────────
 
 /** Forma cruda de `admin_resumen_actividad`. Una fila, todo numérico. */
+/**
+ * Una métrica de hoy repartida por aparato. `webSinAparato` es lo de la web
+ * que no trae el dato: lo anterior al cambio que empezó a guardarlo (no tiene
+ * "ayer").
+ */
+export interface PorAparato {
+  computadora:   Metrica
+  celular:       Metrica
+  app:           Metrica
+  webSinAparato: number
+}
+
 interface ResumenRow {
   hoy_desde: string | null
   usuarios_hoy: number
@@ -326,6 +345,21 @@ interface ResumenRow {
   ayer_hasta?: string
   /** Con supabase-resumen-rapido-2026-10.sql. */
   sesiones_desde?: string
+  /** Con supabase-conexiones-por-aparato-2026-11.sql. */
+  usuarios_hoy_pc?: number
+  usuarios_hoy_cel?: number
+  usuarios_hoy_app?: number
+  usuarios_hoy_web_sin_aparato?: number
+  usuarios_ayer_pc?: number
+  usuarios_ayer_cel?: number
+  usuarios_ayer_app?: number
+  sesiones_hoy_pc?: number
+  sesiones_hoy_cel?: number
+  sesiones_hoy_app?: number
+  sesiones_hoy_web_sin_aparato?: number
+  sesiones_ayer_pc?: number
+  sesiones_ayer_cel?: number
+  sesiones_ayer_app?: number
   sesiones_hoy: number
   sesiones_ayer: number
   seg_prom_hoy: number | null
@@ -368,6 +402,8 @@ const ACTIVIDAD_VACIA: ActividadResumen = {
   anonimosHoyWeb:   null,
   anonimosHoyApp:   null,
   sesionesHoy:      { valor: null, previo: null, deltaPct: null },
+  conectadosHoyPorAparato: null,
+  sesionesHoyPorAparato:   null,
   duracionSesion:   { valor: null, previo: null, deltaPct: null },
   duracionSesionTotal: null,
   duracionSesionDesde: null,
@@ -521,6 +557,18 @@ async function buildActividad(admin: SupabaseClient): Promise<ActividadResumen> 
     anonimosHoyWeb:   anonimosDe(r.anonimos_hoy_web, r.anonimos_ayer_web),
     anonimosHoyApp:   anonimosDe(r.anonimos_hoy_app, r.anonimos_ayer_app),
     sesionesHoy:      metrica(Number(r.sesiones_hoy ?? 0),    Number(r.sesiones_ayer ?? 0)),
+    conectadosHoyPorAparato: r.usuarios_hoy_pc === undefined ? null : {
+      computadora:   metrica(Number(r.usuarios_hoy_pc ?? 0),  Number(r.usuarios_ayer_pc ?? 0)),
+      celular:       metrica(Number(r.usuarios_hoy_cel ?? 0), Number(r.usuarios_ayer_cel ?? 0)),
+      app:           metrica(Number(r.usuarios_hoy_app ?? 0), Number(r.usuarios_ayer_app ?? 0)),
+      webSinAparato: Number(r.usuarios_hoy_web_sin_aparato ?? 0),
+    },
+    sesionesHoyPorAparato: r.sesiones_hoy_pc === undefined ? null : {
+      computadora:   metrica(Number(r.sesiones_hoy_pc ?? 0),  Number(r.sesiones_ayer_pc ?? 0)),
+      celular:       metrica(Number(r.sesiones_hoy_cel ?? 0), Number(r.sesiones_ayer_cel ?? 0)),
+      app:           metrica(Number(r.sesiones_hoy_app ?? 0), Number(r.sesiones_ayer_app ?? 0)),
+      webSinAparato: Number(r.sesiones_hoy_web_sin_aparato ?? 0),
+    },
     // `seg_prom_*` viene NULL cuando no hubo ninguna sesión en la ventana. Ese
     // null se propaga como "sin datos" en vez de convertirse en 0 segundos.
     duracionSesion: r.seg_prom_hoy === null

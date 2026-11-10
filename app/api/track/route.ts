@@ -4,7 +4,7 @@ import { requireAdminClient } from '@/lib/service-role'
 import { isKnownEvent, type EventProps } from '@/lib/analytics-events'
 import { classifyUserAgent, motivoLinuxDeAfuera } from '@/lib/analytics-bots'
 import { paisDelPedido, motivoPaisBloqueado } from '@/lib/geo'
-import { sistemaDeLaApp } from '@/lib/device'
+import { aparatoDe, detectarDispositivo, esAparato, sistemaDeLaApp } from '@/lib/device'
 import {
   sanitizeProps,
   sanitizePath,
@@ -113,6 +113,7 @@ export async function POST(req: NextRequest) {
     // El sistema de la app nativa (android | ios), que la app no manda: sale
     // del user-agent de su cliente HTTP. Ver `sistemaDeLaApp`.
     const sistema = sistemaDeLaApp(req.headers.get('user-agent'))
+    const aparatoWeb = aparatoDe(detectarDispositivo(req.headers.get('user-agent')))
     // Si el user-agent ya dijo bot, gana su motivo, que es más específico.
     // Después, el navegador automatizado del 23/10 (ver `motivoLinuxDeAfuera`).
     const bloqueado = motivoPaisBloqueado(country)
@@ -154,6 +155,11 @@ export async function POST(req: NextRequest) {
       if (esApp) {
         if (sistema) props.os = sistema
         else delete props.os
+        delete props.aparato
+      } else if (!esAparato(props.aparato)) {
+        // Computadora o celular. El navegador lo manda (separa el iPad de una
+        // Mac, que acá no se puede); un bundle viejo no, y sale del user-agent.
+        props.aparato = aparatoWeb
       }
 
       rows.push({
