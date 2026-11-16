@@ -194,8 +194,9 @@ export const EVENT_NAMES = [
    * props: { dispositivo, destino, desde }
    *
    * `destino`: 'play_store' | 'app_store' | 'elegir' (en la computadora,
-   * "Jugar" no sale de la página: despliega los dos badges). `desde`:
-   * 'banner' | 'boton' | 'badge'. Es otro evento y no un `descargar_clicked`
+   * "Jugar" no sale de la página: despliega los dos badges) | 'seccion'
+   * (la tira de la primera pantalla, que baja hasta el juego). `desde`:
+   * 'banner' | 'boton' | 'badge' | 'tira'. Es otro evento y no un `descargar_clicked`
    * más porque aquel es el embudo de Glynbox y sus consultas cuentan
    * `destino = 'play_store'` sin mirar de qué app.
    */

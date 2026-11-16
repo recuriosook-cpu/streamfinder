@@ -267,3 +267,24 @@ a, button {
     scroll-behavior: auto !important;
   }
 }
+
+/*
+   La flechita del pie de la primera pantalla de /descargar (ver
+   `app/descargar/AvisoPotion.tsx`). Un vaivén corto y lento: tiene que
+   insinuar "hay más abajo", no reclamar atención como el `animate-bounce`
+   de Tailwind, que salta casi el doble y rebota.
+*/
+@keyframes flecha-abajo {
+  0%, 100% { transform: translate3d(0, 0, 0);   opacity: 0.55; }
+  50%      { transform: translate3d(0, 5px, 0); opacity: 1; }
+}
+
+.flecha-abajo {
+  animation: flecha-abajo 1.8s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .flecha-abajo {
+    animation: none;
+  }
+}

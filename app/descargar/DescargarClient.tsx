@@ -6,6 +6,7 @@ import { track, flushAnalytics, marcarOrigen } from '@/lib/analytics'
 import { BadgesTiendas } from '@/components/BadgesTiendas'
 import { MosaicoPosters } from './MosaicoPosters'
 import { SeccionPotion } from './SeccionPotion'
+import { AvisoPotion } from './AvisoPotion'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
 
 /**
@@ -363,6 +364,7 @@ export default function DescargarClient({
 
   return (
     <div
+      data-scroll-descargar=""
       className="relative flex h-svh w-full flex-col overflow-x-hidden overflow-y-auto bg-[#0A0A0F] text-white"
       style={{
         // Los teléfonos con notch y con gesto de home se comen los bordes. Sin
@@ -462,6 +464,13 @@ export default function DescargarClient({
 
         </div>
       </div>
+
+      {/*
+        La tira y la flechita que anuncian a Potion Bottle, al pie de la
+        primera pantalla. `shrink-0`: en un teléfono chico el que cede alto es
+        el mosaico (`min-h-0`), nunca el botón.
+      */}
+      <AvisoPotion dispositivo={dispositivo} />
       </div>
 
       <SeccionPotion dispositivo={dispositivo} />

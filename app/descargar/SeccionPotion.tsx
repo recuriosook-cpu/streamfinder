@@ -77,6 +77,7 @@ export function SeccionPotion({ dispositivo }: { dispositivo: Dispositivo }) {
 
   return (
     <section
+      id="potion"
       aria-labelledby="potion-titulo"
       className="relative z-10 shrink-0 border-t border-[#1A1A24] px-4 pb-14 pt-12 sm:px-6 sm:pb-20 sm:pt-16"
     >
