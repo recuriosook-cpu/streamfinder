@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { track, flushAnalytics, marcarOrigen } from '@/lib/analytics'
 import { BadgesTiendas } from '@/components/BadgesTiendas'
 import { MosaicoPosters } from './MosaicoPosters'
+import { SeccionPotion } from './SeccionPotion'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
 
 /**
@@ -385,6 +386,14 @@ export default function DescargarClient({
         }}
       />
 
+      {/*
+        La primera pantalla, envuelta para que siga ocupando el alto completo
+        ahora que hay algo debajo (Potion Bottle). Sin esto, la sección nueva
+        le restaría alto al flex y el mosaico —que tiene `min-h-0`— sería el
+        primero en desaparecer. Con `min-h-full` la pantalla de Glynbox queda
+        idéntica y la sección aparece recién al scrollear.
+      */}
+      <div className="flex min-h-full shrink-0 flex-col">
       <header className="relative z-10 flex shrink-0 justify-center px-6 pt-9 sm:pt-12">
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
@@ -453,6 +462,9 @@ export default function DescargarClient({
 
         </div>
       </div>
+      </div>
+
+      <SeccionPotion dispositivo={dispositivo} />
     </div>
   )
 }

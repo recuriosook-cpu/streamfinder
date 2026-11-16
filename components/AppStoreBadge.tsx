@@ -34,12 +34,14 @@ export interface AppStoreBadgeProps {
   onClick: () => void
   /** La marca de campaña del link. Por defecto, la del sitio (`web`). */
   marca?: MarcaTienda
+  /** Otro destino en vez del de Glynbox (lo usa la sección de Potion Bottle). */
+  href?: string
 }
 
-export function AppStoreBadge({ alto, onClick, marca }: AppStoreBadgeProps) {
+export function AppStoreBadge({ alto, onClick, marca, href }: AppStoreBadgeProps) {
   return (
     <a
-      href={appStoreUrl(marca)}
+      href={href ?? appStoreUrl(marca)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Descárgalo en el App Store"

@@ -189,6 +189,17 @@ export const EVENT_NAMES = [
    * "eligió lo que le propusimos" de "eligió la alternativa".
    */
   'descargar_clicked',
+  /**
+   * Se tocó la sección de Potion Bottle al pie de /descargar.
+   * props: { dispositivo, destino, desde }
+   *
+   * `destino`: 'play_store' | 'app_store' | 'elegir' (en la computadora,
+   * "Jugar" no sale de la página: despliega los dos badges). `desde`:
+   * 'banner' | 'boton' | 'badge'. Es otro evento y no un `descargar_clicked`
+   * más porque aquel es el embudo de Glynbox y sus consultas cuentan
+   * `destino = 'play_store'` sin mirar de qué app.
+   */
+  'descargar_potion_clicked',
 
   // ── Acciones dentro de la app de Android ────────────────────────────
   //

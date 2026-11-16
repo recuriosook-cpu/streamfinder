@@ -87,14 +87,16 @@ export interface GooglePlayBadgeProps {
 
   /** La marca de campaña del link. Por defecto, la del sitio (`web`). */
   marca?: MarcaTienda
+  /** Otro destino en vez del de Glynbox (lo usa la sección de Potion Bottle). */
+  href?: string
 }
 
-export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick, marca }: GooglePlayBadgeProps = {}) {
+export function GooglePlayBadge({ ancho = ANCHO_POR_DEFECTO, onClick, marca, href }: GooglePlayBadgeProps = {}) {
   const pathname = usePathname()
 
   return (
     <a
-      href={playUrl(marca)}
+      href={href ?? playUrl(marca)}
       target="_blank"
       rel="noopener noreferrer"
       aria-label="Conseguilo en Google Play"
