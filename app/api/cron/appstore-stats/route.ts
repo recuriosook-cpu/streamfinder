@@ -1,6 +1,9 @@
 import { NextResponse } from 'next/server'
+import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
-import { faltantesAppStore, informeDelDia, leerConfigAppStore } from '@/lib/appstore-reports'
+import {
+  faltantesAppStore, informeDelDia, leerConfigAppStore, POTION_APP_ID_POR_DEFECTO, type ResultadoDia,
+} from '@/lib/appstore-reports'
 
 /**
  * GET /api/cron/appstore-stats — copia las descargas de App Store de Potion
@@ -12,15 +15,20 @@ import { faltantesAppStore, informeDelDia, leerConfigAppStore } from '@/lib/apps
  *
  * ── Qué días baja ─────────────────────────────────────────────────────────
  *
- * La primera vez (la tabla no tiene nada de la app), todos desde el
- * lanzamiento del juego. Después, los últimos 10: Apple a veces publica un
- * día tarde, y el upsert por (app, día, país) hace que repetir no duplique.
+ * Mientras la tabla no tenga nada de la app, todos desde el lanzamiento del
+ * juego. Después, los últimos 10: Apple a veces publica un día tarde, y el
+ * upsert por (app, día, país) hace que repetir no duplique.
  *
- * ── Si algo falla ─────────────────────────────────────────────────────────
+ * ── Cada corrida queda registrada ─────────────────────────────────────────
  *
- * Contesta 200 igual y dice qué pasó: qué variables faltan, si Apple dijo que
- * la clave no tiene permiso (403: le falta el acceso a "Ventas") o qué día
- * falló. Un día sin descargas es un 404 de Apple y no se reporta.
+ * En `appstore_corridas`, con lo que dijo Apple día por día: el código HTTP,
+ * cuántos renglones traía el informe, qué apps venían y con cuántas descargas,
+ * y el texto de Apple cuando no hubo informe. Hasta el 16/11 la copia
+ * terminaba "bien" sin dejar rastro y la tabla de descargas vacía no decía
+ * por qué. `/admin/potion` lee esta tabla para avisar si la copia no corrió o
+ * si falló.
+ *
+ * Contesta 200 igual cuando algo falla y dice qué pasó, como antes.
  */
 
 export const runtime = 'nodejs'
@@ -50,16 +58,39 @@ function faltaLaTabla(error: { code?: string; message?: string }): boolean {
   return msg.includes('does not exist') || msg.includes('could not find the table')
 }
 
+/** Un día, como queda en `appstore_corridas.dias`. */
+interface DiaRegistrado {
+  fecha: string
+  estado: ResultadoDia['estado']
+  http: number | null
+  filas?: number
+  /** Primeras descargas de la app ese día, sumadas de todos los países. */
+  unidades?: number
+  apps?: { id: string; titulo: string; unidades: number }[]
+  detalle?: string
+}
+
+/** Deja la corrida anotada. Si falla, al log: nunca rompe la respuesta. */
+async function registrar(
+  admin: SupabaseClient, appId: string, ok: boolean, motivo: string | null, dias: DiaRegistrado[],
+) {
+  const { error } = await admin.from('appstore_corridas').insert({ app_id: appId, ok, motivo, dias })
+  if (error) console.error('[cron/appstore-stats] no se pudo registrar la corrida:', error.message)
+}
+
 export async function GET(req: Request) {
   if (!authorized(req)) return NextResponse.json({ error: 'No autorizado' }, { status: 401 })
 
-  const config = leerConfigAppStore()
-  if (!config) {
-    return NextResponse.json({ ok: false, configurado: false, faltan: faltantesAppStore() })
-  }
-
   const { admin, failure } = requireAdminClient('cron/appstore-stats')
   if (failure) return failure
+
+  const config = leerConfigAppStore()
+  if (!config) {
+    const faltan = faltantesAppStore()
+    await registrar(admin, POTION_APP_ID_POR_DEFECTO, false, `Faltan variables: ${faltan.join(', ')}`, [])
+    console.error('[cron/appstore-stats] faltan variables:', faltan.join(', '))
+    return NextResponse.json({ ok: false, configurado: false, faltan })
+  }
 
   const ultima = await admin
     .from('appstore_descargas')
@@ -69,11 +100,12 @@ export async function GET(req: Request) {
     .limit(1)
     .maybeSingle()
   if (ultima.error) {
-    if (faltaLaTabla(ultima.error)) {
-      return NextResponse.json({ ok: false, motivo: 'Falta correr supabase-appstore-descargas-2026-11.sql' })
-    }
-    console.error('[cron/appstore-stats] no se pudo leer la tabla:', ultima.error.message)
-    return NextResponse.json({ ok: false, motivo: ultima.error.message })
+    const motivo = faltaLaTabla(ultima.error)
+      ? 'Falta correr supabase-appstore-descargas-2026-11.sql'
+      : ultima.error.message
+    await registrar(admin, config.appId, false, motivo, [])
+    console.error('[cron/appstore-stats] no se pudo leer la tabla:', motivo)
+    return NextResponse.json({ ok: false, motivo })
   }
 
   // Ayer en UTC es el último día que Apple puede tener listo.
@@ -83,17 +115,23 @@ export async function GET(req: Request) {
   for (let d = desde < PRIMER_DIA ? PRIMER_DIA : desde; d <= hasta; d = sumarDias(d, 1)) dias.push(d)
 
   const filas: { app_id: string; fecha: string; pais: string; descargas: number; redescargas: number; actualizado_en: string }[] = []
+  const registro: DiaRegistrado[] = []
   const avisos: { fecha: string; motivo: string }[] = []
   let vacios = 0
+  let sinPermiso = false
   const ahora = new Date().toISOString()
 
-  for (let i = 0; i < dias.length; i += EN_PARALELO) {
+  for (let i = 0; i < dias.length && !sinPermiso; i += EN_PARALELO) {
     const tanda = dias.slice(i, i + EN_PARALELO)
     const resultados = await Promise.all(tanda.map(f => informeDelDia(config, f)))
-    let sinPermiso = false
     resultados.forEach((r, j) => {
       const fecha = tanda[j]
+      const dia: DiaRegistrado = { fecha, estado: r.estado, http: r.diag.http }
+      if (r.diag.filas !== undefined) dia.filas = r.diag.filas
+      if (r.diag.apps) dia.apps = r.diag.apps
+      if (r.diag.detalle) dia.detalle = r.diag.detalle
       if (r.estado === 'ok') {
+        dia.unidades = r.paises.reduce((a, p) => a + p.descargas, 0)
         for (const p of r.paises) filas.push({ app_id: config.appId, fecha, ...p, actualizado_en: ahora })
       } else if (r.estado === 'vacio') {
         vacios++
@@ -104,31 +142,39 @@ export async function GET(req: Request) {
             ? `Apple no deja leer las ventas con esta clave (${r.detalle}). La clave necesita acceso a "Ventas".`
             : r.detalle,
         })
+        // Sin permiso para un día es sin permiso para todos.
         if (r.estado === 'sin_permiso') sinPermiso = true
       }
+      registro.push(dia)
     })
-    // Sin permiso para un día es sin permiso para todos.
-    if (sinPermiso) break
   }
 
   if (avisos.length > 0) console.error('[cron/appstore-stats] avisos:', JSON.stringify(avisos.slice(0, 5)))
 
+  let motivo: string | null = avisos.length > 0 ? `${avisos.length} día(s) con error: ${avisos[0].motivo}` : null
   if (filas.length > 0) {
     const { error } = await admin
       .from('appstore_descargas')
       .upsert(filas, { onConflict: 'app_id,fecha,pais' })
     if (error) {
       console.error('[cron/appstore-stats] el upsert falló:', error.message)
-      return NextResponse.json({ ok: false, motivo: error.message, avisos })
+      motivo = `No se pudieron guardar las descargas: ${error.message}`
     }
   }
 
-  return NextResponse.json({
-    ok: avisos.length === 0,
+  const ok = motivo === null
+  await registrar(admin, config.appId, ok, motivo, registro)
+
+  const resumen = {
+    ok,
     app: config.appId,
     dias: { desde: dias[0] ?? null, hasta: dias[dias.length - 1] ?? null, pedidos: dias.length, sinDescargas: vacios },
     filas: filas.length,
     descargas: filas.reduce((a, f) => a + f.descargas, 0),
+    motivo,
     avisos,
-  })
+  }
+  // Una línea por corrida en el log, haya pasado lo que haya pasado.
+  console.log('[cron/appstore-stats]', JSON.stringify({ ...resumen, avisos: avisos.length }))
+  return NextResponse.json(resumen)
 }

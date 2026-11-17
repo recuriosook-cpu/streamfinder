@@ -93,12 +93,61 @@ export interface PaisAppStore {
   redescargas: number
 }
 
+/**
+ * Una app que venía en el informe del día, con sus descargas. Sirve para ver
+ * por qué una app no entra: si Potion figura con otro ID, se ve acá.
+ */
+export interface AppEnInforme {
+  id: string
+  titulo: string
+  unidades: number
+}
+
+/**
+ * Lo que dijo Apple, para dejarlo registrado en `appstore_corridas`. Antes
+ * la copia terminaba "bien" sin rastro y no había forma de saber qué pasó.
+ */
+export interface DiagnosticoDia {
+  http: number | null
+  /** Renglones del informe, sin la cabecera. */
+  filas?: number
+  apps?: AppEnInforme[]
+  /** El texto de Apple cuando no es un informe. */
+  detalle?: string
+}
+
 export type ResultadoDia =
-  | { estado: 'ok'; paises: PaisAppStore[] }
+  | { estado: 'ok'; paises: PaisAppStore[]; diag: DiagnosticoDia }
   /** 404: ese día no hubo nada, o Apple todavía no lo publicó. */
-  | { estado: 'vacio' }
-  | { estado: 'sin_permiso'; detalle: string }
-  | { estado: 'error'; detalle: string }
+  | { estado: 'vacio'; diag: DiagnosticoDia }
+  | { estado: 'sin_permiso'; detalle: string; diag: DiagnosticoDia }
+  | { estado: 'error'; detalle: string; diag: DiagnosticoDia }
+
+/**
+ * Todas las apps del informe con sus primeras descargas y redescargas, sin
+ * filtrar por ID. `null` si al informe le faltan las columnas.
+ */
+export function appsDelInforme(tsv: string): { filas: number; apps: AppEnInforme[] } | null {
+  const lineas = tsv.split(/\r?\n/).filter(l => l.trim() !== '')
+  if (lineas.length < 1) return { filas: 0, apps: [] }
+  const cab = lineas[0].split('\t').map(s => s.trim())
+  const iTipo = cab.indexOf('Product Type Identifier')
+  const iUnidades = cab.indexOf('Units')
+  const iApp = cab.indexOf('Apple Identifier')
+  const iTitulo = cab.indexOf('Title')
+  if (iTipo < 0 || iUnidades < 0 || iApp < 0) return null
+  const porApp = new Map<string, AppEnInforme>()
+  for (const linea of lineas.slice(1)) {
+    const c = linea.split('\t')
+    const id = (c[iApp] ?? '').trim()
+    const a = porApp.get(id) ?? { id, titulo: iTitulo >= 0 ? (c[iTitulo] ?? '').trim().slice(0, 60) : '', unidades: 0 }
+    const tipo = (c[iTipo] ?? '').trim()
+    const n = Number(c[iUnidades])
+    if ((DESCARGA.has(tipo) || REDESCARGA.has(tipo)) && Number.isFinite(n)) a.unidades += n
+    porApp.set(id, a)
+  }
+  return { filas: lineas.length - 1, apps: [...porApp.values()] }
+}
 
 /** El TSV de un día, sólo las filas de la app, sumadas por país. */
 export function paisesDelInforme(tsv: string, appId: string): PaisAppStore[] {
@@ -151,25 +200,32 @@ export async function informeDelDia(c: ConfigAppStore, fecha: string): Promise<R
       cache: 'no-store',
     })
   } catch (e) {
-    return { estado: 'error', detalle: e instanceof Error ? e.message : String(e) }
+    const detalle = e instanceof Error ? e.message : String(e)
+    return { estado: 'error', detalle, diag: { http: null, detalle } }
   }
 
-  if (res.status === 404) return { estado: 'vacio' }
-  if (res.status === 401 || res.status === 403) {
-    const texto = (await res.text().catch(() => '')).slice(0, 300)
-    return { estado: 'sin_permiso', detalle: `${res.status} ${texto}` }
-  }
   if (!res.ok) {
-    const texto = (await res.text().catch(() => '')).slice(0, 300)
-    return { estado: 'error', detalle: `${res.status} ${texto}` }
+    // El texto de Apple dice si es "no hubo ventas ese día" u otra cosa
+    // (número de vendedor inválido, por ejemplo). Se guarda tal cual.
+    const texto = (await res.text().catch(() => '')).replace(/\s+/g, ' ').slice(0, 300)
+    const diag: DiagnosticoDia = { http: res.status, detalle: texto }
+    if (res.status === 404) return { estado: 'vacio', diag }
+    if (res.status === 401 || res.status === 403) return { estado: 'sin_permiso', detalle: `${res.status} ${texto}`, diag }
+    return { estado: 'error', detalle: `${res.status} ${texto}`, diag }
   }
 
   try {
     const crudo = Buffer.from(await res.arrayBuffer())
     // Viene comprimido; por las dudas, si no empieza con la firma de gzip se lee tal cual.
     const tsv = crudo[0] === 0x1f && crudo[1] === 0x8b ? gunzipSync(crudo).toString('utf8') : crudo.toString('utf8')
-    return { estado: 'ok', paises: paisesDelInforme(tsv, c.appId) }
+    const resumen = appsDelInforme(tsv)
+    return {
+      estado: 'ok',
+      paises: paisesDelInforme(tsv, c.appId),
+      diag: { http: res.status, filas: resumen?.filas, apps: resumen?.apps },
+    }
   } catch (e) {
-    return { estado: 'error', detalle: e instanceof Error ? e.message : String(e) }
+    const detalle = e instanceof Error ? e.message : String(e)
+    return { estado: 'error', detalle, diag: { http: res.status, detalle } }
   }
 }
