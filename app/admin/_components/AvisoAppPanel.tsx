@@ -1,7 +1,7 @@
 'use client'
 
 import { useCallback, useEffect, useState } from 'react'
-import { Loader2, Eye, Download, Globe, MinusCircle } from 'lucide-react'
+import { Loader2, Eye, Download, Globe, MinusCircle, Search, Smartphone } from 'lucide-react'
 import type { AvisoAppResumen } from '@/app/api/admin/aviso-app/route'
 import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-ventanas'
 
@@ -17,6 +17,21 @@ import { VENTANAS, VENTANA_POR_DEFECTO, type Ventana } from '@/lib/metricas-vent
 
 const numero = (n: number) => n.toLocaleString('es-AR')
 const pct = (n: number, de: number) => (de > 0 ? `${Math.round((n / de) * 1000) / 10}%` : '—')
+
+const NOMBRE_SENAL: Record<keyof AvisoAppResumen['descartado']['enAppPorSenal'], string> = {
+  marca: 'marca guardada',
+  referrer: 'abierto por la app',
+  display_mode: 'app instalada (PWA)',
+  standalone: 'pantalla de inicio de iPhone',
+}
+
+/** "abierto por la app 3 · marca guardada 1", sólo las señales que aparecieron. */
+function detalleSenales(porSenal: AvisoAppResumen['descartado']['enAppPorSenal']): string {
+  return (Object.keys(NOMBRE_SENAL) as (keyof typeof NOMBRE_SENAL)[])
+    .filter(k => porSenal[k] > 0)
+    .map(k => `${NOMBRE_SENAL[k]} ${numero(porSenal[k])}`)
+    .join(' · ')
+}
 
 function Tile({ icono, label, valor, detalle }: { icono: React.ReactNode; label: string; valor: string; detalle: string }) {
   return (
@@ -53,6 +68,7 @@ export function AvisoAppPanel({ recarga = 0 }: { recarga?: number }) {
   const m = datos?.mostrado.veces ?? 0
   const sinRespuesta = datos ? Math.max(0, m - datos.descargar.veces - datos.seguirWeb.veces) : 0
   const maxDia = Math.max(1, ...(datos?.serie.map(f => f.mostrado) ?? [0]))
+  const descartado = datos ? datos.descartado.buscador + datos.descartado.enApp : 0
 
   return (
     <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-5">
@@ -123,6 +139,25 @@ export function AvisoAppPanel({ recarga = 0 }: { recarga?: number }) {
                 })}
               </tbody>
             </table>
+          </div>
+
+          {/* Por qué no salió al entrar (aviso_app_descartado, una vez por visita). */}
+          <div className="mb-5">
+            <p className="text-[11px] text-[#A0A0B0] mb-2">
+              No salió al entrar · {numero(descartado)} visitas
+              {/* Las de buscador que lo vieron en la 2ª página están en los dos lados: se restan una vez. */}
+              {descartado + datos.descartado.mostrado > 0 && (
+                <> · {pct(descartado, descartado + datos.descartado.mostrado - datos.descartado.buscadorDespues)} de las visitas de celular que pasaron por el aviso</>
+              )}
+              {' '}· desde el {new Date(datos.descartado.desde).toLocaleString('es-AR', { day: 'numeric', month: 'numeric', hour: '2-digit', minute: '2-digit' })}
+              {' '}· sin contar /descargar, donde no se muestra
+            </p>
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+              <Tile icono={<Search size={13} />} label="Vino de un buscador" valor={numero(datos.descartado.buscador)}
+                detalle={`le salió después, en la 2ª página: ${numero(datos.descartado.buscadorDespues)} (${pct(datos.descartado.buscadorDespues, datos.descartado.buscador)})`} />
+              <Tile icono={<Smartphone size={13} />} label="Se lo tomó como dentro de la app" valor={numero(datos.descartado.enApp)}
+                detalle={datos.descartado.enApp === 0 ? 'por ninguna señal' : `por ${detalleSenales(datos.descartado.enAppPorSenal)}`} />
+            </div>
           </div>
 
           {/* Por día: la barra gris es cuántas veces se mostró; la amarilla, cuántas tocaron "Descargar". */}
