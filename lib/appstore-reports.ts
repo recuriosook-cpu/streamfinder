@@ -44,7 +44,13 @@ export interface ConfigAppStore {
   issuerId: string
   keyId: string
   privateKey: string
-  vendorNumber: string
+  /**
+   * Los números de vendedor, de `APPSTORE_VENDOR_NUMBER` separados por comas.
+   * Una cuenta puede tener más de uno (el del acuerdo de apps gratis y el de
+   * apps pagas, por ejemplo) y cada informe trae sólo las apps de su número:
+   * el 16/11 el único configurado traía a Glynbox y nunca a Potion.
+   */
+  vendorNumbers: string[]
   appId: string
 }
 
@@ -65,7 +71,7 @@ export function leerConfigAppStore(): ConfigAppStore | null {
     issuerId: process.env.APPSTORE_ISSUER_ID!.trim(),
     keyId: process.env.APPSTORE_KEY_ID!.trim(),
     privateKey: process.env.APPSTORE_PRIVATE_KEY!.replace(/\\n/g, '\n').trim(),
-    vendorNumber: process.env.APPSTORE_VENDOR_NUMBER!.trim(),
+    vendorNumbers: [...new Set(process.env.APPSTORE_VENDOR_NUMBER!.split(',').map(v => v.trim()).filter(Boolean))],
     appId: process.env.APPSTORE_POTION_APP_ID?.trim() || POTION_APP_ID_POR_DEFECTO,
   }
 }
@@ -101,6 +107,8 @@ export interface AppEnInforme {
   id: string
   titulo: string
   unidades: number
+  /** De qué número de vendedor vino el informe. */
+  vendedor?: string
 }
 
 /**
@@ -183,13 +191,48 @@ export function paisesDelInforme(tsv: string, appId: string): PaisAppStore[] {
   return [...porPais.values()]
 }
 
-/** Baja el informe diario de un día (`YYYY-MM-DD`). */
+/**
+ * El informe de un día (`YYYY-MM-DD`), sumando todos los números de vendedor.
+ *
+ * Un error o falta de permiso en cualquiera manda (se anota cuál). Si alguno
+ * trajo informe, el día es 'ok' con los países y las apps de todos. Si todos
+ * dijeron 404, es 'vacio'.
+ */
 export async function informeDelDia(c: ConfigAppStore, fecha: string): Promise<ResultadoDia> {
+  const resultados: ResultadoDia[] = []
+  for (const vendedor of c.vendorNumbers) resultados.push(await informeDeUnVendedor(c, vendedor, fecha))
+  const varios = c.vendorNumbers.length > 1
+  const malo = resultados.findIndex(r => r.estado === 'error' || r.estado === 'sin_permiso')
+  if (malo >= 0) {
+    const r = resultados[malo]
+    if (varios && 'detalle' in r) r.detalle = `vendedor ${c.vendorNumbers[malo]}: ${r.detalle}`
+    return r
+  }
+  const oks = resultados.flatMap((r, i) => (r.estado === 'ok' ? [{ r, vendedor: c.vendorNumbers[i] }] : []))
+  if (oks.length === 0) return resultados[0] ?? { estado: 'vacio', diag: { http: null } }
+  const paises = new Map<string, PaisAppStore>()
+  const apps: AppEnInforme[] = []
+  let filas = 0
+  for (const { r, vendedor } of oks) {
+    for (const p of r.paises) {
+      const x = paises.get(p.pais) ?? { pais: p.pais, descargas: 0, redescargas: 0 }
+      x.descargas += p.descargas
+      x.redescargas += p.redescargas
+      paises.set(p.pais, x)
+    }
+    for (const a of r.diag.apps ?? []) apps.push(varios ? { ...a, vendedor } : a)
+    filas += r.diag.filas ?? 0
+  }
+  return { estado: 'ok', paises: [...paises.values()], diag: { http: 200, filas, apps } }
+}
+
+/** Baja el informe diario de un día con un número de vendedor. */
+async function informeDeUnVendedor(c: ConfigAppStore, vendedor: string, fecha: string): Promise<ResultadoDia> {
   const params = new URLSearchParams({
     'filter[frequency]': 'DAILY',
     'filter[reportType]': 'SALES',
     'filter[reportSubType]': 'SUMMARY',
-    'filter[vendorNumber]': c.vendorNumber,
+    'filter[vendorNumber]': vendedor,
     'filter[reportDate]': fecha,
     'filter[version]': '1_0',
   })

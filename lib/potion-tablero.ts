@@ -403,6 +403,8 @@ interface Apple {
   /** La última corrida de la copia. */
   corrida: { en: string; ok: boolean; motivo: string | null; dias: DiaCorrida[] } | null
   corridaMotivo?: string
+  /** Las otras apps que traían los informes de la última corrida (por título). */
+  otrasApps: string[]
 }
 
 async function leerApple(admin: SupabaseClient): Promise<Apple> {
@@ -413,7 +415,7 @@ async function leerApple(admin: SupabaseClient): Promise<Apple> {
     admin.from('appstore_corridas').select('corrida_en, ok, motivo, dias')
       .eq('app_id', appId).order('corrida_en', { ascending: false }).limit(1).maybeSingle(),
   ])
-  const r: Apple = { ok: !desc.error, total: 0, ultimoDiaRespondido: null, corrida: null }
+  const r: Apple = { ok: !desc.error, total: 0, ultimoDiaRespondido: null, corrida: null, otrasApps: [] }
   if (desc.error) r.motivo = `No se pudo leer appstore_descargas: ${desc.error.message}`
   for (const f of (desc.data ?? []) as { descargas: number }[]) r.total += f.descargas
   if (corr.error) {
@@ -421,6 +423,9 @@ async function leerApple(admin: SupabaseClient): Promise<Apple> {
   } else if (corr.data) {
     const c = corr.data as { corrida_en: string; ok: boolean; motivo: string | null; dias: DiaCorrida[] | null }
     r.corrida = { en: c.corrida_en, ok: c.ok, motivo: c.motivo, dias: c.dias ?? [] }
+    const otras = new Set<string>()
+    for (const d of r.corrida.dias) for (const a of d.apps ?? []) if (a.id !== appId) otras.add(a.titulo || a.id)
+    r.otrasApps = [...otras]
     for (const d of r.corrida.dias) {
       if ((d.estado === 'ok' || d.estado === 'vacio') && (!r.ultimoDiaRespondido || d.fecha > r.ultimoDiaRespondido)) {
         r.ultimoDiaRespondido = d.fecha
@@ -451,7 +456,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
       : Promise.resolve<Lectura>({ error: 'Faltan POTION_SUPABASE_URL o POTION_SUPABASE_SECRET en Vercel' }),
     potion ? asegurarVersionesIos(potion) : Promise.resolve(null),
     admin ? leerPlay(admin) : Promise.resolve<Play>({ ok: false, motivo: 'Sin conexión con la base de Glynbox', total: 0, base: null, ultimaFecha: null, copiaEn: null }),
-    admin ? leerApple(admin) : Promise.resolve<Apple>({ ok: false, motivo: 'Sin conexión con la base de Glynbox', total: 0, ultimoDiaRespondido: null, corrida: null }),
+    admin ? leerApple(admin) : Promise.resolve<Apple>({ ok: false, motivo: 'Sin conexión con la base de Glynbox', total: 0, ultimoDiaRespondido: null, corrida: null, otrasApps: [] }),
   ])
 
   // ── Jugadores ──
@@ -546,7 +551,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   if (descIos.valor === 0 && iosRealesHastaRespondido > 0) {
     avisos.push({
       tipo: 'cuadre', nivel: 'error',
-      texto: `Apple informa 0 descargas hasta el ${fmtDia(apple.ultimoDiaRespondido!)}, pero ${iosRealesHastaRespondido} iPhone de la App Store ya jugaban para esa fecha. El informe no está trayendo a Potion.`,
+      texto: `Apple informa 0 descargas hasta el ${fmtDia(apple.ultimoDiaRespondido!)}, pero ${iosRealesHastaRespondido} iPhone de la App Store ya jugaban para esa fecha. El informe no está trayendo a Potion${apple.otrasApps.length > 0 ? `: sólo trae ${apple.otrasApps.join(', ')}, así que Potion debe informar con otro número de vendedor (agregalo a APPSTORE_VENDOR_NUMBER en Vercel, separado por coma)` : ''}.`,
       fecha: null,
     })
   }
