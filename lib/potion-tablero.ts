@@ -555,7 +555,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   if (descIos.valor === 0 && iosRealesHastaRespondido > 0) {
     avisos.push({
       tipo: 'cuadre', nivel: 'error',
-      texto: `Apple informa 0 descargas hasta el ${fmtDia(apple.ultimoDiaRespondido!)}, pero ${iosRealesHastaRespondido} iPhone de la App Store ya jugaban para esa fecha. El informe no está trayendo a Potion${apple.otrasApps.length > 0 ? `: sólo trae ${apple.otrasApps.join(', ')}, así que Potion debe informar con otro número de vendedor (agregalo a APPSTORE_VENDOR_NUMBER en Vercel, separado por coma)` : ''}.`,
+      texto: `Apple informa 0 descargas hasta el ${fmtDia(apple.ultimoDiaRespondido!)}, pero ${iosRealesHastaRespondido} iPhone de la App Store ya ${iosRealesHastaRespondido === 1 ? 'jugaba' : 'jugaban'} para esa fecha. El informe no está trayendo a Potion${apple.otrasApps.length > 0 ? `: sólo trae ${apple.otrasApps.join(', ')}, así que Potion debe informar con otro número de vendedor (agregalo a APPSTORE_VENDOR_NUMBER en Vercel, separado por coma)` : ''}.`,
       fecha: null,
     })
   }
