@@ -2,9 +2,9 @@
 
 import { useCallback, useEffect, useRef, useState, type ComponentType } from 'react'
 import { usePathname } from 'next/navigation'
-import { isRunningInApp } from '@/lib/app-mode'
+import { senalDeApp, type SenalDeApp } from '@/lib/app-mode'
 import { detectarDispositivo, refinarDispositivo } from '@/lib/device'
-import { visitaActual } from '@/lib/analytics'
+import { track, visitaActual } from '@/lib/analytics'
 import type { AvisoAppProps } from './AvisoApp'
 
 /**
@@ -27,6 +27,9 @@ import type { AvisoAppProps } from './AvisoApp'
  *   6. **Quien llega desde un buscador no lo ve al entrar.** Google castiga los
  *      avisos que tapan la página a la que llevó a alguien. A esa persona le
  *      sale cuando pasa a otra página del sitio.
+ *
+ * Las reglas 4 y 6 dejan un `aviso_app_descartado` con el motivo, uno por
+ * visita, para que el panel pueda decir a cuántos no les salió y por qué.
  */
 
 const CLAVE = 'glynbox_aviso_app'
@@ -59,6 +62,24 @@ function guardar(e: Estado): void {
   try { window.sessionStorage.setItem(CLAVE, JSON.stringify(e)) } catch { /* sin storage: sale una vez por carga */ }
 }
 
+const CLAVE_DESCARTE = 'glynbox_aviso_descartado'
+let descartadoEnMemoria: string | null = null
+
+/**
+ * Mide por qué no salió el aviso (`aviso_app_descartado`), una vez por visita:
+ * sin esto, en el panel no se distinguía "vino de Google" de "se lo tomó como
+ * dentro de la app".
+ */
+function descartar(visita: string, props: { motivo: 'buscador' | 'en_app'; senal?: SenalDeApp }): void {
+  if (descartadoEnMemoria === visita) return
+  descartadoEnMemoria = visita
+  try {
+    if (window.sessionStorage.getItem(CLAVE_DESCARTE) === visita) return
+    window.sessionStorage.setItem(CLAVE_DESCARTE, visita)
+  } catch { /* sin storage vale la memoria */ }
+  track('aviso_app_descartado', props)
+}
+
 function vieneDeBuscador(): boolean {
   try {
     if (!document.referrer) return false
@@ -82,9 +103,14 @@ export function AvisoAppGate() {
     if (RASTREADOR.test(ua)) return
     const dispositivo = refinarDispositivo(detectarDispositivo(ua))
     if (dispositivo === 'desktop') return
-    if (isRunningInApp()) return
 
     const visita = visitaActual() ?? 'sin-storage'
+    const senal = senalDeApp()
+    if (senal) {
+      descartar(visita, { motivo: 'en_app', senal })
+      return
+    }
+
     const previo = leer()
     const mismaVisita = previo?.visita === visita
     if (mismaVisita && previo.estado === 'mostrado') return
@@ -94,6 +120,7 @@ export function AvisoAppGate() {
       // Primera página de la visita.
       if (vieneDeBuscador()) {
         guardar({ visita, estado: 'pendiente', entrada: pathname })
+        descartar(visita, { motivo: 'buscador' })
         return
       }
     } else if (previo.estado === 'pendiente') {

@@ -8,6 +8,7 @@ import { MosaicoPosters } from './MosaicoPosters'
 import { SeccionPotion } from './SeccionPotion'
 import { AvisoPotion } from './AvisoPotion'
 import { refinarDispositivo, type Dispositivo } from '@/lib/device'
+import { propsDeEntrada } from '@/lib/referencia'
 
 /**
  * La landing de descarga.
@@ -236,7 +237,9 @@ export default function DescargarClient({
       `refinarDispositivo` es pura y barata, y adentro de un efecto `navigator`
       ya está disponible.
     */
-    track('descargar_viewed', { dispositivo: refinarDispositivo(dispositivoInicial) })
+    // Con la marca de campaña y de dónde vino (`lib/referencia.ts`): es lo que
+    // dice cuántas visitas trae cada red.
+    track('descargar_viewed', { dispositivo: refinarDispositivo(dispositivoInicial), ...propsDeEntrada() })
   }, [dispositivoInicial])
 
   /**

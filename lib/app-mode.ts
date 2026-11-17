@@ -13,10 +13,16 @@
  *
  * ── Las dos señales ────────────────────────────────────────────────────────
  *
- *   1. **`document.referrer` con esquema `android-app://`.** Es la señal fuerte
- *      y la específica de la TWA: Chrome se lo pone al documento que abre desde
- *      la app, y trae el package name. Es lo más cerca que se puede estar de
- *      "esto es com.glynbox.app".
+ *   1. **`document.referrer` = `android-app://com.glynbox.app`.** Es la señal
+ *      fuerte y la específica de la TWA: Chrome se lo pone al documento que
+ *      abre desde la app, con el package name.
+ *
+ *      Tiene que ser NUESTRO package. Chrome le pone `android-app://<package>`
+ *      a todo link que otra app abre en él: WhatsApp, Gmail, Telegram, la app
+ *      de Google (`com.google.android.googlequicksearchbox`). Hasta el
+ *      17/11/2026 alcanzaba con el esquema: a quien entraba desde un link de
+ *      WhatsApp se lo tomaba como "dentro de la app", la marca se pegaba y no
+ *      volvía a ver el aviso para bajarla en ese celular.
  *
  *   2. **`display-mode: standalone`** (y sus primos `fullscreen` y
  *      `minimal-ui`). Es la señal amplia: matchea la TWA y también la PWA
@@ -53,10 +59,23 @@
  * storage lleno, estos accesos TIRAN, no devuelven null.
  */
 
-const IN_APP_KEY = 'glynbox_in_app'
+/**
+ * `_v2` desde el 17/11/2026: la clave vieja quedó pegada en celulares que
+ * entraron alguna vez desde un link de WhatsApp o de la app de Google (ver la
+ * señal 1). Con otra clave esos navegadores se vuelven a evaluar; a quien de
+ * verdad está en la app lo vuelve a marcar la primera carga.
+ */
+const IN_APP_KEY = 'glynbox_in_app_v2'
 
-/** El esquema que Chrome le pone al referrer cuando abre desde una TWA. */
-const ANDROID_APP_SCHEME = 'android-app://'
+/** El referrer que Chrome le pone al documento que abre la TWA de Glynbox. */
+const REFERRER_DE_LA_APP = /^android-app:\/\/com\.glynbox\.app(\/|$)/
+
+/**
+ * Qué señal dijo "está en la app". `marca` es la de `localStorage`, que guarda
+ * que alguna de las otras se vio antes en este navegador. La mide el evento
+ * `aviso_app_descartado`.
+ */
+export type SenalDeApp = 'marca' | 'referrer' | 'display_mode' | 'standalone'
 
 /**
  * Los display-mode que significan "esto no se ve como una pestaña".
@@ -65,51 +84,55 @@ const ANDROID_APP_SCHEME = 'android-app://'
 const APP_DISPLAY_MODES = ['standalone', 'fullscreen', 'minimal-ui'] as const
 
 export function isRunningInApp(): boolean {
+  return senalDeApp() !== null
+}
+
+/** Como `isRunningInApp()`, pero dice qué señal lo decidió (o `null`: no es la app). */
+export function senalDeApp(): SenalDeApp | null {
   try {
-    if (typeof window === 'undefined') return false
+    if (typeof window === 'undefined') return null
 
     // El flag pegado gana y corta temprano: si ya se detectó una vez en este
     // navegador, no hace falta volver a mirar nada.
     try {
-      if (window.localStorage.getItem(IN_APP_KEY) === '1') return true
+      if (window.localStorage.getItem(IN_APP_KEY) === '1') return 'marca'
     } catch { /* sin storage seguimos con las señales en vivo */ }
 
-    let inApp = false
+    let senal: SenalDeApp | null = null
 
-    // Señal 1 — la TWA.
+    // Señal 1 — la TWA, y sólo la nuestra.
     try {
-      if (document.referrer.startsWith(ANDROID_APP_SCHEME)) inApp = true
+      if (REFERRER_DE_LA_APP.test(document.referrer)) senal = 'referrer'
     } catch { /* silencio */ }
 
     // Señal 2 — instalada, por la vía que sea.
     try {
-      if (typeof window.matchMedia === 'function') {
+      if (!senal && typeof window.matchMedia === 'function') {
         for (const mode of APP_DISPLAY_MODES) {
           if (window.matchMedia(`(display-mode: ${mode})`).matches) {
-            inApp = true
+            senal = 'display_mode'
             break
           }
         }
       }
     } catch { /* silencio */ }
 
-    // Señal 3 — iOS agregado a la pantalla de inicio. No hay app de iOS todavía,
-    // así que esto no evita una instalación: evita ofrecerle una app de Android
+    // Señal 3 — iOS agregado a la pantalla de inicio. Evita ofrecerle la app
     // a alguien que está en un iPhone en modo standalone. Es una línea.
     try {
       const nav = window.navigator as Navigator & { standalone?: boolean }
-      if (nav.standalone === true) inApp = true
+      if (!senal && nav.standalone === true) senal = 'standalone'
     } catch { /* silencio */ }
 
-    if (inApp) {
+    if (senal) {
       try { window.localStorage.setItem(IN_APP_KEY, '1') } catch { /* silencio */ }
     }
 
-    return inApp
+    return senal
   } catch {
     // Ante la duda, "no es la app". El caller usa esto para decidir si muestra
     // una barra de promoción, y errar hacia mostrarla en un navegador común es
     // el error barato.
-    return false
+    return null
   }
 }

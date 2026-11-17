@@ -25,7 +25,9 @@ export const EVENT_NAMES = [
    */
   'app_open',
   /**
-   * Una pantalla vista. props: { path }
+   * Una pantalla vista. props: { path }. El primero de cada visita, desde el
+   * 17/11/2026, lleva además de dónde vino: { ref?, navegador?, utm_source?,
+   * utm_medium?, utm_campaign?, clic? } (ver `lib/referencia.ts`).
    *
    * Uno por navegación del router, no uno por render. Es el único evento que
    * dispara alguien que sólo navega, y por eso existe: sin él una sesión de
@@ -159,6 +161,19 @@ export const EVENT_NAMES = [
   'aviso_app_descargar',
   /** Tocó "Seguir en la web" (o lo cerró con Escape). */
   'aviso_app_seguir_web',
+  /**
+   * En celular, el aviso no salió al entrar. Uno por visita como máximo.
+   * props: { motivo: 'buscador' | 'en_app', senal? }
+   *
+   * `buscador`: llegó desde Google o Bing; el aviso espera a la segunda
+   * página (si la hay, después sale `aviso_app_mostrado` con `entrada:
+   * 'buscador'`). `en_app`: `lib/app-mode.ts` dijo que está dentro de la app;
+   * `senal` es cuál ('marca' | 'referrer' | 'display_mode' | 'standalone').
+   * "Ya lo vio en esta visita" no se manda: es la visita que ya tiene su
+   * `aviso_app_mostrado`. En `/descargar` y `/admin` el aviso no se monta.
+   * Desde el 17/11/2026.
+   */
+  'aviso_app_descartado',
 
   // ── Landing de descarga (/descargar) ────────────────────────────────
   //
@@ -177,7 +192,12 @@ export const EVENT_NAMES = [
   // ruta. Ese sirve para la duración de sesión y no sabe de dispositivos; este
   // es el embudo de la landing. Cuentan cosas distintas y conviven.
 
-  /** Se cargó /descargar. props: { dispositivo } */
+  /**
+   * Se cargó /descargar. props: { dispositivo, ref?, navegador?, utm_source?,
+   * utm_medium?, utm_campaign?, clic? }. Las de la entrada, desde el
+   * 17/11/2026: ver `lib/referencia.ts`. El primer `page_view` de cada visita
+   * lleva las mismas.
+   */
   'descargar_viewed',
   /**
    * Se tocó uno de los dos botones. props: { dispositivo, destino, boton }

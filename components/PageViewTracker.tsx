@@ -2,7 +2,8 @@
 
 import { useEffect } from 'react'
 import { usePathname } from 'next/navigation'
-import { track } from '@/lib/analytics'
+import { track, visitaActual } from '@/lib/analytics'
+import { contarPantalla, propsDeEntrada } from '@/lib/referencia'
 
 /**
  * Dispara `page_view` en cada navegación.
@@ -57,6 +58,26 @@ import { track } from '@/lib/analytics'
  */
 let lastPath: string | null = null
 
+const CLAVE_VISITA = 'glynbox_ref_visita'
+
+/**
+ * ¿Es el primer `page_view` de la visita? La visita es la de los eventos (30
+ * minutos sin actividad abren otra), guardada en sessionStorage para que una
+ * recarga a mitad de la visita no la vuelva a contar como entrada.
+ */
+let visitaMarcada: string | null = null
+
+function esPrimeroDeLaVisita(): boolean {
+  const visita = visitaActual()
+  if (!visita || visitaMarcada === visita) return false
+  visitaMarcada = visita
+  try {
+    if (window.sessionStorage.getItem(CLAVE_VISITA) === visita) return false
+    window.sessionStorage.setItem(CLAVE_VISITA, visita)
+  } catch { /* sin storage: vale la memoria, una vez por carga */ }
+  return true
+}
+
 export function PageViewTracker() {
   const pathname = usePathname()
 
@@ -65,7 +86,10 @@ export function PageViewTracker() {
     if (lastPath === pathname) return
 
     lastPath = pathname
-    track('page_view', { path: pathname })
+    // El primero de cada visita lleva de dónde vino (`lib/referencia.ts`).
+    const entrada = esPrimeroDeLaVisita() ? propsDeEntrada() : {}
+    track('page_view', { path: pathname, ...entrada })
+    contarPantalla()
   }, [pathname])
 
   return null
