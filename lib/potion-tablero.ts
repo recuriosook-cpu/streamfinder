@@ -398,7 +398,11 @@ interface Apple {
   ok: boolean
   motivo?: string
   total: number
-  /** El último día que Apple contestó (con informe o con "no hubo nada"). */
+  /**
+   * El último día con informe de Apple. Un 404 no cuenta: para una cuenta
+   * que vende todos los días (Glynbox) es "todavía no está listo", no
+   * "no hubo nada".
+   */
   ultimoDiaRespondido: string | null
   /** La última corrida de la copia. */
   corrida: { en: string; ok: boolean; motivo: string | null; dias: DiaCorrida[] } | null
@@ -427,7 +431,7 @@ async function leerApple(admin: SupabaseClient): Promise<Apple> {
     for (const d of r.corrida.dias) for (const a of d.apps ?? []) if (a.id !== appId) otras.add(a.titulo || a.id)
     r.otrasApps = [...otras]
     for (const d of r.corrida.dias) {
-      if ((d.estado === 'ok' || d.estado === 'vacio') && (!r.ultimoDiaRespondido || d.fecha > r.ultimoDiaRespondido)) {
+      if (d.estado === 'ok' && (!r.ultimoDiaRespondido || d.fecha > r.ultimoDiaRespondido)) {
         r.ultimoDiaRespondido = d.fecha
       }
     }
