@@ -1,8 +1,14 @@
 'use client'
 
-import { useEffect, useState, type ReactNode } from 'react'
+import { Fragment, useEffect, useState, type ReactNode } from 'react'
 import { AlertTriangle, Loader2 } from 'lucide-react'
-import type { CaminoPermiso, EmbudoOnboarding, MedicionApp, Provisional } from '@/app/api/admin/app-medicion/route'
+import type {
+  CaminoPermiso,
+  EmbudoOnboarding,
+  MedicionApp,
+  Provisional,
+  VistosPlataforma,
+} from '@/app/api/admin/app-medicion/route'
 
 /**
  * Lo nuevo de la app: embudo de onboarding por flujo, notificaciones y modo
@@ -101,6 +107,86 @@ function TablaCaminos({ caminos, provisional }: { caminos: CaminoPermiso[]; prov
         {numero(provisional.loTienen)} lo recibieron · {numero(provisional.normales)} pasaron a notificaciones
         normales · {numero(provisional.desactivadas)} las desactivaron
       </p>
+    </div>
+  )
+}
+
+/** Las cuatro celdas de una plataforma en la tabla de vistos. */
+function CeldasVistos({ v, total }: { v: VistosPlataforma; total?: boolean }) {
+  const fuerte = total ? 'font-semibold text-white' : 'text-zinc-300'
+  return (
+    <>
+      <td className={`py-2 px-2 text-right tabular-nums border-l border-[#2A2A3A] ${fuerte}`}>{numero(v.cargados)}</td>
+      <td className={`py-2 px-2 text-right tabular-nums ${fuerte}`}>{numero(v.vistos)}</td>
+      <td className="py-2 px-2 text-right tabular-nums text-zinc-400">{numero(v.reusados)}</td>
+      <td className="py-2 px-2 text-right tabular-nums text-emerald-400 font-semibold">{pct(v.pct)}</td>
+    </>
+  )
+}
+
+/**
+ * Anuncios vistos (`ad_visto`, la impresión que contó Google) contra
+ * cargados, por lugar y plataforma, desde el primer día completo con vistos.
+ */
+function TablaVistos({ an }: { an: MedicionApp['anuncios'] }) {
+  const hoy = new Date()
+  const arranca = an.vistosDesde ? new Date(an.vistosDesde) : null
+  return (
+    <div className="mt-6">
+      <p className="text-xs font-semibold text-white mb-1">Vistos sobre cargados</p>
+      {!arranca || an.vistos.length === 0 ? (
+        <p className="text-xs text-[#A0A0B0] py-3">
+          {arranca && arranca > hoy
+            ? <>La comparación arranca el {fecha(an.vistosDesde!)}, el primer día completo con vistos.</>
+            : <>Sin datos todavía: los vistos llegan desde la app 1.0.21.</>}
+        </p>
+      ) : (
+        <>
+          <p className="text-[11px] text-[#A0A0B0] mb-3">Desde el {fecha(an.vistosDesde!)}</p>
+          <div className="overflow-x-auto">
+            <table className="w-full text-sm">
+              <thead>
+                <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0]">
+                  <th className="text-left font-medium pt-1 pr-3" rowSpan={2}>Lugar</th>
+                  <th className="text-center font-medium pt-1 px-2 border-l border-[#2A2A3A]" colSpan={4}>Android</th>
+                  <th className="text-center font-medium pt-1 px-2 border-l border-[#2A2A3A]" colSpan={4}>iOS</th>
+                </tr>
+                <tr className="text-[11px] uppercase tracking-wide text-[#A0A0B0] border-b border-[#2A2A3A]">
+                  {['android', 'ios'].map(p => (
+                    <Fragment key={p}>
+                      <th className="text-right font-medium py-2 px-2 border-l border-[#2A2A3A]">Cargados</th>
+                      <th className="text-right font-medium py-2 px-2">Vistos</th>
+                      <th className="text-right font-medium py-2 px-2">Reusados</th>
+                      <th className="text-right font-medium py-2 px-2">% vistos</th>
+                    </Fragment>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {an.vistos.map(l => (
+                  <tr key={l.ubicacion} className="border-b border-[#2A2A3A]/60">
+                    <td className="py-2 pr-3 text-white">{l.nombre}</td>
+                    <CeldasVistos v={l.android} />
+                    <CeldasVistos v={l.ios} />
+                  </tr>
+                ))}
+                <tr className="border-t border-[#2A2A3A]">
+                  <td className="py-2 pr-3 text-white font-semibold">Total</td>
+                  <CeldasVistos v={an.vistosTotal.android} total />
+                  <CeldasVistos v={an.vistosTotal.ios} total />
+                </tr>
+              </tbody>
+            </table>
+          </div>
+          <p className="text-[10px] text-[#A0A0B0] mt-3 leading-relaxed">
+            Vistos = Google contó la impresión de un anuncio que se cargó en ese lugar. Reusados = se cargó para otro
+            lugar, no se llegó a ver ahí y se vio en este (sólo iPhone desde la 1.0.22). % vistos = (vistos + reusados)
+            sobre cargados; en un lugar puede pasar de 100% por los reusados que recibe, en el total no. Los cargados
+            incluyen versiones anteriores a la 1.0.21, que no mandan vistos: el porcentaje sale un poco de menos
+            mientras queden usuarios en esas versiones.
+          </p>
+        </>
+      )}
     </div>
   )
 }
@@ -327,6 +413,8 @@ export function AppMedicionPanel({ recarga }: { recarga: number }) {
           errores = el pedido falló (red, tiempo agotado). El lugar viaja desde la app 1.0.16
           {an.sinLugar > 0 && <>; {numero(an.sinLugar)} cargados de versiones anteriores no lo dicen y no están en la tabla</>}.
         </p>
+
+        <TablaVistos an={an} />
       </Bloque>
     </>
   )

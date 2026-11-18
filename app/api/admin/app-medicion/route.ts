@@ -16,6 +16,8 @@ import { precalculado, FRESCO_RAPIDO } from '@/lib/admin-precalculado'
  *   · Anuncios por lugar (desde la 1.0.16): cargados (`ad_cargado` con
  *     `ubicacion`) contra los pedidos que fallaron (`client_errors`
  *     `ads.load`, con la ubicación en el contexto), en los últimos 30 días.
+ *     Y vistos (`ad_visto`, desde la 1.0.21) contra cargados, por lugar,
+ *     plataforma y reusado o no, desde el primer día completo con vistos.
  *
  * Todo sale de `analytics_events` sin bots, salvo los tokens (`user_devices`),
  * las instalaciones (`admin_app_uso`, la misma definición que el resumen) y
@@ -132,7 +134,34 @@ export interface MedicionApp {
     lugares: AnuncioLugar[]
     /** Cargados sin ubicación: versiones de la app anteriores a la 1.0.16. */
     sinLugar: number
+    /**
+     * Desde qué día se comparan vistos con cargados: el primero completo con
+     * `ad_visto` (la app lo manda desde la 1.0.21; `/api/track` lo acepta
+     * desde el 18/11). `null` si todavía no hay.
+     */
+    vistosDesde: string | null
+    vistos: AnuncioVistos[]
+    /** Todos los lugares juntos, por plataforma. */
+    vistosTotal: { android: VistosPlataforma; ios: VistosPlataforma }
   }
+}
+
+/** Vistos contra cargados de un lugar en una plataforma, desde `vistosDesde`. */
+export interface VistosPlataforma {
+  cargados: number
+  /** Vistos que se cargaron en este lugar. */
+  vistos: number
+  /** Vistos que se cargaron para otro lugar, no se vieron ahí y se vieron acá. */
+  reusados: number
+  /** (vistos + reusados) sobre cargados. */
+  pct: number | null
+}
+
+export interface AnuncioVistos {
+  ubicacion: string
+  nombre: string
+  android: VistosPlataforma
+  ios: VistosPlataforma
 }
 
 export interface AnuncioLugar {
@@ -184,6 +213,9 @@ interface Sql {
     sinLugar: number
     cargados: { ubicacion: string; cargados: number; android: number; ios: number }[]
     fallos: { ubicacion: string; total: number; sin_relleno: number }[]
+    /** Faltan si no se corrió `supabase-panel-ad-visto-2026-11.sql`. */
+    vistosDesde?: string | null
+    vistos?: { ubicacion: string; plataforma: string; cargados: number; vistos: number; reusados: number }[]
   }
 }
 
@@ -399,7 +431,34 @@ function anuncios(d: Sql['anuncios']): MedicionApp['anuncios'] {
     }
   })
 
-  return { desde: d.desde, lugares, sinLugar: Number(d.sinLugar) }
+  // Vistos: mismo orden de lugares, sin el diagnóstico y sin los vacíos.
+  const filas = d.vistos ?? []
+  const plataforma = (ubicacion: string | null, p: 'android' | 'ios'): VistosPlataforma => {
+    const de = filas.filter(v => v.plataforma === p && (ubicacion === null ? lugar(v.ubicacion) : v.ubicacion === ubicacion))
+    const cargados = de.reduce((s, v) => s + Number(v.cargados), 0)
+    const vistos = de.reduce((s, v) => s + Number(v.vistos), 0)
+    const reusados = de.reduce((s, v) => s + Number(v.reusados), 0)
+    return { cargados, vistos, reusados, pct: pct(vistos + reusados, cargados) }
+  }
+  const vacio = (v: VistosPlataforma) => v.cargados + v.vistos + v.reusados === 0
+  const vistos = [...new Set([...Object.keys(LUGARES), ...filas.map(v => v.ubicacion)])]
+    .filter(lugar)
+    .map(ubicacion => ({
+      ubicacion,
+      nombre: LUGARES[ubicacion] ?? ubicacion,
+      android: plataforma(ubicacion, 'android'),
+      ios: plataforma(ubicacion, 'ios'),
+    }))
+    .filter(l => !(vacio(l.android) && vacio(l.ios)))
+
+  return {
+    desde: d.desde,
+    lugares,
+    sinLugar: Number(d.sinLugar),
+    vistosDesde: d.vistosDesde ?? null,
+    vistos,
+    vistosTotal: { android: plataforma(null, 'android'), ios: plataforma(null, 'ios') },
+  }
 }
 
 // ── GET ────────────────────────────────────────────────────────────────────
