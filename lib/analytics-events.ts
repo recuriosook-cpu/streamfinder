@@ -265,6 +265,13 @@ export const EVENT_NAMES = [
   'ads_estado',
   /** Sólo de la app: llegó un anuncio nativo. props: { plataforma } */
   'ad_cargado',
+  /**
+   * Sólo de la app (desde la 1.0.21): Google contó la impresión de un anuncio
+   * nativo, una por anuncio. props: { plataforma, version, ubicacion, reusado }.
+   * `reusado` = se cargó para otro lugar, no se vio ahí y se mostró acá.
+   * Contra `ad_cargado` da cuántos anuncios que llegaron se vieron, por lugar.
+   */
+  'ad_visto',
 
   // ── Permiso de notificaciones, sólo de la app ───────────────────────
   //
