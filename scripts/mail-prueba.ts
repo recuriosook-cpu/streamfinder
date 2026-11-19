@@ -306,6 +306,14 @@ async function modoEnviar() {
       if (i === 0) writeFileSync(ENSAYO, mail.html)
       continue
     }
+    // Un mail sin sus 3 títulos no es el de la prueba (pasó con un usuario de
+    // Puerto Rico: TMDB no tiene catálogo de ese país). No sale y queda anotado.
+    if (titulos < 3) {
+      await db.from('mail_prueba').update({ error: `sin_titulos (${titulos})` }).eq('prueba', PRUEBA).eq('user_id', d.userId)
+      fallidos++
+      console.log(`${n}  ✖ sólo ${titulos} títulos en sus plataformas: no se manda`)
+      continue
+    }
 
     const r = await mandar({
       para: d.email, asunto: mail.asunto, html: mail.html, texto: mail.texto,
