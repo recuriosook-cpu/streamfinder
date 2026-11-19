@@ -14,8 +14,10 @@ import { usePathname } from 'next/navigation'
  *     `AvisoAppGate` también está envuelto en este componente, apagarlo acá
  *     evita que el aviso de la app tape la única página que ya no habla de
  *     otra cosa.
+ *   - `/ruleta` es una pantalla vertical para el celular y para grabar
+ *     videos: lleva su propio logo arriba.
  */
-const RUTAS_SIN_ARMAZON = ['/admin', '/descargar']
+const RUTAS_SIN_ARMAZON = ['/admin', '/descargar', '/ruleta']
 
 export function ConditionalShell({ children }: { children: React.ReactNode }) {
   const pathname = usePathname()

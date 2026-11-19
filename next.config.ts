@@ -100,6 +100,9 @@ const nextConfig: NextConfig = {
         source,
         headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=86400' }],
       })),
+      // La ruleta: la lista del Top 250 cambia muy de vez en cuando. Una hora
+      // en la CDN (sin ISR), lo mismo que guarda los ítems en el Data Cache.
+      { source: '/ruleta', headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=3600' }] },
       // La etiqueta de la ficha de cada película y serie, para poder borrar su
       // copia de la CDN (`tagFicha` en lib/creator-recommendations.ts): el
       // panel de recomendaciones la purga al cargar o borrar una.
