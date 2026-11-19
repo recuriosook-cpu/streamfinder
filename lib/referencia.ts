@@ -29,6 +29,10 @@ import { navegadorEmbebido } from '@/lib/navegador-embebido'
  *     `facebook`, `otro`), por user agent. Muchos de estos no mandan referrer,
  *     así que es lo que separa "TikTok" de "directo".
  *   - `utm_source`, `utm_medium`, `utm_campaign`: la marca de campaña del link.
+ *     `utm_content` (desde el 19/11/2026): en los mails, el código de cada
+ *     destinatario (`mail_prueba.codigo`), que dice quién llegó aunque no
+ *     esté logueado. El trigger de supabase-mail-prueba-2026-11.sql lo copia
+ *     a `mail_llegadas`.
  *   - `clic`: `tiktok`, `meta` o `google` si la URL trae el id de clic que esas
  *     redes agregan solas a los links de sus anuncios.
  */
@@ -57,7 +61,7 @@ export function esPantallaDeEntrada(): boolean {
 }
 
 const PACKAGE = /^android-app:\/\/([a-z0-9_.]{1,100})/i
-const UTM = ['utm_source', 'utm_medium', 'utm_campaign'] as const
+const UTM = ['utm_source', 'utm_medium', 'utm_campaign', 'utm_content'] as const
 const CLIC: Array<[param: string, red: string]> = [
   ['ttclid', 'tiktok'],
   ['fbclid', 'meta'],

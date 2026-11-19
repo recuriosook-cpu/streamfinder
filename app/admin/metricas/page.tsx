@@ -16,6 +16,7 @@ import { GooglePlayPanel } from '@/app/admin/_components/GooglePlayPanel'
 import { AvisoAppPanel } from '@/app/admin/_components/AvisoAppPanel'
 import { OrigenVisitasPanel } from '@/app/admin/_components/OrigenVisitasPanel'
 import { RetencionPanel } from '@/app/admin/_components/RetencionPanel'
+import { MailPruebaPanel } from '@/app/admin/_components/MailPruebaPanel'
 import { AppMedicionPanel } from '@/app/admin/_components/AppMedicionPanel'
 import { IdiomaAppPanel } from '@/app/admin/_components/IdiomaAppPanel'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
@@ -162,6 +163,9 @@ export default function MetricasPage() {
             después de captación a propósito: primero cómo llegan, después qué
             pasa con los que llegaron. */}
         <RetencionPanel recarga={recarga} />
+
+        {/* La prueba de reenganche por mail (scripts/mail-prueba.ts): mail contra control. */}
+        <MailPruebaPanel recarga={recarga} />
 
         {/* Onboarding — desglose real.
             `onboarding_completed = true` no distingue terminar de saltar:

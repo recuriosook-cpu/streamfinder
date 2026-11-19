@@ -27,7 +27,7 @@ export const EVENT_NAMES = [
   /**
    * Una pantalla vista. props: { path }. El primero de cada visita, desde el
    * 17/11/2026, lleva además de dónde vino: { ref?, navegador?, utm_source?,
-   * utm_medium?, utm_campaign?, clic? } (ver `lib/referencia.ts`).
+   * utm_medium?, utm_campaign?, utm_content?, clic? } (ver `lib/referencia.ts`).
    *
    * Uno por navegación del router, no uno por render. Es el único evento que
    * dispara alguien que sólo navega, y por eso existe: sin él una sesión de
@@ -194,7 +194,7 @@ export const EVENT_NAMES = [
 
   /**
    * Se cargó /descargar. props: { dispositivo, ref?, navegador?, utm_source?,
-   * utm_medium?, utm_campaign?, clic? }. Las de la entrada, desde el
+   * utm_medium?, utm_campaign?, utm_content?, clic? }. Las de la entrada, desde el
    * 17/11/2026: ver `lib/referencia.ts`. El primer `page_view` de cada visita
    * lleva las mismas.
    */
