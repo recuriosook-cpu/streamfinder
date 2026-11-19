@@ -11,7 +11,7 @@ import { COUNTRIES } from '@/lib/countries'
  * logos (`DEFAULT_COUNTRY`); el país que elige cada uno lo aplica el cliente.
  */
 
-interface Proveedor { provider_id: number; provider_name: string; display_priority?: number }
+interface Proveedor { provider_id: number; provider_name: string; display_priority?: number; logo_path?: string | null }
 export interface RegionTMDB { flatrate?: Proveedor[]; ads?: Proveedor[]; free?: Proveedor[]; rent?: Proveedor[]; buy?: Proveedor[]; link?: string }
 
 export interface DisponibilidadPais {
@@ -45,6 +45,23 @@ function nombres(lista: Proveedor[] | undefined, ya: Set<string> = new Set()): s
     if (ya.has(n)) continue
     ya.add(n)
     salida.push(n)
+  }
+  return salida
+}
+
+/**
+ * Plataformas con logo, sin repetir y en el mismo orden y con los mismos
+ * nombres que el texto ("Netflix Standard with Ads" es Netflix): cada familia
+ * una vez, con el logo de la primera que aparece.
+ */
+export function plataformasConLogo(lista: Proveedor[]): { nombre: string; logo: string | null }[] {
+  const vistos = new Set<string>()
+  const salida: { nombre: string; logo: string | null }[] = []
+  for (const p of [...lista].sort((a, b) => orden(a) - orden(b))) {
+    const n = nombre(p)
+    if (vistos.has(n)) continue
+    vistos.add(n)
+    salida.push({ nombre: n, logo: p.logo_path ?? null })
   }
   return salida
 }

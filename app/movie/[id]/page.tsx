@@ -52,6 +52,7 @@ import { fichaDelgada, notaGlynbox, resenasIniciales, sinopsis, vistas } from '@
 import { descripcionDondeVer, disponibilidad, enAlgunPaisLatam, tituloDondeVer } from '@/lib/donde-ver'
 import { ldJson, migasLD, peliculaLD } from '@/lib/datos-estructurados'
 import DondeVer from '@/components/DondeVer'
+import DondeVerOtrosPaises from '@/components/DondeVerOtrosPaises'
 import { itunesPara } from '@/lib/tiendas'
 
 const TMDB_KEY = process.env.NEXT_PUBLIC_TMDB_API_KEY
@@ -468,6 +469,11 @@ export default async function MoviePage({ params }: Props) {
         <DondeVer
           titulo={movie.title}
           tipo="movie"
+          results={allProviders}
+          estreno={{ tipo: 'movie', fechas: fechasEstreno, general: movie.release_date ?? null }}
+        />
+        <DondeVerOtrosPaises
+          titulo={movie.title}
           results={allProviders}
           estreno={{ tipo: 'movie', fechas: fechasEstreno, general: movie.release_date ?? null }}
         />

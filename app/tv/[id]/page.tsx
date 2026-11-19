@@ -9,6 +9,7 @@ import { fichaDelgada, notaGlynbox, resenasIniciales, sinopsis, vistas } from '@
 import { descripcionDondeVer, disponibilidad, enAlgunPaisLatam, tituloDondeVer } from '@/lib/donde-ver'
 import { ldJson, migasLD, serieLD } from '@/lib/datos-estructurados'
 import DondeVer from '@/components/DondeVer'
+import DondeVerOtrosPaises from '@/components/DondeVerOtrosPaises'
 
 /**
  * Sin ISR a propósito: esta ficha se cachea 24 h en la CDN de Vercel, con el
@@ -443,6 +444,11 @@ export default async function TVPage({ params }: Props) {
         <DondeVer
           titulo={show.name ?? show.title}
           tipo="tv"
+          results={allProviders}
+          estreno={{ tipo: 'tv', primeraEmision: show.first_air_date ?? null }}
+        />
+        <DondeVerOtrosPaises
+          titulo={show.name ?? show.title}
           results={allProviders}
           estreno={{ tipo: 'tv', primeraEmision: show.first_air_date ?? null }}
         />
