@@ -28,8 +28,8 @@ type Fila =
 
 /**
  * Una fila por país: las plataformas de suscripción (o gratis); si no hay,
- * las de alquiler o compra; si tampoco, lo que digan las reglas de estreno
- * (`lib/estreno-pais.ts`). `null` si no hay nada que decir de ese país.
+ * las de alquiler o compra; si tampoco, la fecha de estreno o "Solo en cines"
+ * (`lib/estreno-pais.ts`). `null` si no hay nada de eso.
  */
 function fila(code: string, region: RegionTMDB | undefined, estreno: EstrenoRef | undefined, hoy: string): Fila | null {
   const pais = getCountry(code).name
@@ -38,10 +38,9 @@ function fila(code: string, region: RegionTMDB | undefined, estreno: EstrenoRef 
   const alquiler = plataformasConLogo([...(region?.rent ?? []), ...(region?.buy ?? [])])
   if (alquiler.length) return { code, pais, tipo: 'alquiler', plataformas: alquiler }
   const estado = estreno ? estadoEstreno(estreno, code, hoy) : null
-  if (!estado) return null
-  const texto = estado.tipo === 'proximo' ? `Se estrena el ${fechaEstreno(estado.fecha, hoy)}`
-    : estado.tipo === 'proximoSinFecha' ? 'Todavía no se estrenó'
-    : 'Solo en cines'
+  // "Todavía no se estrenó" sin fecha no dice nada útil y alarga la lista.
+  if (!estado || estado.tipo === 'proximoSinFecha') return null
+  const texto = estado.tipo === 'proximo' ? `Se estrena el ${fechaEstreno(estado.fecha, hoy)}` : 'Solo en cines'
   return { code, pais, tipo: 'estreno', texto }
 }
 
