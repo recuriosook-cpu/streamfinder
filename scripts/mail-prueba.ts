@@ -68,7 +68,7 @@ try {
 const [modo, ...resto] = process.argv.slice(2)
 const args = new Map<string, string>()
 for (const a of resto) {
-  const m = /^--([^=]+)(?:=([sS]*))?$/.exec(a)
+  const m = /^--([^=]+)(?:=([\s\S]*))?$/.exec(a)
   if (m) args.set(m[1], m[2] ?? 'true')
 }
 
