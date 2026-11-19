@@ -60,7 +60,7 @@ export interface TituloMail {
    * Por qué está en el mail, sólo si sale de los datos:
    *   - 'estreno': estrenada (o con temporada nueva) en los últimos 7 días,
    *     según las fechas de TMDB, contando el estreno digital en su país.
-   *   - 'tendencia': salió de lo más popular de TMDB entre lo que está en sus
+   *   - 'tendencia': "Popular esta semana": salió de lo más popular de TMDB entre lo que está en sus
    *     plataformas en su país (discover por popularidad).
    * `null` en la recomendación de Fer, que lleva su propio encabezado.
    */
@@ -324,7 +324,7 @@ const TEXTOS = {
     intro: (n: string | null) =>
       `Hola${n ? `, ${n}` : ''}. Esto es lo que se está viendo esta semana en tus plataformas, y al final una que te recomiendo yo.`,
     estreno: 'Estreno de la semana',
-    tendencia: (pais: string) => `En tendencia en ${pais}`,
+    tendencia: 'Popular esta semana',
     en: 'En',
     verFicha: 'Ver ficha',
     miReco: 'Mi recomendación',
@@ -345,7 +345,7 @@ const TEXTOS = {
     intro: (n: string | null) =>
       `Hi${n ? `, ${n}` : ''}. Here's what people are watching this week on your platforms, plus one pick from me at the end.`,
     estreno: 'New this week',
-    tendencia: (pais: string) => `Trending in ${pais}`,
+    tendencia: 'Popular this week',
     en: 'On',
     verFicha: 'See details',
     miReco: 'My pick',
@@ -380,8 +380,8 @@ export function linkBajaUnClic(token: string): string {
   return `${SITIO}/api/mail/baja?${new URLSearchParams({ t: token })}`
 }
 
-function filaTitulo(t: TituloMail, href: string, x: (typeof TEXTOS)[Idioma], nombrePais: string): string {
-  const motivo = t.motivo === 'estreno' ? x.estreno : t.motivo === 'tendencia' ? x.tendencia(nombrePais) : null
+function filaTitulo(t: TituloMail, href: string, x: (typeof TEXTOS)[Idioma]): string {
+  const motivo = t.motivo === 'estreno' ? x.estreno : t.motivo === 'tendencia' ? x.tendencia : null
   const meta = [t.mediaType === 'movie' ? x.pelicula : x.serie, t.anio].filter(Boolean).join(' · ')
   const poster = t.poster
     ? `<img src="${t.poster}" width="96" alt="${esc(t.titulo)}" style="display:block;width:96px;height:auto;border-radius:10px;border:0;">`
@@ -421,8 +421,6 @@ export function armarMail(
   const link = (t: { mediaType: MediaType; id: number }) => linkFicha(t, campana.nombre, d.codigo)
   const baja = linkBaja(d.bajaToken, c.idioma)
   const nombre = d.nombre?.trim() || null
-  let nombrePais = c.pais
-  try { nombrePais = new Intl.DisplayNames([c.idioma], { type: 'region' }).of(c.pais) ?? c.pais } catch { /* el código */ }
 
   const reco = c.reco
   const bloqueReco = reco
@@ -432,7 +430,7 @@ export function armarMail(
           <tr><td style="padding:18px 18px 4px 18px;color:#FFFD02;font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">${x.miReco}</td></tr>
           <tr><td style="padding:4px 18px 14px 18px;color:#FFFFFF;font-size:15px;line-height:22px;font-style:italic;">“${esc(reco.frase)}”</td></tr>
           <tr><td style="padding:0 18px 2px 18px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filaTitulo(reco, link(reco), x, nombrePais)}</table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filaTitulo(reco, link(reco), x)}</table>
           </td></tr>
         </table>
       </td></tr>`
@@ -456,7 +454,7 @@ export function armarMail(
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
           <tr><td style="padding-bottom:22px;"><a href="${SITIO}/?${new URLSearchParams({ utm_source: 'mail', utm_medium: 'email', utm_campaign: campana.nombre, utm_content: d.codigo })}" style="text-decoration:none;"><img src="${LOGO}" width="180" height="38" alt="Glynbox" style="display:block;width:180px;height:auto;border:0;"></a></td></tr>
           <tr><td style="color:#FFFFFF;font-size:16px;line-height:24px;padding-bottom:22px;">${esc(x.intro(nombre))}</td></tr>
-          ${c.titulos.map(t => filaTitulo(t, link(t), x, nombrePais)).join('')}
+          ${c.titulos.map(t => filaTitulo(t, link(t), x)).join('')}
           ${bloqueReco}
           <tr><td style="color:#A0A0B0;font-size:15px;line-height:22px;padding:22px 0 26px 0;">— ${x.firma}</td></tr>
         </table>
@@ -476,7 +474,7 @@ export function armarMail(
     x.intro(nombre),
     '',
     ...c.titulos.flatMap(t => [
-      `• ${t.titulo}${t.plataforma ? ` (${x.en} ${t.plataforma})` : ''}${t.motivo === 'estreno' ? ` — ${x.estreno}` : t.motivo === 'tendencia' ? ` — ${x.tendencia(nombrePais)}` : ''}`,
+      `• ${t.titulo}${t.plataforma ? ` (${x.en} ${t.plataforma})` : ''}${t.motivo === 'estreno' ? ` — ${x.estreno}` : t.motivo === 'tendencia' ? ` — ${x.tendencia}` : ''}`,
       ...(t.tagline ? [`  ${t.tagline}`] : []),
       `  ${link(t)}`,
     ]),
