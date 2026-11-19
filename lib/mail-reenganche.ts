@@ -29,6 +29,8 @@ import { normalizarIdioma, idiomaTmdb, type Idioma } from './idioma'
 
 const TMDB = 'https://api.themoviedb.org/3'
 const SITIO = 'https://www.glynbox.com'
+/** PNG (Gmail no muestra SVG), 360×75 para verse nítido a 180 de ancho. Es public/mail/glynbox-logo.png. */
+const LOGO = `${SITIO}/mail/glynbox-logo.png`
 const DIA_MS = 24 * 60 * 60 * 1000
 
 export type MediaType = 'movie' | 'tv'
@@ -54,6 +56,17 @@ export interface TituloMail {
   poster: string | null
   /** Dónde verlo en su país; `null` si no está en ninguna plataforma de suscripción. */
   plataforma: string | null
+  /**
+   * Por qué está en el mail, sólo si sale de los datos:
+   *   - 'estreno': estrenada (o con temporada nueva) en los últimos 7 días,
+   *     según las fechas de TMDB, contando el estreno digital en su país.
+   *   - 'tendencia': salió de lo más popular de TMDB entre lo que está en sus
+   *     plataformas en su país (discover por popularidad).
+   * `null` en la recomendación de Fer, que lleva su propio encabezado.
+   */
+  motivo: 'estreno' | 'tendencia' | null
+  /** El tagline de TMDB en su idioma; `null` si no tiene. */
+  tagline: string | null
 }
 
 export interface Recomendacion {
@@ -121,6 +134,10 @@ interface FichaTmdb {
   release_date?: string
   first_air_date?: string
   poster_path?: string | null
+  tagline?: string
+  runtime?: number
+  seasons?: { season_number: number; air_date?: string | null }[]
+  release_dates?: { results?: { iso_3166_1: string; release_dates?: { type: number; release_date?: string }[] }[] }
   'watch/providers'?: {
     results?: Record<string, { flatrate?: { provider_id: number; provider_name: string }[]; free?: { provider_id: number; provider_name: string }[]; ads?: { provider_id: number; provider_name: string }[] }>
   }
@@ -136,10 +153,10 @@ async function ficha(
   pais: string,
   idioma: Idioma,
   suyas: Map<number, PlataformaPais>,
-): Promise<(TituloMail & { enSuyas: boolean; plataformaId: number | null }) | null> {
+): Promise<(Omit<TituloMail, 'motivo'> & { enSuyas: boolean; plataformaId: number | null; estrenoSemana: boolean; corto: boolean }) | null> {
   const json = await tmdb<FichaTmdb>(`/${mediaType}/${id}`, {
     language: idiomaTmdb(idioma),
-    append_to_response: 'watch/providers',
+    append_to_response: mediaType === 'movie' ? 'watch/providers,release_dates' : 'watch/providers',
   })
   if (!json) return null
   const titulo = (mediaType === 'movie' ? json.title : json.name)?.trim()
@@ -148,6 +165,21 @@ async function ficha(
   const proveedores = [...(region?.flatrate ?? []), ...(region?.free ?? []), ...(region?.ads ?? [])]
   const suya = proveedores.find(p => suyas.has(p.provider_id))
   const fecha = mediaType === 'movie' ? json.release_date : json.first_air_date
+
+  // Las fechas que cuentan como "salió": el estreno (o una temporada nueva) y,
+  // en películas, cualquier estreno en su país (el digital, tipo 4, es el de
+  // las plataformas).
+  const fechas: string[] = [fecha ?? '']
+  if (mediaType === 'movie') {
+    const delPais = json.release_dates?.results?.find(r => r.iso_3166_1 === pais)
+    for (const r of delPais?.release_dates ?? []) fechas.push(r.release_date?.slice(0, 10) ?? '')
+  } else {
+    for (const t of json.seasons ?? []) if (t.season_number > 0) fechas.push(t.air_date ?? '')
+  }
+  const desde = hace(7)
+  const hoy = hace(0)
+  const estrenoSemana = fechas.some(x => x >= desde && x <= hoy)
+
   return {
     mediaType,
     id,
@@ -157,6 +189,12 @@ async function ficha(
     plataforma: suya ? suyas.get(suya.provider_id)!.name : proveedores[0]?.provider_name ?? null,
     enSuyas: !!suya,
     plataformaId: suya ? suyas.get(suya.provider_id)!.id : null,
+    // Sin las marcas de dirección invisibles (U+200E, U+200F) que TMDB deja en algunos.
+    tagline: json.tagline?.replace(/[‎‏‪-‮]/g, '').trim() || null,
+    estrenoSemana,
+    // Especiales y cortos (TMDB los carga como películas): "A Story of Derry",
+    // de 30 minutos, salía como "Película" al lado de la serie.
+    corto: mediaType === 'movie' && !!json.runtime && json.runtime < 60,
   }
 }
 
@@ -235,9 +273,14 @@ export async function armarContenido(
       for (let i = 0; i < candidatos.length && titulos.length < 3; i += 4) {
         const fichas = await Promise.all(candidatos.slice(i, i + 4).map(c => ficha(c.mediaType, c.id, pais, idioma, suyas)))
         for (const f of fichas) {
-          if (!f || !f.enSuyas || titulos.length >= 3 || fuera.has(clave(f))) continue
+          if (!f || !f.enSuyas || f.corto || titulos.length >= 3 || fuera.has(clave(f))) continue
           fuera.add(clave(f))
-          titulos.push({ mediaType: f.mediaType, id: f.id, titulo: f.titulo, anio: f.anio, poster: f.poster, plataforma: f.plataforma })
+          titulos.push({
+            mediaType: f.mediaType, id: f.id, titulo: f.titulo, anio: f.anio, poster: f.poster, plataforma: f.plataforma,
+            // Todo lo de discover viene ordenado por popularidad: si no es de la semana, es tendencia.
+            motivo: f.estrenoSemana ? 'estreno' : 'tendencia',
+            tagline: f.tagline,
+          })
           porPlataforma.set(f.plataformaId!, (porPlataforma.get(f.plataformaId!) ?? 0) + 1)
         }
       }
@@ -256,7 +299,7 @@ export async function armarContenido(
     principal,
     titulos,
     reco: recoFicha
-      ? { mediaType: recoFicha.mediaType, id: recoFicha.id, titulo: recoFicha.titulo, anio: recoFicha.anio, poster: recoFicha.poster, plataforma: recoFicha.plataforma, frase }
+      ? { mediaType: recoFicha.mediaType, id: recoFicha.id, titulo: recoFicha.titulo, anio: recoFicha.anio, poster: recoFicha.poster, plataforma: recoFicha.plataforma, motivo: null, tagline: recoFicha.tagline, frase }
       : null,
   }
 }
@@ -277,9 +320,11 @@ const TEXTOS = {
       (p: string, t: string) => `${t} y 2 más para ver en ${p}`,
     ],
     asuntoSinPlataforma: '3 para ver este finde',
-    preencabezado: 'Lo más visto de esta semana en tus plataformas, y una recomendación mía.',
-    hola: (n: string | null) => (n ? `Hola, ${n}` : 'Hola'),
-    intro: 'Te junté 3 cosas nuevas o populares de esta semana que podés ver en tus plataformas.',
+    preencabezado: 'Lo que se está viendo esta semana en tus plataformas, y una recomendación mía.',
+    intro: (n: string | null) =>
+      `Hola${n ? `, ${n}` : ''}. Esto es lo que se está viendo esta semana en tus plataformas, y al final una que te recomiendo yo.`,
+    estreno: 'Estreno de la semana',
+    tendencia: (pais: string) => `En tendencia en ${pais}`,
     en: 'En',
     verFicha: 'Ver ficha',
     miReco: 'Mi recomendación',
@@ -296,9 +341,11 @@ const TEXTOS = {
       (p: string, t: string) => `${t} and 2 more to watch on ${p}`,
     ],
     asuntoSinPlataforma: '3 to watch this weekend',
-    preencabezado: "This week's most-watched on your services, plus a pick of mine.",
-    hola: (n: string | null) => (n ? `Hi ${n}` : 'Hi'),
-    intro: 'Here are 3 new or popular picks this week that you can watch on your streaming services.',
+    preencabezado: "What people are watching this week on your platforms, plus a pick from me.",
+    intro: (n: string | null) =>
+      `Hi${n ? `, ${n}` : ''}. Here's what people are watching this week on your platforms, plus one pick from me at the end.`,
+    estreno: 'New this week',
+    tendencia: (pais: string) => `Trending in ${pais}`,
     en: 'On',
     verFicha: 'See details',
     miReco: 'My pick',
@@ -333,7 +380,8 @@ export function linkBajaUnClic(token: string): string {
   return `${SITIO}/api/mail/baja?${new URLSearchParams({ t: token })}`
 }
 
-function filaTitulo(t: TituloMail, href: string, x: (typeof TEXTOS)[Idioma]): string {
+function filaTitulo(t: TituloMail, href: string, x: (typeof TEXTOS)[Idioma], nombrePais: string): string {
+  const motivo = t.motivo === 'estreno' ? x.estreno : t.motivo === 'tendencia' ? x.tendencia(nombrePais) : null
   const meta = [t.mediaType === 'movie' ? x.pelicula : x.serie, t.anio].filter(Boolean).join(' · ')
   const poster = t.poster
     ? `<img src="${t.poster}" width="96" alt="${esc(t.titulo)}" style="display:block;width:96px;height:auto;border-radius:10px;border:0;">`
@@ -344,7 +392,9 @@ function filaTitulo(t: TituloMail, href: string, x: (typeof TEXTOS)[Idioma]): st
           <tr>
             <td width="96" valign="top" style="width:96px;"><a href="${href}" style="text-decoration:none;">${poster}</a></td>
             <td valign="middle" style="padding-left:16px;">
+              ${motivo ? `<div style="color:#FFFD02;font-size:11px;line-height:14px;font-weight:bold;letter-spacing:0.5px;text-transform:uppercase;padding-bottom:6px;">${esc(motivo)}</div>` : ''}
               <a href="${href}" style="color:#FFFFFF;font-size:17px;line-height:22px;font-weight:bold;text-decoration:none;">${esc(t.titulo)}</a>
+              ${t.tagline ? `<div style="color:#C8C8D2;font-size:13px;line-height:18px;font-style:italic;padding-top:4px;">${esc(t.tagline)}</div>` : ''}
               <div style="color:#6B6B7B;font-size:13px;line-height:18px;padding-top:4px;">${esc(meta)}</div>
               ${t.plataforma ? `<div style="padding-top:8px;"><span style="display:inline-block;background:#1C1C27;border:1px solid #2A2A3A;color:#FFFD02;font-size:12px;font-weight:bold;padding:4px 10px;border-radius:999px;">${x.en} ${esc(t.plataforma)}</span></div>` : ''}
               <div style="padding-top:10px;"><a href="${href}" style="color:#A0A0B0;font-size:13px;text-decoration:underline;">${x.verFicha} →</a></div>
@@ -371,6 +421,8 @@ export function armarMail(
   const link = (t: { mediaType: MediaType; id: number }) => linkFicha(t, campana.nombre, d.codigo)
   const baja = linkBaja(d.bajaToken, c.idioma)
   const nombre = d.nombre?.trim() || null
+  let nombrePais = c.pais
+  try { nombrePais = new Intl.DisplayNames([c.idioma], { type: 'region' }).of(c.pais) ?? c.pais } catch { /* el código */ }
 
   const reco = c.reco
   const bloqueReco = reco
@@ -380,7 +432,7 @@ export function armarMail(
           <tr><td style="padding:18px 18px 4px 18px;color:#FFFD02;font-size:12px;font-weight:bold;letter-spacing:1px;text-transform:uppercase;">${x.miReco}</td></tr>
           <tr><td style="padding:4px 18px 14px 18px;color:#FFFFFF;font-size:15px;line-height:22px;font-style:italic;">“${esc(reco.frase)}”</td></tr>
           <tr><td style="padding:0 18px 2px 18px;">
-            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filaTitulo(reco, link(reco), x)}</table>
+            <table role="presentation" width="100%" cellpadding="0" cellspacing="0">${filaTitulo(reco, link(reco), x, nombrePais)}</table>
           </td></tr>
         </table>
       </td></tr>`
@@ -402,10 +454,9 @@ export function armarMail(
     <table role="presentation" width="100%" cellpadding="0" cellspacing="0" style="max-width:520px;background:#13131A;border:1px solid #2A2A3A;border-radius:16px;">
       <tr><td style="padding:28px 24px 0 24px;">
         <table role="presentation" width="100%" cellpadding="0" cellspacing="0">
-          <tr><td style="color:#FFFD02;font-size:22px;font-weight:bold;padding-bottom:18px;">Glynbox</td></tr>
-          <tr><td style="color:#FFFFFF;font-size:20px;line-height:26px;font-weight:bold;padding-bottom:8px;">${esc(x.hola(nombre))}</td></tr>
-          <tr><td style="color:#A0A0B0;font-size:15px;line-height:22px;padding-bottom:22px;">${esc(x.intro)}</td></tr>
-          ${c.titulos.map(t => filaTitulo(t, link(t), x)).join('')}
+          <tr><td style="padding-bottom:22px;"><a href="${SITIO}/?${new URLSearchParams({ utm_source: 'mail', utm_medium: 'email', utm_campaign: campana.nombre, utm_content: d.codigo })}" style="text-decoration:none;"><img src="${LOGO}" width="180" height="38" alt="Glynbox" style="display:block;width:180px;height:auto;border:0;"></a></td></tr>
+          <tr><td style="color:#FFFFFF;font-size:16px;line-height:24px;padding-bottom:22px;">${esc(x.intro(nombre))}</td></tr>
+          ${c.titulos.map(t => filaTitulo(t, link(t), x, nombrePais)).join('')}
           ${bloqueReco}
           <tr><td style="color:#A0A0B0;font-size:15px;line-height:22px;padding:22px 0 26px 0;">— ${x.firma}</td></tr>
         </table>
@@ -422,11 +473,13 @@ export function armarMail(
 </html>`
 
   const lineas = [
-    x.hola(nombre),
+    x.intro(nombre),
     '',
-    x.intro,
-    '',
-    ...c.titulos.flatMap(t => [`• ${t.titulo}${t.plataforma ? ` (${x.en} ${t.plataforma})` : ''}`, `  ${link(t)}`]),
+    ...c.titulos.flatMap(t => [
+      `• ${t.titulo}${t.plataforma ? ` (${x.en} ${t.plataforma})` : ''}${t.motivo === 'estreno' ? ` — ${x.estreno}` : t.motivo === 'tendencia' ? ` — ${x.tendencia(nombrePais)}` : ''}`,
+      ...(t.tagline ? [`  ${t.tagline}`] : []),
+      `  ${link(t)}`,
+    ]),
     ...(reco ? ['', `${x.miReco}: ${reco.titulo}${reco.plataforma ? ` (${x.en} ${reco.plataforma})` : ''}`, `“${reco.frase}”`, link(reco)] : []),
     '',
     `— ${x.firma}`,
