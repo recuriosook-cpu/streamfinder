@@ -90,7 +90,20 @@ export interface Alerta {
   jugador?: string
 }
 
+/** Cuántas instalaciones vio el propio juego, separadas por clase. */
+export interface Separacion {
+  /** `null` si no se pudieron leer los eventos. */
+  android: { personas: number; robots: number; prueba: number } | null
+  ios: { personas: number; prueba: number } | null
+  /** Los robots, agrupados por la versión que vinieron a probar. */
+  robotsPorVersion: { version: string; dia: string; cantidad: number }[]
+  /** El último evento del juego, ISO. */
+  fecha: string | null
+  motivo?: string
+}
+
 export interface PotionTablero {
+  separacion: Separacion
   tarjetas: {
     descargas: Record<Plataforma, Dato>
     tienen: Record<Plataforma, Dato>
@@ -481,6 +494,26 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   const reales = jugadores.filter(j => j.clase === 'real').sort((a, b) => (a.ultimo < b.ultimo ? 1 : -1))
   const prueba = jugadores.filter(j => j.clase !== 'real').sort((a, b) => (a.ultimo < b.ultimo ? 1 : -1))
 
+  const separacion: Separacion = eventosMotivo
+    ? { android: null, ios: null, robotsPorVersion: [], fecha: null, motivo: eventosMotivo }
+    : (() => {
+        const de = (p: Plataforma, c: Clase) => jugadores.filter(j => j.plataforma === p && j.clase === c).length
+        const grupos = new Map<string, { version: string; dia: string; cantidad: number }>()
+        for (const j of jugadores) {
+          if (j.clase !== 'robot') continue
+          const version = nombreDeVersion(j.version) || 'sin versión'
+          const g = grupos.get(version)
+          const dia = diaAR(Date.parse(j.desde))
+          if (g) { g.cantidad++; if (dia < g.dia) g.dia = dia } else grupos.set(version, { version, dia, cantidad: 1 })
+        }
+        return {
+          android: { personas: de('android', 'real'), robots: de('android', 'robot'), prueba: de('android', 'prueba') },
+          ios: { personas: de('ios', 'real'), prueba: de('ios', 'prueba') + de('ios', 'robot') },
+          robotsPorVersion: [...grupos.values()].sort((a, b) => (a.dia < b.dia ? 1 : -1)),
+          fecha: ultimoEvento,
+        }
+      })()
+
   const deEventos = (valor: (p: Plataforma) => number, nota: string): Record<Plataforma, Dato> => {
     const uno = (p: Plataforma): Dato => eventosMotivo
       ? sinDato(eventosMotivo)
@@ -500,10 +533,10 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
     : undefined
 
   const descAndroid: Dato = play.ok
-    ? { valor: play.total, fecha: play.ultimaFecha, tipoFecha: 'dia', atrasado: playAtrasado, nota: 'Instalaciones desde el lanzamiento (13/10), según Google Play' }
+    ? { valor: play.total, fecha: play.ultimaFecha, tipoFecha: 'dia', atrasado: playAtrasado, nota: 'Lo cuenta Google Play desde el lanzamiento (13/10), sin sus robots' }
     : sinDato(play.motivo ?? 'Sin datos de Google Play', 'dia')
   const tieneAndroid: Dato = play.ok && play.base !== null
-    ? { valor: play.base, fecha: play.ultimaFecha, tipoFecha: 'dia', atrasado: playAtrasado, nota: 'Aparatos con el juego instalado, según Google Play' }
+    ? { valor: play.base, fecha: play.ultimaFecha, tipoFecha: 'dia', atrasado: playAtrasado, nota: 'Google Play: aparatos con el juego instalado' }
     : sinDato(play.motivo ?? 'Google Play no informó aparatos con el juego', 'dia')
 
   let descIos: Dato
@@ -517,14 +550,14 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
     descIos = {
       valor: apple.total, fecha: apple.ultimoDiaRespondido, tipoFecha: 'dia',
       atrasado: atraso > APPLE_ATRASADO_DIAS ? `Apple contestó hasta el ${fmtDia(apple.ultimoDiaRespondido)} (hace ${atraso} días)` : undefined,
-      nota: 'Primeras descargas desde que salió, según App Store Connect',
+      nota: 'Lo cuenta Apple: primeras descargas desde que salió',
     }
   }
 
   const iosActivos30 = realesDe('ios').filter(j => Date.parse(j.ultimo) >= ahora - 30 * DIA_MS).length
   const tieneIos: Dato = eventosMotivo
     ? sinDato(eventosMotivo)
-    : { valor: iosActivos30, fecha: ultimoEvento, tipoFecha: 'momento', nota: 'Apple no informa cuántos lo tienen: iPhone de la App Store que abrieron el juego en los últimos 30 días' }
+    : { valor: iosActivos30, fecha: ultimoEvento, tipoFecha: 'momento', nota: 'Apple no lo da: son los iPhone que abrieron el juego en los últimos 30 días, según el juego' }
 
   // ── Avisos de las copias ──
   const esperadaApple = ultimaCorridaEsperada(ahora, COPIA_APPLE_UTC)
@@ -578,6 +611,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   alertas.sort((a, b) => ((a.fecha ?? '') < (b.fecha ?? '') ? 1 : -1))
 
   return {
+    separacion,
     tarjetas: {
       descargas: { android: descAndroid, ios: descIos },
       tienen: { android: tieneAndroid, ios: tieneIos },

@@ -124,7 +124,7 @@ export default function PotionPage() {
             {pestana === 'jugadores' ? (
               <div className="space-y-5">
                 <Jugadores t={t} onMover={mover} />
-                <DesdeGlynbox recarga={actualizadoEn} />
+                <DesdeGlynbox recarga={actualizadoEn} reales={t.reales} />
               </div>
             ) : <Prueba t={t} onMover={mover} />}
           </div>

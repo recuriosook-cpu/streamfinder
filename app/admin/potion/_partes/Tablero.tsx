@@ -7,7 +7,7 @@ import {
 } from 'lucide-react'
 import { FlagCircle } from '@/components/CountrySelector'
 import { nombrePais } from '@/app/admin/_components/GrillasMetricas'
-import type { PotionTablero, Dato, Jugador, Alerta, Plataforma } from '@/lib/potion-tablero'
+import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion } from '@/lib/potion-tablero'
 import { numero } from './piezas'
 
 /**
@@ -87,6 +87,118 @@ function Tarjeta({ icono, titulo, par }: { icono: React.ReactNode; titulo: strin
           </>
         )}
       </div>
+    </section>
+  )
+}
+
+// ── Lo de arriba de todo: descargaron y la tienen hoy ───────────────────────
+
+function diasDeAtraso(dia: string): number {
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: ZONA })
+  return Math.round((Date.parse(hoy) - Date.parse(dia)) / 86_400_000)
+}
+
+/** "último día que mandó: 11/11 · 8 días de atraso" o "contado hoy a las 01:07". */
+function deCuando(d: Dato): string {
+  if (!d.fecha) return ''
+  if (d.tipoFecha === 'momento') {
+    const hora = new Date(d.fecha).toLocaleTimeString('es-AR', { timeZone: ZONA, hour: '2-digit', minute: '2-digit', hour12: false })
+    return haceDias(d.fecha) === 'hoy' ? `Contado hoy a las ${hora}` : `Contado el ${fecha(d.fecha, true)}`
+  }
+  const n = diasDeAtraso(d.fecha)
+  return `Último día que mandó: ${diaDeDato(d.fecha)} · ${n <= 0 ? 'al día' : n === 1 ? '1 día de atraso' : `${n} días de atraso`}`
+}
+
+function Numero({ etiqueta, color, d }: { etiqueta: string; color: string; d: Dato }) {
+  return (
+    <div className="min-w-0 flex sm:block items-start gap-4">
+      <div className="shrink-0 w-24 sm:w-auto">
+        <p className={`text-[11px] font-semibold uppercase tracking-wide ${color}`}>{etiqueta}</p>
+        <p className={`font-black tabular-nums leading-none mt-1 ${d.valor === null ? 'text-xl text-amber-400' : 'text-3xl sm:text-4xl text-white'}`}>
+          {d.valor === null ? 'sin dato' : numero(d.valor)}
+        </p>
+      </div>
+      <p className={`text-[12px] leading-snug mt-1 sm:mt-2 ${d.valor === null || d.atrasado ? 'text-amber-300' : 'text-zinc-400'}`}>
+        {d.valor === null ? d.motivo : <>{d.nota}.{d.fecha && <span className="block mt-0.5">{deCuando(d)}</span>}</>}
+      </p>
+    </div>
+  )
+}
+
+function sumar(a: Dato, b: Dato): Dato {
+  if (a.valor === null || b.valor === null) {
+    return { valor: null, fecha: null, tipoFecha: 'dia', motivo: `Falta ${a.valor === null ? 'Android' : 'iPhone'}: no se puede sumar` }
+  }
+  const cuando = (d: Dato) => (d.fecha ? (d.tipoFecha === 'dia' ? `al ${diaDeDato(d.fecha)}` : 'de hoy') : 'sin fecha')
+  return {
+    valor: a.valor + b.valor, fecha: null, tipoFecha: 'dia', atrasado: a.atrasado || b.atrasado,
+    nota: `Suma Android (${cuando(a)}) más iPhone (${cuando(b)}): cada uno con su fecha`,
+  }
+}
+
+function Principal({ titulo, icono, par }: { titulo: string; icono: React.ReactNode; par: Record<Plataforma, Dato> }) {
+  return (
+    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4 sm:p-5 min-w-0">
+      <h2 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+        <span className="w-8 h-8 rounded-lg bg-[#FFFD02]/10 text-[#FFFD02] flex items-center justify-center shrink-0">{icono}</span>
+        {titulo}
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+        <Numero etiqueta="Android" color={COLOR.android} d={par.android} />
+        <Numero etiqueta="iPhone" color={COLOR.ios} d={par.ios} />
+        <Numero etiqueta="Total" color="text-[#FFFD02]" d={sumar(par.android, par.ios)} />
+      </div>
+    </section>
+  )
+}
+
+function PersonasYRobots({ s }: { s: Separacion }) {
+  const cuando = s.fecha ? deCuando({ valor: 0, fecha: s.fecha, tipoFecha: 'momento' }) : ''
+  return (
+    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4">
+      <h2 className="text-sm font-semibold text-white flex items-center gap-2">
+        <Bot size={15} className="text-[#FFFD02]" /> Personas y robots
+      </h2>
+      <p className="text-[12px] text-zinc-400 mt-1 leading-snug">
+        Lo cuenta el propio juego: cada instalación que lo abrió al menos una vez{cuando ? ` (${cuando.toLowerCase()})` : ''}. Los
+        robots de Google prueban cada versión nueva el día que sale; Google no los mete en sus números de arriba.
+      </p>
+      {s.android === null || s.ios === null ? (
+        <p className="text-sm text-amber-300 mt-3">sin dato: {s.motivo}</p>
+      ) : (
+        <>
+          <div className="grid grid-cols-2 sm:grid-cols-5 gap-3 mt-4">
+            {[
+              { t: 'Android · personas', v: s.android.personas, c: COLOR.android, grande: true },
+              { t: 'Android · robots de Google', v: s.android.robots, c: 'text-zinc-400', grande: false },
+              { t: 'Android · prueba', v: s.android.prueba, c: 'text-zinc-400', grande: false },
+              { t: 'iPhone · personas', v: s.ios.personas, c: COLOR.ios, grande: true },
+              { t: 'iPhone · TestFlight y Apple', v: s.ios.prueba, c: 'text-zinc-400', grande: false },
+            ].map(x => (
+              <div key={x.t} className="min-w-0">
+                <p className={`text-[11px] font-semibold leading-tight ${x.c}`}>{x.t}</p>
+                <p className={`font-black tabular-nums mt-1 ${x.grande ? 'text-2xl text-white' : 'text-xl text-zinc-400'}`}>{numero(x.v)}</p>
+              </div>
+            ))}
+          </div>
+          {s.robotsPorVersion.length > 0 && (
+            <div className="mt-4">
+              <p className="text-[11px] text-zinc-500 mb-1.5">Robots por versión y el día que llegaron</p>
+              <ul className="flex flex-wrap gap-1.5">
+                {s.robotsPorVersion.map(r => (
+                  <li key={r.version} className="rounded-full border border-[#2A2A3A] bg-[#0A0A0F] px-2.5 py-1 text-[11px] text-zinc-300 tabular-nums">
+                    {r.version} · {diaDeDato(r.dia)} · <span className="text-white font-semibold">{r.cantidad}</span>
+                  </li>
+                ))}
+              </ul>
+            </div>
+          )}
+          <p className="text-[11px] text-zinc-500 mt-3 leading-snug">
+            Las personas no tienen por qué coincidir con las descargas de Google: acá sólo aparece quien abrió el juego, y
+            quien lo borra y lo vuelve a bajar cuenta dos veces. El detalle, aparato por aparato, está en Prueba y robots.
+          </p>
+        </>
+      )}
     </section>
   )
 }
@@ -302,11 +414,14 @@ export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: stri
   const terminaron = t.reales.filter(j => j.termino).length
   return (
     <div className="space-y-5">
+      <Principal icono={<Download size={16} />} titulo="Descargaron" par={t.tarjetas.descargas} />
+      <Principal icono={<Smartphone size={16} />} titulo="La tienen hoy" par={t.tarjetas.tienen} />
+
       <Avisos avisos={t.avisos} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 xl:grid-cols-4 gap-3">
-        <Tarjeta icono={<Download size={16} />} titulo="Descargas totales" par={t.tarjetas.descargas} />
-        <Tarjeta icono={<Smartphone size={16} />} titulo="Tienen el juego" par={t.tarjetas.tienen} />
+      <PersonasYRobots s={t.separacion} />
+
+      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
         <Tarjeta icono={<CalendarCheck size={16} />} titulo="Jugaron hoy" par={t.tarjetas.hoy} />
         <Tarjeta icono={<CalendarDays size={16} />} titulo="Jugaron en la semana" par={t.tarjetas.semana} />
       </div>

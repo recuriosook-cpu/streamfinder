@@ -2,7 +2,8 @@
 
 import { useCallback, useEffect, useState } from 'react'
 import { Loader2, MousePointerClick, Info } from 'lucide-react'
-import type { DescargarPotion } from '@/lib/potion-descargar'
+import type { DescargarPotion, ToqueDescargar } from '@/lib/potion-descargar'
+import type { Jugador } from '@/lib/potion-tablero'
 import { numero, diaCorto, TablaDeslizable } from './piezas'
 
 /**
@@ -13,7 +14,36 @@ import { numero, diaCorto, TablaDeslizable } from './piezas'
  * Se pide aparte del tablero: si esto falla, el resto de la pestaña sigue.
  * `recarga` cambia cuando la página se actualiza, para pedirlo de nuevo.
  */
-export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
+/** Cuánto después del toque puede empezar a jugar alguien para contarlo. */
+const VENTANA_CRUCE_MS = 3 * 3600_000
+
+/**
+ * Cuántos de los que tocaron pueden haber terminado jugando. No hay un hilo
+ * que una el toque con la instalación (la tienda no pasa nada al juego), así
+ * que es un cruce: un toque de Android o iPhone se queda con un jugador real
+ * nuevo del mismo aparato que empezó dentro de las 3 horas siguientes y, si
+ * los dos tienen país, del mismo país. Cada jugador se usa una vez. Es un
+ * techo: ese jugador pudo haber llegado por otro lado.
+ */
+function cruzar(toques: ToqueDescargar[], reales: Jugador[]): Map<string, number> {
+  const usados = new Set<string>()
+  const porDia = new Map<string, number>()
+  const ordenados = toques.filter(t => t.aparato !== 'desktop').sort((a, b) => (a.en < b.en ? -1 : 1))
+  for (const t of ordenados) {
+    const desde = Date.parse(t.en)
+    const j = reales
+      .filter(r => r.plataforma === t.aparato && !usados.has(r.id))
+      .filter(r => { const d = Date.parse(r.desde); return d >= desde && d <= desde + VENTANA_CRUCE_MS })
+      .filter(r => !t.pais || !r.pais || r.pais === t.pais)
+      .sort((a, b) => (a.desde < b.desde ? -1 : 1))[0]
+    if (!j) continue
+    usados.add(j.id)
+    porDia.set(t.dia, (porDia.get(t.dia) ?? 0) + 1)
+  }
+  return porDia
+}
+
+export function DesdeGlynbox({ recarga, reales }: { recarga: unknown; reales: Jugador[] }) {
   const [datos, setDatos] = useState<DescargarPotion | null>(null)
   const [error, setError] = useState<string | null>(null)
 
@@ -60,6 +90,10 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
   }
 
   const v = datos.ventana
+  const jugaron = cruzar(datos.toques ?? [], reales)
+  const jugaronTotal = [...jugaron.values()].reduce((a, b) => a + b, 0)
+  const d = datos.descartados ?? { automaticas: 0, admin: 0, propios: 0 }
+  const fuera = d.automaticas + d.admin + d.propios
   const desde = datos.medidoDesde && datos.medidoDesde > datos.inicioVentana ? datos.medidoDesde : datos.inicioVentana
 
   return (
@@ -68,6 +102,24 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
       <p className="text-[11px] text-zinc-500 mb-3 sm:ml-10">
         Personas que tocaron &quot;Jugar&quot;, el banner o la tira de Potion. Por día de Argentina, más nuevo arriba.
       </p>
+      <div className="grid grid-cols-2 sm:grid-cols-3 gap-3 mb-4 sm:ml-10">
+        <div>
+          <p className="text-[11px] font-semibold text-white">Tocaron (personas)</p>
+          <p className="text-2xl font-black text-white tabular-nums">{numero(datos.quedan ?? v.total)}</p>
+        </div>
+        <div>
+          <p className="text-[11px] font-semibold text-[#FFFD02]">Pueden haber jugado</p>
+          <p className="text-2xl font-black text-white tabular-nums">{numero(jugaronTotal)}</p>
+          <p className="text-[11px] text-zinc-500 leading-snug">como mucho, cruzando con el juego</p>
+        </div>
+        <div className="col-span-2 sm:col-span-1">
+          <p className="text-[11px] font-semibold text-zinc-400">Descartados</p>
+          <p className="text-2xl font-black text-zinc-400 tabular-nums">{numero(fuera)}</p>
+          <p className="text-[11px] text-zinc-500 leading-snug">
+            {numero(d.automaticas)} pruebas automáticas · {numero(d.admin)} sesiones de admin · {numero(d.propios)} aparatos tuyos
+          </p>
+        </div>
+      </div>
 
       {datos.dias.length === 0 ? (
         <p className="text-sm text-[#A0A0B0] py-4">Nadie lo tocó en los últimos 30 días.</p>
@@ -82,6 +134,7 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
                 <th className="font-semibold py-1.5 px-2 text-violet-300">Compu</th>
                 <th className="font-semibold py-1.5 pl-2 text-white">Total</th>
                 <th className="font-semibold py-1.5 pl-3 normal-case tracking-normal text-zinc-500">por la tira</th>
+                <th className="font-semibold py-1.5 pl-3 normal-case tracking-normal text-[#FFFD02]">jugaron?</th>
               </tr>
             </thead>
             <tbody>
@@ -93,6 +146,7 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
                   <td className="py-1.5 px-2">{numero(d.desktop)}</td>
                   <td className="py-1.5 pl-2 font-bold">{numero(d.total)}</td>
                   <td className="py-1.5 pl-3 text-zinc-500">{numero(d.tira)}</td>
+                  <td className="py-1.5 pl-3">{numero(jugaron.get(d.dia) ?? 0)}</td>
                 </tr>
               ))}
             </tbody>
@@ -104,6 +158,7 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
                 <td className="py-2 px-2">{numero(v.desktop)}</td>
                 <td className="py-2 pl-2 font-black">{numero(v.total)}</td>
                 <td />
+                <td className="py-2 pl-3">{numero(jugaronTotal)}</td>
               </tr>
             </tfoot>
           </table>
@@ -115,7 +170,10 @@ export function DesdeGlynbox({ recarga }: { recarga: unknown }) {
         Una persona es un navegador (o una cuenta de Glynbox): si toca la tira y después &quot;Jugar&quot;, cuenta una vez.
         La fila de abajo es de personas distintas en todo el período, no la suma de los días. &quot;Por la tira&quot; dice
         cuántas de las del día llegaron tocando el aviso de arriba. Tocar no es instalar: en la compu sólo despliega
-        los botones de las tiendas. Sin robots.
+        los botones de las tiendas. No cuentan los robots, las pruebas automáticas, los navegadores que abrieron el
+        admin ni tus aparatos (para marcar uno, abrí glynbox.com/descargar?propio=1 desde ese aparato).
+        &quot;Jugaron?&quot; es un techo: un jugador real nuevo del mismo aparato (y país, si se sabe) que empezó a jugar
+        dentro de las 3 horas siguientes al toque. Pudo haber llegado por otro lado.
         {datos.medidoDesde && datos.medidoDesde > datos.inicioVentana && <> Se mide desde el {diaCorto(datos.medidoDesde)}.</>}
       </p>
     </section>

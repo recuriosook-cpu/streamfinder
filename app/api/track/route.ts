@@ -162,6 +162,10 @@ export async function POST(req: NextRequest) {
         props.aparato = aparatoWeb
       }
 
+      // Lo mandó un navegador automatizado (`navigator.webdriver`): pruebas
+      // con Puppeteer o Playwright que se hacen pasar por un celular.
+      const automatizado = props.automatizado === true && !verdict.isBot
+
       rows.push({
         // Sin verificar contra la sesión a propósito: el user_id acá es una
         // pista para agrupar, no una credencial. Nada se autoriza en base a
@@ -175,8 +179,8 @@ export async function POST(req: NextRequest) {
         props,
         platform:   esApp ? 'mobile' : 'web',
         path:       sanitizePath(ev.path),
-        is_bot:     verdict.isBot,
-        bot_reason: verdict.reason,
+        is_bot:     verdict.isBot || automatizado,
+        bot_reason: automatizado ? 'navegador-automatizado' : verdict.reason,
         country,
       })
     }

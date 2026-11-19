@@ -3,6 +3,7 @@
 import { useState, useEffect } from 'react'
 import Link from 'next/link'
 import { usePathname, useRouter } from 'next/navigation'
+import { marcarAparatoPropio } from '@/lib/analytics'
 import {
   LayoutDashboard, Users, Activity, Flag, BarChart3,
   Shield, X, Menu, ArrowLeft, ChevronRight, Clapperboard, FlaskConical,
@@ -32,6 +33,10 @@ export default function AdminSidebar({ username, avatarUrl, displayName }: Props
 
   // Close on route change
   useEffect(() => { setOpen(false) }, [pathname])
+
+  // Donde se abre el admin es un aparato del dueño: sus visitas a la web
+  // dejan de contar en los paneles (ver `marcarAparatoPropio`).
+  useEffect(() => { marcarAparatoPropio() }, [])
 
   const isActive = (href: string) =>
     href === '/admin' ? pathname === '/admin' : pathname.startsWith(href)

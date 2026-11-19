@@ -25,6 +25,8 @@ const ANON_KEY    = 'glynbox_anon_id'
 const SESSION_KEY = 'glynbox_session_id'
 const SESSION_TS  = 'glynbox_session_last'
 const ORIGEN_KEY  = 'glynbox_origen'
+/** '1' en los aparatos del dueño. Ver `marcarAparatoPropio`. */
+const PROPIO_KEY  = 'glynbox_propio'
 
 /** Nueva sesión después de esto sin actividad. */
 const SESSION_TIMEOUT_MS = 30 * 60_000
@@ -523,6 +525,17 @@ export function track(name: EventName, props: EventProps = {}, options: { path?:
     const propsFinales: EventProps =
       origen && props.origen === undefined ? { ...props, origen } : { ...props }
 
+    // Pruebas automáticas y aparatos del dueño. `navigator.webdriver` lo
+    // prenden siempre Puppeteer, Playwright y Selenium, aunque cambien el
+    // user-agent (las capturas del 16/11 se hacían pasar por un Pixel y un
+    // iPhone); `/api/track` lo vuelve `is_bot`. `propio` no es un bot: queda
+    // en las props para que cada panel decida.
+    try {
+      if (typeof navigator !== 'undefined' && navigator.webdriver === true) propsFinales.automatizado = true
+      if (/[?&]propio=1(&|$)/.test(window.location?.search ?? '')) marcarAparatoPropio()
+      if (readStore('local', PROPIO_KEY) === '1') propsFinales.propio = true
+    } catch { /* sin marca */ }
+
     // Computadora o celular, para separar la web en el panel. Lo pone el
     // navegador porque es el único que distingue un iPad de una Mac;
     // `/api/track` lo completa con el user-agent si falta.
@@ -559,6 +572,16 @@ export function track(name: EventName, props: EventProps = {}, options: { path?:
   } catch {
     // Nunca propagar. Un fallo de medición no puede volverse un error de la app.
   }
+}
+
+/**
+ * Marca este navegador como del dueño: desde ahora cada evento lleva
+ * `propio: true` y los paneles lo descartan. Lo llama el panel de admin al
+ * abrirse, y cualquier página que se abra con `?propio=1` (para un celular
+ * donde no se entra al admin).
+ */
+export function marcarAparatoPropio(): void {
+  writeStore('local', PROPIO_KEY, '1')
 }
 
 /** Fuerza el envío. Para casos donde la navegación se va a llevar la página. */
