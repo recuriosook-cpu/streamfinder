@@ -2,13 +2,15 @@
 
 import { useState } from 'react'
 import { Play, X } from 'lucide-react'
+import { useIdioma } from '@/components/useIdioma'
 
 export default function TrailerSection({ videoKey }: { videoKey: string }) {
   const [open, setOpen] = useState(false)
+  const en = useIdioma() === 'en'
 
   return (
     <div className="mt-10">
-      <h2 className="text-xl font-bold mb-4">Trailer oficial</h2>
+      <h2 className="text-xl font-bold mb-4">{en ? 'Official trailer' : 'Trailer oficial'}</h2>
 
       {/* Thumbnail */}
       <div
@@ -43,7 +45,7 @@ export default function TrailerSection({ videoKey }: { videoKey: string }) {
               onClick={() => setOpen(false)}
               className="absolute -top-10 right-0 text-white/80 hover:text-white transition-colors flex items-center gap-1.5 text-sm"
             >
-              <X size={20} /> Cerrar
+              <X size={20} />{en ? ' Close' : ' Cerrar'}
             </button>
             <div className="w-full rounded-xl overflow-hidden" style={{ aspectRatio: '16/9' }}>
               <iframe

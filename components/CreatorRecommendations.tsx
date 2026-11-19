@@ -6,6 +6,8 @@ import { Play, X } from 'lucide-react'
 import { creatorNames, type CreatorRecommendation } from '@/lib/creator-recommendations'
 import { isRunningInApp } from '@/lib/app-mode'
 import { track } from '@/lib/analytics'
+import { enumerarEn } from '@/lib/idioma'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * "Recomendado por Fer Lage": la portada del video de Instagram donde el
@@ -40,6 +42,7 @@ const postUrl = (code: string) => `https://www.instagram.com/p/${code}/`
 
 export default function CreatorRecommendations({ items, mediaType, mediaId }: Props) {
   const [open, setOpen] = useState<CreatorRecommendation | null>(null)
+  const en = useIdioma() === 'en'
 
   useEffect(() => {
     if (!open) return
@@ -65,7 +68,7 @@ export default function CreatorRecommendations({ items, mediaType, mediaId }: Pr
 
   return (
     <div className="mt-10">
-      <h2 className="text-xl font-bold mb-4">Recomendado por {creatorNames(items)}</h2>
+      <h2 className="text-xl font-bold mb-4">{en ? `Recommended by ${enumerarEn(items.map(i => i.creator.name), 'en')}` : <>Recomendado por {creatorNames(items)}</>}</h2>
 
       <div className="flex gap-3 overflow-x-auto pb-1 -mx-4 px-4 sm:mx-0 sm:px-0">
         {items.map(item => (
@@ -75,7 +78,7 @@ export default function CreatorRecommendations({ items, mediaType, mediaId }: Pr
             target="_blank"
             rel="noopener noreferrer"
             onClick={e => onClick(e, item)}
-            aria-label={`Ver el video de ${item.creator.name} en Instagram`}
+            aria-label={en ? `Watch ${item.creator.name}'s video on Instagram` : `Ver el video de ${item.creator.name} en Instagram`}
             className="group shrink-0 w-40 sm:w-44 bg-[#13131A] rounded-xl overflow-hidden ring-1 ring-white/10"
           >
             <div className="relative aspect-[9/16] bg-[#1C1C27]">
@@ -116,21 +119,21 @@ export default function CreatorRecommendations({ items, mediaType, mediaId }: Pr
           onClick={() => setOpen(null)}
           role="dialog"
           aria-modal="true"
-          aria-label={`Video de ${open.creator.name}`}
+          aria-label={en ? `${open.creator.name}'s video` : `Video de ${open.creator.name}`}
         >
           <div className="relative w-full max-w-[400px]" onClick={e => e.stopPropagation()}>
             <button
               onClick={() => setOpen(null)}
               className="absolute -top-10 right-0 text-white/80 hover:text-white transition-colors flex items-center gap-1.5 text-sm"
             >
-              <X size={20} /> Cerrar
+              <X size={20} />{en ? ' Close' : ' Cerrar'}
             </button>
             <div className="w-full rounded-xl overflow-hidden bg-white" style={{ height: 'min(740px, calc(100dvh - 140px))' }}>
               <iframe
                 src={`${postUrl(open.instagramCode)}embed/`}
                 className="w-full h-full"
                 allow="autoplay; encrypted-media; fullscreen"
-                title={`Video de ${open.creator.name}`}
+                title={en ? `${open.creator.name}'s video` : `Video de ${open.creator.name}`}
               />
             </div>
             <a
@@ -139,7 +142,7 @@ export default function CreatorRecommendations({ items, mediaType, mediaId }: Pr
               rel="noopener noreferrer"
               className="mt-3 flex items-center justify-center rounded-full border border-[#FFFD02]/40 px-5 py-2.5 text-sm font-semibold text-[#FFFD02] hover:bg-[#FFFD02] hover:text-black transition-colors"
             >
-              Ver en Instagram
+              {en ? 'View on Instagram' : 'Ver en Instagram'}
             </a>
           </div>
         </div>,

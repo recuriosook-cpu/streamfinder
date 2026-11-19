@@ -3,18 +3,23 @@ import { Trophy, Star } from 'lucide-react'
 
 interface Props {
   awards: ParsedAwards
+  idioma?: 'es' | 'en'
 }
+
+/** Las dos etiquetas en castellano de `parseAwards` (`lib/omdb.ts`); las demás ya vienen en inglés. */
+const NOMBRES_EN: Record<string, string> = { 'Otros premios': 'Other awards', 'Premios': 'Awards' }
 
 function plural(n: number, singular: string, plural: string) {
   return `${n} ${n === 1 ? singular : plural}`
 }
 
-export default function AwardsSection({ awards }: Props) {
+export default function AwardsSection({ awards, idioma = 'es' }: Props) {
+  const en = idioma === 'en'
   const { entries } = awards
 
   return (
     <div className="mt-8">
-      <h2 className="text-xl font-bold mb-4">Premios</h2>
+      <h2 className="text-xl font-bold mb-4">{en ? 'Awards' : 'Premios'}</h2>
 
       <div className="flex flex-col gap-2">
         {entries.map(entry => {
@@ -23,8 +28,8 @@ export default function AwardsSection({ awards }: Props) {
 
           // Build the wins · nominations string
           const parts: string[] = []
-          if (hasWins) parts.push(plural(entry.wins, 'ganado', 'ganados'))
-          if (hasNoms) parts.push(plural(entry.nominations, 'nominación', 'nominaciones'))
+          if (hasWins) parts.push(en ? plural(entry.wins, 'win', 'wins') : plural(entry.wins, 'ganado', 'ganados'))
+          if (hasNoms) parts.push(en ? plural(entry.nominations, 'nomination', 'nominations') : plural(entry.nominations, 'nominación', 'nominaciones'))
           const summary = parts.join('  ·  ')
 
           return (
@@ -51,7 +56,7 @@ export default function AwardsSection({ awards }: Props) {
               <p className={`flex-1 text-sm font-semibold leading-tight ${
                 entry.isOscar ? 'text-yellow-200' : 'text-white'
               }`}>
-                {entry.name}
+                {en ? (NOMBRES_EN[entry.name] ?? entry.name) : entry.name}
               </p>
 
               {/* Wins · nominations — same line, right-aligned */}

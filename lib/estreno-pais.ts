@@ -125,18 +125,31 @@ export function estadoEstreno(ref: EstrenoRef, pais: string, hoy: string): Estad
   return ref.fechas ? estadoEstrenoPelicula(ref.fechas, pais, ref.general, hoy) : null
 }
 
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
 const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre']
 
-/** '2026-12-12' → '12 de diciembre'. El año sólo si no es el de `hoy`. */
-export function fechaEstreno(iso: string, hoy: string): string {
+/** '2026-12-12' → '12 de diciembre' (en inglés, 'December 12'). El año sólo si no es el de `hoy`. */
+export function fechaEstreno(iso: string, hoy: string, idioma: 'es' | 'en' = 'es'): string {
   const [y, m, d] = iso.slice(0, 10).split('-').map(Number)
   const conAnio = String(y) !== hoy.slice(0, 4)
+  if (idioma === 'en') return `${MONTHS[m - 1]} ${d}${conAnio ? `, ${y}` : ''}`
   return `${d} de ${MESES[m - 1]}${conAnio ? ` de ${y}` : ''}`
 }
 
 /** El texto cuando no hay plataformas; `null` = el mensaje de siempre. */
-export function mensajeEstreno(estado: EstadoEstreno, hoy: string): string | null {
+export function mensajeEstreno(estado: EstadoEstreno, hoy: string, idioma: 'es' | 'en' = 'es'): string | null {
   if (!estado) return null
+  if (idioma === 'en') {
+    switch (estado.tipo) {
+      case 'proximo':
+        return `Not released in your country yet. Coming ${fechaEstreno(estado.fecha, hoy, 'en')}.`
+      case 'proximoSinFecha':
+        return 'Not released in your country yet.'
+      case 'soloCines':
+        return 'Currently only in theaters.'
+    }
+  }
   switch (estado.tipo) {
     case 'proximo':
       return `Todavía no se estrenó en tu país. Se estrena el ${fechaEstreno(estado.fecha, hoy)}.`
@@ -161,6 +174,27 @@ export function fraseEstrenoArgentina(estado: EstadoEstreno, titulo: string, hoy
     case 'soloCines':
       return `En Argentina, ${titulo} está actualmente solo en cines.`
   }
+}
+
+/**
+ * Lo mismo para el bloque en inglés "Where to watch X in the United States"
+ * (`DondeVer` en `/en/`). `null` = la frase de siempre.
+ */
+export function fraseEstrenoEstadosUnidos(estado: EstadoEstreno, titulo: string, hoy: string): string | null {
+  if (!estado) return null
+  switch (estado.tipo) {
+    case 'proximo':
+      return `${titulo} hasn't been released in the United States yet. It comes out ${fechaEstreno(estado.fecha, hoy, 'en')}.`
+    case 'proximoSinFecha':
+      return `${titulo} hasn't been released in the United States yet.`
+    case 'soloCines':
+      return `In the United States, ${titulo} is currently only in theaters.`
+  }
+}
+
+/** Hoy como 'AAAA-MM-DD' en la hora de Estados Unidos (Nueva York): la de las fichas en inglés. */
+export function hoyEstadosUnidos(): string {
+  return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/New_York' }).format(new Date())
 }
 
 /** Hoy como 'AAAA-MM-DD' en la hora de Argentina (el país con que el servidor arma la ficha). */

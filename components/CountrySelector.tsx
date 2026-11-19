@@ -4,7 +4,8 @@ import { useState, useEffect, useRef } from 'react'
 import Image from 'next/image'
 import { ChevronDown } from 'lucide-react'
 import { useCountry } from '@/context/CountryContext'
-import { COUNTRIES } from '@/lib/countries'
+import { COUNTRIES, countryName } from '@/lib/countries'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Props {
   variant?: 'compact' | 'full'
@@ -38,6 +39,10 @@ export function FlagCircle({ code, size = 24 }: { code: string; size?: number })
 
 export default function CountrySelector({ variant = 'full', align = 'right', onChange }: Props) {
   const { country, countryData, setCountry } = useCountry()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
+  // En inglés, los nombres en inglés (en castellano, los de `COUNTRIES`, como siempre).
+  const nombre = (c: { code: string; name: string }) => (en ? countryName(c.code, idioma) : c.name)
   const [open, setOpen] = useState(false)
   const [search, setSearch] = useState('')
   const ref = useRef<HTMLDivElement>(null)
@@ -60,7 +65,7 @@ export default function CountrySelector({ variant = 'full', align = 'right', onC
   }, [open])
 
   const filtered = COUNTRIES.filter(c =>
-    c.name.toLowerCase().includes(search.toLowerCase()) ||
+    nombre(c).toLowerCase().includes(search.toLowerCase()) ||
     c.code.toLowerCase().includes(search.toLowerCase())
   )
 
@@ -76,11 +81,11 @@ export default function CountrySelector({ variant = 'full', align = 'right', onC
       <button
         onClick={() => setOpen(v => !v)}
         className="flex items-center gap-1.5 bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-2.5 py-1.5 rounded-lg transition-colors"
-        title={`País: ${countryData.name}`}
+        title={en ? `Country: ${nombre(countryData)}` : `País: ${countryData.name}`}
       >
         <FlagCircle code={country} size={22} />
         {variant === 'full' && (
-          <span className="text-sm">{countryData.name}</span>
+          <span className="text-sm">{nombre(countryData)}</span>
         )}
         <ChevronDown size={12} className={`transition-transform ${open ? 'rotate-180' : ''}`} />
       </button>
@@ -96,13 +101,13 @@ export default function CountrySelector({ variant = 'full', align = 'right', onC
               ref={searchRef}
               value={search}
               onChange={e => setSearch(e.target.value)}
-              placeholder="Buscar país..."
+              placeholder={en ? 'Search country...' : 'Buscar país...'}
               className="w-full bg-zinc-700 text-white text-sm rounded-lg px-3 py-1.5 outline-none placeholder-zinc-500 focus:ring-1 focus:ring-[#FFFD02]"
             />
           </div>
           <div className="overflow-y-auto max-h-64">
             {filtered.length === 0 ? (
-              <p className="text-[#A0A0B0] text-sm text-center py-4">Sin resultados</p>
+              <p className="text-[#A0A0B0] text-sm text-center py-4">{en ? 'No results' : 'Sin resultados'}</p>
             ) : (
               filtered.map(c => (
                 <button
@@ -115,7 +120,7 @@ export default function CountrySelector({ variant = 'full', align = 'right', onC
                   }`}
                 >
                   <FlagCircle code={c.code} size={24} />
-                  <span className="flex-1">{c.name}</span>
+                  <span className="flex-1">{nombre(c)}</span>
                   {c.code === country && (
                     <span className="w-1.5 h-1.5 rounded-full bg-[#FFFD02] shrink-0" />
                   )}

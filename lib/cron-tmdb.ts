@@ -7,7 +7,7 @@
  *
  * `cache: 'no-store'` no es un detalle: el caché de datos de Vercel se cobra
  * por escritura, y fue lo que pausó el proyecto en septiembre de 2026 (ver el
- * encabezado de `app/movie/[id]/page.tsx`). Un cron que lee cientos de fichas
+ * encabezado de `app/movie/[id]/ficha.tsx`). Un cron que lee cientos de fichas
  * por día no tiene nada que guardar ahí.
  */
 

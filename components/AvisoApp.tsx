@@ -4,6 +4,7 @@ import { useEffect, useRef } from 'react'
 import { Bell, Layers } from 'lucide-react'
 import { flushAnalytics, track } from '@/lib/analytics'
 import { MARCA_AVISO, urlDeTienda, type Tienda } from '@/lib/tiendas'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * El aviso de pantalla completa para bajar la app, en Android y iPhone. Lo
@@ -22,9 +23,12 @@ export interface AvisoAppProps {
 }
 
 const NOMBRE_TIENDA: Record<Tienda, string> = { app_store: 'el App Store', play_store: 'Google Play' }
+const NOMBRE_TIENDA_EN: Record<Tienda, string> = { app_store: 'the App Store', play_store: 'Google Play' }
 
 export default function AvisoApp({ tienda, entrada, onClose }: AvisoAppProps) {
   const caja = useRef<HTMLDivElement>(null)
+  // En inglés en las fichas de `/en/` (y demás páginas en inglés).
+  const en = useIdioma() === 'en'
   const medido = useRef(false)
 
   useEffect(() => {
@@ -85,7 +89,7 @@ export default function AvisoApp({ tienda, entrada, onClose }: AvisoAppProps) {
           className="h-24 w-24 rounded-[26px] shadow-[0_12px_40px_rgba(255,253,2,0.18)] ring-1 ring-white/10"
         />
         <h2 id="aviso-app-titulo" className="mt-7 text-[1.9rem] font-bold leading-tight tracking-tight text-balance">
-          Glynbox es mejor en la app
+          {en ? 'Glynbox is better in the app' : 'Glynbox es mejor en la app'}
         </h2>
 
         <ul className="mt-7 w-full max-w-xs space-y-4 text-left">
@@ -94,7 +98,7 @@ export default function AvisoApp({ tienda, entrada, onClose }: AvisoAppProps) {
               <Bell size={18} />
             </span>
             <span className="text-[0.95rem] leading-snug text-[#C8C8D2]">
-              Te avisamos cuando algo de tu lista llega a tus plataformas
+              {en ? 'Get notified when something on your watchlist lands on your services' : 'Te avisamos cuando algo de tu lista llega a tus plataformas'}
             </span>
           </li>
           <li className="flex items-start gap-3">
@@ -102,7 +106,7 @@ export default function AvisoApp({ tienda, entrada, onClose }: AvisoAppProps) {
               <Layers size={18} />
             </span>
             <span className="text-[0.95rem] leading-snug text-[#C8C8D2]">
-              Encontrá qué ver deslizando, en segundos
+              {en ? 'Find something to watch by swiping, in seconds' : 'Encontrá qué ver deslizando, en segundos'}
             </span>
           </li>
         </ul>
@@ -114,15 +118,15 @@ export default function AvisoApp({ tienda, entrada, onClose }: AvisoAppProps) {
           onClick={descargar}
           className="flex h-14 w-full items-center justify-center rounded-2xl bg-[#FFFD02] text-[1.05rem] font-bold text-[#0A0A0F] active:scale-[0.98] transition-transform"
         >
-          Descargar la app
+          {en ? 'Get the app' : 'Descargar la app'}
         </a>
-        <p className="mt-2 text-center text-xs text-[#A0A0B0]">Gratis en {NOMBRE_TIENDA[tienda]}</p>
+        <p className="mt-2 text-center text-xs text-[#A0A0B0]">{en ? `Free on ${NOMBRE_TIENDA_EN[tienda]}` : `Gratis en ${NOMBRE_TIENDA[tienda]}`}</p>
         <button
           type="button"
           onClick={seguirEnLaWeb}
           className="mx-auto mt-4 block px-4 py-2 text-sm text-[#A0A0B0] underline-offset-4 hover:text-white hover:underline"
         >
-          Seguir en la web
+          {en ? 'Continue on the web' : 'Seguir en la web'}
         </button>
       </div>
     </div>

@@ -3,6 +3,7 @@
 import Image from 'next/image'
 import type { ReactNode } from 'react'
 import { track } from '@/lib/analytics'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Provider {
   provider_id: number
@@ -25,6 +26,7 @@ interface Props {
 }
 
 export default function ProviderBadge({ providers, label, tmdbLink, mediaType, mediaId }: Props) {
+  const en = useIdioma() === 'en'
   if (!providers?.length) return null
 
   // El click abre TMDB en otra pestaña, así que la página actual no se
@@ -74,7 +76,7 @@ export default function ProviderBadge({ providers, label, tmdbLink, mediaType, m
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex flex-col items-center group"
-                title={`Ver en ${p.provider_name}`}
+                title={en ? `Watch on ${p.provider_name}` : `Ver en ${p.provider_name}`}
                 onClick={() => onProviderClick(p.provider_name)}
               >
                 {logo}

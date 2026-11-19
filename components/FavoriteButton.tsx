@@ -5,6 +5,7 @@ import { Heart } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { useCountry } from '@/context/CountryContext'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Props {
   mediaId: number
@@ -33,6 +34,7 @@ export default function FavoriteButton({
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const en = useIdioma() === 'en'
   const { country } = useCountry()
   const proveedor = proveedoresPorPais?.[country]?.flatrate?.[0]
   const supabase = createClient()
@@ -93,7 +95,7 @@ export default function FavoriteButton({
       }`}
     >
       <Heart size={18} fill={isFav ? 'currentColor' : 'none'} />
-      {isFav ? 'Me gusta' : 'Me gusta'}
+      {en ? (isFav ? 'Favorited' : 'Favorite') : (isFav ? 'Me gusta' : 'Me gusta')}
     </button>
   )
 }

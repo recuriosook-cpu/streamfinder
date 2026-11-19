@@ -5,7 +5,8 @@ import { X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { track } from '@/lib/analytics'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import { avisoDeLinksEn, esRechazoPorLinks, mensajeSinLinks } from '@/lib/sin-links'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * "¿La resumís en una frase?", debajo de las estrellas, después de calificar
@@ -65,6 +66,8 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
   const [texto, setTexto] = useState('')
   const [guardando, setGuardando] = useState(false)
   const frase = texto.trim()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
 
   const cerrar = () => {
     track('resena_frase_descartada', { media_type: mediaType, media_id: mediaId })
@@ -73,7 +76,7 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
 
   async function publicar() {
     if (frase.length < 2 || guardando) return
-    const aviso = avisoDeLinks('resena', frase)
+    const aviso = avisoDeLinksEn(idioma, 'resena', frase)
     if (aviso) { toast.error(aviso); return }
     setGuardando(true)
     const { error } = await createClient().from('reviews').upsert({
@@ -91,11 +94,11 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
     setGuardando(false)
     if (error) {
       console.error('[ResenaEnUnaFrase]', error)
-      toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo publicar. Intentá de nuevo.')
+      toast.error(esRechazoPorLinks(error) ? mensajeSinLinks('resena', idioma) : en ? "Couldn't post. Please try again." : 'No se pudo publicar. Intentá de nuevo.')
       return
     }
     track('resena_frase_guardada', { media_type: mediaType, media_id: mediaId, nota: rating, largo: frase.length })
-    toast.success('¡Reseña publicada!')
+    toast.success(en ? 'Review posted!' : '¡Reseña publicada!')
     // La lista de reseñas de la ficha (`ReviewsSection`) la escucha y recarga.
     window.dispatchEvent(new CustomEvent('glynbox:resena-guardada', { detail: { mediaId, mediaType } }))
     onClose()
@@ -104,12 +107,12 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
   return (
     <div className="mt-3 w-full max-w-md rounded-xl border border-[#2A2A3A] bg-[#13131A] p-3">
       <div className="flex items-start justify-between gap-2">
-        <p className="text-sm font-semibold text-white">¿La resumís en una frase?</p>
+        <p className="text-sm font-semibold text-white">{en ? 'Sum it up in one sentence?' : '¿La resumís en una frase?'}</p>
         <button
           type="button"
           onClick={cerrar}
           className="text-[#A0A0B0] hover:text-white transition-colors"
-          aria-label="Ahora no"
+          aria-label={en ? 'Not now' : 'Ahora no'}
         >
           <X size={16} />
         </button>
@@ -123,7 +126,7 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
           value={texto}
           onChange={e => setTexto(e.target.value)}
           maxLength={FRASE_MAX}
-          placeholder="Ej.: El final te deja pensando días"
+          placeholder={en ? 'E.g.: The ending stays with you for days' : 'Ej.: El final te deja pensando días'}
           className="flex-1 min-w-0 bg-[#0A0A0F] border border-[#2A2A3A] rounded-lg px-3 py-2 text-sm text-white outline-none placeholder-[#6B6B7B] focus:border-[#FFFD02]"
         />
         <button
@@ -131,7 +134,7 @@ export default function ResenaEnUnaFrase({ userId, mediaId, mediaType, title, po
           disabled={frase.length < 2 || guardando}
           className="shrink-0 rounded-lg bg-[#FFFD02] px-3 py-2 text-sm font-bold text-black disabled:opacity-40"
         >
-          {guardando ? '…' : 'Publicar'}
+          {guardando ? '…' : en ? 'Post' : 'Publicar'}
         </button>
       </form>
     </div>

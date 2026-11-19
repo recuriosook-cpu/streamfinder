@@ -8,5 +8,6 @@ export function GET() {
     `${BASE}/sitemap-paginas.xml`,
     `${BASE}/sitemap-actividad.xml`,
     `${BASE}/sitemap-populares.xml`,
+    `${BASE}/sitemap-en.xml`,
   ]))
 }

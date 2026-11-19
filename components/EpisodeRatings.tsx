@@ -6,6 +6,7 @@ import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { StarIcon } from '@/components/StarDisplay'
 import { sinEstrenar } from '@/lib/seasons'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * Calificación de capítulos en la página de una temporada (tabla
@@ -46,6 +47,7 @@ export function EpisodeRatingsProvider({
   children: ReactNode
 }) {
   const router = useRouter()
+  const en = useIdioma() === 'en'
   const [supabase] = useState(createClient)
   const [listo, setListo] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -121,7 +123,7 @@ export function EpisodeRatingsProvider({
     Promise.resolve(guardar).then(async ({ error }) => {
       if (error) {
         console.error('[episode_ratings] guardar:', error)
-        toast.error('No pudimos guardar tu nota. Probá de nuevo.')
+        toast.error(en ? "We couldn't save your rating. Please try again." : 'No pudimos guardar tu nota. Probá de nuevo.')
         setMias(prev => {
           const m = new Map(prev)
           if (anterior === 0) m.delete(episodio)
@@ -134,7 +136,7 @@ export function EpisodeRatingsProvider({
       // devuelve la base viene redondeado y no alcanza para sumar y restar.
       setResumen(await traerResumen())
     })
-  }, [userId, mias, supabase, seriesId, seasonNumber, seriesTitle, router, traerResumen])
+  }, [userId, mias, supabase, seriesId, seasonNumber, seriesTitle, router, traerResumen, en])
 
   return (
     <EpisodeRatingsContext.Provider value={{ listo, userId, resumen, mias, calificar }}>
@@ -177,6 +179,7 @@ export function EpisodeRating({
 }) {
   const ctx = useContext(EpisodeRatingsContext)
   const [hover, setHover] = useState(0)
+  const en = useIdioma() === 'en'
   const tmdb = tmdbScore !== null ? <PuntajeTmdb valor={tmdbScore} /> : null
 
   // Mientras carga (y en el HTML del servidor) va una fila del mismo alto con
@@ -202,7 +205,7 @@ export function EpisodeRating({
             <button
               key={s}
               type="button"
-              aria-label={`Calificar el capítulo ${episodeNumber} con ${s - 0.5} o ${s} estrellas`}
+              aria-label={en ? `Rate episode ${episodeNumber} ${s - 0.5} or ${s} stars` : `Calificar el capítulo ${episodeNumber} con ${s - 0.5} o ${s} estrellas`}
               onMouseMove={e => {
                 const rect = e.currentTarget.getBoundingClientRect()
                 setHover(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
@@ -218,7 +221,7 @@ export function EpisodeRating({
             </button>
           )
         })}
-        {mia > 0 && <span className="text-xs text-[#A0A0B0] ml-1.5">Tu nota: {mia}</span>}
+        {mia > 0 && <span className="text-xs text-[#A0A0B0] ml-1.5">{en ? 'Your rating: ' : 'Tu nota: '}{mia}</span>}
       </div>
       {(tmdb || glynbox) && (
         <div className="flex items-center gap-3">
@@ -227,7 +230,7 @@ export function EpisodeRating({
             <span className="shrink-0 inline-flex items-center gap-1 text-xs text-[#A0A0B0]">
               <StarIcon fill="full" size={12} />
               <span className="text-white font-semibold">{glynbox.promedio.toFixed(1)}</span>
-              Glynbox · {glynbox.votos} {glynbox.votos === 1 ? 'voto' : 'votos'}
+              Glynbox · {glynbox.votos} {en ? (glynbox.votos === 1 ? 'vote' : 'votes') : (glynbox.votos === 1 ? 'voto' : 'votos')}
             </span>
           )}
         </div>

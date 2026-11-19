@@ -3,6 +3,8 @@
 import { createContext, useContext, useState, useEffect, useCallback, useRef } from 'react'
 import { COUNTRIES, DEFAULT_COUNTRY, getCountry, type Country } from '@/lib/countries'
 import { createClient } from '@/lib/supabase'
+import { usePathname } from 'next/navigation'
+import { esRutaEnIngles, paisDeFicha } from '@/lib/idioma'
 
 const LS_KEY = 'glynbox_country'
 
@@ -22,7 +24,11 @@ const CountryContext = createContext<CountryCtx>({
 })
 
 export function CountryProvider({ children }: { children: React.ReactNode }) {
-  const [country, setCountryState] = useState(DEFAULT_COUNTRY)
+  // En las fichas en inglés (`/en/...`) se arranca con Estados Unidos: es el
+  // país con que el servidor arma el HTML. Después, como siempre, manda lo
+  // guardado o lo que detecta el servidor por la IP.
+  const enIngles = esRutaEnIngles(usePathname())
+  const [country, setCountryState] = useState(enIngles ? paisDeFicha('en') : DEFAULT_COUNTRY)
   const [cambio, setCambio] = useState<CountryCtx['cambio']>(null)
   const actual = useRef(country)
   useEffect(() => { actual.current = country }, [country])

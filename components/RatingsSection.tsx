@@ -5,6 +5,7 @@ import { createClient } from '@/lib/supabase'
 import { aFormatoFicha, parseAwards, type OMDBRatings } from '@/lib/omdb'
 import AwardsSection from '@/components/AwardsSection'
 import type { OMDBRatingsResponse } from '@/app/api/omdb-ratings/[imdbId]/route'
+import { useIdioma } from '@/components/useIdioma'
 
 // ── Types ─────────────────────────────────────────────────────────────────────
 
@@ -74,6 +75,7 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
   const [omdb, setOmdb] = useState(omdbServidor)
   const { imdbScore, imdbVotes, rtCritics, metacritic } = omdb
   const [userRating, setUserRating] = useState<number | null>(null)
+  const en = useIdioma() === 'en'
 
   // La ficha se generó sin los puntajes guardados (no estaban, o vencieron):
   // el servidor nunca va a OMDb al generarla, para que bingbot no se coma el
@@ -111,7 +113,11 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
   const rtNum        = rtCritics ? parseInt(rtCritics)   : null
   const metacriticNum = metacritic
 
-  const fmtVotes = (n: number) =>
+  const fmtVotes = (n: number) => en
+    ? (n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M votes`
+      : n >= 1_000   ? `${Math.round(n / 1_000)}K votes`
+      :                `${n} votes`)
+    :
     n >= 1_000_000 ? `${(n / 1_000_000).toFixed(1)}M votos`
     : n >= 1_000   ? `${Math.round(n / 1_000)}K votos`
     :                `${n} votos`
@@ -127,13 +133,13 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
   // fichas), así que se dibuja acá con lo que llegó.
   const premiosNuevos = !omdbServidor.awards ? parseAwards(omdb.awards) : null
 
-  if (!hasAnyRating) return premiosNuevos ? <AwardsSection awards={premiosNuevos} /> : null
+  if (!hasAnyRating) return premiosNuevos ? <AwardsSection awards={premiosNuevos} idioma={en ? 'en' : 'es'} /> : null
 
   return (
     <>
-    {premiosNuevos && <AwardsSection awards={premiosNuevos} />}
+    {premiosNuevos && <AwardsSection awards={premiosNuevos} idioma={en ? 'en' : 'es'} />}
     <div className="mt-8">
-      <h2 className="text-lg font-bold mb-5 text-zinc-200">Puntajes</h2>
+      <h2 className="text-lg font-bold mb-5 text-zinc-200">{en ? 'Ratings' : 'Puntajes'}</h2>
       <div className="flex flex-wrap gap-6 items-start">
 
         {/* TMDB */}
@@ -154,7 +160,7 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
             pct={imdbNum / 10}
             color={scoreColor(imdbNum / 10)}
             label="IMDb"
-            sub={imdbVotes ? imdbVotes.replace(/,/g, '.') + ' votos' : undefined}
+            sub={imdbVotes ? (en ? imdbVotes + ' votes' : imdbVotes.replace(/,/g, '.') + ' votos') : undefined}
           />
         )}
 
@@ -165,7 +171,7 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
             pct={rtNum / 100}
             color={rtNum >= 60 ? '#22C55E' : '#EF4444'}
             label="Rotten Tomatoes"
-            sub="Críticos"
+            sub={en ? 'Critics' : 'Críticos'}
           />
         )}
 
@@ -188,7 +194,7 @@ export default function RatingsSection({ tmdbScore, tmdbVotes, omdb: omdbServido
               score={userRating.toFixed(1)}
               pct={userRating / 5}
               color={scoreColor(userRating / 5)}
-              label="Tu rating"
+              label={en ? 'Your rating' : 'Tu rating'}
               sub="/5"
               size={60}
             />

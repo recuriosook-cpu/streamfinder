@@ -6,6 +6,8 @@ import ProviderBadge from '@/components/ProviderBadge'
 import CountrySelector from '@/components/CountrySelector'
 import VpnSuggestion from '@/components/VpnSuggestion'
 import { estadoEstreno, hoyLocal, mensajeEstreno, type EstrenoRef } from '@/lib/estreno-pais'
+import { countryName } from '@/lib/countries'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Provider {
   provider_id: number
@@ -53,29 +55,33 @@ function useHoy(hoyServidor: string | undefined): string {
 
 export default function StreamingSection({ results, mediaType, mediaId, estreno, hoyServidor }: Props) {
   const { country, countryData } = useCountry()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
   const region = results[country] ?? {}
   const hasData = region.flatrate || region.ads || region.rent || region.buy
   const hoy = useHoy(hoyServidor)
   // Sólo sin plataformas; con plataformas no cambia nada. Se recalcula al
   // cambiar de país en el selector, con las fechas de ese país.
-  const mensaje = !hasData && estreno ? mensajeEstreno(estadoEstreno(estreno, country, hoy), hoy) : null
+  const mensaje = !hasData && estreno ? mensajeEstreno(estadoEstreno(estreno, country, hoy), hoy, idioma) : null
 
   return (
     <div className="mt-10">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-xl font-bold">Disponible en streaming</h2>
+        <h2 className="text-xl font-bold">{en ? 'Available to stream' : 'Disponible en streaming'}</h2>
         <CountrySelector variant="full" align="right" />
       </div>
       {!hasData ? (
         <p className="text-[#A0A0B0]">
-          {mensaje ?? `No hay información de streaming disponible para ${countryData.name}.`}
+          {mensaje ?? (en
+            ? `No streaming information available for ${countryName(country, idioma)}.`
+            : `No hay información de streaming disponible para ${countryData.name}.`)}
         </p>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
-          <ProviderBadge providers={region.flatrate ?? []} label="Incluido en suscripción" tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
-          <ProviderBadge providers={region.ads ?? []}      label="Gratis con publicidad"   tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
-          <ProviderBadge providers={region.rent ?? []}     label="Alquiler"                tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
-          <ProviderBadge providers={region.buy ?? []}      label="Compra"                  tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.flatrate ?? []} label={en ? 'Included with subscription' : 'Incluido en suscripción'} tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.ads ?? []}      label={en ? 'Free with ads' : 'Gratis con publicidad'} tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.rent ?? []}     label={en ? 'Rent' : 'Alquiler'} tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
+          <ProviderBadge providers={region.buy ?? []}      label={en ? 'Buy' : 'Compra'} tmdbLink={region.link} mediaType={mediaType} mediaId={mediaId} />
         </div>
       )}
       {/*

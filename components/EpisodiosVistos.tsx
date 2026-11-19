@@ -7,6 +7,7 @@ import { Check, CheckCheck } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { sinEstrenar, type TmdbSeason } from '@/lib/seasons'
 import { claveCapitulo, progresoSerie, textoProgreso } from '@/lib/episodios-vistos'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * Capítulos vistos en la web: tildes por capítulo, marcar o desmarcar la
@@ -30,6 +31,7 @@ const VistosContext = createContext<Contexto | null>(null)
 
 export function EpisodiosVistosProvider({ serieId, children }: { serieId: number; children: ReactNode }) {
   const router = useRouter()
+  const en = useIdioma() === 'en'
   const [supabase] = useState(createClient)
   const [listo, setListo] = useState(false)
   const [userId, setUserId] = useState<string | null>(null)
@@ -91,9 +93,9 @@ export function EpisodiosVistosProvider({ serieId, children }: { serieId: number
       if (!error) return
       console.error('[episodios_vistos] guardar:', error)
       poner(!visto)
-      toast.error('No pudimos guardar los capítulos vistos. Probá de nuevo.')
+      toast.error(en ? "We couldn't save your watched episodes. Please try again." : 'No pudimos guardar los capítulos vistos. Probá de nuevo.')
     })
-  }, [userId, supabase, serieId, router])
+  }, [userId, supabase, serieId, router, en])
 
   return (
     <VistosContext.Provider value={{ listo, userId, vistos, marcar }}>
@@ -108,12 +110,13 @@ export function EpisodiosVistosProvider({ serieId, children }: { serieId: number
  */
 export function ProgresoSerie({ seasons }: { seasons: TmdbSeason[] | null | undefined }) {
   const ctx = useContext(VistosContext)
+  const idioma = useIdioma()
   if (!ctx?.listo || !ctx.userId) return null
   const p = progresoSerie(seasons, ctx.vistos)
   if (p.vistos === 0 || p.total === 0) return null
   return (
     <div className="mb-3">
-      <p className="text-sm text-[#A0A0B0]">{textoProgreso(p)}</p>
+      <p className="text-sm text-[#A0A0B0]">{textoProgreso(p, idioma)}</p>
       <div className="mt-1.5 h-1 rounded-full bg-[#2A2A3A] overflow-hidden max-w-sm">
         <div className="h-1 rounded-full bg-[#FFFD02]" style={{ width: `${Math.min(100, (p.vistos / p.total) * 100)}%` }} />
       </div>
@@ -127,6 +130,7 @@ export function ProgresoSerie({ seasons }: { seasons: TmdbSeason[] | null | unde
  */
 export function TildeVisto({ temporada, capitulo, airDate }: { temporada: number; capitulo: number; airDate: string | null }) {
   const ctx = useContext(VistosContext)
+  const en = useIdioma() === 'en'
   if (!ctx?.listo || sinEstrenar({ air_date: airDate })) return null
   const visto = ctx.vistos.has(claveCapitulo(temporada, capitulo))
   return (
@@ -134,8 +138,8 @@ export function TildeVisto({ temporada, capitulo, airDate }: { temporada: number
       type="button"
       role="checkbox"
       aria-checked={visto}
-      aria-label={`Marcar el capítulo ${capitulo} como visto`}
-      title={visto ? 'Visto' : 'Marcar como visto'}
+      aria-label={en ? `Mark episode ${capitulo} as watched` : `Marcar el capítulo ${capitulo} como visto`}
+      title={en ? (visto ? 'Watched' : 'Mark as watched') : (visto ? 'Visto' : 'Marcar como visto')}
       onClick={() => ctx.marcar(temporada, [capitulo], !visto)}
       className={`shrink-0 flex h-8 w-8 items-center justify-center rounded-full border transition-colors ${
         visto
@@ -160,6 +164,7 @@ export function MarcarTemporada({
   episodios: { episode_number: number; air_date: string | null }[]
 }) {
   const ctx = useContext(VistosContext)
+  const en = useIdioma() === 'en'
   if (!ctx?.listo) return null
   const estrenados = episodios.filter(e => !sinEstrenar(e)).map(e => e.episode_number)
   if (estrenados.length === 0) return null
@@ -172,11 +177,13 @@ export function MarcarTemporada({
     <button
       type="button"
       onClick={alternar}
-      aria-label={todos ? 'Desmarcar los capítulos vistos de la temporada' : 'Marcar la temporada entera como vista'}
+      aria-label={en
+        ? (todos ? "Unmark this season's watched episodes" : 'Mark the whole season as watched')
+        : (todos ? 'Desmarcar los capítulos vistos de la temporada' : 'Marcar la temporada entera como vista')}
       className={`inline-flex items-center gap-1.5 text-sm transition-colors ${todos ? 'text-[#FFFD02] hover:text-[#E5EB00]' : 'text-[#A0A0B0] hover:text-white'}`}
     >
       <CheckCheck size={18} />
-      {todos ? 'Desmarcar todos' : 'Marcar todos'}
+      {en ? (todos ? 'Unmark all' : 'Mark all') : (todos ? 'Desmarcar todos' : 'Marcar todos')}
     </button>
   )
 }

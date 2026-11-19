@@ -1,6 +1,7 @@
 'use client'
 import Link from 'next/link'
 import { useRouter } from 'next/navigation'
+import { useIdioma } from '@/components/useIdioma'
 
 interface BreadcrumbItem {
   label: string
@@ -9,13 +10,14 @@ interface BreadcrumbItem {
 
 export default function Breadcrumb({ items }: { items: BreadcrumbItem[] }) {
   const router = useRouter()
+  const en = useIdioma() === 'en'
   return (
     <nav className="flex items-center gap-2 text-sm text-[#A0A0B0] mb-4">
       <button onClick={() => router.back()} className="hover:text-white transition-colors flex items-center gap-1">
         <svg width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
           <path d="M19 12H5M12 19l-7-7 7-7"/>
         </svg>
-        Volver
+        {en ? 'Back' : 'Volver'}
       </button>
       <span>/</span>
       {items.map((item, i) => (

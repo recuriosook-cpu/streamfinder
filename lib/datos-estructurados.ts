@@ -7,6 +7,9 @@
  */
 
 const BASE = 'https://www.glynbox.com'
+
+/** El prefijo de las fichas en inglés (`/en/movie/…`); en castellano, nada. */
+const pre = (idioma: 'es' | 'en' | undefined) => (idioma === 'en' ? '/en' : '')
 const MIN_VOTOS = 5
 
 type JsonLd = Record<string, unknown>
@@ -44,6 +47,7 @@ const poster = (path: string | null | undefined) => (path ? `https://image.tmdb.
 
 export function peliculaLD(o: {
   id: number
+  idioma?: 'es' | 'en'
   titulo: string
   tituloOriginal?: string | null
   sinopsis?: string | null
@@ -61,7 +65,8 @@ export function peliculaLD(o: {
     '@type': 'Movie',
     name: o.titulo,
     alternateName: o.tituloOriginal ?? undefined,
-    url: `${BASE}/movie/${o.id}`,
+    url: `${BASE}${pre(o.idioma)}/movie/${o.id}`,
+    inLanguage: o.idioma === 'en' ? 'en' : undefined,
     description: o.sinopsis ?? undefined,
     image: poster(o.posterPath),
     datePublished: o.estreno || undefined,
@@ -76,6 +81,7 @@ export function peliculaLD(o: {
 
 export function serieLD(o: {
   id: number
+  idioma?: 'es' | 'en'
   titulo: string
   tituloOriginal?: string | null
   sinopsis?: string | null
@@ -94,7 +100,8 @@ export function serieLD(o: {
     '@type': 'TVSeries',
     name: o.titulo,
     alternateName: o.tituloOriginal ?? undefined,
-    url: `${BASE}/tv/${o.id}`,
+    url: `${BASE}${pre(o.idioma)}/tv/${o.id}`,
+    inLanguage: o.idioma === 'en' ? 'en' : undefined,
     description: o.sinopsis ?? undefined,
     image: poster(o.posterPath),
     startDate: o.inicio || undefined,
@@ -111,6 +118,7 @@ export function serieLD(o: {
 
 export function temporadaLD(o: {
   serieId: number
+  idioma?: 'es' | 'en'
   serie: string
   numero: number
   nombre: string
@@ -124,12 +132,13 @@ export function temporadaLD(o: {
     '@type': 'TVSeason',
     name: o.nombre,
     seasonNumber: o.numero,
-    url: `${BASE}/tv/${o.serieId}/temporada/${o.numero}`,
+    url: o.idioma === 'en' ? `${BASE}/en/tv/${o.serieId}/season/${o.numero}` : `${BASE}/tv/${o.serieId}/temporada/${o.numero}`,
+    inLanguage: o.idioma === 'en' ? 'en' : undefined,
     description: o.sinopsis ?? undefined,
     image: poster(o.posterPath),
     startDate: o.inicio || undefined,
     numberOfEpisodes: o.episodios.length || undefined,
-    partOfSeries: { '@type': 'TVSeries', name: o.serie, url: `${BASE}/tv/${o.serieId}` },
+    partOfSeries: { '@type': 'TVSeries', name: o.serie, url: `${BASE}${pre(o.idioma)}/tv/${o.serieId}` },
     episode: o.episodios.map(e => limpio({ '@type': 'TVEpisode', episodeNumber: e.numero, name: e.nombre ?? undefined })),
   })
 }

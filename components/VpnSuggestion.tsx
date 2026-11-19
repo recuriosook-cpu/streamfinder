@@ -1,7 +1,8 @@
 'use client'
 
 import { useSyncExternalStore } from 'react'
-import { COUNTRIES, getCountry } from '@/lib/countries'
+import { COUNTRIES, countryName } from '@/lib/countries'
+import { useIdioma } from '@/components/useIdioma'
 import { FlagCircle } from '@/components/CountrySelector'
 import ProviderBadge from '@/components/ProviderBadge'
 import { esReventa, familiaGrande, nombreBase } from '@/lib/providers'
@@ -309,6 +310,8 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
   // `false` en el servidor y en la app; `true` sólo en un navegador común, ya
   // hidratado.
   const visible = useSyncExternalStore(sinSuscripcion, fueraDeLaApp, enElServidor)
+  const idioma = useIdioma()
+  const en = idioma === 'en'
 
   if (!visible) return null
 
@@ -338,7 +341,7 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
           label={
             <>
               <FlagCircle code={code} size={18} />
-              Disponible en {getCountry(code).name}
+              {en ? `Available in ${countryName(code, idioma)}` : `Disponible en ${countryName(code)}`}
             </>
           }
         />
@@ -359,9 +362,9 @@ export default function VpnSuggestion({ results, country, mediaType, mediaId }: 
           onClick={onClick}
           className="inline-flex items-center justify-center shrink-0 rounded-full border border-[#FFFD02]/40 px-5 py-2.5 text-sm font-semibold text-[#FFFD02] hover:bg-[#FFFD02] hover:text-black transition-colors"
         >
-          Ver con Surfshark
+          {en ? 'Watch with Surfshark' : 'Ver con Surfshark'}
         </a>
-        <span className="text-xs text-[#A0A0B0]">Patrocinado</span>
+        <span className="text-xs text-[#A0A0B0]">{en ? 'Sponsored' : 'Patrocinado'}</span>
       </div>
     </div>
   )

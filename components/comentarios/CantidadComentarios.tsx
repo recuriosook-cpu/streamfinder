@@ -3,6 +3,7 @@
 import { useEffect, useState } from 'react'
 import { MessageCircle } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * Cuántos comentarios tiene una guía, al lado de "Compartir guía". Lleva a la
@@ -12,6 +13,7 @@ import { createClient } from '@/lib/supabase'
  */
 export default function CantidadComentarios({ slug }: { slug: string }) {
   const [supabase] = useState(createClient)
+  const en = useIdioma() === 'en'
   const [cantidad, setCantidad] = useState<number | null>(null)
 
   useEffect(() => {
@@ -31,7 +33,9 @@ export default function CantidadComentarios({ slug }: { slug: string }) {
       className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#A0A0B0] hover:text-white transition-colors"
     >
       <MessageCircle size={14} />
-      {cantidad === null ? 'Comentarios' : `${cantidad} ${cantidad === 1 ? 'comentario' : 'comentarios'}`}
+      {en
+        ? (cantidad === null ? 'Comments' : `${cantidad} ${cantidad === 1 ? 'comment' : 'comments'}`)
+        : cantidad === null ? 'Comentarios' : `${cantidad} ${cantidad === 1 ? 'comentario' : 'comentarios'}`}
     </a>
   )
 }

@@ -8,7 +8,8 @@ import { createClient } from '@/lib/supabase'
 import { StarIcon } from '@/components/StarDisplay'
 import { fechaLarga, nombreTemporada, sinEstrenar, type TmdbSeason } from '@/lib/seasons'
 import VerifiedBadge from '@/components/VerifiedBadge'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import { avisoDeLinksEn, esRechazoPorLinks, mensajeSinLinks } from '@/lib/sin-links'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * Lo de Glynbox sobre una temporada: el promedio de la comunidad, tu nota y
@@ -51,6 +52,15 @@ export default function SeasonReviewPanel({
   const bloqueada = sinEstrenar(temporada)
   const nombre = nombreTemporada(temporada)
   const fecha = fechaLarga(temporada.air_date)
+  const idioma = useIdioma()
+  const en = idioma === 'en'
+  // La misma fecha de `fechaLarga`, en inglés ("November 3, 2026").
+  const fechaEn = fecha && temporada.air_date
+    ? (() => {
+        const [y, m, d] = temporada.air_date.split('-').map(Number)
+        return new Date(y, m - 1, d).toLocaleDateString('en-US', { month: 'long', day: 'numeric', year: 'numeric' })
+      })()
+    : null
 
   const [resenias, setResenias] = useState<SeasonReview[]>([])
   const [stats, setStats] = useState<{ avg: number; n: number } | null>(null)
@@ -122,7 +132,7 @@ export default function SeasonReviewPanel({
 
   async function guardar() {
     if (!userId || nota <= 0 || guardando) return
-    const aviso = avisoDeLinks('resena', texto)
+    const aviso = avisoDeLinksEn(idioma, 'resena', texto)
     if (aviso) { toast.error(aviso); return }
     setGuardando(true)
     const { error } = await supabase.from('season_reviews').upsert(
@@ -142,16 +152,16 @@ export default function SeasonReviewPanel({
     setGuardando(false)
     if (error) {
       console.error('[season_reviews]', error)
-      toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo guardar. Intentá de nuevo.')
+      toast.error(esRechazoPorLinks(error) ? mensajeSinLinks('resena', idioma) : en ? "Couldn't save. Please try again." : 'No se pudo guardar. Intentá de nuevo.')
       return
     }
     setTengoGuardada(true)
-    toast.success('Guardado')
+    toast.success(en ? 'Saved' : 'Guardado')
     void cargar()
   }
 
   async function borrar() {
-    if (!userId || !confirm('¿Borrar tu nota y reseña de esta temporada?')) return
+    if (!userId || !confirm(en ? 'Delete your rating and review for this season?' : '¿Borrar tu nota y reseña de esta temporada?')) return
     const { error } = await supabase
       .from('season_reviews')
       .delete()
@@ -159,14 +169,14 @@ export default function SeasonReviewPanel({
       .eq('series_id', seriesId)
       .eq('season_number', n)
     if (error) {
-      toast.error('No se pudo borrar.')
+      toast.error(en ? "Couldn't delete it." : 'No se pudo borrar.')
       return
     }
     setTengoGuardada(false)
     setNota(0)
     setTexto('')
     setSpoiler(false)
-    toast.success('Borrada')
+    toast.success(en ? 'Deleted' : 'Borrada')
     void cargar()
   }
 
@@ -179,8 +189,8 @@ export default function SeasonReviewPanel({
         <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4 flex items-center gap-4">
           <p className="text-3xl font-bold leading-none" style={{ color: '#FFFD02' }}>{stats.avg.toFixed(1)}</p>
           <div className="text-sm text-[#A0A0B0]">
-            <p>de 5 en Glynbox</p>
-            <p className="text-xs text-zinc-600">{stats.n} {stats.n === 1 ? 'calificación' : 'calificaciones'}</p>
+            <p>{en ? 'out of 5 on Glynbox' : 'de 5 en Glynbox'}</p>
+            <p className="text-xs text-zinc-600">{stats.n} {en ? (stats.n === 1 ? 'rating' : 'ratings') : stats.n === 1 ? 'calificación' : 'calificaciones'}</p>
           </div>
         </div>
       )}
@@ -189,23 +199,27 @@ export default function SeasonReviewPanel({
       <div className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
         {bloqueada ? (
           <p className="text-sm text-[#A0A0B0]">
-            {fecha ? `Se estrena el ${fecha}.` : 'Todavía no tiene fecha de estreno.'} Vas a poder calificarla cuando salga.
+            {en
+              ? <>{fechaEn ? `Premieres ${fechaEn}.` : 'No release date yet.'}{" You'll be able to rate it once it's out."}</>
+              : <>{fecha ? `Se estrena el ${fecha}.` : 'Todavía no tiene fecha de estreno.'} Vas a poder calificarla cuando salga.</>}
           </p>
         ) : !userId ? (
           <p className="text-sm text-[#A0A0B0]">
-            <Link href="/auth" className="text-[#FFFD02] hover:underline">Iniciá sesión</Link> para calificar esta temporada.
+            {en
+              ? <><Link href="/auth" className="text-[#FFFD02] hover:underline">Sign in</Link> to rate this season.</>
+              : <><Link href="/auth" className="text-[#FFFD02] hover:underline">Iniciá sesión</Link> para calificar esta temporada.</>}
           </p>
         ) : (
           <>
             <div className="flex items-center gap-1.5">
-              <span className="text-sm text-[#A0A0B0] mr-1">Tu nota:</span>
+              <span className="text-sm text-[#A0A0B0] mr-1">{en ? 'Your rating:' : 'Tu nota:'}</span>
               {[1, 2, 3, 4, 5].map(s => {
                 const fill: 'full' | 'half' | 'empty' = mostrada >= s ? 'full' : mostrada >= s - 0.5 ? 'half' : 'empty'
                 return (
                   <button
                     key={s}
                     type="button"
-                    aria-label={`Calificar ${s - 0.5} o ${s} estrellas`}
+                    aria-label={en ? `Rate ${s - 0.5} or ${s} stars` : `Calificar ${s - 0.5} o ${s} estrellas`}
                     onMouseMove={e => {
                       const rect = e.currentTarget.getBoundingClientRect()
                       setHover(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
@@ -229,13 +243,13 @@ export default function SeasonReviewPanel({
               onChange={e => setTexto(e.target.value)}
               maxLength={10000}
               rows={3}
-              placeholder="¿Qué te pareció? (opcional)"
+              placeholder={en ? 'What did you think? (optional)' : '¿Qué te pareció? (opcional)'}
               className="mt-3 w-full bg-[#0A0A0F] border border-[#2A2A3A] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 focus:outline-none focus:border-[#FFFD02]/60"
             />
             {texto.trim() && (
               <label className="mt-2 flex items-center gap-2 text-sm text-[#A0A0B0]">
                 <input type="checkbox" checked={spoiler} onChange={e => setSpoiler(e.target.checked)} />
-                Tiene spoilers
+                {en ? 'Contains spoilers' : 'Tiene spoilers'}
               </label>
             )}
 
@@ -246,14 +260,14 @@ export default function SeasonReviewPanel({
                 className="inline-flex items-center gap-2 px-4 py-2 rounded-lg bg-[#FFFD02] text-black text-sm font-semibold disabled:opacity-40"
               >
                 {guardando && <Loader2 size={14} className="animate-spin" />}
-                {yaTieneNota ? 'Guardar cambios' : 'Guardar'}
+                {en ? (yaTieneNota ? 'Save changes' : 'Save') : yaTieneNota ? 'Guardar cambios' : 'Guardar'}
               </button>
               {tengoGuardada && (
                 <button onClick={borrar} className="inline-flex items-center gap-1 text-sm text-zinc-500 hover:text-red-400">
-                  <Trash2 size={13} /> Borrar
+                  <Trash2 size={13} />{en ? ' Delete' : ' Borrar'}
                 </button>
               )}
-              {nota <= 0 && <span className="text-xs text-zinc-600">Elegí una nota para guardar.</span>}
+              {nota <= 0 && <span className="text-xs text-zinc-600">{en ? 'Pick a rating to save.' : 'Elegí una nota para guardar.'}</span>}
             </div>
           </>
         )}
@@ -262,16 +276,16 @@ export default function SeasonReviewPanel({
       {/* ── Reseñas de la temporada ── */}
       <div>
         <h3 className="text-lg font-bold flex items-center gap-2 mb-3">
-          <MessageSquare size={17} /> Reseñas de esta temporada
+          <MessageSquare size={17} />{en ? ' Reviews of this season' : ' Reseñas de esta temporada'}
         </h3>
         {cargando ? (
           <div className="flex justify-center py-6"><Loader2 size={20} className="animate-spin text-[#FFFD02]" /></div>
         ) : resenias.filter(r => r.body).length === 0 ? (
-          <p className="text-sm text-[#A0A0B0]">Todavía no hay reseñas de esta temporada.</p>
+          <p className="text-sm text-[#A0A0B0]">{en ? 'No reviews for this season yet.' : 'Todavía no hay reseñas de esta temporada.'}</p>
         ) : (
           <div className="space-y-3">
             {resenias.filter(r => r.body).map(r => {
-              const autor = r.profiles?.display_name ?? r.profiles?.username ?? 'Usuario'
+              const autor = r.profiles?.display_name ?? r.profiles?.username ?? (en ? 'User' : 'Usuario')
               const oculto = r.has_spoiler && !spoilersVisibles.has(r.id)
               return (
                 <div key={r.id} className="bg-[#13131A] border border-[#2A2A3A] rounded-xl p-4">
@@ -288,7 +302,7 @@ export default function SeasonReviewPanel({
                       ))}
                     </span>
                     <span className="text-xs text-zinc-600 ml-auto">
-                      {new Date(r.created_at).toLocaleDateString('es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
+                      {new Date(r.created_at).toLocaleDateString(en ? 'en-US' : 'es-AR', { day: 'numeric', month: 'short', year: 'numeric' })}
                     </span>
                   </div>
                   {oculto ? (
@@ -296,7 +310,7 @@ export default function SeasonReviewPanel({
                       onClick={() => setSpoilersVisibles(prev => new Set(prev).add(r.id))}
                       className="mt-2 text-sm text-[#A0A0B0] underline hover:text-white"
                     >
-                      Tiene spoilers — mostrar
+                      {en ? 'Contains spoilers — show' : 'Tiene spoilers — mostrar'}
                     </button>
                   ) : (
                     <p className="mt-2 text-sm text-zinc-300 whitespace-pre-line">{r.body}</p>

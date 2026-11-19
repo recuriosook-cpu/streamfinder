@@ -4,6 +4,7 @@ import { useRef, useState } from 'react'
 import Image from 'next/image'
 import Link from 'next/link'
 import { ChevronLeft, ChevronRight, ChevronDown, ChevronUp } from 'lucide-react'
+import { useIdioma } from '@/components/useIdioma'
 
 export interface CastMember {
   id: number
@@ -26,6 +27,7 @@ function PersonAvatar({ name }: { name: string }) {
 export default function CastCarousel({ cast }: { cast: CastMember[] }) {
   const scrollRef = useRef<HTMLDivElement>(null)
   const [expanded, setExpanded] = useState(false)
+  const en = useIdioma() === 'en'
 
   const scroll = (dir: 'left' | 'right') => {
     scrollRef.current?.scrollBy({ left: dir === 'left' ? -320 : 320, behavior: 'smooth' })
@@ -36,7 +38,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
   return (
     <div className="mt-8 sm:mt-10">
       <div className="flex items-center justify-between mb-4">
-        <h2 className="text-lg sm:text-xl font-bold">Reparto principal</h2>
+        <h2 className="text-lg sm:text-xl font-bold">{en ? 'Top cast' : 'Reparto principal'}</h2>
       </div>
 
       {/* Carousel */}
@@ -44,7 +46,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
         <button
           onClick={() => scroll('left')}
           className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/carousel:opacity-100"
-          aria-label="Anterior"
+          aria-label={en ? 'Previous' : 'Anterior'}
         >
           <ChevronLeft size={16} />
         </button>
@@ -80,7 +82,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
                 {person.character}
               </p>
               <p className="text-[8px] text-[#A0A0B0] group-hover/actor:text-zinc-300 transition-colors mt-1 leading-tight">
-                Ver filmografía →
+                {en ? 'See filmography →' : 'Ver filmografía →'}
               </p>
             </Link>
           ))}
@@ -89,7 +91,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
         <button
           onClick={() => scroll('right')}
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/carousel:opacity-100"
-          aria-label="Siguiente"
+          aria-label={en ? 'Next' : 'Siguiente'}
         >
           <ChevronRight size={16} />
         </button>
@@ -102,7 +104,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
           className="mt-3 flex items-center gap-1.5 text-xs text-[#A0A0B0] hover:text-white transition-colors"
         >
           {expanded ? <ChevronUp size={14} /> : <ChevronDown size={14} />}
-          {expanded ? 'Ocultar reparto' : 'Ver reparto completo'}
+          {en ? (expanded ? 'Hide cast' : 'See full cast') : (expanded ? 'Ocultar reparto' : 'Ver reparto completo')}
         </button>
       )}
 
@@ -135,7 +137,7 @@ export default function CastCarousel({ cast }: { cast: CastMember[] }) {
                 {person.character}
               </p>
               <p className="text-[8px] text-[#A0A0B0] group-hover/actor:text-zinc-300 transition-colors mt-0.5 leading-tight">
-                Ver filmografía →
+                {en ? 'See filmography →' : 'Ver filmografía →'}
               </p>
             </Link>
           ))}

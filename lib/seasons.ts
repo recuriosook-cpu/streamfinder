@@ -30,12 +30,14 @@ export function temporadasParaPestanias(seasons: TmdbSeason[] | null | undefined
 }
 
 /** "T3", o "Especiales" para la temporada 0. */
-export function etiquetaTemporada(s: Pick<TmdbSeason, 'season_number'>): string {
+export function etiquetaTemporada(s: Pick<TmdbSeason, 'season_number'>, idioma: 'es' | 'en' = 'es'): string {
+  if (idioma === 'en') return s.season_number === 0 ? 'Specials' : `S${s.season_number}`
   return s.season_number === 0 ? 'Especiales' : `T${s.season_number}`
 }
 
 /** "Temporada 3" / "Especiales" / el nombre de TMDB si es otro ("Miniserie"). */
-export function nombreTemporada(s: Pick<TmdbSeason, 'season_number' | 'name'>): string {
+export function nombreTemporada(s: Pick<TmdbSeason, 'season_number' | 'name'>, idioma: 'es' | 'en' = 'es'): string {
+  if (idioma === 'en') return s.season_number === 0 ? 'Specials' : s.name?.trim() || `Season ${s.season_number}`
   if (s.season_number === 0) return 'Especiales'
   return s.name?.trim() || `Temporada ${s.season_number}`
 }
@@ -60,9 +62,13 @@ const MESES_CORTOS = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 's
  * '2009-03-08' → '8 mar 2009'. Meses a mano, como en las notificaciones: cada
  * motor de Intl abrevia distinto y la app tiene que mostrar lo mismo.
  */
-export function fechaCorta(iso: string | null): string | null {
+const MONTHS = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+
+export function fechaCorta(iso: string | null, idioma: 'es' | 'en' = 'es'): string | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
   const [y, m, d] = iso.split('-').map(Number)
+  // En inglés: 'Sep 27, 2026'.
+  if (idioma === 'en') return `${MONTHS[m - 1].slice(0, 3)} ${d}, ${y}`
   return `${d} ${MESES_CORTOS[m - 1]} ${y}`
 }
 
@@ -75,8 +81,10 @@ export function duracion(minutos: number | null | undefined): string | null {
 }
 
 /** '2026-09-27' → '27 de septiembre de 2026'. */
-export function fechaLarga(iso: string | null): string | null {
+export function fechaLarga(iso: string | null, idioma: 'es' | 'en' = 'es'): string | null {
   if (!iso || !/^\d{4}-\d{2}-\d{2}$/.test(iso)) return null
   const [y, m, d] = iso.split('-').map(Number)
+  // En inglés: 'September 27, 2026'.
+  if (idioma === 'en') return `${MONTHS[m - 1]} ${d}, ${y}`
   return new Date(y, m - 1, d).toLocaleDateString('es-AR', { day: 'numeric', month: 'long', year: 'numeric' })
 }

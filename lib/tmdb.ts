@@ -106,12 +106,13 @@ export async function getTVExternalIds(id: number) {
   return tmdbFetch(`/tv/${id}/external_ids`)
 }
 
-export async function getMovieCredits(id: number) {
-  return tmdbFetch(`/movie/${id}/credits`)
+/** `language` sólo para la ficha en inglés (los personajes en inglés). */
+export async function getMovieCredits(id: number, language?: string) {
+  return tmdbFetch(`/movie/${id}/credits`, language ? { language } : {})
 }
 
-export async function getTVCredits(id: number) {
-  return tmdbFetch(`/tv/${id}/credits`)
+export async function getTVCredits(id: number, language?: string) {
+  return tmdbFetch(`/tv/${id}/credits`, language ? { language } : {})
 }
 
 export async function getMovieProviders(id: number) {

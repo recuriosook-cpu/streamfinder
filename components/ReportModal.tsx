@@ -3,6 +3,7 @@
 import { useState } from 'react'
 import { X, Flag } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
+import { useIdioma } from '@/components/useIdioma'
 
 const REPORT_REASONS = [
   'Spam o publicidad',
@@ -13,6 +14,17 @@ const REPORT_REASONS = [
   'Spoilers sin advertencia',
   'Otro',
 ]
+
+/** Lo que se ve en inglés. En la base se guarda siempre el motivo en castellano. */
+const REPORT_REASONS_EN: Record<string, string> = {
+  'Spam o publicidad': 'Spam or advertising',
+  'Acoso o lenguaje violento': 'Harassment or violent language',
+  'Contenido sexual o desnudez': 'Sexual content or nudity',
+  'Información falsa o engañosa': 'False or misleading information',
+  'Discurso de odio': 'Hate speech',
+  'Spoilers sin advertencia': 'Unmarked spoilers',
+  'Otro': 'Other',
+}
 
 const STORAGE_KEY = 'glynbox_reported_content'
 
@@ -51,6 +63,7 @@ export default function ReportModal({
   contentType, contentId, contentAuthorId, isOpen, onClose,
 }: ReportModalProps) {
   const supabase = createClient()
+  const en = useIdioma() === 'en'
   const [reason, setReason] = useState('')
   const [detail, setDetail] = useState('')
   const [submitting, setSubmitting] = useState(false)
@@ -74,7 +87,7 @@ export default function ReportModal({
       detail: detail.trim() || null,
     })
     if (insertError) {
-      setError('No se pudo enviar el reporte. Intentá de nuevo.')
+      setError(en ? "Couldn't send the report. Please try again." : 'No se pudo enviar el reporte. Intentá de nuevo.')
       setSubmitting(false)
       return
     }
@@ -95,7 +108,9 @@ export default function ReportModal({
           <div className="flex items-center gap-2">
             <Flag size={14} className="text-[#A0A0B0]" />
             <p className="text-sm font-semibold text-white">
-              Reportar {contentType === 'review' ? 'reseña' : 'comentario'}
+              {en
+                ? (contentType === 'review' ? 'Report review' : 'Report comment')
+                : <>Reportar {contentType === 'review' ? 'reseña' : 'comentario'}</>}
             </p>
           </div>
           <button onClick={onClose} className="text-[#A0A0B0] hover:text-white transition-colors">
@@ -106,18 +121,18 @@ export default function ReportModal({
         <div className="px-5 py-5 space-y-4">
           {done ? (
             <div className="text-center py-4">
-              <p className="text-green-400 font-semibold text-sm">Reporte enviado</p>
-              <p className="text-[#A0A0B0] text-xs mt-1">Gracias por ayudarnos a mantener la comunidad.</p>
+              <p className="text-green-400 font-semibold text-sm">{en ? 'Report sent' : 'Reporte enviado'}</p>
+              <p className="text-[#A0A0B0] text-xs mt-1">{en ? 'Thanks for helping us keep the community safe.' : 'Gracias por ayudarnos a mantener la comunidad.'}</p>
             </div>
           ) : alreadyReported ? (
             <div className="text-center py-4">
-              <p className="text-[#A0A0B0] text-sm">Ya reportaste este contenido anteriormente.</p>
-              <button onClick={onClose} className="mt-3 text-xs text-zinc-500 hover:text-white transition-colors">Cerrar</button>
+              <p className="text-[#A0A0B0] text-sm">{en ? "You've already reported this content." : 'Ya reportaste este contenido anteriormente.'}</p>
+              <button onClick={onClose} className="mt-3 text-xs text-zinc-500 hover:text-white transition-colors">{en ? 'Close' : 'Cerrar'}</button>
             </div>
           ) : (
             <>
               <div className="space-y-1.5">
-                <p className="text-xs text-[#A0A0B0]">¿Por qué estás reportando esto?</p>
+                <p className="text-xs text-[#A0A0B0]">{en ? 'Why are you reporting this?' : '¿Por qué estás reportando esto?'}</p>
                 {REPORT_REASONS.map(r => (
                   <button
                     key={r}
@@ -128,7 +143,7 @@ export default function ReportModal({
                         : 'border-[#2A2A3A] text-zinc-300 hover:bg-[#1C1C27] hover:text-white'
                     }`}
                   >
-                    {r}
+                    {en ? REPORT_REASONS_EN[r] ?? r : r}
                   </button>
                 ))}
               </div>
@@ -137,7 +152,7 @@ export default function ReportModal({
                 <textarea
                   value={detail}
                   onChange={e => setDetail(e.target.value)}
-                  placeholder="Contanos más (opcional)..."
+                  placeholder={en ? 'Tell us more (optional)...' : 'Contanos más (opcional)...'}
                   rows={3}
                   maxLength={500}
                   className="w-full bg-[#1C1C27] border border-[#2A2A3A] text-white text-sm rounded-lg px-3 py-2 outline-none placeholder-zinc-600 focus:ring-1 focus:ring-[#FFFD02] resize-none"
@@ -153,14 +168,14 @@ export default function ReportModal({
                   onClick={onClose}
                   className="flex-1 py-2.5 rounded-lg border border-[#2A2A3A] text-sm text-zinc-300 hover:text-white transition-colors"
                 >
-                  Cancelar
+                  {en ? 'Cancel' : 'Cancelar'}
                 </button>
                 <button
                   onClick={handleSubmit}
                   disabled={!reason || submitting}
                   className="flex-1 py-2.5 rounded-lg bg-[#FFFD02] hover:bg-[#E5EB00] text-black text-sm font-semibold transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
                 >
-                  {submitting ? 'Enviando...' : 'Enviar reporte'}
+                  {en ? (submitting ? 'Sending...' : 'Send report') : submitting ? 'Enviando...' : 'Enviar reporte'}
                 </button>
               </div>
             </>

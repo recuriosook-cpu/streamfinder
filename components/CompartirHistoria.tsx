@@ -4,6 +4,7 @@ import { useState } from 'react'
 import { Loader2, Share2 } from 'lucide-react'
 import { toast } from 'sonner'
 import { track } from '@/lib/analytics'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * El botón de las historias de compartir (calificación, lista y top 5): pide
@@ -37,6 +38,7 @@ interface Props {
 
 export default function CompartirHistoria({ que, desde, imagen, mensaje, etiqueta, copiar, className }: Props) {
   const [armando, setArmando] = useState(false)
+  const en = useIdioma() === 'en'
 
   async function compartir() {
     if (armando) return
@@ -46,7 +48,7 @@ export default function CompartirHistoria({ que, desde, imagen, mensaje, etiquet
     if (copiar) {
       try {
         await navigator.clipboard.writeText(copiar)
-        toast.success('Link copiado: pegalo en la historia con el sticker de enlace')
+        toast.success(en ? 'Link copied: paste it into your story with the link sticker' : 'Link copiado: pegalo en la historia con el sticker de enlace')
       } catch { /* sin permiso: se comparte igual */ }
     }
     try {
@@ -73,10 +75,10 @@ export default function CompartirHistoria({ que, desde, imagen, mensaje, etiquet
       a.click()
       setTimeout(() => URL.revokeObjectURL(url), 10_000)
       track('compartir_hecho', { que, desde, metodo: 'descarga' })
-      toast.success('Imagen descargada: subila a tu historia')
+      toast.success(en ? 'Image downloaded: post it to your story' : 'Imagen descargada: subila a tu historia')
     } catch (err) {
       console.error('[CompartirHistoria]', err)
-      toast.error('No se pudo armar la imagen. Probá de nuevo.')
+      toast.error(en ? "Couldn't create the image. Please try again." : 'No se pudo armar la imagen. Probá de nuevo.')
     } finally {
       setArmando(false)
     }

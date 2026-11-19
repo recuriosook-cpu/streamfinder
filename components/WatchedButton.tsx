@@ -6,6 +6,7 @@ import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
 import { toast } from 'sonner'
 import { VISTA_POR_CALIFICAR } from '@/components/RatingStars'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Props {
   mediaId: number
@@ -32,6 +33,7 @@ export default function WatchedButton({
   const [saveError,     setSaveError]     = useState<string | null>(null)
   const popupRef = useRef<HTMLDivElement>(null)
   const router   = useRouter()
+  const en       = useIdioma() === 'en'
 
   const todayStr = new Date().toISOString().split('T')[0]
 
@@ -103,15 +105,15 @@ export default function WatchedButton({
 
     if (error) {
       console.error('[WatchedButton] upsert error:', error)
-      setSaveError('No se pudo guardar. Intentá de nuevo.')
-      toast.error('No se pudo guardar. Intentá de nuevo.')
+      setSaveError(en ? "Couldn't save. Please try again." : 'No se pudo guardar. Intentá de nuevo.')
+      toast.error(en ? "Couldn't save. Please try again." : 'No se pudo guardar. Intentá de nuevo.')
       setLoading(false)
       return
     }
 
     // Los puntos los da la base (trigger puntos_por_vista), una vez por título.
     setIsWatched(true)
-    toast.success('¡Marcado como visto!')
+    toast.success(en ? 'Marked as watched!' : '¡Marcado como visto!')
     closePopup()
     setLoading(false)
   }
@@ -128,7 +130,7 @@ export default function WatchedButton({
         .then(({ error }) => {
           if (error) {
             console.error('[WatchedButton] delete error:', error)
-            toast.error('No se pudo actualizar. Intentá de nuevo.')
+            toast.error(en ? "Couldn't update. Please try again." : 'No se pudo actualizar. Intentá de nuevo.')
           } else {
             setIsWatched(false)
           }
@@ -161,13 +163,13 @@ export default function WatchedButton({
         }`}
       >
         <CheckCircle size={18} fill={isWatched ? 'currentColor' : 'none'} />
-        {isWatched ? 'Ya la vi ✓' : 'Ya la vi'}
+        {en ? (isWatched ? 'Watched ✓' : 'Watched') : (isWatched ? 'Ya la vi ✓' : 'Ya la vi')}
       </button>
 
       {showPopup && (
         <div className="absolute left-0 top-full mt-2 z-50 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl p-4 w-64">
           <div className="flex items-center justify-between mb-3">
-            <p className="text-sm font-semibold text-white">¿Cuándo lo viste?</p>
+            <p className="text-sm font-semibold text-white">{en ? 'When did you watch it?' : '¿Cuándo lo viste?'}</p>
             <button onClick={closePopup} className="text-[#A0A0B0] hover:text-white transition-colors">
               <X size={14} />
             </button>
@@ -189,9 +191,9 @@ export default function WatchedButton({
                 {loading ? (
                   <span className="flex items-center justify-center gap-2">
                     <span className="w-3.5 h-3.5 border-2 border-white/30 border-t-white rounded-full animate-spin inline-block" />
-                    Guardando...
+                    {en ? 'Saving...' : 'Guardando...'}
                   </span>
-                ) : 'Hoy'}
+                ) : (en ? 'Today' : 'Hoy')}
               </button>
               <button
                 onClick={() => setShowDatePicker(true)}
@@ -199,7 +201,7 @@ export default function WatchedButton({
                 className="w-full flex items-center justify-center gap-2 bg-zinc-700 hover:bg-zinc-600 disabled:opacity-40 disabled:cursor-not-allowed text-white text-sm font-medium py-2 rounded-lg transition-colors"
               >
                 <Calendar size={14} />
-                Otra fecha
+                {en ? 'Another date' : 'Otra fecha'}
               </button>
             </div>
           ) : (
@@ -216,14 +218,14 @@ export default function WatchedButton({
                   onClick={() => setShowDatePicker(false)}
                   className="flex-1 bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm py-2 rounded-lg transition-colors"
                 >
-                  Atrás
+                  {en ? 'Back' : 'Atrás'}
                 </button>
                 <button
                   onClick={handleConfirmDate}
                   disabled={!customDate || loading}
                   className="flex-1 bg-[#E5EB00] hover:bg-[#FFFD02] disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium py-2 rounded-lg transition-colors"
                 >
-                  Confirmar
+                  {en ? 'Confirm' : 'Confirmar'}
                 </button>
               </div>
             </div>

@@ -18,6 +18,8 @@
  *     errata y no un link.
  */
 
+import type { Idioma } from './idioma'
+
 const TLD_SITIO =
   'com|net|org|ru|io|xyz|info|biz|site|online|top|club|live|stream|tv|to|cc|ly|gg|su|ws|link|app|watch|movie|movies|film|cam|vip|icu|lol|fun|pw|sx|nu|li|vc|ink|space|store|website|click|download|cyou|lat|bio|page|dev|ai'
 const TLD_PAIS =
@@ -38,6 +40,19 @@ export const MENSAJE_SIN_LINKS = {
 
 export type DondeSinLinks = keyof typeof MENSAJE_SIN_LINKS
 
+/** Los mismos avisos, para las fichas en inglés (`/en/...`). */
+export const MENSAJE_SIN_LINKS_EN: Record<DondeSinLinks, string> = {
+  resena: 'Links are not allowed in reviews',
+  comentario: 'Links are not allowed in comments',
+  lista: 'Links are not allowed in lists',
+  bio: 'Links are not allowed in your bio',
+}
+
+/** El aviso de links en el idioma de la página. */
+export function mensajeSinLinks(donde: DondeSinLinks, idioma: Idioma = 'es'): string {
+  return idioma === 'en' ? MENSAJE_SIN_LINKS_EN[donde] : MENSAJE_SIN_LINKS[donde]
+}
+
 export function tieneLink(texto: string | null | undefined): boolean {
   return typeof texto === 'string' && LINK.test(texto)
 }
@@ -45,6 +60,11 @@ export function tieneLink(texto: string | null | undefined): boolean {
 /** El aviso para mostrar si alguno de los textos tiene un link, o `null`. */
 export function avisoDeLinks(donde: DondeSinLinks, ...textos: (string | null | undefined)[]): string | null {
   return textos.some(tieneLink) ? MENSAJE_SIN_LINKS[donde] : null
+}
+
+/** `avisoDeLinks` en el idioma de la página. */
+export function avisoDeLinksEn(idioma: Idioma, donde: DondeSinLinks, ...textos: (string | null | undefined)[]): string | null {
+  return textos.some(tieneLink) ? mensajeSinLinks(donde, idioma) : null
 }
 
 /** ¿Lo rechazó el trigger de la base? (código 23514 con la pista `sin_links`) */

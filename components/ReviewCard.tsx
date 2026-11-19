@@ -17,7 +17,9 @@ import { useBlockedUsers } from '@/lib/use-blocked-users'
 import { sendNotification } from '@/lib/notify'
 import VerifiedBadge from '@/components/VerifiedBadge'
 import { toast } from 'sonner'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import { avisoDeLinksEn, esRechazoPorLinks, mensajeSinLinks } from '@/lib/sin-links'
+import { useIdioma } from '@/components/useIdioma'
+import { rutaFicha } from '@/lib/idioma'
 
 // Render text with @mentions as yellow links
 function BodyWithMentions({ text }: { text: string }) {
@@ -91,6 +93,8 @@ function ReviewCard({
   onLike, onEdit, onDelete,
 }: ReviewCardProps) {
   const supabase      = useRef(createClient()).current
+  const idioma        = useIdioma()
+  const en            = idioma === 'en'
   const inputRef      = useRef<HTMLTextAreaElement>(null)
   const menuRef       = useRef<HTMLDivElement>(null)
   const displayName   = authorDisplayName ?? authorUsername
@@ -98,7 +102,7 @@ function ReviewCard({
   // Con zona horaria fija: las reseñas de la ficha vienen armadas del servidor
   // (UTC en Vercel), y una de las 22 h de Argentina salía con otro día en el
   // HTML que en el navegador.
-  const formattedDate = new Date(date).toLocaleDateString('es-AR', {
+  const formattedDate = new Date(date).toLocaleDateString(en ? 'en-US' : 'es-AR', {
     day: 'numeric', month: 'short', year: 'numeric', timeZone: 'America/Argentina/Buenos_Aires',
   })
 
@@ -170,7 +174,7 @@ function ReviewCard({
 
   async function submitComment() {
     if (!currentUserId || !newComment.trim() || submitting) return
-    const aviso = avisoDeLinks('comentario', newComment)
+    const aviso = avisoDeLinksEn(idioma, 'comentario', newComment)
     if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
 
@@ -184,7 +188,7 @@ function ReviewCard({
       })
       .select('id, user_id, parent_id, content, created_at')
       .single()
-    if (esRechazoPorLinks(error)) toast.error(MENSAJE_SIN_LINKS.comentario)
+    if (esRechazoPorLinks(error)) toast.error(mensajeSinLinks('comentario', idioma))
 
     if (!error && data) {
       const { data: myProfile } = await supabase
@@ -239,13 +243,13 @@ function ReviewCard({
   }
 
   async function deleteComment(commentId: string) {
-    if (!window.confirm('¿Eliminar este comentario?')) return
+    if (!window.confirm(en ? 'Delete this comment?' : '¿Eliminar este comentario?')) return
     await supabase.from('review_comments').delete().eq('id', commentId)
     setComments(prev => prev.filter(c => c.id !== commentId && c.parent_id !== commentId))
   }
 
   function startReply(comment: CommentData) {
-    setReplyTo({ id: comment.id, username: comment.author?.username ?? 'usuario', authorId: comment.user_id })
+    setReplyTo({ id: comment.id, username: comment.author?.username ?? (en ? 'user' : 'usuario'), authorId: comment.user_id })
     setNewComment('')
     setTimeout(() => inputRef.current?.focus(), 50)
   }
@@ -305,7 +309,7 @@ function ReviewCard({
               <VerifiedBadge userId={authorId} size={14} />
             </div>
             <Link prefetch={false}
-              href={`/${mediaType}/${mediaId}`}
+              href={rutaFicha(idioma, mediaType, mediaId)}
               className="block text-sm font-semibold text-zinc-300 hover:text-[#FFFD02] transition-colors mt-0.5 line-clamp-1"
             >
               {mediaTitle}
@@ -316,7 +320,7 @@ function ReviewCard({
               <span className={`inline-flex items-center gap-0.5 text-[10px] px-1.5 py-0.5 rounded-full font-medium ${
                 recommended ? 'bg-[#FFFD02]/10 text-[#FFFD02]' : 'bg-red-900/50 text-red-400'
               }`}>
-                {recommended ? '👍 Recomendada' : '👎 No recomendada'}
+                {en ? (recommended ? '👍 Recommended' : '👎 Not recommended') : recommended ? '👍 Recomendada' : '👎 No recomendada'}
               </span>
             </div>
 
@@ -326,7 +330,7 @@ function ReviewCard({
           {/* Right column: poster + "..." menu */}
           <div className="flex flex-col items-end gap-2 shrink-0">
             {showPoster && mediaPosterPath && (
-              <Link prefetch={false} href={`/${mediaType}/${mediaId}`}>
+              <Link prefetch={false} href={rutaFicha(idioma, mediaType, mediaId)}>
                 <div className="relative w-10 aspect-[2/3] rounded-md overflow-hidden bg-[#1C1C27] ring-1 ring-zinc-700 hover:ring-[#FFFD02] transition-all">
                   <Image
                     src={getPosterUrl(mediaPosterPath, 'w92')}
@@ -345,7 +349,7 @@ function ReviewCard({
                 <button
                   onClick={() => setMenuOpen(v => !v)}
                   className="text-zinc-600 hover:text-[#A0A0B0] transition-colors p-1 rounded"
-                  title="Opciones"
+                  title={en ? 'Options' : 'Opciones'}
                 >
                   <MoreVertical size={15} />
                 </button>
@@ -359,7 +363,7 @@ function ReviewCard({
                             onClick={() => { setMenuOpen(false); onEdit() }}
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-left"
                           >
-                            <Pencil size={13} /> Editar reseña
+                            <Pencil size={13} />{en ? ' Edit review' : ' Editar reseña'}
                           </button>
                         )}
                         {onDelete && (
@@ -367,7 +371,7 @@ function ReviewCard({
                             onClick={() => { setMenuOpen(false); onDelete() }}
                             className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-red-400 hover:bg-red-950/30 hover:text-red-300 transition-colors text-left"
                           >
-                            <Trash2 size={13} /> Eliminar
+                            <Trash2 size={13} />{en ? ' Delete' : ' Eliminar'}
                           </button>
                         )}
                       </>
@@ -377,13 +381,13 @@ function ReviewCard({
                           onClick={() => { setMenuOpen(false); setReportOpen(true) }}
                           className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-left"
                         >
-                          <Flag size={13} /> Reportar reseña
+                          <Flag size={13} />{en ? ' Report review' : ' Reportar reseña'}
                         </button>
                         <button
                           onClick={() => { setMenuOpen(false); setBlockConfirm(true) }}
                           className="w-full flex items-center gap-2.5 px-3 py-2.5 text-sm text-zinc-300 hover:bg-zinc-700 hover:text-white transition-colors text-left"
                         >
-                          <Ban size={13} /> Bloquear usuario
+                          <Ban size={13} />{en ? ' Block user' : ' Bloquear usuario'}
                         </button>
                       </>
                     )}
@@ -409,12 +413,12 @@ function ReviewCard({
                 {body}
               </p>
               <div className="absolute inset-0 flex flex-col items-center justify-center gap-2 bg-[#13131A]/70 backdrop-blur-[2px] rounded-lg">
-                <p className="text-xs text-[#A0A0B0] font-medium">Esta reseña contiene spoilers</p>
+                <p className="text-xs text-[#A0A0B0] font-medium">{en ? 'This review contains spoilers' : 'Esta reseña contiene spoilers'}</p>
                 <button
                   onClick={() => setSpoilerRevealed(true)}
                   className="text-xs font-semibold px-3 py-1.5 rounded-full border border-zinc-600 text-zinc-300 hover:border-zinc-400 hover:text-white transition-colors"
                 >
-                  Ver igual
+                  {en ? 'Show anyway' : 'Ver igual'}
                 </button>
               </div>
             </div>
@@ -436,7 +440,7 @@ function ReviewCard({
             }`}
           >
             <Heart size={13} fill={likedByCurrentUser ? 'currentColor' : 'none'} />
-            <span>{likeCount > 0 ? `${likeCount} me gusta` : 'Me gusta'}</span>
+            <span>{en ? (likeCount > 0 ? `${likeCount} like${likeCount !== 1 ? 's' : ''}` : 'Like') : likeCount > 0 ? `${likeCount} me gusta` : 'Me gusta'}</span>
           </button>
 
           <button
@@ -447,7 +451,11 @@ function ReviewCard({
           >
             <MessageSquare size={13} />
             <span>
-              {commentsFetched && commentCount > 0
+              {en
+                ? (commentsFetched && commentCount > 0
+                  ? `${commentCount} comment${commentCount !== 1 ? 's' : ''}`
+                  : 'Comment')
+                : commentsFetched && commentCount > 0
                 ? `${commentCount} comentario${commentCount !== 1 ? 's' : ''}`
                 : 'Comentar'}
             </span>
@@ -458,13 +466,17 @@ function ReviewCard({
             const BASE = 'https://www.glynbox.com'
             const reviewUrl = `${BASE}/review/${id}`
             const ratingStr = rating ? `⭐${rating}/5` : ''
-            const shareText = `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en Glynbox`
+            const shareText = en
+              ? `${authorUsername} gave "${mediaTitle}" ${ratingStr} on Glynbox`
+              : `${authorUsername} le dio ${ratingStr} a "${mediaTitle}" en Glynbox`
             const excerpt = body ? body.slice(0, 100).trim() : ''
             const waText = encodeURIComponent(
               `${shareText}\n"${excerpt}${excerpt.length < (body?.length ?? 0) ? '...' : ''}"\n👉 ${reviewUrl}`
             )
             const stars = rating ? '★'.repeat(Math.floor(rating)) + (rating % 1 >= 0.5 ? '½' : '') : ''
-            const tweetText = encodeURIComponent(`Mi reseña de ${stars} de "${mediaTitle}" en @Glynboxapp`)
+            const tweetText = encodeURIComponent(en
+              ? `My ${stars} review of "${mediaTitle}" on @Glynboxapp`
+              : `Mi reseña de ${stars} de "${mediaTitle}" en @Glynboxapp`)
             return (
               <ShareDropdown
                 whatsappUrl={`https://wa.me/?text=${waText}`}
@@ -479,7 +491,7 @@ function ReviewCard({
                       <circle cx="18" cy="5" r="3"/><circle cx="6" cy="12" r="3"/><circle cx="18" cy="19" r="3"/>
                       <line x1="8.59" y1="13.51" x2="15.42" y2="17.49"/><line x1="15.41" y1="6.51" x2="8.59" y2="10.49"/>
                     </svg>
-                    Compartir
+                    {en ? 'Share' : 'Compartir'}
                   </span>
                 }
                 // La imagen sólo para la reseña propia.
@@ -502,7 +514,7 @@ function ReviewCard({
             <div className="px-4 pt-3 pb-2">
               {replyTo && (
                 <div className="flex items-center gap-1.5 mb-1.5 text-xs text-[#A0A0B0]">
-                  <span>Respondiendo a <span className="text-zinc-300 font-medium">@{replyTo.username}</span></span>
+                  <span>{en ? 'Replying to ' : 'Respondiendo a '}<span className="text-zinc-300 font-medium">@{replyTo.username}</span></span>
                   <button onClick={() => setReplyTo(null)} className="text-zinc-600 hover:text-white transition-colors ml-1">
                     <X size={11} />
                   </button>
@@ -516,7 +528,7 @@ function ReviewCard({
                   onKeyDown={e => {
                     if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); submitComment() }
                   }}
-                  placeholder={replyTo ? `Responder a @${replyTo.username}...` : 'Escribí un comentario...'}
+                  placeholder={en ? (replyTo ? `Reply to @${replyTo.username}...` : 'Write a comment...') : replyTo ? `Responder a @${replyTo.username}...` : 'Escribí un comentario...'}
                   rows={1}
                   className="flex-1 bg-[#1C1C27] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-lg px-3 py-2 text-sm text-white placeholder-zinc-600 outline-none resize-none"
                 />
@@ -524,7 +536,7 @@ function ReviewCard({
                   onClick={submitComment}
                   disabled={!newComment.trim() || submitting}
                   className="shrink-0 bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black px-3 py-2 rounded-lg transition-colors"
-                  title="Publicar"
+                  title={en ? 'Post' : 'Publicar'}
                 >
                   <Send size={13} />
                 </button>
@@ -539,14 +551,14 @@ function ReviewCard({
               </div>
             ) : topLevel.length === 0 && commentsFetched ? (
               !currentUserId ? (
-                <p className="text-xs text-zinc-600 text-center py-2">Sin comentarios todavía.</p>
+                <p className="text-xs text-zinc-600 text-center py-2">{en ? 'No comments yet.' : 'Sin comentarios todavía.'}</p>
               ) : null
             ) : (
               <div className="space-y-3 mt-1">
                 {topLevel.map(comment => {
                   const replies = repliesMap[comment.id] ?? []
-                  const cName   = comment.author?.display_name ?? comment.author?.username ?? 'Usuario'
-                  const cDate   = new Date(comment.created_at).toLocaleDateString('es-AR', {
+                  const cName   = comment.author?.display_name ?? comment.author?.username ?? (en ? 'User' : 'Usuario')
+                  const cDate   = new Date(comment.created_at).toLocaleDateString(en ? 'en-US' : 'es-AR', {
                     day: 'numeric', month: 'short',
                   })
                   const isOwnComment = comment.user_id === currentUserId
@@ -581,7 +593,7 @@ function ReviewCard({
                               <button
                                 onClick={() => deleteComment(comment.id)}
                                 className="ml-auto opacity-0 group-hover/comment:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
-                                title="Eliminar comentario"
+                                title={en ? 'Delete comment' : 'Eliminar comentario'}
                               >
                                 <Trash2 size={11} />
                               </button>
@@ -590,14 +602,14 @@ function ReviewCard({
                                 <button
                                   onClick={() => setCommentReport({ id: comment.id, authorId: comment.user_id })}
                                   className="text-[#A0A0B0] hover:text-[#FFFD02] transition-colors"
-                                  title="Reportar comentario"
+                                  title={en ? 'Report comment' : 'Reportar comentario'}
                                 >
                                   <Flag size={11} />
                                 </button>
                                 <button
                                   onClick={() => setCommentBlockUser({ id: comment.user_id, username: comment.author?.username ?? '' })}
                                   className="text-[#A0A0B0] hover:text-red-400 transition-colors"
-                                  title="Bloquear usuario"
+                                  title={en ? 'Block user' : 'Bloquear usuario'}
                                 >
                                   <Ban size={11} />
                                 </button>
@@ -619,7 +631,7 @@ function ReviewCard({
                                 onClick={() => startReply(comment)}
                                 className="text-[10px] text-zinc-600 hover:text-[#A0A0B0] transition-colors"
                               >
-                                Responder
+                                {en ? 'Reply' : 'Responder'}
                               </button>
                             )}
                           </div>
@@ -630,8 +642,8 @@ function ReviewCard({
                       {replies.length > 0 && (
                         <div className="ml-8 mt-2 space-y-2 border-l border-[#2A2A3A] pl-3">
                           {replies.map(reply => {
-                            const rName = reply.author?.display_name ?? reply.author?.username ?? 'Usuario'
-                            const rDate = new Date(reply.created_at).toLocaleDateString('es-AR', {
+                            const rName = reply.author?.display_name ?? reply.author?.username ?? (en ? 'User' : 'Usuario')
+                            const rDate = new Date(reply.created_at).toLocaleDateString(en ? 'en-US' : 'es-AR', {
                               day: 'numeric', month: 'short',
                             })
                             const isOwnReply = reply.user_id === currentUserId
@@ -663,7 +675,7 @@ function ReviewCard({
                                       <button
                                         onClick={() => deleteComment(reply.id)}
                                         className="ml-auto opacity-0 group-hover/reply:opacity-100 text-[#A0A0B0] hover:text-red-400 transition-all"
-                                        title="Eliminar respuesta"
+                                        title={en ? 'Delete reply' : 'Eliminar respuesta'}
                                       >
                                         <Trash2 size={10} />
                                       </button>
@@ -672,14 +684,14 @@ function ReviewCard({
                                         <button
                                           onClick={() => setCommentReport({ id: reply.id, authorId: reply.user_id })}
                                           className="text-[#A0A0B0] hover:text-[#FFFD02] transition-colors"
-                                          title="Reportar comentario"
+                                          title={en ? 'Report comment' : 'Reportar comentario'}
                                         >
                                           <Flag size={10} />
                                         </button>
                                         <button
                                           onClick={() => setCommentBlockUser({ id: reply.user_id, username: reply.author?.username ?? '' })}
                                           className="text-[#A0A0B0] hover:text-red-400 transition-colors"
-                                          title="Bloquear usuario"
+                                          title={en ? 'Block user' : 'Bloquear usuario'}
                                         >
                                           <Ban size={10} />
                                         </button>
@@ -740,9 +752,9 @@ function ReviewCard({
           onClick={e => { if (e.target === e.currentTarget && !blockBusy) setBlockConfirm(false) }}
         >
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-4">
-            <p className="text-sm font-semibold text-white">¿Bloquear a @{authorUsername}?</p>
+            <p className="text-sm font-semibold text-white">{en ? <>Block @{authorUsername}?</> : <>¿Bloquear a @{authorUsername}?</>}</p>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              No verás más su contenido y no podrá interactuar con vos.
+              {en ? "You won't see their content anymore and they won't be able to interact with you." : 'No verás más su contenido y no podrá interactuar con vos.'}
             </p>
             <div className="flex gap-3">
               <button
@@ -750,7 +762,7 @@ function ReviewCard({
                 disabled={blockBusy}
                 className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Cancelar
+                {en ? 'Cancel' : 'Cancelar'}
               </button>
               <button
                 onClick={handleBlockAuthor}
@@ -759,7 +771,7 @@ function ReviewCard({
               >
                 {blockBusy
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <><Ban size={13} /> Bloquear</>
+                  : <><Ban size={13} />{en ? ' Block' : ' Bloquear'}</>
                 }
               </button>
             </div>
@@ -775,10 +787,10 @@ function ReviewCard({
         >
           <div className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl w-full max-w-xs shadow-2xl p-5 space-y-4">
             <p className="text-sm font-semibold text-white">
-              ¿Bloquear a @{commentBlockUser.username}?
+              {en ? <>Block @{commentBlockUser.username}?</> : <>¿Bloquear a @{commentBlockUser.username}?</>}
             </p>
             <p className="text-xs text-zinc-400 leading-relaxed">
-              No verás más su contenido y no podrá interactuar con vos.
+              {en ? "You won't see their content anymore and they won't be able to interact with you." : 'No verás más su contenido y no podrá interactuar con vos.'}
             </p>
             <div className="flex gap-3">
               <button
@@ -786,7 +798,7 @@ function ReviewCard({
                 disabled={commentBlockBusy}
                 className="flex-1 py-2 rounded-lg border border-[#2A2A3A] text-sm text-zinc-400 hover:text-white transition-colors disabled:opacity-40 disabled:cursor-not-allowed"
               >
-                Cancelar
+                {en ? 'Cancel' : 'Cancelar'}
               </button>
               <button
                 onClick={handleBlockCommentUser}
@@ -795,7 +807,7 @@ function ReviewCard({
               >
                 {commentBlockBusy
                   ? <div className="w-4 h-4 border-2 border-white border-t-transparent rounded-full animate-spin" />
-                  : <><Ban size={13} /> Bloquear</>
+                  : <><Ban size={13} />{en ? ' Block' : ' Bloquear'}</>
                 }
               </button>
             </div>

@@ -3,6 +3,7 @@
 import { useCallback, useEffect, useRef, useState, type ReactNode, type TouchEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { X } from 'lucide-react'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * El póster de la ficha, que al tocarlo se abre a pantalla completa (TMDB w780)
@@ -34,6 +35,7 @@ export default function PosterAmpliado({
   const boton = useRef<HTMLButtonElement>(null)
   const [miniatura, setMiniatura] = useState<string | null>(null)
   const [abierto, setAbierto] = useState(false)
+  const en = useIdioma() === 'en'
 
   const abrir = () => {
     setMiniatura(contenedor.current?.querySelector('img')?.currentSrc || null)
@@ -52,7 +54,7 @@ export default function PosterAmpliado({
         ref={boton}
         type="button"
         onClick={abrir}
-        aria-label={`Ampliar el póster de ${titulo}`}
+        aria-label={en ? `View full-size poster of ${titulo}` : `Ampliar el póster de ${titulo}`}
         aria-haspopup="dialog"
         className="absolute inset-0 cursor-zoom-in rounded-xl focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFFD02]"
       />
@@ -104,6 +106,7 @@ function Visor({
   const [animando, setAnimando] = useState(false)
   const gesto = useRef<Gesto>(null)
   const cerrarBtn = useRef<HTMLButtonElement>(null)
+  const en = useIdioma() === 'en'
 
   // Escape cierra; la página de atrás no scrollea mientras está abierto.
   useEffect(() => {
@@ -161,7 +164,7 @@ function Visor({
     <div
       role="dialog"
       aria-modal="true"
-      aria-label={`Póster de ${titulo}`}
+      aria-label={en ? `${titulo} poster` : `Póster de ${titulo}`}
       // Tocar afuera del póster cierra.
       onClick={e => { if (e.target === e.currentTarget) onCerrar() }}
       onTouchStart={empezar}
@@ -176,7 +179,7 @@ function Visor({
         ref={cerrarBtn}
         type="button"
         onClick={onCerrar}
-        aria-label="Cerrar"
+        aria-label={en ? 'Close' : 'Cerrar'}
         className="absolute top-3 right-3 z-10 flex h-11 w-11 items-center justify-center rounded-full bg-black/60 text-white hover:bg-black/80 focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-[#FFFD02]"
       >
         <X size={24} />
@@ -202,7 +205,7 @@ function Visor({
         {/* eslint-disable-next-line @next/next/no-img-element */}
         <img
           src={src}
-          alt={`Póster de ${titulo}`}
+          alt={en ? `${titulo} poster` : `Póster de ${titulo}`}
           onLoad={() => setCargada(true)}
           draggable={false}
           className={`absolute inset-0 h-full w-full rounded-lg object-contain select-none transition-opacity duration-200 ${cargada ? 'opacity-100' : 'opacity-0'}`}

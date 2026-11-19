@@ -4,6 +4,7 @@ import { useState, useEffect } from 'react'
 import { Bookmark } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useIdioma } from '@/components/useIdioma'
 
 interface Props {
   mediaId: number
@@ -17,6 +18,7 @@ export default function WatchlistButton({ mediaId, mediaType, title, posterPath 
   const [loading, setLoading] = useState(true)
   const [userId, setUserId] = useState<string | null>(null)
   const router = useRouter()
+  const en = useIdioma() === 'en'
   const supabase = createClient()
 
   useEffect(() => {
@@ -69,7 +71,7 @@ export default function WatchlistButton({ mediaId, mediaType, title, posterPath 
       }`}
     >
       <Bookmark size={18} fill={inList ? 'currentColor' : 'none'} />
-      {inList ? 'En mi lista' : 'Ver después'}
+      {en ? (inList ? 'On watchlist' : 'Watchlist') : (inList ? 'En mi lista' : 'Ver después')}
     </button>
   )
 }

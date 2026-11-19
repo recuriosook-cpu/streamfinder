@@ -3,6 +3,8 @@
 import { useEffect, useState, type ReactNode } from 'react'
 import { useRouter } from 'next/navigation'
 import { createClient } from '@/lib/supabase'
+import { useIdioma } from '@/components/useIdioma'
+import { rutaTemporada } from '@/lib/idioma'
 
 /**
  * El bloque de reseñas de la ficha de una serie: las de la serie entera
@@ -24,13 +26,15 @@ export default function SeriesReviewsBlock({
   children: ReactNode
 }) {
   const router = useRouter()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
   const [supabase] = useState(createClient)
   const [promedio, setPromedio] = useState<{ avg: number; n: number } | null>(null)
 
   useEffect(() => {
     const raw = new URLSearchParams(window.location.search).get('temporada')
-    if (raw !== null && /^\d+$/.test(raw)) router.replace(`/tv/${seriesId}/temporada/${raw}`)
-  }, [router, seriesId])
+    if (raw !== null && /^\d+$/.test(raw)) router.replace(rutaTemporada(idioma, seriesId, raw))
+  }, [router, seriesId, idioma])
 
   useEffect(() => {
     if (!hasSeasons) return
@@ -52,9 +56,9 @@ export default function SeriesReviewsBlock({
     <>
       {promedio && (
         <p className="mt-10 -mb-6 text-sm text-[#A0A0B0]">
-          Promedio de tus temporadas:{' '}
+          {en ? 'Your season average:' : 'Promedio de tus temporadas:'}{' '}
           <span className="text-white font-semibold">{promedio.avg.toFixed(1)}</span>/5
-          <span className="text-zinc-600"> · {promedio.n} {promedio.n === 1 ? 'temporada' : 'temporadas'}</span>
+          <span className="text-zinc-600"> · {promedio.n} {en ? (promedio.n === 1 ? 'season' : 'seasons') : promedio.n === 1 ? 'temporada' : 'temporadas'}</span>
         </p>
       )}
       {children}

@@ -1,5 +1,7 @@
 'use client'
 import { useEffect, useState } from 'react'
+import { useIdioma } from '@/components/useIdioma'
+import type { Idioma } from '@/lib/idioma'
 
 interface ShareDropdownProps {
   whatsappUrl: string
@@ -28,11 +30,11 @@ const rowStyle: React.CSSProperties = {
   width: '100%', textAlign: 'left',
 }
 
-async function fetchImage(path: string, nombre: string): Promise<File> {
+async function fetchImage(path: string, nombre: string, idioma: Idioma = 'es'): Promise<File> {
   // `same-origin` manda la cookie: el autor puede bajar su reseña aunque tenga
   // "Ocultar actividad".
   const res = await fetch(path, { credentials: 'same-origin' })
-  if (!res.ok) throw new Error(`No se pudo generar la imagen (${res.status})`)
+  if (!res.ok) throw new Error(idioma === 'en' ? `Couldn't generate the image (${res.status})` : `No se pudo generar la imagen (${res.status})`)
   const blob = await res.blob()
   return new File([blob], `${nombre}.png`, { type: blob.type || 'image/png' })
 }
@@ -57,6 +59,8 @@ export default function ShareDropdown({
   trigger,
   image,
 }: ShareDropdownProps) {
+  const idioma = useIdioma()
+  const en = idioma === 'en'
   const [open,    setOpen]    = useState(false)
   const [copied,  setCopied]  = useState(false)
   const [working, setWorking] = useState<null | 'instagram' | 'historia' | 'publicacion'>(null)
@@ -84,7 +88,7 @@ export default function ShareDropdown({
     setWorking('instagram')
     setError(null)
     try {
-      const file = await fetchImage(image.historia, `${image.nombre}-historia`)
+      const file = await fetchImage(image.historia, `${image.nombre}-historia`, idioma)
       if (navigator.canShare?.({ files: [file] })) {
         await navigator.share({ files: [file] })
       } else {
@@ -105,7 +109,7 @@ export default function ShareDropdown({
     setWorking(formato)
     setError(null)
     try {
-      download(await fetchImage(path, `${image.nombre}-${formato}`))
+      download(await fetchImage(path, `${image.nombre}-${formato}`, idioma))
     } catch (err) {
       setError((err as Error).message)
     } finally {
@@ -127,7 +131,7 @@ export default function ShareDropdown({
         onClick={(e) => { e.preventDefault(); e.stopPropagation(); setOpen(true) }}
         className={triggerClassName}
       >
-        {trigger ?? 'Compartir'}
+        {trigger ?? (en ? 'Share' : 'Compartir')}
       </button>
 
       {open && (
@@ -156,10 +160,10 @@ export default function ShareDropdown({
           }}>
             {/* Header */}
             <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '16px' }}>
-              <span style={{ color: '#fff', fontWeight: 600, fontSize: '15px' }}>Compartir</span>
+              <span style={{ color: '#fff', fontWeight: 600, fontSize: '15px' }}>{en ? 'Share' : 'Compartir'}</span>
               <button
                 onClick={close}
-                aria-label="Cerrar"
+                aria-label={en ? 'Close' : 'Cerrar'}
                 style={{ color: '#A0A0B0', background: 'none', border: 'none', cursor: 'pointer', fontSize: '20px', lineHeight: 1, padding: '2px 6px' }}
               >×</button>
             </div>
@@ -200,18 +204,18 @@ export default function ShareDropdown({
                     <div style={{ width: 20, height: 20, borderRadius: 6, background: 'linear-gradient(45deg,#f09433,#e6683c,#dc2743,#cc2366,#bc1888)', display: 'flex', alignItems: 'center', justifyContent: 'center', flexShrink: 0 }}>
                       <svg width="12" height="12" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2"><rect x="2" y="2" width="20" height="20" rx="5"/><circle cx="12" cy="12" r="4"/><circle cx="17.5" cy="6.5" r="1" fill="white" stroke="none"/></svg>
                     </div>
-                    <span style={{ fontSize: '14px' }}>{working === 'instagram' ? 'Generando…' : 'Historia de Instagram'}</span>
+                    <span style={{ fontSize: '14px' }}>{en ? (working === 'instagram' ? 'Generating…' : 'Instagram Story') : working === 'instagram' ? 'Generando…' : 'Historia de Instagram'}</span>
                   </button>
 
                   {/* Descargar */}
                   <button onClick={() => handleDownload('historia')} disabled={working !== null} style={{ ...rowStyle, cursor: working ? 'wait' : 'pointer', opacity: working && working !== 'historia' ? 0.6 : 1 }}>
                     <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                    <span style={{ fontSize: '14px' }}>{working === 'historia' ? 'Generando…' : 'Descargar imagen (historia)'}</span>
+                    <span style={{ fontSize: '14px' }}>{en ? (working === 'historia' ? 'Generating…' : 'Download image (story)') : working === 'historia' ? 'Generando…' : 'Descargar imagen (historia)'}</span>
                   </button>
                   {image.publicacion && (
                     <button onClick={() => handleDownload('publicacion')} disabled={working !== null} style={{ ...rowStyle, cursor: working ? 'wait' : 'pointer', opacity: working && working !== 'publicacion' ? 0.6 : 1 }}>
                       <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><path d="M21 15v4a2 2 0 0 1-2 2H5a2 2 0 0 1-2-2v-4"/><polyline points="7 10 12 15 17 10"/><line x1="12" y1="15" x2="12" y2="3"/></svg>
-                      <span style={{ fontSize: '14px' }}>{working === 'publicacion' ? 'Generando…' : 'Descargar imagen (publicación)'}</span>
+                      <span style={{ fontSize: '14px' }}>{en ? (working === 'publicacion' ? 'Generating…' : 'Download image (post)') : working === 'publicacion' ? 'Generando…' : 'Descargar imagen (publicación)'}</span>
                     </button>
                   )}
                 </>
@@ -223,14 +227,14 @@ export default function ShareDropdown({
                 style={{ ...rowStyle, background: copied ? '#FFFD0220' : '#1C1C27', color: copied ? '#FFFD02' : '#fff', border: copied ? '1px solid #FFFD02' : 'none' }}
               >
                 <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke={copied ? '#FFFD02' : 'white'} strokeWidth="2"><path d="M10 13a5 5 0 007.54.54l3-3a5 5 0 00-7.07-7.07l-1.72 1.71"/><path d="M14 11a5 5 0 00-7.54-.54l-3 3a5 5 0 007.07 7.07l1.71-1.71"/></svg>
-                <span style={{ fontSize: '14px' }}>{copied ? '¡Link copiado!' : 'Copiar link'}</span>
+                <span style={{ fontSize: '14px' }}>{en ? (copied ? 'Link copied!' : 'Copy link') : copied ? '¡Link copiado!' : 'Copiar link'}</span>
               </button>
 
               {/* El menú del sistema, donde lo hay (celulares): todas las apps. */}
               {canNativeShare && (
                 <button onClick={handleNativeShare} style={rowStyle}>
                   <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="white" strokeWidth="2" strokeLinecap="round" strokeLinejoin="round"><circle cx="5" cy="12" r="1.5"/><circle cx="12" cy="12" r="1.5"/><circle cx="19" cy="12" r="1.5"/></svg>
-                  <span style={{ fontSize: '14px' }}>Más opciones…</span>
+                  <span style={{ fontSize: '14px' }}>{en ? 'More options…' : 'Más opciones…'}</span>
                 </button>
               )}
 

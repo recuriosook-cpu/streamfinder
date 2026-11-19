@@ -73,3 +73,35 @@ export async function idiomasDe(admin: SupabaseClient, ids: string[]): Promise<M
   }
   return mapa
 }
+
+// ── Fichas en inglés ─────────────────────────────────────────────────────────
+//
+// Las fichas tienen versión en inglés: `/en/movie/[id]`, `/en/tv/[id]` y
+// `/en/tv/[id]/season/[n]`. El resto del sitio está sólo en castellano. Los
+// componentes de servidor reciben el idioma por prop (`idioma`); los de cliente
+// lo sacan de la URL con `useIdioma()` (`components/useIdioma.ts`). Sin idioma,
+// siempre castellano: las fichas en castellano no cambian.
+
+/** Si la ruta es de la parte en inglés (`/en/...`). */
+export function esRutaEnIngles(pathname: string | null | undefined): boolean {
+  return !!pathname && (pathname === '/en' || pathname.startsWith('/en/'))
+}
+
+/** `/movie/27205` o `/en/movie/27205`. */
+export function rutaFicha(idioma: Idioma, tipo: 'movie' | 'tv', id: number | string): string {
+  return `${idioma === 'en' ? '/en' : ''}/${tipo}/${id}`
+}
+
+/** `/tv/1399/temporada/2` o `/en/tv/1399/season/2`. */
+export function rutaTemporada(idioma: Idioma, id: number | string, n: number | string): string {
+  return idioma === 'en' ? `/en/tv/${id}/season/${n}` : `/tv/${id}/temporada/${n}`
+}
+
+/** El país de las fichas: el del bloque "Dónde ver" y el de entrada del selector. */
+export const paisDeFicha = (idioma: Idioma) => (idioma === 'en' ? 'US' : 'AR')
+
+/** "A", "A and B", "A, B and C" (o con "y"). */
+export function enumerarEn(xs: string[], idioma: Idioma): string {
+  if (xs.length <= 1) return xs[0] ?? ''
+  return `${xs.slice(0, -1).join(', ')} ${idioma === 'en' ? 'and' : 'y'} ${xs[xs.length - 1]}`
+}

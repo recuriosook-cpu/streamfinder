@@ -9,7 +9,8 @@ import { StarIcon } from '@/components/StarDisplay'
 import { sendNotification } from '@/lib/notify'
 import { usePushPrompt } from '@/lib/use-push-prompt'
 import { toast } from 'sonner'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import { avisoDeLinksEn, esRechazoPorLinks, mensajeSinLinks } from '@/lib/sin-links'
+import { useIdioma } from '@/components/useIdioma'
 
 // ── Types ──────────────────────────────────────────────────────────────────
 
@@ -47,8 +48,10 @@ interface Props {
 
 export default function ReviewsSection({ mediaId, mediaType, title, posterPath, inicial }: Props) {
   const supabase = createClient()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
 
-  const [reviews, setReviews]                 = useState<Review[]>(inicial?.reviews ?? [])
+  const [reviews, setReviews]               = useState<Review[]>(inicial?.reviews ?? [])
   // Cuántas reseñas tiene el título en total. No es `reviews.length`: la lista
   // trae sólo las 10 más recientes, y el contador se quedaba clavado en 10.
   const [totalReviews, setTotalReviews]       = useState(inicial?.total ?? 0)
@@ -211,7 +214,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
 
   async function submitReview() {
     if (!currentUserId || formRating === 0) return
-    const aviso = avisoDeLinks('resena', formBody)
+    const aviso = avisoDeLinksEn(idioma, 'resena', formBody)
     if (aviso) { toast.error(aviso); return }
     setSubmitting(true)
     const payload = {
@@ -233,7 +236,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
         const { error } = await supabase.from('reviews').update(payload).eq('id', editingId)
         if (error) {
           console.error('[submitReview]', error)
-          toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo publicar la reseña. Intentá de nuevo.')
+          toast.error(esRechazoPorLinks(error) ? mensajeSinLinks('resena', idioma) : en ? "Couldn't post your review. Please try again." : 'No se pudo publicar la reseña. Intentá de nuevo.')
           return
         }
       } else {
@@ -244,7 +247,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
           .single()
         if (error) {
           console.error('[submitReview]', error)
-          toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.resena : 'No se pudo publicar la reseña. Intentá de nuevo.')
+          toast.error(esRechazoPorLinks(error) ? mensajeSinLinks('resena', idioma) : en ? "Couldn't post your review. Please try again." : 'No se pudo publicar la reseña. Intentá de nuevo.')
           return
         }
         reviewId = data?.id ?? null
@@ -276,7 +279,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
         }
       }
 
-      toast.success(editingId ? 'Reseña actualizada' : 'Reseña publicada')
+      toast.success(en ? (editingId ? 'Review updated' : 'Review posted') : editingId ? 'Reseña actualizada' : 'Reseña publicada')
       setShowForm(false)
       setEditingId(null)
       await loadReviews()
@@ -286,11 +289,11 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
   }
 
   async function deleteReview(id: string) {
-    if (!confirm('¿Eliminar reseña?')) return
+    if (!confirm(en ? 'Delete review?' : '¿Eliminar reseña?')) return
     await supabase.from('reviews').delete().eq('id', id)
     setReviews(prev => prev.filter(r => r.id !== id))
     setTotalReviews(prev => Math.max(0, prev - 1))
-    toast.success('Reseña eliminada')
+    toast.success(en ? 'Review deleted' : 'Reseña eliminada')
   }
 
   async function toggleLike(reviewId: string) {
@@ -329,7 +332,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
               {glynboxStats.avg.toFixed(1)}
             </p>
             <p className="text-xs text-[#A0A0B0] mt-1">/5</p>
-            <p className="text-[11px] text-zinc-600 mt-0.5">{glynboxStats.count} {glynboxStats.count === 1 ? 'calificación' : 'calificaciones'}</p>
+            <p className="text-[11px] text-zinc-600 mt-0.5">{glynboxStats.count} {en ? (glynboxStats.count === 1 ? 'rating' : 'ratings') : glynboxStats.count === 1 ? 'calificación' : 'calificaciones'}</p>
           </div>
           <div className="flex-1 space-y-1.5">
             {[5, 4, 3, 2, 1].map(star => {
@@ -357,7 +360,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
       <div className="flex items-center justify-between mb-5">
         <h2 className="text-xl font-bold flex items-center gap-2">
           <MessageSquare size={19} />
-          Reseñas
+          {en ? 'Reviews' : 'Reseñas'}
           {totalReviews > 0 && (
             <span className="text-sm font-normal text-[#A0A0B0]">({totalReviews})</span>
           )}
@@ -367,7 +370,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
             onClick={() => openForm(myReview)}
             className="text-sm bg-[#1C1C27] hover:bg-zinc-700 text-zinc-300 hover:text-white px-3 py-1.5 rounded-lg transition-colors"
           >
-            {myReview ? 'Editar reseña' : '+ Escribir reseña'}
+            {en ? (myReview ? 'Edit review' : '+ Write a review') : myReview ? 'Editar reseña' : '+ Escribir reseña'}
           </button>
         )}
       </div>
@@ -378,7 +381,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
           {/* Star selector */}
           {ratingLocked ? (
             <div className="flex items-center gap-1.5 mb-4">
-              <span className="text-sm text-[#A0A0B0] mr-1">Tu calificación:</span>
+              <span className="text-sm text-[#A0A0B0] mr-1">{en ? 'Your rating:' : 'Tu calificación:'}</span>
               <div className="flex items-center gap-0.5">
                 {[1, 2, 3, 4, 5].map(s => {
                   const fill: 'full' | 'half' | 'empty' =
@@ -392,12 +395,12 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
                 onClick={() => setRatingLocked(false)}
                 className="text-xs text-zinc-500 hover:text-zinc-300 underline ml-2 transition-colors"
               >
-                Cambiar
+                {en ? 'Change' : 'Cambiar'}
               </button>
             </div>
           ) : (
             <div className="flex items-center gap-1.5 mb-4">
-              <span className="text-sm text-[#A0A0B0] mr-1">Nota:</span>
+              <span className="text-sm text-[#A0A0B0] mr-1">{en ? 'Rating:' : 'Nota:'}</span>
               {[1, 2, 3, 4, 5].map(s => {
                 const fill: 'full' | 'half' | 'empty' =
                   displayRating >= s ? 'full' : displayRating >= s - 0.5 ? 'half' : 'empty'
@@ -426,14 +429,14 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
 
           {/* Recommended */}
           <div className="flex items-center gap-2 mb-4">
-            <span className="text-sm text-[#A0A0B0]">¿La recomendás?</span>
+            <span className="text-sm text-[#A0A0B0]">{en ? 'Would you recommend it?' : '¿La recomendás?'}</span>
             <button
               onClick={() => setFormRecommended(true)}
               className={`flex items-center gap-1.5 px-3 py-1 rounded-full text-sm font-medium transition-colors ${
                 formRecommended ? 'bg-[#FFFD02] text-black' : 'bg-zinc-700 text-[#A0A0B0] hover:bg-zinc-600'
               }`}
             >
-              <ThumbsUp size={12} /> Sí
+              <ThumbsUp size={12} />{en ? ' Yes' : ' Sí'}
             </button>
             <button
               onClick={() => setFormRecommended(false)}
@@ -449,7 +452,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
           <MentionTextarea
             value={formBody}
             onChange={setFormBody}
-            placeholder="¿Qué te pareció? Usá @usuario para mencionar a alguien (opcional)"
+            placeholder={en ? 'What did you think? Use @username to mention someone (optional)' : '¿Qué te pareció? Usá @usuario para mencionar a alguien (opcional)'}
             rows={4}
             className="w-full bg-zinc-700 border border-zinc-600 focus:border-[#FFFD02] rounded-lg px-3 py-2.5 text-sm text-white placeholder-zinc-500 outline-none resize-none"
           />
@@ -462,7 +465,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
               onChange={e => setFormHasSpoiler(e.target.checked)}
               className="w-4 h-4 accent-red-500 cursor-pointer"
             />
-            <span className="text-sm text-zinc-300">⚠️ Esta reseña contiene spoilers</span>
+            <span className="text-sm text-zinc-300">{en ? '⚠️ This review contains spoilers' : '⚠️ Esta reseña contiene spoilers'}</span>
           </label>
 
           <div className="flex gap-2 mt-3">
@@ -471,13 +474,13 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
               disabled={formRating === 0 || submitting}
               className="bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 disabled:cursor-not-allowed text-black text-sm font-medium px-4 py-2 rounded-lg transition-colors"
             >
-              {submitting ? 'Guardando...' : 'Publicar reseña'}
+              {en ? (submitting ? 'Saving...' : 'Post review') : submitting ? 'Guardando...' : 'Publicar reseña'}
             </button>
             <button
               onClick={() => { setShowForm(false); setEditingId(null) }}
               className="bg-zinc-700 hover:bg-zinc-600 text-zinc-300 text-sm px-4 py-2 rounded-lg transition-colors"
             >
-              Cancelar
+              {en ? 'Cancel' : 'Cancelar'}
             </button>
           </div>
         </div>
@@ -492,7 +495,9 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
         </div>
       ) : reviews.length === 0 ? (
         <p className="text-[#A0A0B0] text-sm text-center py-10">
-          Sin reseñas todavía.{currentUserId ? ' ¡Sé el primero en opinar!' : ''}
+          {en
+            ? <>No reviews yet.{currentUserId ? ' Be the first to share your thoughts!' : ''}</>
+            : <>Sin reseñas todavía.{currentUserId ? ' ¡Sé el primero en opinar!' : ''}</>}
         </p>
       ) : (
         <div className="space-y-4">
@@ -510,7 +515,7 @@ export default function ReviewsSection({ mediaId, mediaType, title, posterPath, 
             <ReviewCard
               id={review.id}
               authorId={review.user_id}
-              authorUsername={review.profile.username ?? 'Usuario'}
+              authorUsername={review.profile.username ?? (en ? 'User' : 'Usuario')}
               authorDisplayName={review.profile.display_name}
               authorAvatarUrl={review.profile.avatar_url}
               mediaId={review.media_id}

@@ -49,6 +49,8 @@ export const COUNTRIES: Country[] = [
   { code: 'CA', name: 'Canadá',          flag: flag('CA') },
   // Europe
   { code: 'GB', name: 'Reino Unido',     flag: flag('GB') },
+  // Irlanda, por las fichas en inglés (su desplegable de otros países).
+  { code: 'IE', name: 'Irlanda',         flag: flag('IE') },
   { code: 'ES', name: 'España',          flag: flag('ES') },
   { code: 'FR', name: 'Francia',         flag: flag('FR') },
   { code: 'DE', name: 'Alemania',        flag: flag('DE') },
@@ -81,6 +83,17 @@ export const COUNTRIES: Country[] = [
 ]
 
 export const DEFAULT_COUNTRY = 'AR'
+
+/** El nombre del país en el idioma de la ficha (en inglés, el de `Intl`: "United States"). */
+export function countryName(code: string, idioma: 'es' | 'en' = 'es'): string {
+  const es = getCountry(code).name
+  if (idioma === 'es') return es
+  try {
+    return new Intl.DisplayNames(['en'], { type: 'region' }).of(code) ?? es
+  } catch {
+    return es
+  }
+}
 
 export function getCountry(code: string): Country {
   return COUNTRIES.find(c => c.code === code) ?? COUNTRIES[0]

@@ -5,6 +5,7 @@ import Link from 'next/link'
 import { ListPlus, Check, Plus, X } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { useRouter } from 'next/navigation'
+import { useIdioma } from '@/components/useIdioma'
 
 interface UserList { id: string; title: string; hasItem: boolean }
 
@@ -16,6 +17,7 @@ interface Props {
 export default function AddToListButton({ mediaId, mediaType, title, posterPath }: Props) {
   const supabase = useRef(createClient()).current
   const router = useRouter()
+  const en = useIdioma() === 'en'
   const [open,     setOpen]     = useState(false)
   const [lists,    setLists]    = useState<UserList[]>([])
   const [loading,  setLoading]  = useState(false)
@@ -74,13 +76,13 @@ export default function AddToListButton({ mediaId, mediaType, title, posterPath 
         className="flex items-center justify-center sm:justify-start gap-2 px-4 py-2 rounded-lg font-medium transition-colors w-full sm:w-auto bg-zinc-700 hover:bg-zinc-600 text-white disabled:opacity-40 disabled:cursor-not-allowed"
       >
         <ListPlus size={18} />
-        Agregar a lista
+        {en ? 'Add to list' : 'Agregar a lista'}
       </button>
 
       {open && (
         <div className="absolute left-0 top-full mt-2 z-50 w-72 bg-[#1C1C27] border border-[#2A2A3A] rounded-xl shadow-2xl overflow-hidden">
           <div className="flex items-center justify-between px-4 py-3 border-b border-[#2A2A3A]">
-            <p className="text-sm font-semibold text-white">Agregar a lista</p>
+            <p className="text-sm font-semibold text-white">{en ? 'Add to list' : 'Agregar a lista'}</p>
             <button onClick={() => setOpen(false)} className="text-[#A0A0B0] hover:text-white transition-colors">
               <X size={14} />
             </button>
@@ -92,7 +94,7 @@ export default function AddToListButton({ mediaId, mediaType, title, posterPath 
                 <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
               </div>
             ) : lists.length === 0 ? (
-              <p className="text-[#A0A0B0] text-sm text-center py-6">No tenés listas todavía.</p>
+              <p className="text-[#A0A0B0] text-sm text-center py-6">{en ? "You don't have any lists yet." : 'No tenés listas todavía.'}</p>
             ) : (
               lists.map(l => (
                 <button key={l.id} onClick={() => toggleList(l.id, l.hasItem)} disabled={busy === l.id}
@@ -109,7 +111,7 @@ export default function AddToListButton({ mediaId, mediaType, title, posterPath 
           <div className="px-4 py-3 border-t border-[#2A2A3A]">
             <Link href="/listas/nueva"
               className="flex items-center gap-2 text-sm text-[#A0A0B0] hover:text-[#FFFD02] transition-colors">
-              <Plus size={14} /> Crear lista nueva
+              <Plus size={14} />{en ? ' Create new list' : ' Crear lista nueva'}
             </Link>
           </div>
         </div>

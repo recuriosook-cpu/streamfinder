@@ -6,6 +6,8 @@ import Link from 'next/link'
 import { ChevronLeft, ChevronRight } from 'lucide-react'
 import { createClient } from '@/lib/supabase'
 import { getPosterUrl } from '@/lib/tmdb'
+import { rutaFicha } from '@/lib/idioma'
+import { useIdioma } from '@/components/useIdioma'
 
 interface CollectionMovie {
   id: number
@@ -31,6 +33,8 @@ export default function CollectionSection({
   const scrollRef = useRef<HTMLDivElement>(null)
   const [watchedIds, setWatchedIds] = useState<Set<number>>(new Set())
   const [isLoggedIn, setIsLoggedIn] = useState(false)
+  const idioma = useIdioma()
+  const en = idioma === 'en'
 
   useEffect(() => {
     async function loadWatched() {
@@ -66,11 +70,15 @@ export default function CollectionSection({
     <div className="mt-8 sm:mt-10">
       <div className="mb-3">
         <h2 className="text-lg sm:text-xl font-bold">
-          Parte de:{' '}
+          {en ? 'Part of:' : 'Parte de:'}{' '}
           <span className="text-[#FFFD02]">{collection.name}</span>
         </h2>
         <p className="text-sm text-[#A0A0B0] mt-0.5">
-          {isLoggedIn
+          {en
+            ? (isLoggedIn
+              ? `You've seen ${watchedCount} of ${total} ${total === 1 ? 'movie' : 'movies'}`
+              : `${total} ${total === 1 ? 'movie' : 'movies'} in the collection`)
+            : isLoggedIn
             ? `Viste ${watchedCount} de ${total} ${total === 1 ? 'película' : 'películas'}`
             : `${total} ${total === 1 ? 'película' : 'películas'} en la saga`}
         </p>
@@ -80,7 +88,7 @@ export default function CollectionSection({
         <button
           onClick={() => scroll('left')}
           className="hidden md:flex absolute left-0 top-1/2 -translate-y-1/2 -translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/carousel:opacity-100"
-          aria-label="Anterior"
+          aria-label={en ? 'Previous' : 'Anterior'}
         >
           <ChevronLeft size={16} />
         </button>
@@ -93,7 +101,7 @@ export default function CollectionSection({
             return (
               <Link prefetch={false}
                 key={film.id}
-                href={`/movie/${film.id}`}
+                href={rutaFicha(idioma, 'movie', film.id)}
                 className="shrink-0 w-28 sm:w-32 group/item"
               >
                 <div
@@ -140,7 +148,7 @@ export default function CollectionSection({
         <button
           onClick={() => scroll('right')}
           className="hidden md:flex absolute right-0 top-1/2 -translate-y-1/2 translate-x-3 z-10 w-8 h-8 rounded-full bg-[#1C1C27] border border-[#2A2A3A] items-center justify-center text-white hover:bg-zinc-700 transition-all opacity-0 group-hover/carousel:opacity-100"
-          aria-label="Siguiente"
+          aria-label={en ? 'Next' : 'Siguiente'}
         >
           <ChevronRight size={16} />
         </button>

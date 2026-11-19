@@ -2,6 +2,7 @@
 
 import { useEffect, useState } from 'react'
 import { cargarVerificados, verificadosCargados } from '@/lib/verified'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * El tilde azul de cuenta verificada. Se dibuja sólo si `userId` está en
@@ -20,6 +21,7 @@ export default function VerifiedBadge({
   className?: string
 }) {
   const [verificados, setVerificados] = useState(verificadosCargados)
+  const en = useIdioma() === 'en'
 
   useEffect(() => {
     if (verificados) return
@@ -31,7 +33,7 @@ export default function VerifiedBadge({
   const verificado = !!userId && !!verificados?.has(userId)
   if (!verificado) return null
   return (
-    <span title="Cuenta verificada" className={`inline-flex shrink-0 cursor-default align-middle ${className}`}>
+    <span title={en ? 'Verified account' : 'Cuenta verificada'} className={`inline-flex shrink-0 cursor-default align-middle ${className}`}>
       <svg width={size} height={size} viewBox="0 0 20 20" fill="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
         <circle cx="10" cy="10" r="10" fill="#1D9BF0" />
         <path d="M5.5 10.25L8.5 13.25L14.5 7.25" stroke="white" strokeWidth="1.8" strokeLinecap="round" strokeLinejoin="round" />

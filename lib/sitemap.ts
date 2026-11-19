@@ -18,7 +18,7 @@ import { GENRE_NAMES } from '@/app/generos/[id]/genre-constants'
  * cambian todos los días) y 1.000 perfiles y reseñas sin canonical propia.
  *
  * Son rutas dinámicas con cache de 24 h en la CDN (`respuestaXml`), no ISR:
- * ver la nota de `app/movie/[id]/page.tsx` sobre lo que costaron las
+ * ver la nota de `app/movie/[id]/ficha.tsx` sobre lo que costaron las
  * escrituras de ISR. Los pedidos van sin Data Cache por lo mismo.
  *
  * `lastmod` sólo donde hay una fecha cierta (última reseña o nota, la guía, la
@@ -215,6 +215,42 @@ export async function fichasPopulares(): Promise<Entrada[]> {
       if (vistos.has(k) || !t.overview?.trim()) continue
       vistos.add(k)
       entradas.push({ url: `${BASE}/${k}` })
+    }
+  }
+  return entradas
+}
+
+// ── Fichas en inglés ─────────────────────────────────────────────────────────
+
+/**
+ * `/sitemap-en.xml`: sólo las fichas en inglés (`/en/movie/…`, `/en/tv/…`) de
+ * los títulos más populares, con el mismo criterio que `fichasPopulares` pero
+ * para el público de las fichas en inglés: lo más popular de TMDB que está en
+ * streaming en Estados Unidos (suscripción, gratis o con publicidad) y que
+ * tiene sinopsis en inglés. Así no entran fichas que saldrían `noindex` por
+ * casi vacías (`fichaDelgada`). Las demás fichas en inglés existen y están
+ * enlazadas (hreflang desde la de castellano), pero no se ofrecen acá: Google ya
+ * tiene miles de páginas sin indexar.
+ */
+export async function fichasPopularesEn(): Promise<Entrada[]> {
+  if (!TMDB_KEY) return []
+  const vistos = new Set<string>()
+  const entradas: Entrada[] = []
+  for (const tipo of ['movie', 'tv'] as const) {
+    const paginas = Array.from({ length: PAGINAS[tipo] }, (_, i) => i + 1)
+    const resultados = await enTandas(paginas, 10, async pagina => {
+      const url = `https://api.themoviedb.org/3/discover/${tipo}?api_key=${TMDB_KEY}&language=en-US`
+        + `&watch_region=US&with_watch_monetization_types=flatrate|free|ads&sort_by=popularity.desc&page=${pagina}`
+      try {
+        const res = await fetch(url, { cache: 'no-store' })
+        return res.ok ? ((await res.json()).results as { id: number; overview?: string }[]) : []
+      } catch { return [] }
+    })
+    for (const t of resultados.flat()) {
+      const k = `${tipo}/${t.id}`
+      if (vistos.has(k) || !t.overview?.trim()) continue
+      vistos.add(k)
+      entradas.push({ url: `${BASE}/en/${k}` })
     }
   }
   return entradas

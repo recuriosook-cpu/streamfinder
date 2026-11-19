@@ -26,6 +26,8 @@ const nextConfig: NextConfig = {
     '/': ['./content/guides/**/*'],
     '/movie/**': ['./content/guides/**/*'],
     '/tv/**': ['./content/guides/**/*'],
+    '/en/movie/**': ['./content/guides/**/*'],
+    '/en/tv/**': ['./content/guides/**/*'],
   },
   async redirects() {
     return [
@@ -48,6 +50,10 @@ const nextConfig: NextConfig = {
       { source: '/:tipo(movie|tv|actor|director)/:ceros(0+):id(\\d+)', destination: '/:tipo/:id', permanent: true },
       { source: '/tv/:ceros(0+):id(\\d+)/temporada/:n', destination: '/tv/:id/temporada/:n', permanent: true },
       { source: '/tv/:id(\\d+)/temporada/:ceros(0+):n(\\d+)', destination: '/tv/:id/temporada/:n', permanent: true },
+      // Lo mismo en las fichas en inglés.
+      { source: '/en/:tipo(movie|tv)/:ceros(0+):id(\\d+)', destination: '/en/:tipo/:id', permanent: true },
+      { source: '/en/tv/:ceros(0+):id(\\d+)/season/:n', destination: '/en/tv/:id/season/:n', permanent: true },
+      { source: '/en/tv/:id(\\d+)/season/:ceros(0+):n(\\d+)', destination: '/en/tv/:id/season/:n', permanent: true },
     ]
   },
   async rewrites() {
@@ -62,6 +68,10 @@ const nextConfig: NextConfig = {
       // `(?:/|$)` y no `$`: el `$` mira el final de toda la URL, no del tramo.
       { source: '/:tipo(movie|tv|actor|director)/:id((?!\\d+(?:/|$))[^/]+)/:resto*', destination: '/_ficha-inexistente' },
       { source: '/tv/:id(\\d+)/temporada/:n((?!\\d+$)[^/]+)', destination: '/_ficha-inexistente' },
+      // Lo mismo en las fichas en inglés.
+      { source: '/en/:tipo(movie|tv)/:id((?!\\d+$)[^/]+)', destination: '/_ficha-inexistente' },
+      { source: '/en/:tipo(movie|tv)/:id((?!\\d+(?:/|$))[^/]+)/:resto*', destination: '/_ficha-inexistente' },
+      { source: '/en/tv/:id(\\d+)/season/:n((?!\\d+$)[^/]+)', destination: '/_ficha-inexistente' },
     ]
   },
   async headers() {
@@ -82,19 +92,22 @@ const nextConfig: NextConfig = {
       },
       // Las fichas del catálogo se cachean 24 h en la CDN de Vercel y no con
       // ISR: las escrituras de ISR se cobran y los bots generan fichas nuevas
-      // sin parar (ver el comentario de app/movie/[id]/page.tsx). Este header
+      // sin parar (ver el comentario de app/movie/[id]/ficha.tsx). Este header
       // sólo lo lee Vercel: no llega al navegador ni a otros CDN.
-      ...['/movie/:id(\\d+)', '/tv/:id(\\d+)', '/tv/:id(\\d+)/temporada/:n(\\d+)', '/actor/:id(\\d+)', '/director/:id(\\d+)'].map(source => ({
+      // Las fichas en inglés (`/en/...`), igual.
+      ...['/movie/:id(\\d+)', '/tv/:id(\\d+)', '/tv/:id(\\d+)/temporada/:n(\\d+)', '/actor/:id(\\d+)', '/director/:id(\\d+)',
+        '/en/movie/:id(\\d+)', '/en/tv/:id(\\d+)', '/en/tv/:id(\\d+)/season/:n(\\d+)'].map(source => ({
         source,
         headers: [{ key: 'Vercel-CDN-Cache-Control', value: 'max-age=86400' }],
       })),
       // La etiqueta de la ficha de cada película y serie, para poder borrar su
       // copia de la CDN (`tagFicha` en lib/creator-recommendations.ts): el
       // panel de recomendaciones la purga al cargar o borrar una.
-      ...(['movie', 'tv'] as const).map(tipo => ({
-        source: `/${tipo}/:id(\\d+)`,
+      // La versión en inglés lleva la misma etiqueta: se purgan juntas.
+      ...(['movie', 'tv'] as const).flatMap(tipo => [`/${tipo}/:id(\\d+)`, `/en/${tipo}/:id(\\d+)`].map(source => ({
+        source,
         headers: [{ key: 'Vercel-Cache-Tag', value: `ficha-${tipo}-:id` }],
-      })),
+      }))),
     ]
   },
   images: {

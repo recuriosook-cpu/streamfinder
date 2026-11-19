@@ -7,6 +7,7 @@ import { StarIcon } from '@/components/StarDisplay'
 import { track } from '@/lib/analytics'
 import ResenaEnUnaFrase, { anotarFraseOfrecida, puedeOfrecerFrase } from '@/components/ResenaEnUnaFrase'
 import CompartirHistoria from '@/components/CompartirHistoria'
+import { useIdioma } from '@/components/useIdioma'
 
 /**
  * Evento de ventana que avisa que calificar marcó un título como visto, para
@@ -42,6 +43,7 @@ export default function RatingStars({
 }: Props) {
   const supabase = useRef(createClient()).current
   const router   = useRouter()
+  const en       = useIdioma() === 'en'
 
   const [rating,  setRating]  = useState(initialRating ?? 0)
   const [hover,   setHover]   = useState(0)
@@ -145,7 +147,7 @@ export default function RatingStars({
   return (
     <div>
     <div className="flex items-center gap-1.5">
-      <span className="text-xs text-[#A0A0B0] mr-0.5">Tu nota:</span>
+      <span className="text-xs text-[#A0A0B0] mr-0.5">{en ? 'Your rating:' : 'Tu nota:'}</span>
       {[1, 2, 3, 4, 5].map(s => {
         const fill: 'full' | 'half' | 'empty' =
           display >= s ? 'full' : display >= s - 0.5 ? 'half' : 'empty'
@@ -164,7 +166,7 @@ export default function RatingStars({
               handleRate(e.clientX - rect.left < rect.width / 2 ? s - 0.5 : s)
             }}
             className="transition-transform hover:scale-125 disabled:opacity-40 disabled:cursor-not-allowed"
-            aria-label={`Calificar ${s - 0.5} o ${s} estrellas`}
+            aria-label={en ? `Rate ${s - 0.5} or ${s} stars` : `Calificar ${s - 0.5} o ${s} estrellas`}
           >
             <StarIcon fill={fill} size={20} />
           </button>
@@ -180,8 +182,8 @@ export default function RatingStars({
           que="calificacion"
           desde="ficha"
           imagen={`/api/share/calificacion/${mediaType}/${mediaId}?v=${rating}`}
-          mensaje={`Le puse ${rating}★ a ${title} en Glynbox`}
-          etiqueta="Compartí tu calificación"
+          mensaje={en ? `I gave ${title} ${rating}★ on Glynbox` : `Le puse ${rating}★ a ${title} en Glynbox`}
+          etiqueta={en ? 'Share your rating' : 'Compartí tu calificación'}
         />
       </div>
     )}

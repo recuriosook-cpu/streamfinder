@@ -1,4 +1,5 @@
 import type { TmdbSeason } from '@/lib/seasons'
+import type { Idioma } from '@/lib/idioma'
 
 /**
  * Capítulos vistos de series: tabla `episodios_vistos` de Supabase
@@ -58,8 +59,12 @@ export function progresoSerie(
   return { vistos: cuenta, total, ultimo }
 }
 
-/** "Viste 14 de 30 capítulos · Vas por T2 E4". */
-export function textoProgreso(p: Progreso): string {
+/** "Viste 14 de 30 capítulos · Vas por T2 E4" (en inglés, "14 of 30 episodes watched · Last watched: S2 E4"). */
+export function textoProgreso(p: Progreso, idioma: Idioma = 'es'): string {
+  if (idioma === 'en') return [
+    `${p.vistos} of ${p.total} ${p.total === 1 ? 'episode' : 'episodes'} watched`,
+    p.ultimo ? `Last watched: S${p.ultimo.temporada} E${p.ultimo.capitulo}` : null,
+  ].filter(Boolean).join(' · ')
   return [
     `Viste ${p.vistos} de ${p.total} ${p.total === 1 ? 'capítulo' : 'capítulos'}`,
     p.ultimo ? `Vas por T${p.ultimo.temporada} E${p.ultimo.capitulo}` : null,

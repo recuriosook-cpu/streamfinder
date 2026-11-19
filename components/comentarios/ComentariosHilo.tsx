@@ -6,7 +6,9 @@ import { Flag, MessageCircle, Send, Trash2, X } from 'lucide-react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { sendNotification } from '@/lib/notify'
-import { avisoDeLinks, esRechazoPorLinks, MENSAJE_SIN_LINKS } from '@/lib/sin-links'
+import { avisoDeLinksEn, esRechazoPorLinks, mensajeSinLinks } from '@/lib/sin-links'
+import { useIdioma } from '@/components/useIdioma'
+import type { Idioma } from '@/lib/idioma'
 import { COLUMNA_DESTINO, TABLA_COMENTARIOS, TIPO_REPORTE, useMeGustaComentarios } from '@/lib/comentarios'
 import MentionTextarea from '@/components/MentionTextarea'
 import ReportModal from '@/components/ReportModal'
@@ -21,9 +23,15 @@ interface Comentario {
   author: Autor | null
 }
 
-function timeAgo(d: string) {
+function timeAgo(d: string, idioma: Idioma = 'es') {
   const diff = Date.now() - new Date(d).getTime()
   const days = Math.floor(diff / 86400000)
+  if (idioma === 'en') {
+    if (days === 0) return 'today'
+    if (days === 1) return 'yesterday'
+    if (days < 7) return `${days} days ago`
+    return new Date(d).toLocaleDateString('en-US', { day: 'numeric', month: 'short', year: 'numeric' })
+  }
   if (days === 0) return 'hoy'
   if (days === 1) return 'ayer'
   if (days < 7) return `hace ${days} días`
@@ -72,6 +80,8 @@ interface Props {
  */
 export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId }: Props) {
   const [supabase] = useState(createClient)
+  const idioma = useIdioma()
+  const en = idioma === 'en'
   const inputRef = useRef<HTMLTextAreaElement>(null)
   const tabla = TABLA_COMENTARIOS[tipo]
   const columna = COLUMNA_DESTINO[tipo]
@@ -123,7 +133,7 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
   async function enviar() {
     const contenido = texto.trim()
     if (!userId || !contenido || enviando) return
-    const aviso = avisoDeLinks('comentario', contenido)
+    const aviso = avisoDeLinksEn(idioma, 'comentario', contenido)
     if (aviso) { toast.error(aviso); return }
     setEnviando(true)
 
@@ -133,7 +143,7 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
       .single()
 
     if (error || !data) {
-      toast.error(esRechazoPorLinks(error) ? MENSAJE_SIN_LINKS.comentario : 'No se pudo publicar el comentario.')
+      toast.error(esRechazoPorLinks(error) ? mensajeSinLinks('comentario', idioma) : en ? "Couldn't post the comment." : 'No se pudo publicar el comentario.')
       setEnviando(false)
       return
     }
@@ -170,15 +180,15 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
   }
 
   async function borrar(id: string) {
-    if (!window.confirm('¿Eliminar este comentario?')) return
+    if (!window.confirm(en ? 'Delete this comment?' : '¿Eliminar este comentario?')) return
     const { error } = await supabase.from(tabla).delete().eq('id', id)
-    if (error) { toast.error('No se pudo eliminar el comentario.'); return }
+    if (error) { toast.error(en ? "Couldn't delete the comment." : 'No se pudo eliminar el comentario.'); return }
     // Sus respuestas se van con él (ON DELETE CASCADE).
     setComentarios(prev => prev.filter(c => c.id !== id && c.parent_id !== id))
   }
 
   function responder(c: Comentario) {
-    setRespondiendo({ id: c.id, username: c.author?.username ?? 'usuario', authorId: c.user_id })
+    setRespondiendo({ id: c.id, username: c.author?.username ?? (en ? 'user' : 'usuario'), authorId: c.user_id })
     setTexto('')
     setTimeout(() => inputRef.current?.focus(), 50)
   }
@@ -186,7 +196,7 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
   // Una función y no un componente: definido adentro, React lo trataría como
   // un componente nuevo en cada render y perdería el estado de la fila.
   function fila(c: Comentario, esRespuesta: boolean) {
-    const nombre = c.author?.display_name ?? c.author?.username ?? 'Usuario'
+    const nombre = c.author?.display_name ?? c.author?.username ?? (en ? 'User' : 'Usuario')
     const propio = c.user_id === userId
     const puedeBorrar = propio || (tipo === 'list' && !!duenioId && duenioId === userId)
     const avatar = esRespuesta ? 'w-6 h-6' : 'w-8 h-8'
@@ -203,14 +213,14 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
           <div className="flex items-center gap-2 mb-0.5 flex-wrap">
             <Link href={`/usuario/${c.author?.username ?? ''}`} className="text-sm font-semibold text-white hover:text-[#FFFD02] transition-colors">{nombre}</Link>
             <VerifiedBadge userId={c.user_id} size={13} />
-            <span className="text-[11px] text-[#A0A0B0]">{timeAgo(c.created_at)}</span>
+            <span className="text-[11px] text-[#A0A0B0]">{timeAgo(c.created_at, idioma)}</span>
             {puedeBorrar ? (
-              <button onClick={() => void borrar(c.id)} title="Eliminar comentario"
+              <button onClick={() => void borrar(c.id)} title={en ? 'Delete comment' : 'Eliminar comentario'}
                 className="ml-auto text-zinc-700 hover:text-red-400 transition-colors">
                 <Trash2 size={12} />
               </button>
             ) : userId ? (
-              <button onClick={() => setReporte({ id: c.id, authorId: c.user_id })} title="Reportar comentario"
+              <button onClick={() => setReporte({ id: c.id, authorId: c.user_id })} title={en ? 'Report comment' : 'Reportar comentario'}
                 className="ml-auto opacity-0 group-hover/comentario:opacity-100 text-zinc-600 hover:text-[#FFFD02] transition-all">
                 <Flag size={12} />
               </button>
@@ -227,7 +237,7 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
             />
             {userId && (
               <button onClick={() => responder(c)} className="text-[11px] text-zinc-600 hover:text-[#A0A0B0] transition-colors">
-                Responder
+                {en ? 'Reply' : 'Responder'}
               </button>
             )}
           </div>
@@ -240,15 +250,17 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
     <section id="comentarios" className="border-t border-[#2A2A3A] pt-8 scroll-mt-24">
       <h2 className="text-lg font-bold text-white mb-5 flex items-center gap-2">
         <MessageCircle size={18} />
-        {comentarios.length > 0 ? `${comentarios.length} ${comentarios.length === 1 ? 'comentario' : 'comentarios'}` : 'Comentarios'}
+        {en
+          ? (comentarios.length > 0 ? `${comentarios.length} ${comentarios.length === 1 ? 'comment' : 'comments'}` : 'Comments')
+          : comentarios.length > 0 ? `${comentarios.length} ${comentarios.length === 1 ? 'comentario' : 'comentarios'}` : 'Comentarios'}
       </h2>
 
       {userId ? (
         <div className="mb-6">
           {respondiendo && (
             <div className="flex items-center gap-1.5 mb-2 text-xs text-[#A0A0B0]">
-              <span>Respondiendo a <span className="text-zinc-300 font-medium">@{respondiendo.username}</span></span>
-              <button onClick={() => setRespondiendo(null)} className="text-zinc-600 hover:text-white transition-colors ml-1" title="Cancelar">
+              <span>{en ? 'Replying to ' : 'Respondiendo a '}<span className="text-zinc-300 font-medium">@{respondiendo.username}</span></span>
+              <button onClick={() => setRespondiendo(null)} className="text-zinc-600 hover:text-white transition-colors ml-1" title={en ? 'Cancel' : 'Cancelar'}>
                 <X size={12} />
               </button>
             </div>
@@ -258,12 +270,12 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
               textareaRef={inputRef}
               value={texto}
               onChange={setTexto}
-              placeholder={respondiendo ? `Responder a @${respondiendo.username}...` : 'Escribí un comentario...'}
+              placeholder={en ? (respondiendo ? `Reply to @${respondiendo.username}...` : 'Write a comment...') : respondiendo ? `Responder a @${respondiendo.username}...` : 'Escribí un comentario...'}
               rows={2}
               className="flex-1 bg-[#13131A] border border-[#2A2A3A] focus:border-[#FFFD02] rounded-xl px-4 py-3 text-sm text-white placeholder-zinc-600 outline-none resize-none transition-colors"
               onKeyDown={e => { if (e.key === 'Enter' && !e.shiftKey) { e.preventDefault(); void enviar() } }}
             />
-            <button onClick={() => void enviar()} disabled={!texto.trim() || enviando} title="Publicar"
+            <button onClick={() => void enviar()} disabled={!texto.trim() || enviando} title={en ? 'Post' : 'Publicar'}
               className="px-4 py-2 rounded-xl bg-[#FFFD02] hover:bg-[#E5EB00] disabled:opacity-40 text-black text-sm font-semibold transition-colors self-end">
               <Send size={16} />
             </button>
@@ -271,7 +283,9 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
         </div>
       ) : !cargando && (
         <p className="text-sm text-[#A0A0B0] mb-6">
-          <Link href="/auth" className="text-[#FFFD02] hover:underline">Ingresá</Link> para comentar.
+          {en
+            ? <><Link href="/auth" className="text-[#FFFD02] hover:underline">Sign in</Link> to comment.</>
+            : <><Link href="/auth" className="text-[#FFFD02] hover:underline">Ingresá</Link> para comentar.</>}
         </p>
       )}
 
@@ -280,7 +294,7 @@ export default function ComentariosHilo({ tipo, destino, tituloDestino, duenioId
           <div className="w-5 h-5 border-2 border-[#FFFD02] border-t-transparent rounded-full animate-spin" />
         </div>
       ) : principales.length === 0 ? (
-        <p className="text-[#A0A0B0] text-sm text-center py-6">Sin comentarios todavía.</p>
+        <p className="text-[#A0A0B0] text-sm text-center py-6">{en ? 'No comments yet.' : 'Sin comentarios todavía.'}</p>
       ) : (
         <div className="space-y-5">
           {principales.map(c => (

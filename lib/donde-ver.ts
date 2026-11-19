@@ -139,6 +139,87 @@ export function dondeVerCorto(ar: DisponibilidadPais): string {
 }
 
 /**
+ * El <title> de la ficha en inglés, con la misma lógica que `tituloDondeVer`:
+ * "Where to watch Inception (2010): HBO Max, Netflix | Glynbox". `us` es la
+ * disponibilidad en Estados Unidos.
+ */
+export function tituloDondeVerEn(titulo: string, anio: string | undefined, us: DisponibilidadPais): string {
+  const base = `Where to watch ${titulo}${anio ? ` (${anio})` : ''}`
+  const plataformas = [...us.suscripcion, ...us.gratis]
+  let detalle = ''
+  if (plataformas.length > 3) detalle = `${plataformas.slice(0, 3).join(', ')} and more`
+  else if (plataformas.length > 0) detalle = plataformas.join(', ')
+  else if (us.alquiler.length || us.compra.length) detalle = us.alquiler.length ? 'rent or buy' : 'buy digitally'
+  return `${base}${detalle ? `: ${detalle}` : ''} | Glynbox`
+}
+
+/** "A", "A and B", "A, B and C". */
+export function enumerate(xs: string[]): string {
+  if (xs.length <= 1) return xs[0] ?? ''
+  return `${xs.slice(0, -1).join(', ')} and ${xs[xs.length - 1]}`
+}
+
+/** `dondeVerCorto` en inglés, para Estados Unidos. */
+export function dondeVerCortoEn(us: DisponibilidadPais): string {
+  const partes: string[] = []
+  if (us.suscripcion.length) partes.push(`${enumerate(us.suscripcion.slice(0, 3))} (subscription)`)
+  if (us.gratis.length) partes.push(`${enumerate(us.gratis.slice(0, 2))} (free)`)
+  const tiendas = us.alquiler.length ? us.alquiler : us.compra
+  if (tiendas.length && partes.length < 2) partes.push(`${enumerate(tiendas.slice(0, 2))} (${us.alquiler.length ? 'rent' : 'buy'})`)
+  return partes.length ? `In the US: ${partes.join('; ')}.` : 'Not streaming in the US right now.'
+}
+
+/** `descripcionDondeVer` en inglés: mismo orden y mismo largo máximo. */
+export function descripcionDondeVerEn(o: {
+  titulo: string
+  anio?: string
+  autor?: { rol: 'by' | 'created by'; nombre: string } | null
+  us: DisponibilidadPais
+  nota?: { avg: number; count: number } | null
+  sinopsis?: string | null
+}): string {
+  const MAX = 160
+  const cabeza = `${o.titulo}${o.anio ? ` (${o.anio})` : ''}${o.autor ? `, ${o.autor.rol} ${o.autor.nombre}` : ''}.`
+  let texto = recortar(`${cabeza} ${dondeVerCortoEn(o.us)}`, MAX)
+  if (o.nota && o.nota.count >= 3) {
+    const nota = ` Glynbox rating: ${o.nota.avg.toFixed(1)}/5 (${o.nota.count} ratings).`
+    if (texto.length + nota.length <= MAX) texto += nota
+  }
+  const resto = MAX - texto.length - 1
+  if (o.sinopsis && resto > 40) texto += ` ${recortar(o.sinopsis, resto)}`
+  return texto
+}
+
+/**
+ * Las frases del bloque "Where to watch X in the United States", como
+ * `fraseArgentina`.
+ */
+export function fraseEstadosUnidos(titulo: string, us: DisponibilidadPais, tipo: 'movie' | 'tv'): string[] {
+  const cosa = tipo === 'movie' ? 'the movie' : 'the show'
+  const frases: string[] = []
+  if (us.suscripcion.length) frases.push(`In the United States, you can stream ${titulo} with a subscription on ${enumerate(us.suscripcion)}.`)
+  if (us.gratis.length) frases.push(`${frases.length ? "It's also" : `In the United States, ${titulo} is`} free on ${enumerate(us.gratis)}.`)
+  const alquila = us.alquiler.length > 0, compra = us.compra.length > 0
+  if (alquila || compra) {
+    const mismas = alquila && compra && enumerate(us.alquiler) === enumerate(us.compra)
+    const tiendas = mismas
+      ? `rent or buy it on ${enumerate(us.alquiler)}`
+      : [alquila && `rent it on ${enumerate(us.alquiler)}`, compra && `buy it on ${enumerate(us.compra)}`].filter(Boolean).join(' or ')
+    frases.push(frases.length ? `You can also ${tiendas}.` : `In the United States, ${cosa} isn't included with any subscription, but you can ${tiendas}.`)
+  }
+  if (!frases.length) frases.push(`${titulo} isn't available on any streaming service in the United States right now.`)
+  return frases
+}
+
+/** Los países de habla inglesa de las fichas en inglés (el sitemap y `fichaDelgada`). */
+export const ANGLO = ['US', 'GB', 'CA', 'AU', 'IE', 'NZ', 'IN']
+
+/** Si está en alguna plataforma (incluso para alquilar) en algún país de habla inglesa. */
+export function enAlgunPaisAnglo(results: Record<string, RegionTMDB> | undefined): boolean {
+  return ANGLO.some(c => hayAlgo(disponibilidad(results?.[c])))
+}
+
+/**
  * La meta description: quién la hizo, dónde verla en Argentina, la nota de
  * Glynbox si hay y el comienzo de la sinopsis, hasta 160 caracteres.
  */

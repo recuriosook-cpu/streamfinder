@@ -1,5 +1,6 @@
 import Link from 'next/link'
 import { etiquetaTemporada, temporadasParaPestanias, type TmdbSeason } from '@/lib/seasons'
+import { rutaTemporada, type Idioma } from '@/lib/idioma'
 
 /**
  * Fila de temporadas: "Temporadas (T1) (T2) … (Especiales) Ver episodios ›".
@@ -15,23 +16,29 @@ export default function SeasonStrip({
   seriesId,
   seasons,
   activa,
+  idioma = 'es',
 }: {
   seriesId: number
   seasons: TmdbSeason[] | null | undefined
   /** La temporada de la página actual, para marcarla. */
   activa?: number
+  /** En inglés, los links van a `/en/tv/{id}/season/{n}`. */
+  idioma?: Idioma
 }) {
   if (!seasons?.length) return null
 
   const pestanias = temporadasParaPestanias(seasons)
-  const url = (n: number) => `/tv/${seriesId}/temporada/${n}`
+  const url = (n: number) => rutaTemporada(idioma, seriesId, n)
+  const en = idioma === 'en'
 
   if (!pestanias) {
     const unica = seasons[0]
     if (activa !== undefined) return null
     return (
       <Link prefetch={false} href={url(unica.season_number)} className="inline-flex items-center gap-1 text-sm text-[#FFFD02] hover:underline mb-4">
-        {unica.episode_count ? `Ver los ${unica.episode_count} episodios` : 'Ver episodios'} ›
+        {en
+          ? (unica.episode_count ? `See all ${unica.episode_count} episodes` : 'See episodes')
+          : (unica.episode_count ? `Ver los ${unica.episode_count} episodios` : 'Ver episodios')} ›
       </Link>
     )
   }
@@ -39,8 +46,8 @@ export default function SeasonStrip({
   const primera = pestanias.find(s => s.season_number > 0) ?? pestanias[0]
 
   return (
-    <nav aria-label="Temporadas" className="mb-4 flex items-center gap-3 min-w-0">
-      <span className="text-sm font-semibold text-white shrink-0">Temporadas</span>
+    <nav aria-label={en ? 'Seasons' : 'Temporadas'} className="mb-4 flex items-center gap-3 min-w-0">
+      <span className="text-sm font-semibold text-white shrink-0">{en ? 'Seasons' : 'Temporadas'}</span>
       <div className="flex gap-2 overflow-x-auto py-1 min-w-0 [scrollbar-width:none]">
         {pestanias.map(s => {
           const esActiva = s.season_number === activa
@@ -55,14 +62,14 @@ export default function SeasonStrip({
                   : 'bg-[#13131A] text-[#A0A0B0] border-[#2A2A3A] hover:text-white'
               }`}
             >
-              {etiquetaTemporada(s)}
+              {etiquetaTemporada(s, idioma)}
             </Link>
           )
         })}
       </div>
       {activa === undefined && (
         <Link prefetch={false} href={url(primera.season_number)} className="hidden sm:inline shrink-0 text-sm text-[#FFFD02] hover:underline">
-          Ver episodios ›
+          {en ? 'See episodes ›' : 'Ver episodios ›'}
         </Link>
       )}
     </nav>

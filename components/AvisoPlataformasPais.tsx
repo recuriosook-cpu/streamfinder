@@ -4,7 +4,8 @@ import { useEffect, useState } from 'react'
 import { toast } from 'sonner'
 import { createClient } from '@/lib/supabase'
 import { useCountry } from '@/context/CountryContext'
-import { getCountry } from '@/lib/countries'
+import { countryName } from '@/lib/countries'
+import { useIdioma } from '@/components/useIdioma'
 import PlatformPicker, { alternarPlataforma } from '@/components/PlatformPicker'
 import { traerPlataformas } from '@/lib/use-plataformas-pais'
 import { juntarNombres, separarElegidas, type PlataformaPais } from '@/lib/plataformas-pais'
@@ -24,6 +25,8 @@ const SIN_AVISO = ['/onboarding', '/ajustes/plataformas']
  */
 export default function AvisoPlataformasPais() {
   const { cambio } = useCountry()
+  const idioma = useIdioma()
+  const en = idioma === 'en'
 
   const [aviso, setAviso] = useState<{
     userId: string
@@ -64,7 +67,7 @@ export default function AvisoPlataformasPais() {
 
   if (!aviso) return null
 
-  const pais = getCountry(aviso.pais).name
+  const pais = countryName(aviso.pais, idioma)
   const plural = aviso.faltan.length > 1
 
   async function guardar() {
@@ -73,19 +76,26 @@ export default function AvisoPlataformasPais() {
     const { error } = await createClient()
       .from('profiles').update({ favorite_platforms: elegidas.map(String) }).eq('id', aviso.userId)
     setGuardando(false)
-    if (error) { toast.error('No pudimos guardar tus plataformas. Probá de nuevo.'); return }
-    toast.success('Plataformas guardadas')
+    if (error) { toast.error(en ? "We couldn't save your services. Please try again." : 'No pudimos guardar tus plataformas. Probá de nuevo.'); return }
+    toast.success(en ? 'Services saved' : 'Plataformas guardadas')
     setAviso(null)
   }
 
   return (
     <div className="fixed inset-0 z-[70] flex items-center justify-center bg-black/70 p-4" role="dialog" aria-modal="true" aria-labelledby="aviso-plataformas-titulo">
       <div className="flex max-h-[85vh] w-full max-w-lg flex-col rounded-2xl border border-[#2A2A3A] bg-[#13131A] p-5">
-        <h2 id="aviso-plataformas-titulo" className="text-lg font-bold text-white">Tus plataformas en {pais}</h2>
-        <p className="mt-1 text-sm leading-relaxed text-[#A0A0B0]">
-          {aviso.faltan.length > 0 ? juntarNombres(aviso.faltan) : 'Algunas de tus plataformas'}{' '}
-          {plural || aviso.faltan.length === 0 ? 'no están' : 'no está'} en {pais}. Elegí las que tengas acá.
-        </p>
+        <h2 id="aviso-plataformas-titulo" className="text-lg font-bold text-white">{en ? `Your services in ${pais}` : <>Tus plataformas en {pais}</>}</h2>
+        {en ? (
+          <p className="mt-1 text-sm leading-relaxed text-[#A0A0B0]">
+            {aviso.faltan.length > 0 ? juntarNombres(aviso.faltan) : 'Some of your services'}{' '}
+            {plural || aviso.faltan.length === 0 ? "aren't" : "isn't"} available in {pais}. Pick the ones you have here.
+          </p>
+        ) : (
+          <p className="mt-1 text-sm leading-relaxed text-[#A0A0B0]">
+            {aviso.faltan.length > 0 ? juntarNombres(aviso.faltan) : 'Algunas de tus plataformas'}{' '}
+            {plural || aviso.faltan.length === 0 ? 'no están' : 'no está'} en {pais}. Elegí las que tengas acá.
+          </p>
+        )}
         <div className="mt-4 flex-1 overflow-y-auto pt-2">
           <PlatformPicker
             plataformas={aviso.lista}
@@ -100,7 +110,7 @@ export default function AvisoPlataformasPais() {
             onClick={() => setAviso(null)}
             className="flex-1 rounded-full border border-[#2A2A3A] py-2.5 text-sm font-semibold text-white hover:border-zinc-500"
           >
-            Ahora no
+            {en ? 'Not now' : 'Ahora no'}
           </button>
           <button
             type="button"
@@ -108,7 +118,7 @@ export default function AvisoPlataformasPais() {
             disabled={guardando}
             className="flex-1 rounded-full bg-[#FFFD02] py-2.5 text-sm font-bold text-black hover:bg-[#E5EB00] disabled:opacity-60"
           >
-            {guardando ? 'Guardando…' : 'Guardar'}
+            {guardando ? (en ? 'Saving…' : 'Guardando…') : (en ? 'Save' : 'Guardar')}
           </button>
         </div>
       </div>
