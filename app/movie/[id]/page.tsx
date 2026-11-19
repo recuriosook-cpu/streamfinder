@@ -1,4 +1,7 @@
-﻿import { getMovieDetails, originalTitleIfDifferent, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl } from '@/lib/tmdb'
+﻿import { getMovieDetails, originalTitleIfDifferent, getMovieProviders, getMovieCredits, getBackdropUrl, getPosterUrl, getMovieReleaseDates } from '@/lib/tmdb'
+import { hoyArgentina, reducirFechas } from '@/lib/estreno-pais'
+import { COUNTRIES } from '@/lib/countries'
+import PosterAmpliado from '@/components/PosterAmpliado'
 import { parseAwards } from '@/lib/omdb'
 import { getOMDBRatings } from '@/lib/omdb-cache'
 import { createServerClient } from '@/lib/supabase-server'
@@ -177,7 +180,7 @@ export default async function MoviePage({ params }: Props) {
   if (!movie || movie.success === false || !movie.title) notFound()
 
   const supabase = createServerClient()
-  const [omdbResult, collectionData, watchedCount, creatorRecs, nota, resenas, texto] = await Promise.all([
+  const [omdbResult, collectionData, watchedCount, creatorRecs, nota, resenas, texto, fechasEstreno] = await Promise.all([
     getOMDBRatings(movie.imdb_id),
     movie.belongs_to_collection?.id ? getCollection(movie.belongs_to_collection.id) : Promise.resolve(null),
     vistas('movie', numId).catch(() => null),
@@ -186,6 +189,11 @@ export default async function MoviePage({ params }: Props) {
     notaGlynbox('movie', numId).catch(() => null),
     resenasIniciales('movie', numId).catch(() => null),
     sinopsis('movie', numId, movie.overview),
+    // Para "todavía no se estrenó" / "solo en cines" cuando no hay plataformas.
+    // Sólo los países del selector; si TMDB falla, queda el mensaje de siempre.
+    getMovieReleaseDates(numId)
+      .then(r => reducirFechas(r, COUNTRIES.map(c => c.code)))
+      .catch(() => null),
   ])
   const omdb = omdbResult
 
@@ -281,13 +289,20 @@ export default async function MoviePage({ params }: Props) {
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Poster */}
           <div className="shrink-0 flex justify-center md:justify-start">
-            <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
-              {movie.poster_path ? (
+            {movie.poster_path ? (
+              // Mismo póster y mismo `alt` que antes; tocarlo lo amplía.
+              <PosterAmpliado
+                posterPath={movie.poster_path}
+                titulo={movie.title}
+                className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10"
+              >
                 <Image src={getPosterUrl(movie.poster_path, 'w342')} alt={movie.title} fill className="object-cover" />
-              ) : (
+              </PosterAmpliado>
+            ) : (
+              <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
                 <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm text-center px-2">Sin imagen</div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           {/* Info */}
@@ -443,7 +458,13 @@ export default async function MoviePage({ params }: Props) {
 
         <CreatorRecommendations items={creatorRecs} mediaType="movie" mediaId={movie.id} />
         {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
-        <StreamingSection results={allProviders} mediaType="movie" mediaId={movie.id} />
+        <StreamingSection
+          results={allProviders}
+          mediaType="movie"
+          mediaId={movie.id}
+          estreno={{ tipo: 'movie', fechas: fechasEstreno, general: movie.release_date ?? null }}
+          hoyServidor={hoyArgentina()}
+        />
         <DondeVer titulo={movie.title} tipo="movie" results={allProviders} />
         {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
         <ReviewsSection

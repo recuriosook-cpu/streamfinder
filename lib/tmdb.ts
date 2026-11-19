@@ -81,6 +81,15 @@ export async function getMovieDetails(id: number, language?: string) {
   return tmdbFetch(`/movie/${id}`, language ? { language } : {})
 }
 
+/**
+ * Fechas de estreno por país de una película (`/movie/{id}/release_dates`).
+ * Las series no tienen equivalente por país en TMDB (sólo `first_air_date`).
+ * Lo usa "Disponible en streaming" cuando no hay plataformas (`lib/estreno-pais.ts`).
+ */
+export async function getMovieReleaseDates(id: number) {
+  return tmdbFetch(`/movie/${id}/release_dates`)
+}
+
 export async function getTVDetails(id: number, language?: string) {
   return tmdbFetch(`/tv/${id}`, language ? { language } : {})
 }

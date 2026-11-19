@@ -29,6 +29,9 @@ import Image from 'next/image'
 import Link from 'next/link'
 import { Star, Tv, Calendar } from 'lucide-react'
 import StreamingSection from '@/components/StreamingSection'
+import PosterAmpliado from '@/components/PosterAmpliado'
+import { EpisodiosVistosProvider, ProgresoSerie } from '@/components/EpisodiosVistos'
+import { hoyArgentina } from '@/lib/estreno-pais'
 import RatingsSection from '@/components/RatingsSection'
 import CastCarousel from '@/components/CastCarousel'
 import CrewSection from '@/components/CrewSection'
@@ -259,13 +262,20 @@ export default async function TVPage({ params }: Props) {
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           <div className="shrink-0 flex justify-center md:justify-start">
-            <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
-              {show.poster_path ? (
+            {show.poster_path ? (
+              // Mismo póster y mismo `alt` que antes; tocarlo lo amplía.
+              <PosterAmpliado
+                posterPath={show.poster_path}
+                titulo={show.name}
+                className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10"
+              >
                 <Image src={getPosterUrl(show.poster_path, 'w342')} alt={show.name} fill className="object-cover" />
-              ) : (
+              </PosterAmpliado>
+            ) : (
+              <div className="relative w-40 sm:w-48 md:w-56 aspect-[2/3] rounded-xl overflow-hidden bg-[#1C1C27] shadow-2xl ring-1 ring-white/10">
                 <div className="w-full h-full flex items-center justify-center text-zinc-600 text-sm text-center px-2">Sin imagen</div>
-              )}
-            </div>
+              </div>
+            )}
           </div>
 
           <div className="flex-1 min-w-0">
@@ -325,6 +335,10 @@ export default async function TVPage({ params }: Props) {
 
             {/* Temporadas arriba, visibles sin scrollear: cada una lleva a su
                 página, con episodios, tu nota y las reseñas de la temporada. */}
+            {/* Sólo con sesión y algún capítulo marcado; si no, no ocupa lugar. */}
+            <EpisodiosVistosProvider serieId={show.id}>
+              <ProgresoSerie seasons={show.seasons} />
+            </EpisodiosVistosProvider>
             <SeasonStrip seriesId={show.id} seasons={show.seasons} />
 
             {texto && (
@@ -419,7 +433,13 @@ export default async function TVPage({ params }: Props) {
 
         <CreatorRecommendations items={creatorRecs} mediaType="tv" mediaId={show.id} />
         {/* Dónde verla, arriba: es lo que vino a buscar quien llega desde Google. */}
-        <StreamingSection results={allProviders} mediaType="tv" mediaId={show.id} />
+        <StreamingSection
+          results={allProviders}
+          mediaType="tv"
+          mediaId={show.id}
+          estreno={{ tipo: 'tv', primeraEmision: show.first_air_date ?? null }}
+          hoyServidor={hoyArgentina()}
+        />
         <DondeVer titulo={show.name ?? show.title} tipo="tv" results={allProviders} />
         {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
         <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>

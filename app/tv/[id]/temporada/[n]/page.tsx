@@ -19,6 +19,7 @@ import SeasonStrip from '@/components/SeasonStrip'
 import SeasonReviewPanel from '@/components/SeasonReviewPanel'
 import { EpisodeRating, EpisodeRatingsProvider } from '@/components/EpisodeRatings'
 import Breadcrumb from '@/components/Breadcrumb'
+import { EpisodiosVistosProvider, MarcarTemporada, ProgresoSerie, TildeVisto } from '@/components/EpisodiosVistos'
 
 /**
  * Página de una temporada: /tv/{id}/temporada/{n}.
@@ -164,6 +165,9 @@ export default async function SeasonPage({ params }: Props) {
         { label: nombre },
       ]} />
 
+      {/* Capítulos vistos: todo en el navegador, el HTML no lleva nada (ver `EpisodiosVistos`). */}
+      <EpisodiosVistosProvider serieId={show.id}>
+      <ProgresoSerie seasons={show.seasons} />
       <SeasonStrip seriesId={show.id} seasons={show.seasons} activa={temporada.season_number} />
 
       {/* ── La temporada ── */}
@@ -212,7 +216,13 @@ export default async function SeasonPage({ params }: Props) {
 
       {/* ── Episodios ── */}
       <section className="mt-10">
-        <h2 className="text-xl font-bold mb-4">Episodios</h2>
+        <div className="flex items-center justify-between gap-3 mb-4">
+          <h2 className="text-xl font-bold">Episodios</h2>
+          <MarcarTemporada
+            temporada={temporada.season_number}
+            episodios={temporada.episodes.map(e => ({ episode_number: e.episode_number, air_date: e.air_date }))}
+          />
+        </div>
         {temporada.episodes.length === 0 ? (
           <p className="text-sm text-[#A0A0B0]">TMDB todavía no tiene los episodios de esta temporada.</p>
         ) : (
@@ -242,10 +252,13 @@ export default async function SeasonPage({ params }: Props) {
                     )}
                   </div>
                   <div className="min-w-0 flex-1">
-                    <h3 className="font-semibold text-white">
-                      <span className="text-[#A0A0B0] font-normal">E{e.episode_number} · </span>
-                      {e.name?.trim() || `Episodio ${e.episode_number}`}
-                    </h3>
+                    <div className="flex items-start justify-between gap-3">
+                      <h3 className="font-semibold text-white">
+                        <span className="text-[#A0A0B0] font-normal">E{e.episode_number} · </span>
+                        {e.name?.trim() || `Episodio ${e.episode_number}`}
+                      </h3>
+                      <TildeVisto temporada={temporada.season_number} capitulo={e.episode_number} airDate={e.air_date} />
+                    </div>
                     {meta && <p className="text-xs text-[#A0A0B0] mt-1">{meta}</p>}
                     <EpisodeRating
                       episodeNumber={e.episode_number}
@@ -265,6 +278,8 @@ export default async function SeasonPage({ params }: Props) {
           </EpisodeRatingsProvider>
         )}
       </section>
+
+      </EpisodiosVistosProvider>
 
       {/* ── Anterior / siguiente ── */}
       {(anterior || siguiente) && (

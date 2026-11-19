@@ -1,9 +1,11 @@
 ﻿'use client'
 
+import { useSyncExternalStore } from 'react'
 import { useCountry } from '@/context/CountryContext'
 import ProviderBadge from '@/components/ProviderBadge'
 import CountrySelector from '@/components/CountrySelector'
 import VpnSuggestion from '@/components/VpnSuggestion'
+import { estadoEstreno, hoyLocal, mensajeEstreno, type EstrenoRef } from '@/lib/estreno-pais'
 
 interface Provider {
   provider_id: number
@@ -29,12 +31,34 @@ interface Props {
   results: Record<string, RegionData>
   mediaType: 'movie' | 'tv'
   mediaId: number
+  /**
+   * Para decir "todavía no se estrenó" o "solo en cines" cuando en el país no
+   * hay plataformas (ver `lib/estreno-pais.ts`). Sin esto, el mensaje de siempre.
+   */
+  estreno?: EstrenoRef
+  /** Hoy ('AAAA-MM-DD') según el servidor que armó la ficha: el HTML sale con esa fecha. */
+  hoyServidor?: string
 }
 
-export default function StreamingSection({ results, mediaType, mediaId }: Props) {
+const sinSuscripcion = () => () => {}
+
+/**
+ * Hoy, sin romper la hidratación: el HTML (y el primer render en el navegador)
+ * usan la fecha del servidor; después, la del navegador. La ficha se cachea un
+ * día en la CDN y un estreno puede haber pasado entre tanto.
+ */
+function useHoy(hoyServidor: string | undefined): string {
+  return useSyncExternalStore(sinSuscripcion, hoyLocal, () => hoyServidor ?? hoyLocal())
+}
+
+export default function StreamingSection({ results, mediaType, mediaId, estreno, hoyServidor }: Props) {
   const { country, countryData } = useCountry()
   const region = results[country] ?? {}
   const hasData = region.flatrate || region.ads || region.rent || region.buy
+  const hoy = useHoy(hoyServidor)
+  // Sólo sin plataformas; con plataformas no cambia nada. Se recalcula al
+  // cambiar de país en el selector, con las fechas de ese país.
+  const mensaje = !hasData && estreno ? mensajeEstreno(estadoEstreno(estreno, country, hoy), hoy) : null
 
   return (
     <div className="mt-10">
@@ -44,7 +68,7 @@ export default function StreamingSection({ results, mediaType, mediaId }: Props)
       </div>
       {!hasData ? (
         <p className="text-[#A0A0B0]">
-          No hay información de streaming disponible para {countryData.name}.
+          {mensaje ?? `No hay información de streaming disponible para ${countryData.name}.`}
         </p>
       ) : (
         <div className="bg-[#13131A] rounded-xl p-6">
