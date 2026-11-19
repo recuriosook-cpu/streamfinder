@@ -169,8 +169,14 @@ export function GooglePlayPanel({
 
       <p className="text-xs text-[#A0A0B0] mb-5">
         Informes oficiales de Play Console
+        {/* Dos fechas distintas: hasta qué día publicó Google y cuándo lo
+            copió el cron. Antes decía sólo "al <copia>", y eso se leía como
+            "hay datos hasta ese día" cuando Google venía una semana atrás. */}
+        {datos?.rangos?.dias && (
+          <> · último día con dato: {etiquetaFecha(datos.rangos.dias.hasta)}</>
+        )}
         {datos?.actualizadoEn && (
-          <> · al {new Date(datos.actualizadoEn).toLocaleDateString('es-AR')}</>
+          <> · copiados el {new Date(datos.actualizadoEn).toLocaleDateString('es-AR')}</>
         )}
       </p>
 

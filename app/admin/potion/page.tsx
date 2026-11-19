@@ -6,6 +6,7 @@ import type { PotionTablero } from '@/lib/potion-tablero'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
 import { Jugadores, Prueba, ErrorTablero } from './_partes/Tablero'
 import { Analisis } from './_partes/Analisis'
+import { DesdeGlynbox } from './_partes/DesdeGlynbox'
 
 /**
  * Potion Bottle: Water Sort, en tres pestañas.
@@ -120,7 +121,12 @@ export default function PotionPage() {
           )
         ) : (
           <div className={`transition-opacity ${cargando ? 'opacity-60' : ''}`}>
-            {pestana === 'jugadores' ? <Jugadores t={t} onMover={mover} /> : <Prueba t={t} onMover={mover} />}
+            {pestana === 'jugadores' ? (
+              <div className="space-y-5">
+                <Jugadores t={t} onMover={mover} />
+                <DesdeGlynbox recarga={actualizadoEn} />
+              </div>
+            ) : <Prueba t={t} onMover={mover} />}
           </div>
         )}
       </div>
