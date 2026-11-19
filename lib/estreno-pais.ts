@@ -147,6 +147,22 @@ export function mensajeEstreno(estado: EstadoEstreno, hoy: string): string | nul
   }
 }
 
+/**
+ * Lo mismo para el bloque "Dónde ver X en Argentina" (`DondeVer`), que habla
+ * de Argentina por nombre y no de "tu país". `null` = la frase de siempre.
+ */
+export function fraseEstrenoArgentina(estado: EstadoEstreno, titulo: string, hoy: string): string | null {
+  if (!estado) return null
+  switch (estado.tipo) {
+    case 'proximo':
+      return `${titulo} todavía no se estrenó en Argentina. Se estrena el ${fechaEstreno(estado.fecha, hoy)}.`
+    case 'proximoSinFecha':
+      return `${titulo} todavía no se estrenó en Argentina.`
+    case 'soloCines':
+      return `En Argentina, ${titulo} está actualmente solo en cines.`
+  }
+}
+
 /** Hoy como 'AAAA-MM-DD' en la hora de Argentina (el país con que el servidor arma la ficha). */
 export function hoyArgentina(): string {
   return new Intl.DateTimeFormat('en-CA', { timeZone: 'America/Argentina/Buenos_Aires' }).format(new Date())

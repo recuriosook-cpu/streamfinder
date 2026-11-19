@@ -1,6 +1,7 @@
 import Link from 'next/link'
 import { LATAM, disponibilidad, enumerar, fraseArgentina, hayAlgo, plataformasConPagina, type RegionTMDB } from '@/lib/donde-ver'
 import { FlagCircle } from '@/components/CountrySelector'
+import { estadoEstreno, fraseEstrenoArgentina, hoyArgentina, type EstrenoRef } from '@/lib/estreno-pais'
 
 /**
  * "Dónde ver [título] en Argentina" y, debajo, el resto de Latinoamérica, en
@@ -11,12 +12,22 @@ import { FlagCircle } from '@/components/CountrySelector'
  * Argentina es fija (es el país con que el servidor arma la ficha); quien está
  * en otro país lo encuentra en la tabla.
  */
-export default function DondeVer({ titulo, tipo, results }: {
+export default function DondeVer({ titulo, tipo, results, estreno }: {
   titulo: string
   tipo: 'movie' | 'tv'
   results: Record<string, RegionTMDB>
+  /**
+   * Sin plataformas en Argentina: "todavía no se estrenó" o "solo en cines",
+   * con las mismas reglas que `StreamingSection` (`lib/estreno-pais.ts`).
+   */
+  estreno?: EstrenoRef
 }) {
   const ar = disponibilidad(results.AR)
+  // Fecha de Argentina: es la que corresponde a este bloque, y es un componente
+  // de servidor (sin hidratación). La ficha se cachea un día en la CDN.
+  const hoy = hoyArgentina()
+  const frase = (!hayAlgo(ar) && estreno && fraseEstrenoArgentina(estadoEstreno(estreno, 'AR', hoy), titulo, hoy))
+    || fraseArgentina(titulo, ar, tipo).join(' ')
   // Links a la página de cada plataforma: de la ficha a lo demás que hay ahí.
   const conPagina = plataformasConPagina(results.AR)
   const otros = LATAM
@@ -27,7 +38,7 @@ export default function DondeVer({ titulo, tipo, results }: {
   return (
     <section className="mt-6 bg-[#13131A] border border-[#2A2A3A] rounded-xl p-5" aria-labelledby="donde-ver-titulo">
       <h2 id="donde-ver-titulo" className="text-lg font-bold mb-2">Dónde ver {titulo} en Argentina</h2>
-      <p className="text-sm text-zinc-300 leading-relaxed">{fraseArgentina(titulo, ar, tipo).join(' ')}</p>
+      <p className="text-sm text-zinc-300 leading-relaxed">{frase}</p>
       {conPagina.length > 0 && (
         <p className="text-sm text-[#A0A0B0] mt-2">
           Más para ver en{' '}

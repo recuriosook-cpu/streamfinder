@@ -465,7 +465,12 @@ export default async function MoviePage({ params }: Props) {
           estreno={{ tipo: 'movie', fechas: fechasEstreno, general: movie.release_date ?? null }}
           hoyServidor={hoyArgentina()}
         />
-        <DondeVer titulo={movie.title} tipo="movie" results={allProviders} />
+        <DondeVer
+          titulo={movie.title}
+          tipo="movie"
+          results={allProviders}
+          estreno={{ tipo: 'movie', fechas: fechasEstreno, general: movie.release_date ?? null }}
+        />
         {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
         <ReviewsSection
           mediaId={movie.id}

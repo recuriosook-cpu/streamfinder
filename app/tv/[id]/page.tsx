@@ -440,7 +440,12 @@ export default async function TVPage({ params }: Props) {
           estreno={{ tipo: 'tv', primeraEmision: show.first_air_date ?? null }}
           hoyServidor={hoyArgentina()}
         />
-        <DondeVer titulo={show.name ?? show.title} tipo="tv" results={allProviders} />
+        <DondeVer
+          titulo={show.name ?? show.title}
+          tipo="tv"
+          results={allProviders}
+          estreno={{ tipo: 'tv', primeraEmision: show.first_air_date ?? null }}
+        />
         {/* Lo propio de Glynbox, arriba: reseñas de la comunidad y guías (antes iban al final). */}
         <SeriesReviewsBlock seriesId={show.id} hasSeasons={(show.seasons?.length ?? 0) > 0}>
           <ReviewsSection
