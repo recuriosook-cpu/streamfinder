@@ -1,11 +1,23 @@
 import Image from 'next/image'
 import { getCountry } from '@/lib/countries'
-import { enumerar, plataformasConLogo, type RegionTMDB } from '@/lib/donde-ver'
+import { LATAM, enumerar, plataformasConLogo, type RegionTMDB } from '@/lib/donde-ver'
 import { estadoEstreno, fechaEstreno, hoyArgentina, type EstrenoRef } from '@/lib/estreno-pais'
 import { FlagCircle } from '@/components/CountrySelector'
 
-/** Los países del desplegable, en este orden. */
-const PAISES = ['MX', 'ES', 'CO', 'CL', 'PE', 'UY', 'EC', 'VE', 'US']
+/** Primero estos, en este orden. */
+const PRINCIPALES = ['MX', 'ES', 'CO', 'CL', 'PE', 'UY', 'EC', 'VE', 'US']
+
+/**
+ * Los países del desplegable: los principales y después el resto de
+ * Latinoamérica (sin Argentina, que tiene su bloque) por orden alfabético.
+ */
+const PAISES = [
+  ...PRINCIPALES,
+  ...LATAM
+    .filter(c => c.code !== 'AR' && !PRINCIPALES.includes(c.code))
+    .sort((a, b) => a.name.localeCompare(b.name, 'es'))
+    .map(c => c.code),
+]
 
 /** Logos visibles por fila; los demás quedan en el texto accesible y en "+N". */
 const MAX_LOGOS = 5
@@ -41,8 +53,8 @@ function textoAccesible(f: Fila): string {
 }
 
 /**
- * "Dónde ver X en otros países": un desplegable cerrado, al final de la ficha,
- * con México, España, el resto de Latinoamérica y Estados Unidos.
+ * "Dónde ver X en otros países": un desplegable cerrado, debajo del bloque de
+ * Argentina, con México, España, Estados Unidos y toda Latinoamérica.
  *
  * Componente de servidor: todo va en el HTML aunque esté cerrado (Google lee
  * lo que está dentro de un <details>). Sale de los mismos datos que ya pide la
