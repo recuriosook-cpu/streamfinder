@@ -478,8 +478,25 @@ export function filasPorFecha(
     salida.set(fecha, acum)
   }
 
+  // Ver `BASE_SIN_CALCULAR`.
+  for (const dia of salida.values()) {
+    if (dia.baseInstalada === BASE_SIN_CALCULAR) dia.baseInstalada = null
+  }
   return salida
 }
+
+/**
+ * Play publica el último día con las instalaciones y bajas ya cargadas pero
+ * con "Active Device Installs" en 0 en todas las filas: la base la calcula
+ * después. El 15/11/2026 llegó así en las dos apps (Glynbox de 4.731 a 0,
+ * Potion de 21 a 0) y el panel mostraba "Base instalada 0". Una base total
+ * en 0 no es real para una app publicada: es un dato que falta, y se guarda
+ * vacío. Cuando Play lo complete, la próxima importación del mes lo pisa.
+ *
+ * En el desglose por país un 0 sí puede ser real (un país donde todos
+ * desinstalaron), así que ahí se mira el total del día, no cada fila.
+ */
+export const BASE_SIN_CALCULAR = 0
 
 /** Un día de un país, del informe de instalaciones desglosado. */
 export interface DiaPaisPlay {
@@ -547,7 +564,17 @@ export function filasPorFechaYPais(csv: string, usadas?: ColumnasUsadas): DiaPai
     salida.set(clave, acum)
   }
 
-  return [...salida.values()]
+  // Un día con la base de todos los países en 0 es un día que Play todavía
+  // no calculó (`BASE_SIN_CALCULAR`): vacía en todas sus filas.
+  const dias = [...salida.values()]
+  const totalBase = new Map<string, number | null>()
+  for (const d of dias) {
+    if (d.baseInstalada !== null) totalBase.set(d.fecha, (totalBase.get(d.fecha) ?? 0) + d.baseInstalada)
+  }
+  for (const d of dias) {
+    if (totalBase.get(d.fecha) === BASE_SIN_CALCULAR) d.baseInstalada = null
+  }
+  return dias
 }
 
 // ── Rutas de los informes ──────────────────────────────────────────────────

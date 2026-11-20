@@ -443,7 +443,9 @@ async function buildAppUso(admin: SupabaseClient): Promise<AppUso> {
       .from('play_install_stats')
       .select('fecha, base_instalada')
       .eq('package_name', 'com.glynbox.app')
-      .not('base_instalada', 'is', null)
+      // > 0 y no sólo no nula: Play manda el último día con la base en 0
+      // hasta que la calcula (`BASE_SIN_CALCULAR` en lib/google-play-reports.ts).
+      .gt('base_instalada', 0)
       .order('fecha', { ascending: false })
       .limit(1)
       .maybeSingle(),

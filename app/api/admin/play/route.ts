@@ -4,7 +4,7 @@ import { cookies } from 'next/headers'
 import type { SupabaseClient } from '@supabase/supabase-js'
 import { requireAdminClient } from '@/lib/service-role'
 import { VENTANA_POR_DEFECTO, esVentana, type Ventana } from '@/lib/metricas-ventanas'
-import { esAppPlay, paqueteDe, type AppPlay } from '@/lib/google-play-reports'
+import { BASE_SIN_CALCULAR, esAppPlay, paqueteDe, type AppPlay } from '@/lib/google-play-reports'
 
 /**
  * GET /api/admin/play?dias=7|30&app=glynbox|potion&desde=YYYY-MM-DD
@@ -316,8 +316,16 @@ async function paisesDe(
     if (!data || data.length < PAGINA) break
   }
 
+  // Los días con la base de todos los países en 0 son días que Play todavía
+  // no calculó (`BASE_SIN_CALCULAR`): su base no cuenta. Sin esto, el último
+  // día pisaba la base de cada país con un 0.
+  const totalBase = new Map<string, number>()
+  for (const f of filas) {
+    if (f.base_instalada !== null) totalBase.set(f.fecha, (totalBase.get(f.fecha) ?? 0) + f.base_instalada)
+  }
   const porPais = new Map<string, PaisPlay>()
   for (const f of filas) {
+    if (totalBase.get(f.fecha) === BASE_SIN_CALCULAR) f.base_instalada = null
     const p = porPais.get(f.pais) ?? {
       pais: f.pais, instalaciones: 0, desinstalaciones: 0, baseInstalada: null,
     }
@@ -418,11 +426,17 @@ export async function GET(req: NextRequest) {
 
   // Sin días en la ventana igual se devuelven los países: son otra tabla, con
   // otros días, y antes quedaban escondidos detrás de este vacío.
-  const filas = (data ?? []) as FilaSql[]
+  // Una base en 0 es un día que Play todavía no calculó, no una base real
+  // (`BASE_SIN_CALCULAR`): se trata como dato faltante, y el total queda en el
+  // último día con dato. Hace falta acá aunque el cron ya no los guarde, por
+  // los 0 que se importaron antes.
+  const sinBaseFalsa = <T extends { base_instalada: number | null }>(f: T): T =>
+    f.base_instalada === BASE_SIN_CALCULAR ? { ...f, base_instalada: null } : f
+  const filas = ((data ?? []) as FilaSql[]).map(sinBaseFalsa)
   if (filas.length === 0) return NextResponse.json(vacio(dias, app, 'sin_datos', paises, rangos))
 
   if (historico.error) console.error('[admin/play] el histórico falló:', historico.error.message)
-  const filasHistorico = (historico.data ?? []) as FilaFlujo[]
+  const filasHistorico = ((historico.data ?? []) as FilaFlujo[]).map(sinBaseFalsa)
   const instalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.instalaciones ?? 0), 0)
   const desinstalacionesHistorico = filasHistorico.reduce((acc, f) => acc + (f.desinstalaciones ?? 0), 0)
 
