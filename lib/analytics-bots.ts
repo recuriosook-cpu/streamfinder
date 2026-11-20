@@ -226,6 +226,11 @@ export function isBotUserAgent(raw: string | null | undefined): boolean {
 /**
  * Países donde está la gente de GLYNBOX: Latinoamérica, el Caribe y España.
  * Ver `motivoLinuxDeAfuera`.
+ *
+ * La misma lista está copiada en `analytics_marcar_rafagas`
+ * (`supabase-rafagas-bots-2026-11.sql`), que corre cada hora en la base y marca
+ * las ráfagas de visitas sueltas desde afuera, como el robot del 19 y 20/11 que
+ * usaba un navegador nuevo por visita. Si se cambia acá, cambiarla allá.
  */
 const REGION_PROPIA: readonly string[] = [
   'AR', 'BO', 'BR', 'CL', 'CO', 'CR', 'CU', 'EC', 'SV', 'GT', 'HN', 'MX', 'NI',
