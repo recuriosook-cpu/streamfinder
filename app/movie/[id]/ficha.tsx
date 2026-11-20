@@ -58,6 +58,7 @@ import { descripcionDondeVer, descripcionDondeVerEn, disponibilidad, enAlgunPais
 import { idiomaTmdb, rutaFicha, type Idioma } from '@/lib/idioma'
 import { alternativas, nombreIdioma, sinopsisEn, textosFicha } from '@/lib/ficha-idioma'
 import CambiarIdioma from '@/components/CambiarIdioma'
+import SugerirApp from '@/components/SugerirApp'
 import { ldJson, migasLD, peliculaLD } from '@/lib/datos-estructurados'
 import DondeVer from '@/components/DondeVer'
 import DondeVerOtrosPaises from '@/components/DondeVerOtrosPaises'
@@ -321,6 +322,8 @@ export default async function FichaPelicula({ rawId, idioma }: { rawId: string; 
           { label: movie.title },
         ]} />
         <CambiarIdioma idioma={idioma} otra={rutaFicha(en ? 'es' : 'en', 'movie', movie.id)} />
+        {/* Cartel para bajar la app cuando la ruleta no la pudo abrir (`?sugerir_app=1`). */}
+        {!en && <SugerirApp />}
 
         <div className="flex flex-col md:flex-row gap-6 md:gap-8">
           {/* Poster */}

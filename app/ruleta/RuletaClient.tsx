@@ -3,8 +3,10 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Film, RotateCcw, Share2, X } from 'lucide-react'
+import { Film, RotateCcw, Share2, Volume2, VolumeX, X } from 'lucide-react'
 import s from './ruleta.module.css'
+import { activarAudio, premio, tic } from './sonidos'
+import { abrirFichaEnApp } from './abrir-ficha'
 
 export interface PeliculaRuleta {
   id: number
@@ -23,6 +25,7 @@ const LISTA_URL = '/listas/be143bb8-18e8-4982-8ceb-982ecb7cc39a'
 
 const CLAVE_SALIDAS = 'glynbox-ruleta-salidas'
 const CLAVE_NO_REPETIR = 'glynbox-ruleta-no-repetir'
+const CLAVE_SILENCIO = 'glynbox-ruleta-silencio'
 const oyentes = new Set<() => void>()
 
 function leer(clave: string): string | null {
@@ -62,6 +65,8 @@ function gajo(desde: number, hasta: number) {
 const DURACION = 3800
 const DURACION_REDUCIDA = 1200
 const LAMPARAS = 40
+/** Entre dos tics, como mínimo: a toda velocidad pasan cientos de gajos por segundo. */
+const TIC_MINIMO_MS = 28
 
 const poster = (p: string | null, tam = 'w500') => (p ? `https://image.tmdb.org/t/p/${tam}${p}` : '/no-poster.svg')
 
@@ -76,6 +81,48 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
   const [resultado, setResultado] = useState<number | null>(null)
   const timers = useRef<ReturnType<typeof setTimeout>[]>([])
   useEffect(() => () => timers.current.forEach(clearTimeout), [])
+
+  // ── Sonido ──
+  const silencio = useGuardado(CLAVE_SILENCIO) === '1'
+  const silencioRef = useRef(silencio)
+  useEffect(() => { silencioRef.current = silencio }, [silencio])
+  const rueda = useRef<SVGSVGElement>(null)
+
+  // El audio arranca con el primer toque en cualquier lado de la página.
+  useEffect(() => {
+    const activar = () => activarAudio()
+    window.addEventListener('pointerdown', activar, { once: true })
+    window.addEventListener('touchend', activar, { once: true })
+    return () => { window.removeEventListener('pointerdown', activar); window.removeEventListener('touchend', activar) }
+  }, [])
+
+  // Un tic cada vez que un gajo pasa por el puntero. Se lee el ángulo real de
+  // la rueda en cada cuadro (la transición la mueve CSS), así que los tics se
+  // espacian solos a medida que frena.
+  useEffect(() => {
+    if (!girando || silencio || !paso) return
+    let cuadro = 0
+    let anterior = -1
+    let ultimoTic = 0
+    const mirar = (ahora: number) => {
+      const el = rueda.current
+      if (el) {
+        const m = getComputedStyle(el).transform.match(/matrix\(([^,]+),\s*([^,]+)/)
+        if (m) {
+          const grados = (Math.atan2(Number(m[2]), Number(m[1])) * 180) / Math.PI
+          const gajoArriba = Math.floor(((((-grados) % 360) + 360) % 360) / paso)
+          if (anterior !== -1 && gajoArriba !== anterior && ahora - ultimoTic >= TIC_MINIMO_MS) {
+            tic()
+            ultimoTic = ahora
+          }
+          anterior = gajoArriba
+        }
+      }
+      cuadro = requestAnimationFrame(mirar)
+    }
+    cuadro = requestAnimationFrame(mirar)
+    return () => cancelAnimationFrame(cuadro)
+  }, [girando, silencio, paso])
 
   const salidasRaw = useGuardado(CLAVE_SALIDAS)
   const noRepetir = useGuardado(CLAVE_NO_REPETIR) === '1'
@@ -94,6 +141,7 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
 
   function girar() {
     if (girando || !disponibles.length) return
+    activarAudio()
     setResultado(null)
     setGanador(null)
 
@@ -122,7 +170,10 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
       const nuevas = new Set(salidas)
       nuevas.add(elegida.id)
       escribir(CLAVE_SALIDAS, JSON.stringify([...nuevas]))
-      timers.current.push(setTimeout(() => setResultado(i), reducido ? 150 : 650))
+      timers.current.push(setTimeout(() => {
+        setResultado(i)
+        if (!silencioRef.current) premio()
+      }, reducido ? 150 : 650))
     }, dur + 80))
   }
 
@@ -136,7 +187,12 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
 
   return (
     <div className={`${s.fondo} min-h-[100dvh] overflow-x-clip flex flex-col items-center px-4 pt-5 pb-8`}>
-      <header className="w-full max-w-md flex flex-col items-center text-center">
+      <header className="relative w-full max-w-md flex flex-col items-center text-center">
+        <button type="button" onClick={() => escribir(CLAVE_SILENCIO, silencio ? null : '1')}
+          aria-label={silencio ? 'Activar el sonido' : 'Silenciar'} aria-pressed={silencio}
+          className="absolute right-0 top-0 w-9 h-9 -mt-1 flex items-center justify-center rounded-full text-[#A0A0B0] hover:text-white hover:bg-white/10">
+          {silencio ? <VolumeX size={19} /> : <Volume2 size={19} />}
+        </button>
         <Link href="/" aria-label="Glynbox, ir al inicio">
           {/* eslint-disable-next-line @next/next/no-img-element */}
           <img src="/logo.png" alt="Glynbox" width={2098} height={437} className="h-7 w-auto" />
@@ -157,7 +213,7 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
           >
             {/* Recortada en un círculo: al girar, el cuadrado del SVG ocupa su diagonal y ensanchaba la página. */}
             <div className="absolute inset-0 rounded-full overflow-hidden">
-            <svg viewBox="-200 -200 400 400" className={`${s.rueda} absolute inset-0 w-full h-full`}
+            <svg ref={rueda} viewBox="-200 -200 400 400" className={`${s.rueda} absolute inset-0 w-full h-full`}
               style={{ transform: `rotate(${rotacion}deg)`, transition: girando ? `transform ${duracion}ms cubic-bezier(0.12, 0.75, 0.15, 1)` : 'none' }}
               role="img" aria-label={`Ruleta con las ${total} mejores películas`}>
               <defs>
@@ -366,6 +422,7 @@ function Resultado({ peli, total, onCerrar, onGirar, puedeGirar }: {
 
         <div className="mt-6 w-full max-w-sm flex flex-col gap-2.5">
           <Link ref={verFicha} href={`/movie/${peli.id}`} prefetch={false}
+            onClick={e => { if (abrirFichaEnApp(peli.id)) e.preventDefault() }}
             className="h-12 rounded-full bg-[#FFFD02] text-[#0A0A0F] font-semibold flex items-center justify-center gap-2 hover:brightness-95">
             <Film size={18} /> Ver ficha
           </Link>
