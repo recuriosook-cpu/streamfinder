@@ -27,6 +27,12 @@ import type { AvisoAppProps } from './AvisoApp'
  *   6. **Quien llega desde un buscador no lo ve al entrar.** Google castiga los
  *      avisos que tapan la página a la que llevó a alguien. A esa persona le
  *      sale cuando pasa a otra página del sitio.
+ *   7. **Nunca en una ficha** (`/movie/{id}`, `/tv/{id}` y sus temporadas, también
+ *      en `/en/`). Quien abre una ficha quiere verla: desde la ruleta, un link
+ *      compartido o el buscador, el aviso tapaba la película con "descargá la
+ *      app" aunque ya la tuviera instalada (la web no puede saberlo). En la
+ *      ficha no se gasta la vez de la visita: sale en la próxima página que no
+ *      sea ficha.
  *
  * Las reglas 4 y 6 dejan un `aviso_app_descartado` con el motivo, uno por
  * visita, para que el panel pueda decir a cuántos no les salió y por qué.
@@ -36,6 +42,9 @@ const CLAVE = 'glynbox_aviso_app'
 
 /** Rastreadores y herramientas que ejecutan JavaScript con user agent de celular. */
 const RASTREADOR = /bot\b|googlebot|google-inspectiontool|googleother|storebot|adsbot|mediapartners|bingbot|bingpreview|slurp|duckduck|yandex|baiduspider|crawler|spider|headlesschrome|lighthouse|chrome-lighthouse|pagespeed/i
+
+/** Fichas de películas y series (con temporadas), en castellano y en inglés. */
+const FICHA = /^\/(en\/)?(movie|tv)\//
 
 /** Los buscadores desde los que la entrada no lleva aviso. */
 const BUSCADOR = /(^|\.)(google|bing|yahoo|duckduckgo|ecosia|yandex|search\.brave|startpage)\.[a-z.]+$/i
@@ -98,6 +107,7 @@ export function AvisoAppGate() {
 
   useEffect(() => {
     if (mostrando.current || typeof window === 'undefined' || !pathname) return
+    if (FICHA.test(pathname)) return
 
     const ua = navigator.userAgent ?? ''
     if (RASTREADOR.test(ua)) return
