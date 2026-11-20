@@ -21,8 +21,18 @@
  *     WR. Varios tienen menos de 3.000 votos en TMDB (Harakiri, Cuentos de
  *     Tokio, Ran…) y bajar el piso para que entren también metía nicho
  *     (Gabriel's Inferno, animé, estrenos con pocos votos).
- *   - No entran estrenos de los últimos 12 meses: su puntaje todavía no se
- *     asentó y suelen ser lo más taquillero. Entran al regenerar más adelante.
+ *   - No entran estrenos del año actual ni del anterior: su puntaje todavía no
+ *     se asentó y suelen ser lo más taquillero. Antes eran "los últimos 12
+ *     meses", y pasaban películas que se sienten nuevas (Cómo entrenar a tu
+ *     dragón de junio de 2025 o Predator: Badlands de noviembre de 2025, en
+ *     noviembre de 2026).
+ *   - `EXCLUSIONES`: películas que no entran nunca, elegidas a mano (taquilleras
+ *     o juveniles con buen puntaje que no son "de las mejores de la historia").
+ *   - Cada exclusión cede su lugar a una película de 1950 a 1999: la lista son
+ *     los clásicos y las mejores por WR hasta completar 250 − EXCLUSIONES, y
+ *     el resto se llena SÓLO con películas de esos años (piso de 1.000 votos,
+ *     que ahí es seguro porque el rango de años ya deja afuera el nicho
+ *     moderno), también por WR.
  *   - Se sacan documentales y películas de concierto.
  *
  * Reemplaza los ítems de la lista sin tocar su id ni su título. Sin
@@ -56,9 +66,64 @@ const CONCIERTO = /\b(tour|concert|concierto|live (at|in|from)|en vivo|en direct
  * apartamento.
  */
 const CLASICOS = [389, 15, 567, 289, 548, 346, 11645, 14537, 490, 18148, 1398, 539, 284]
-/** Estrenos más nuevos que esto no entran. */
-const DIAS_MINIMOS = 365
-const ESTRENADA_ANTES_DE = new Date(Date.now() - DIAS_MINIMOS * 86400000).toISOString().slice(0, 10)
+/** El año de estreno más nuevo que entra: no entra nada del año actual ni del anterior. */
+const ANIO_MAXIMO = new Date().getFullYear() - 2
+
+/** Películas que no entran nunca (ids de TMDB, resueltos por título y año). */
+const EXCLUSIONES = [
+  19404,   // Un amor contra viento y marea (1995)
+  1184918, // Robot salvaje (2024)
+  315162,  // El Gato con Botas: El último deseo (2022)
+  24428,   // Vengadores (2012)
+  361743,  // Top Gun: Maverick (2022)
+  12445,   // Harry Potter y las Reliquias de la Muerte - Parte 2 (2011)
+  527641,  // A dos metros de ti (2019)
+  637920,  // Milagro en la celda 7 (2019)
+  635302,  // Guardianes de la Noche: Tren infinito (2020)
+  406997,  // Wonder (2017)
+  791373,  // La Liga de la Justicia de Zack Snyder (2021)
+  673,     // Harry Potter y el prisionero de Azkaban (2004)
+  634649,  // Spider-Man: No Way Home (2021)
+  28178,   // Siempre a tu lado (Hachiko) (2009)
+  424694,  // Bohemian Rhapsody (2018)
+  449176,  // Con amor, Simon (2018)
+  400928,  // Un don excepcional (2017)
+  337404,  // Cruella (2021)
+  823219,  // Flow, un mundo que salvar (2024)
+  118340,  // Guardianes de la galaxia (2014)
+  671,     // Harry Potter y la piedra filosofal (2001)
+  43949,   // Flipped (2010)
+  296096,  // Antes de ti (2016)
+  503314,  // Dragon Ball Super: Broly (2018)
+  803796,  // Las guerreras k-pop (2025)
+  447365,  // Guardianes de la Galaxia: Volumen 3 (2023)
+  316029,  // El gran showman (2017)
+  610150,  // Dragon Ball Super: Super Hero (2022)
+  615457,  // Nadie (2021)
+  381341,  // Perfectos desconocidos (2016)
+  1242898, // Predator: Badlands (2025)
+  911430,  // F1 la película (2025)
+  1087192, // Cómo entrenar a tu dragón (2025), la remake: queda la animada de 2010 (10191)
+]
+
+/**
+ * Películas de 1950–1999 que no entran como relleno (también son exclusiones
+ * fijas). Van aparte porque no ceden lugar: no estaban en la parte principal.
+ */
+const EXCLUSIONES_RELLENO = [
+  12104, // Pink Floyd: El muro (1982): musical sobre el disco, en el límite de "concierto"
+  18491, // Neon Genesis Evangelion: The End of Evangelion (1997): cierra una serie
+  9702,  // Sangre por sangre (1993): de culto, no de canon
+  38286, // Tres hombres y una pierna (1997): comedia italiana muy local
+  8290,  // La gran juerga (1966): comedia francesa popular
+]
+const EXCLUIDA = id => EXCLUSIONES.includes(id) || EXCLUSIONES_RELLENO.includes(id)
+
+/** El relleno de los lugares que ceden las exclusiones. */
+const RELLENO_DESDE = '1950-01-01'
+const RELLENO_HASTA = '1999-12-31'
+const RELLENO_VOTOS_MINIMOS = 1000
+const RELLENO_CANDIDATOS = 400
 /** Lo que no tiene que entrar nunca. */
 const PROHIBIDO = /gabriel'?s inferno|infierno de gabriel|taylor swift|doctor who/i
 
@@ -83,18 +148,17 @@ function excluida(m) {
   const generos = m.genre_ids ?? (m.genres ?? []).map(g => g.id)
   if (generos.includes(DOCUMENTAL)) return 'documental'
   if (generos.includes(MUSICA) && (CONCIERTO.test(m.title ?? '') || CONCIERTO.test(m.original_title ?? ''))) return 'concierto'
-  if (!m.release_date || m.release_date > ESTRENADA_ANTES_DE) return 'estreno reciente'
+  if (!m.release_date || Number(m.release_date.slice(0, 4)) > ANIO_MAXIMO) return 'estreno reciente'
   return null
 }
 
-/** Los primeros ~600 candidatos de /discover/movie con 3.000 votos o más, sin excluidas. */
-async function candidatos() {
+/** Los primeros `cuantos` candidatos de /discover/movie por puntaje, sin excluidas. */
+async function candidatos(cuantos, filtros) {
   const out = []
   const vistas = new Set()
-  for (let pagina = 1; vistas.size < CANDIDATOS; pagina++) {
+  for (let pagina = 1; vistas.size < cuantos; pagina++) {
     const d = await tmdb('/discover/movie', {
-      sort_by: 'vote_average.desc', 'vote_count.gte': String(VOTOS_MINIMOS),
-      include_adult: 'false', include_video: 'false', page: String(pagina),
+      sort_by: 'vote_average.desc', include_adult: 'false', include_video: 'false', page: String(pagina), ...filtros,
     })
     for (const m of d.results ?? []) {
       if (vistas.has(m.id)) continue
@@ -126,8 +190,11 @@ console.log(`Ítems actuales: ${actuales.length} (posiciones desde ${base})`)
 
 // ── Lista nueva ──────────────────────────────────────────────────────────────
 
-const cands = await candidatos()
-const C = cands.reduce((s, m) => s + m.vote_average, 0) / cands.length
+const todos = await candidatos(CANDIDATOS, { 'vote_count.gte': String(VOTOS_MINIMOS) })
+// C se calcula con todos los candidatos, también los de EXCLUSIONES: si no, al
+// sacarlas baja el promedio, se mueve el corte y entra o sale alguna más.
+const C = todos.reduce((s, m) => s + m.vote_average, 0) / todos.length
+const cands = todos.filter(m => !EXCLUIDA(m.id))
 console.log(`\nCandidatos: ${cands.length} (≥ ${VOTOS_MINIMOS} votos) · C = ${fmt(C)} · m = ${M}`)
 // Los clásicos que no vinieron entre los candidatos (por tener menos votos)
 // se piden aparte. Se suman después de calcular C, para no moverlo.
@@ -138,18 +205,38 @@ for (const id of CLASICOS) {
 const pool = [...porId.values()]
 for (const m of pool) m.wr = ponderada(m.vote_count, m.vote_average, C)
 const ordenadas = [...pool].sort((a, b) => b.wr - a.wr)
-// Primero los clásicos; el resto de los lugares, por WR.
+// Primero los clásicos; los lugares principales que quedan, por WR.
+const PRINCIPALES = CANTIDAD - EXCLUSIONES.length
 const elegidas = new Set(CLASICOS)
-for (const m of ordenadas) { if (elegidas.size >= CANTIDAD) break; elegidas.add(m.id) }
-const pelis = ordenadas.filter(m => elegidas.has(m.id))
+for (const m of ordenadas) { if (elegidas.size >= PRINCIPALES) break; elegidas.add(m.id) }
+const principales = ordenadas.filter(m => elegidas.has(m.id))
+const corte = principales.at(-1).wr
+
+// El relleno: películas de 1950 a 1999 que no estén ya, por WR (con el mismo
+// C, para que los puntajes se puedan comparar con los de arriba).
+const candsRelleno = await candidatos(RELLENO_CANDIDATOS, {
+  'vote_count.gte': String(RELLENO_VOTOS_MINIMOS),
+  'primary_release_date.gte': RELLENO_DESDE, 'primary_release_date.lte': RELLENO_HASTA,
+})
+for (const m of candsRelleno) m.wr = ponderada(m.vote_count, m.vote_average, C)
+const relleno = candsRelleno
+  .filter(m => !elegidas.has(m.id) && !EXCLUIDA(m.id))
+  .sort((a, b) => b.wr - a.wr)
+  .slice(0, CANTIDAD - principales.length)
+for (const m of relleno) { m.relleno = true; porId.set(m.id, m) }
+const pelis = [...principales, ...relleno].sort((a, b) => b.wr - a.wr)
 if (pelis.length !== CANTIDAD) { console.error(`Quedaron ${pelis.length} películas, no ${CANTIDAD}. No cambio nada.`); process.exit(1) }
-const corte = pelis.at(-1).wr
+
+console.log(`\nRELLENO de 1950 a 1999 (${relleno.length}, de ${candsRelleno.length} candidatas con ≥ ${RELLENO_VOTOS_MINIMOS} votos):`)
+for (const m of relleno) {
+  console.log(`  #${String(pelis.indexOf(m) + 1).padStart(3)} ${m.title} (${anio(m)}) · WR ${fmt(m.wr)} · ${m.vote_average} · ${m.vote_count} votos · ${m.original_language}`)
+}
 
 console.log('\nPrimeras 30:')
 for (const [i, m] of pelis.slice(0, 30).entries()) {
   console.log(`${String(i + 1).padStart(3)}. ${m.title} (${anio(m)}) · WR ${fmt(m.wr)} · ${m.vote_average} · ${m.vote_count} votos`)
 }
-console.log(`...\n250. ${pelis.at(-1).title} (${anio(pelis.at(-1))}) · WR ${fmt(corte)} · ${pelis.at(-1).vote_average} · ${pelis.at(-1).vote_count} votos`)
+console.log(`...\n250. ${pelis.at(-1).title} (${anio(pelis.at(-1))}) · WR ${fmt(pelis.at(-1).wr)} · ${pelis.at(-1).vote_average} · ${pelis.at(-1).vote_count} votos`)
 
 // ── Entran y salen ───────────────────────────────────────────────────────────
 
@@ -158,11 +245,12 @@ const idsActuales = new Set(actuales.map(i => i.media_id))
 const entran = pelis.filter(m => !idsActuales.has(m.id))
 const salen = actuales.filter(i => !idsNuevos.has(i.media_id))
 console.log(`\nENTRAN (${entran.length}):`)
-for (const m of entran) console.log(`  + #${pelis.indexOf(m) + 1} ${m.title} (${anio(m)}) · ${m.vote_average} · ${m.vote_count} votos`)
+for (const m of entran) console.log(`  + #${pelis.indexOf(m) + 1} ${m.title} (${anio(m)}) · ${m.vote_average} · ${m.vote_count} votos${m.relleno ? ' · relleno 1950–1999' : ''}`)
 console.log(`\nSALEN (${salen.length}):`)
 for (const i of salen) {
   const m = porId.get(i.media_id)
-  const donde = m ? `quedó #${ordenadas.indexOf(m) + 1} · WR ${fmt(m.wr)} · ${m.vote_average} · ${m.vote_count} votos` : 'no está entre los candidatos'
+  const donde = EXCLUIDA(i.media_id) ? 'exclusión fija'
+    : m ? `quedó #${ordenadas.indexOf(m) + 1} · WR ${fmt(m.wr)} · ${m.vote_average} · ${m.vote_count} votos` : 'no está entre los candidatos'
   console.log(`  - (era #${i.position - base + 1}) ${i.title} → ${donde}`)
 }
 
@@ -179,10 +267,13 @@ for (const id of CLASICOS) {
 }
 
 const prohibidas = pelis.filter(m => PROHIBIDO.test(m.title) || PROHIBIDO.test(m.original_title ?? ''))
-const pocosVotos = pelis.filter(m => m.vote_count < VOTOS_MINIMOS && !CLASICOS.includes(m.id))
-const recientes = pelis.filter(m => (m.release_date ?? '') > ESTRENADA_ANTES_DE)
-console.log(`\nNicho: ${prohibidas.length} de Gabriel's Inferno / Taylor Swift / Doctor Who, ${pocosVotos.length} con menos de ${VOTOS_MINIMOS} votos (sin contar los clásicos), ${recientes.length} estrenadas después del ${ESTRENADA_ANTES_DE}.`)
-if (prohibidas.length || pocosVotos.length || recientes.length) { console.error('ATENCIÓN: entró algo de nicho o un estreno reciente. No cambio nada.'); process.exit(1) }
+// El relleno tiene su propio piso (1.000), por eso no cuenta acá.
+const pocosVotos = pelis.filter(m => m.vote_count < VOTOS_MINIMOS && !CLASICOS.includes(m.id) && !m.relleno)
+const recientes = pelis.filter(m => Number(anio(m)) > ANIO_MAXIMO)
+const excluidasAdentro = pelis.filter(m => EXCLUIDA(m.id))
+const repetidas = pelis.length - new Set(pelis.map(m => m.id)).size
+console.log(`\nControles: ${prohibidas.length} de Gabriel's Inferno / Taylor Swift / Doctor Who · ${pocosVotos.length} con menos de ${VOTOS_MINIMOS} votos (sin clásicos ni relleno) · ${recientes.length} estrenadas después de ${ANIO_MAXIMO} · ${excluidasAdentro.length} de las exclusiones fijas · ${repetidas} ids de TMDB repetidos.`)
+if (prohibidas.length || pocosVotos.length || recientes.length || excluidasAdentro.length || repetidas) { console.error('ATENCIÓN: algo no pasó los controles. No cambio nada.'); process.exit(1) }
 if (faltan) { console.error(`ATENCIÓN: faltan ${faltan} clásicos. No cambio nada.`); process.exit(1) }
 
 const items = pelis.map((m, i) => ({
