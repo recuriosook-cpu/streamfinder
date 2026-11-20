@@ -16,7 +16,8 @@ import { X } from 'lucide-react'
  */
 
 const CLAVE = 'glynbox-sugerir-app-visto'
-const DESTINO = '/descargar?utm_source=ruleta'
+// `src` es la marca de campaña que lee `/descargar` y viaja a las tiendas.
+const DESTINO = '/descargar?src=ruleta'
 
 // Decidido una vez por ficha: al sacar el parámetro de la URL no tiene que
 // cambiar de opinión, pero en otra ficha se vuelve a mirar.

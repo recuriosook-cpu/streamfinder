@@ -3,7 +3,7 @@
 import { useEffect, useMemo, useRef, useState, useSyncExternalStore } from 'react'
 import Link from 'next/link'
 import { toast } from 'sonner'
-import { Film, RotateCcw, Share2, Volume2, VolumeX, X } from 'lucide-react'
+import { Download, Film, RotateCcw, Share2, Volume2, VolumeX, X } from 'lucide-react'
 import s from './ruleta.module.css'
 import { activarAudio, premio, tic } from './sonidos'
 import { abrirFichaEnApp } from './abrir-ficha'
@@ -18,6 +18,8 @@ export interface PeliculaRuleta {
 
 const URL_COMPARTIR = 'https://www.glynbox.com/ruleta'
 const LISTA_URL = '/listas/be143bb8-18e8-4982-8ceb-982ecb7cc39a'
+// `src` es la marca de campaña que lee `/descargar` y viaja a las tiendas.
+const DESCARGAR_URL = '/descargar?src=ruleta'
 
 // ── Lo que ya salió, en el navegador ─────────────────────────────────────────
 // Con useSyncExternalStore y no con un efecto: el primer HTML sale sin nada
@@ -336,6 +338,13 @@ export default function RuletaClient({ peliculas }: { peliculas: PeliculaRuleta[
         </>
       )}
 
+      <footer className="mt-auto pt-10 text-center text-sm text-[#A0A0B0]">
+        ¿Querés más recomendaciones como esta?{' '}
+        <Link href={DESCARGAR_URL} prefetch={false} className="font-semibold text-[#F2C94C] hover:text-[#FFFD02] underline underline-offset-2">
+          Descargá Glynbox
+        </Link>
+      </footer>
+
       {peli && (
         <Resultado
           peli={peli}
@@ -425,6 +434,10 @@ function Resultado({ peli, total, onCerrar, onGirar, puedeGirar }: {
             onClick={e => { if (abrirFichaEnApp(peli.id)) e.preventDefault() }}
             className="h-12 rounded-full bg-[#FFFD02] text-[#0A0A0F] font-semibold flex items-center justify-center gap-2 hover:brightness-95">
             <Film size={18} /> Ver ficha
+          </Link>
+          <Link href={DESCARGAR_URL} prefetch={false}
+            className="h-12 rounded-full border border-[#FFFD02]/60 text-[#FFFD02] font-medium flex items-center justify-center gap-2 hover:bg-[#FFFD02]/10">
+            <Download size={17} /> Descargar la app
           </Link>
           <div className="grid grid-cols-2 gap-2.5">
             <button type="button" onClick={compartir}
