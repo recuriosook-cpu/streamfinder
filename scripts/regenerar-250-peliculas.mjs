@@ -116,6 +116,7 @@ const EXCLUSIONES_RELLENO = [
   9702,  // Sangre por sangre (1993): de culto, no de canon
   38286, // Tres hombres y una pierna (1997): comedia italiana muy local
   8290,  // La gran juerga (1966): comedia francesa popular
+  662,   // La jetée (1962): cortometraje de 29 minutos
 ]
 const EXCLUIDA = id => EXCLUSIONES.includes(id) || EXCLUSIONES_RELLENO.includes(id)
 
