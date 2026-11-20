@@ -118,7 +118,9 @@ redirección también en `glynbox.com` (ver arriba), se podría agregar
 
 Las rutas de `components` son las mismas que el intent filter de Android y
 las que entiende `src/lib/deepLinks.ts` de la app. `/review/*` abre la ficha de lo reseñado. `/generos` sin id no
-está porque la app no tiene pantalla para eso: la abriría en el inicio. Si se
+está porque la app no tiene pantalla para eso: la abriría en el inicio. Lo
+mismo `/ruleta`: hasta que la app tenga la ruleta, un link compartido a la
+ruleta abriría el inicio de la app en vez de la ruleta web. Si se
 agrega una ruta en la app, va también acá y en `app.json`.
 
 ### Verificar que quedó bien
