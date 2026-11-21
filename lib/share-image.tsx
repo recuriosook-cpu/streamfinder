@@ -31,7 +31,7 @@ import sharp from 'sharp'
 export async function renderShareImage(
   element: ReactElement,
   size: { width: number; height: number },
-  opts: { jpeg?: boolean; cache: 'publica' | 'privada' }
+  opts: { jpeg?: boolean; cache: 'publica' | 'corta' | 'privada' }
 ): Promise<Response> {
   const { fonts } = await loadShareAssets()
   const png = await new ImageResponse(element, { ...size, fonts }).arrayBuffer()
@@ -42,6 +42,9 @@ export async function renderShareImage(
   const headers: Record<string, string> =
     opts.cache === 'publica'
       ? { 'Cache-Control': 'public, max-age=3600', 'Vercel-CDN-Cache-Control': 'max-age=86400' }
+      // Lo que cambia seguido (el Wrapped en diciembre): 10 minutos.
+      : opts.cache === 'corta'
+      ? { 'Cache-Control': 'public, max-age=600', 'Vercel-CDN-Cache-Control': 'max-age=600' }
       : { 'Cache-Control': 'private, no-store' }
 
   return new Response(new Uint8Array(body), {
