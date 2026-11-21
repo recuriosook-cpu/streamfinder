@@ -2,6 +2,7 @@ import { NextResponse } from 'next/server'
 import { requireAdminClient } from '@/lib/service-role'
 import { correrDia1 } from '@/lib/push-dia1'
 import { revisarRecibosPendientes } from '@/lib/push-envios'
+import { correrAvisoWrapped } from '@/lib/wrapped-aviso'
 
 /**
  * /api/cron/push-dia1 — "Para esta noche", la push del día 1. Toda la lógica
@@ -41,10 +42,22 @@ export async function GET(req: Request) {
   // aparte para que un error del día 1 no lo frene.
   const recibosRevisados = await revisarRecibosPendientes(admin)
 
+  // El aviso del Wrapped (lib/wrapped-aviso.ts): sólo hace algo el 1 de
+  // diciembre de 19 a 24 de Argentina. Aparte, para que un error de uno no
+  // frene al otro.
+  let wrapped: unknown
+  try {
+    wrapped = await correrAvisoWrapped(admin)
+    if (!(wrapped as { saltada?: string }).saltada) console.log('[wrapped-aviso]', JSON.stringify(wrapped))
+  } catch (err) {
+    console.error('[wrapped-aviso] falló:', (err as Error).message)
+    wrapped = { error: (err as Error).message }
+  }
+
   try {
     const resumen = await correrDia1(admin)
     console.log('[dia1]', JSON.stringify({ ...resumen, recibosRevisados }))
-    return NextResponse.json({ ok: true, ...resumen, recibosRevisados })
+    return NextResponse.json({ ok: true, ...resumen, recibosRevisados, wrapped })
   } catch (err) {
     console.error('[dia1] falló:', (err as Error).message)
     return NextResponse.json({ ok: false, error: (err as Error).message }, { status: 500 })

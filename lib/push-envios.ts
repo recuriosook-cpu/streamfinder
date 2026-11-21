@@ -11,7 +11,7 @@ import { deleteDeadTokens, getExpoReceipts, type ExpoTicketRef } from './expo-pu
  * revisa los recibos y cuenta las aperturas igual para todos.
  */
 
-export type TipoEnvio = 'recomendacion' | 'semanal' | 'dia1'
+export type TipoEnvio = 'recomendacion' | 'semanal' | 'dia1' | 'wrapped'
 
 /**
  * Las claves de `profiles.notification_preferences` que apagan cada envío.
@@ -23,6 +23,8 @@ export const PREFERENCIA_DE: Record<TipoEnvio, string> = {
   // Es una recomendación armada para la persona, como la semanal: la apaga el
   // mismo interruptor, que ya está en las versiones de la app que hay en la calle.
   dia1: 'resumen_semanal',
+  // "Ya está tu resumen 2026" (lib/wrapped-aviso.ts): también es un resumen.
+  wrapped: 'resumen_semanal',
 }
 
 /** Antes de esto Expo puede no tener los recibos. Después de 24 h los borra. */
