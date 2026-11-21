@@ -31,13 +31,20 @@ export async function completarGeneros(
   admin: SupabaseClient,
   opciones: { maxTitulos?: number; alAvanzar?: (r: ResultadoGeneros) => void } = {},
 ): Promise<ResultadoGeneros> {
-  const { data, error } = await admin.rpc('watched_titulos_sin_genero', { p_limite: opciones.maxTitulos ?? null })
-  if (error) throw new Error(`watched_titulos_sin_genero: ${error.message}`)
-  const titulos = (data ?? []) as { media_type: 'movie' | 'tv'; media_id: number }[]
-
-  const r: ResultadoGeneros = { titulos: titulos.length, conGeneros: 0, sinDatos: 0, filas: 0 }
-  for (let i = 0; i < titulos.length; i += POR_TANDA) {
-    const tanda = titulos.slice(i, i + POR_TANDA)
+  const max = opciones.maxTitulos ?? Infinity
+  const r: ResultadoGeneros = { titulos: 0, conGeneros: 0, sinDatos: 0, filas: 0 }
+  while (r.titulos < max) {
+    // De a una tanda: la API devuelve como mucho 1.000 filas por pedido. Lo
+    // completado deja de aparecer en la lista, así que se pide siempre desde
+    // el principio, salteando los que TMDB no tenía (`sinDatos`), que siguen ahí.
+    const cuantos = Math.min(POR_TANDA, max - r.titulos)
+    const { data, error } = await admin
+      .rpc('watched_titulos_sin_genero', { p_limite: null })
+      .range(r.sinDatos, r.sinDatos + cuantos - 1)
+    if (error) throw new Error(`watched_titulos_sin_genero: ${error.message}`)
+    const tanda = (data ?? []) as { media_type: 'movie' | 'tv'; media_id: number }[]
+    if (tanda.length === 0) break
+    r.titulos += tanda.length
     const fichas = await enParalelo(tanda, A_LA_VEZ, t =>
       tmdbJson<{ genres?: { id: number }[] }>(`/${t.media_type}/${t.media_id}`))
 
