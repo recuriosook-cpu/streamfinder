@@ -5,11 +5,13 @@ import Link from 'next/link'
 import { getPosterUrl } from '@/lib/tmdb'
 import type { AdminOverview, Metrica, PorAparato, SiguenConGlynbox } from '@/app/api/admin/overview/route'
 import type { AdminContenido, TopMedia } from '@/app/api/admin/contenido/route'
+import type { MonitorUltimo } from '@/app/api/admin/monitor/route'
 import { fmtDuracion } from '@/lib/format-duracion'
 import { RefrescoControl, useRefrescoAlVolver } from './Refresco'
 import {
   Users, FileText, List, Star, Loader2, AlertCircle, Film, Tv,
   UserCheck, Eye, Activity, Clock, Smartphone, TrendingUp, TrendingDown, Info, HeartHandshake,
+  ShieldCheck, ShieldAlert,
 } from 'lucide-react'
 import {
   ResponsiveContainer, LineChart, Line, BarChart, Bar,
@@ -81,6 +83,57 @@ function SiguenCard({ siguen, cargado }: { siguen: SiguenConGlynbox | null; carg
       ) : (
         cargado && <p className="text-xs text-[#FFFD02] mt-0.5">Falta correr supabase-siguen-con-glynbox-2026-10.sql</p>
       )}
+    </div>
+  )
+}
+
+/**
+ * Último chequeo del monitor contra robots y gastos de más (Edge Function
+ * `monitor-glynbox`, 8:00, 15:00 y 22:00). Verde si está todo normal; rojo
+ * con lo que se disparó, si no.
+ */
+function MonitorCartel({ monitor }: { monitor: MonitorUltimo | null }) {
+  const c = monitor?.chequeo ?? null
+  const hora = c
+    ? new Date(c.creadoEn).toLocaleString('es-AR', {
+        weekday: 'short', day: 'numeric', hour: '2-digit', minute: '2-digit',
+        timeZone: 'America/Argentina/Buenos_Aires',
+      })
+    : null
+  const normal = c?.estado === 'normal'
+  const cls = !c
+    ? 'bg-[#13131A] border-[#2A2A3A]'
+    : normal
+      ? 'bg-emerald-900/20 border-emerald-800/60'
+      : 'bg-red-900/30 border-red-800'
+  const titulo = !c
+    ? 'todavía no corrió'
+    : normal ? 'todo normal' : c.estado === 'alerta' ? 'alerta' : 'no pudo revisar todo'
+
+  return (
+    <div className={`border rounded-xl px-5 py-4 flex items-start gap-3 ${cls}`}>
+      {!c || normal
+        ? <ShieldCheck size={18} className={`shrink-0 mt-0.5 ${c ? 'text-emerald-400' : 'text-[#6B6B80]'}`} />
+        : <ShieldAlert size={18} className="text-red-400 shrink-0 mt-0.5" />}
+      <div className="min-w-0 text-sm">
+        <p className="text-white font-semibold">
+          Monitor: {titulo}
+          {hora && <span className="text-[#A0A0B0] font-normal"> · {hora}</span>}
+        </p>
+        {c && !normal && (
+          <ul className="mt-1.5 space-y-1 text-red-200/90">
+            {c.alertas.map(a => <li key={a.clave}>{a.texto}</li>)}
+            {c.errores.map(e => (
+              <li key={e.fuente} className="text-[#FFFD02]/80">No se pudo revisar {e.fuente}: {e.error}</li>
+            ))}
+          </ul>
+        )}
+        {!c && (
+          <p className="text-[#A0A0B0] mt-0.5">
+            {monitor ? 'Corre a las 8:00, 15:00 y 22:00.' : 'No se pudo leer /api/admin/monitor.'}
+          </p>
+        )}
+      </div>
     </div>
   )
 }
@@ -250,6 +303,7 @@ export default function ResumenPage() {
 
   const [overview,  setOverview]  = useState<AdminOverview | null>(null)
   const [contenido, setContenido] = useState<AdminContenido | null>(null)
+  const [monitor,   setMonitor]   = useState<MonitorUltimo | null>(null)
 
   // Carga los datos. La primera vez la pantalla está tapada por el spinner
   // (`loading` arranca en true); las siguientes pasan por `refrescar`, que
@@ -263,9 +317,10 @@ export default function ResumenPage() {
         .then(async r => (r.ok ? ((await r.json()) as T) : null))
         .catch(() => null)
 
-    const [ov, cont] = await Promise.all([
+    const [ov, cont, mon] = await Promise.all([
       pedir<AdminOverview>('/api/admin/overview'),
       pedir<AdminContenido>('/api/admin/contenido'),
+      pedir<MonitorUltimo>('/api/admin/monitor'),
     ])
 
     const fallas = [!ov && '/api/admin/overview', !cont && '/api/admin/contenido'].filter(Boolean)
@@ -273,6 +328,7 @@ export default function ResumenPage() {
 
     setOverview(ov)
     setContenido(cont)
+    setMonitor(mon)
     setLoading(false)
     setRefrescando(false)
     setActualizadoEn(new Date())
@@ -343,6 +399,8 @@ export default function ResumenPage() {
             <p className="text-sm text-red-300">{error}</p>
           </div>
         )}
+
+        <MonitorCartel monitor={monitor} />
 
         {/* Stats cards */}
         <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
