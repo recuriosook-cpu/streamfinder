@@ -480,8 +480,14 @@ Deno.serve(async (req) => {
   const fallas: Falla[] = []
   const datos: Record<string, unknown> = {}
 
-  const vercelToken = Deno.env.get('VERCEL_TOKEN')
-  const sbToken = Deno.env.get('SB_ACCESS_TOKEN')
+  // Sin espacios, saltos de línea ni comillas: un token pegado en Git Bash
+  // en Windows puede traer un \r al final, y el header falla entero
+  // ("failed to parse header value").
+  // También las secuencias de escape de la terminal (ESC[200~ del pegado,
+  // flechas…), que `read -s` deja dentro de la variable.
+  const limpiar = (v: string | undefined) => v?.replace(/\x1b\[[0-9;?]*[ -/]*[@-~]/g, '').replace(/[^\x21-\x7e]/g, '').replace(/^["']|["']$/g, '') || undefined
+  const vercelToken = limpiar(Deno.env.get('VERCEL_TOKEN'))
+  const sbToken = limpiar(Deno.env.get('SB_ACCESS_TOKEN'))
 
   const intentar = async (fuente: string, fn: () => Promise<unknown>) => {
     try {
@@ -514,7 +520,12 @@ Deno.serve(async (req) => {
 
   const estado = alertas.length ? 'alerta' : fallas.length ? 'error' : 'normal'
 
-  if (pedido.prueba) return json({ estado, alertas, errores: fallas, datos })
+  if (pedido.prueba) {
+    // Cómo llegaron los tokens, sin mostrarlos: largo y caracteres fuera de [A-Za-z0-9_-].
+    const forma = (v: string | undefined) => v === undefined ? null : { largo: v.length, raros: v.replace(/[A-Za-z0-9_-]/g, '').length }
+    const tokens = { vercel_crudo: forma(Deno.env.get('VERCEL_TOKEN')), vercel: forma(vercelToken), sb: forma(sbToken) }
+    return json({ estado, alertas, errores: fallas, datos, tokens })
+  }
 
   // Las que ya salieron en las últimas 8 h no se repiten.
   const { data: recientes } = await admin
