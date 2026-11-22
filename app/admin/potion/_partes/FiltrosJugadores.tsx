@@ -19,7 +19,7 @@ const ZONA = 'America/Argentina/Buenos_Aires'
 
 // ── Tipos y dirección ──────────────────────────────────────────────────────
 
-export type Columna = 'pais' | 'aparato' | 'desde' | 'nivel' | 'ultimo' | 'dias'
+export type Columna = 'pais' | 'aparato' | 'desde' | 'nivel' | 'ultimo' | 'estado' | 'dias'
 export type Direccion = 'asc' | 'desc'
 export interface Orden { col: Columna; dir: Direccion }
 
@@ -53,7 +53,7 @@ const PARAM: Record<keyof Filtros, string> = {
   empezoDesde: 'empezo_desde', empezoHasta: 'empezo_hasta',
   diasDesde: 'dias_desde', diasHasta: 'dias_hasta', ultima: 'ultima',
 }
-const COLUMNAS: Columna[] = ['pais', 'aparato', 'desde', 'nivel', 'ultimo', 'dias']
+const COLUMNAS: Columna[] = ['pais', 'aparato', 'desde', 'nivel', 'ultimo', 'estado', 'dias']
 const ULTIMAS: Ultima[] = ['hoy', 'semana', 'mes', 'mas_de_un_mes']
 const FECHA_RE = /^\d{4}-\d{2}-\d{2}$/
 const NUM_RE = /^\d+$/
@@ -94,9 +94,12 @@ function escribirDireccion(filtros: Filtros, orden: Orden) {
   }
 }
 
-/** Fechas y números, de lo más nuevo o más grande; país y aparato, de la A a la Z. */
+/**
+ * Fechas y números, de lo más nuevo o más grande; país y aparato, de la A a
+ * la Z; estado, del que juega al que lo borró.
+ */
 function direccionInicial(col: Columna): Direccion {
-  return col === 'pais' || col === 'aparato' ? 'asc' : 'desc'
+  return col === 'pais' || col === 'aparato' || col === 'estado' ? 'asc' : 'desc'
 }
 
 /** Filtros y orden, guardados en la dirección. */
@@ -146,6 +149,26 @@ function compararVersiones(a: string, b: string): number {
 
 const num = (s: string): number | null => (s === '' ? null : Number(s))
 
+/** Días desde la última vez que jugó, contados en días de Argentina. */
+function diasSinJugar(j: Jugador): number {
+  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: ZONA })
+  return Math.round((Date.parse(hoy) - Date.parse(diaAR(j.ultimo))) / 86_400_000)
+}
+
+/**
+ * El estado de un jugador. Es una estimación nuestra, con la última vez que
+ * jugó: el teléfono no avisa si borró el juego. El que llegó al último nivel
+ * dice "terminó": que haya dejado de jugar no quiere decir que lo borró.
+ */
+export type Estado = 'jugando' | 'dormido' | 'borro' | 'termino'
+export const ORDEN_ESTADO: Estado[] = ['jugando', 'dormido', 'borro', 'termino']
+
+export function estadoDe(j: Jugador): Estado {
+  if (j.termino) return 'termino'
+  const n = diasSinJugar(j)
+  return n <= 6 ? 'jugando' : n <= 30 ? 'dormido' : 'borro'
+}
+
 export function cuantosFiltros(f: Filtros): number {
   return [
     f.pais, f.plataforma, f.version, f.nivelDesde || f.nivelHasta,
@@ -154,7 +177,6 @@ export function cuantosFiltros(f: Filtros): number {
 }
 
 export function filtrar(jugadores: Jugador[], f: Filtros): Jugador[] {
-  const hoy = new Date().toLocaleDateString('en-CA', { timeZone: ZONA })
   const nMin = num(f.nivelDesde), nMax = num(f.nivelHasta)
   const dMin = num(f.diasDesde), dMax = num(f.diasHasta)
   return jugadores.filter(j => {
@@ -174,7 +196,7 @@ export function filtrar(jugadores: Jugador[], f: Filtros): Jugador[] {
     if (dMin !== null && j.dias < dMin) return false
     if (dMax !== null && j.dias > dMax) return false
     if (f.ultima) {
-      const n = Math.round((Date.parse(hoy) - Date.parse(diaAR(j.ultimo))) / 86_400_000)
+      const n = diasSinJugar(j)
       if (f.ultima === 'hoy' && n > 0) return false
       if (f.ultima === 'semana' && n > 6) return false
       if (f.ultima === 'mes' && n > 29) return false
@@ -200,6 +222,8 @@ function compararPor(col: Columna, a: Jugador, b: Jugador): number | null {
       return a.ultimo < b.ultimo ? -1 : a.ultimo > b.ultimo ? 1 : 0
     case 'dias':
       return a.dias - b.dias
+    case 'estado':
+      return ORDEN_ESTADO.indexOf(estadoDe(a)) - ORDEN_ESTADO.indexOf(estadoDe(b))
     case 'nivel':
       return a.nivelActual === null || b.nivelActual === null
         ? null
@@ -227,7 +251,8 @@ export function ordenar(jugadores: Jugador[], o: Orden): Jugador[] {
 // ── Pantalla ───────────────────────────────────────────────────────────────
 
 export const NOMBRE_COLUMNA: Record<Columna, string> = {
-  pais: 'País', aparato: 'Aparato', desde: 'Juega desde', nivel: 'Nivel', ultimo: 'Último día', dias: 'Días jugados',
+  pais: 'País', aparato: 'Aparato', desde: 'Juega desde', nivel: 'Nivel', ultimo: 'Último día',
+  estado: 'Estado (estimado)', dias: 'Días jugados',
 }
 
 /** Encabezado de la tabla que ordena al tocarlo. */

@@ -3,15 +3,15 @@
 import { useMemo, useState } from 'react'
 import {
   AlertTriangle, AlertCircle, Download, Smartphone, CalendarCheck, CalendarDays, Trophy, Sparkles,
-  Info, Bot, FlaskConical, Undo2, Loader2, Layers,
+  Info, Bot, FlaskConical, Undo2, Loader2, Layers, Trash2,
 } from 'lucide-react'
 import {
-  useFiltrosJugadores, filtrar, ordenar, cuantosFiltros, PanelFiltros, Encabezado, NOMBRE_COLUMNA,
-  type Orden, type Columna,
+  useFiltrosJugadores, filtrar, ordenar, cuantosFiltros, PanelFiltros, Encabezado, NOMBRE_COLUMNA, estadoDe,
+  type Orden, type Columna, type Estado,
 } from './FiltrosJugadores'
 import { FlagCircle } from '@/components/CountrySelector'
 import { nombrePais } from '@/app/admin/_components/GrillasMetricas'
-import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion } from '@/lib/potion-tablero'
+import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion, Borraron } from '@/lib/potion-tablero'
 import { numero } from './piezas'
 
 /**
@@ -152,6 +152,71 @@ function Principal({ titulo, icono, par }: { titulo: string; icono: React.ReactN
         <Numero etiqueta="iPhone" color={COLOR.ios} d={par.ios} />
         <Numero etiqueta="Total" color="text-[#FFFD02]" d={sumar(par.android, par.ios)} />
       </div>
+    </section>
+  )
+}
+
+/** "Lo borraron": sólo Android, con las desinstalaciones que informa Google Play. */
+function LoBorraron({ b }: { b: Borraron }) {
+  const atraso = b.fecha ? diasDeAtraso(b.fecha) : null
+  return (
+    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4 sm:p-5 min-w-0">
+      <h2 className="text-base font-bold text-white flex items-center gap-2 mb-4">
+        <span className="w-8 h-8 rounded-lg bg-[#FFFD02]/10 text-[#FFFD02] flex items-center justify-center shrink-0"><Trash2 size={16} /></span>
+        Lo borraron
+      </h2>
+      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
+        <div className="min-w-0 sm:col-span-2 flex sm:block items-start gap-4">
+          <div className="shrink-0 w-24 sm:w-auto">
+            <p className={`text-[11px] font-semibold uppercase tracking-wide ${COLOR.android}`}>Android</p>
+            {b.valor === null ? (
+              <p className="text-xl font-black text-amber-400 leading-none mt-1">sin dato</p>
+            ) : (
+              <p className="leading-none mt-1">
+                <span className="text-3xl sm:text-4xl font-black text-white tabular-nums">{numero(b.valor)}</span>
+                {b.porcentaje !== null && (
+                  <span className="text-lg sm:text-xl font-bold text-zinc-300 tabular-nums ml-2">{b.porcentaje} %</span>
+                )}
+              </p>
+            )}
+          </div>
+          <div className={`text-[12px] leading-snug mt-1 sm:mt-2 ${b.valor === null || b.atrasado ? 'text-amber-300' : 'text-zinc-400'}`}>
+            {b.valor === null ? b.motivo : (
+              <>
+                <p>
+                  Desinstalaciones desde el lanzamiento (13/10)
+                  {b.porcentaje !== null && <>, sobre {numero(b.descargas)} descargas</>}.
+                </p>
+                <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-zinc-300">
+                  <span>Últimos 7 días: <span className="text-white font-semibold tabular-nums">{b.ult7 === null ? 'sin dato' : numero(b.ult7)}</span></span>
+                  <span>Últimos 30 días: <span className="text-white font-semibold tabular-nums">{b.ult30 === null ? 'sin dato' : numero(b.ult30)}</span></span>
+                </p>
+                {b.fecha && (
+                  <p className="mt-1">
+                    Hasta el {diaDeDato(b.fecha)}, el último día que publicó Google
+                    {atraso !== null && ` · ${atraso <= 0 ? 'al día' : atraso === 1 ? '1 día de atraso' : `${atraso} días de atraso`}`}
+                  </p>
+                )}
+                {b.faltan > 0 && (
+                  <p className="mt-1 text-amber-300">
+                    A {b.faltan === 1 ? 'un día le falta' : `${b.faltan} días les falta`} el dato de Google: no se cuenta{b.faltan === 1 ? '' : 'n'}.
+                  </p>
+                )}
+              </>
+            )}
+          </div>
+        </div>
+        <div className="min-w-0 flex sm:block items-start gap-4">
+          <p className={`shrink-0 w-24 sm:w-auto text-[11px] font-semibold uppercase tracking-wide ${COLOR.ios}`}>iPhone</p>
+          <p className="text-[12px] text-zinc-400 leading-snug mt-1 sm:mt-2">
+            Apple no informa cuántos tienen la app ni cuántos la borran: este cuadro es sólo de Android.
+          </p>
+        </div>
+      </div>
+      <p className="text-[11px] text-zinc-500 mt-4 leading-snug">
+        Lo cuenta Google Play. Son eventos, no aparatos: quien lo borra, lo vuelve a bajar y lo borra otra vez cuenta
+        dos. Incluye los aparatos de la prueba cerrada, que lo tenían desde antes del lanzamiento y lo borraron después.
+      </p>
     </section>
   )
 }
@@ -341,6 +406,30 @@ function Nivel({ j }: { j: Jugador }) {
   )
 }
 
+const ESTADO: Record<Estado, { texto: string; clase: string }> = {
+  jugando: { texto: 'jugando', clase: 'border-emerald-500/50 text-emerald-300' },
+  dormido: { texto: 'dormido', clase: 'border-sky-500/50 text-sky-300' },
+  borro: { texto: 'seguro lo borró', clase: 'border-zinc-500/60 text-zinc-400' },
+  termino: { texto: 'terminó', clase: 'border-amber-500/50 text-amber-300' },
+}
+
+const AYUDA_ESTADO = 'Estimación nuestra con la última vez que jugó (el teléfono no avisa si lo borró): '
+  + 'jugando, en los últimos 7 días; dormido, hace entre 7 y 30; seguro lo borró, hace más de 30. '
+  + 'Quien llegó al último nivel dice "terminó".'
+
+/** Borde punteado y "≈": se tiene que notar que es una estimación. */
+function EstadoJugador({ j }: { j: Jugador }) {
+  const e = ESTADO[estadoDe(j)]
+  return (
+    <span
+      title={AYUDA_ESTADO}
+      className={`inline-flex items-center rounded-full border border-dashed px-2 py-0.5 text-[11px] whitespace-nowrap cursor-help ${e.clase}`}
+    >
+      {estadoDe(j) === 'termino' ? '' : '≈ '}{e.texto}
+    </span>
+  )
+}
+
 function Mover({ j, onMover }: { j: Jugador; onMover: (id: string, clase: 'prueba' | 'real' | null) => Promise<void> }) {
   const [ocupado, setOcupado] = useState(false)
   const accion: { clase: 'prueba' | 'real' | null; texto: string; icono: React.ReactNode } =
@@ -362,10 +451,12 @@ function Mover({ j, onMover }: { j: Jugador; onMover: (id: string, clase: 'prueb
 }
 
 function Listado({
-  jugadores, conMotivo, onMover, vacio, orden, onOrdenar,
+  jugadores, conMotivo, conEstado = false, onMover, vacio, orden, onOrdenar,
 }: {
   jugadores: Jugador[]
   conMotivo: boolean
+  /** La columna de estado estimado: jugando, dormido, seguro lo borró. */
+  conEstado?: boolean
   onMover: (id: string, clase: 'prueba' | 'real' | null) => Promise<void>
   vacio: string
   /** Con estos dos, los encabezados ordenan la lista. */
@@ -388,6 +479,7 @@ function Listado({
               {th('desde')}
               {th('nivel')}
               {th('ultimo')}
+              {conEstado && th('estado')}
               {th('dias', true)}
               {conMotivo && <th className="py-2 pr-3 font-medium">Por qué está acá</th>}
               <th className="py-2 font-medium" />
@@ -407,6 +499,7 @@ function Listado({
                   <span className="text-white">{fecha(j.ultimo)}</span>
                   <span className="text-zinc-500"> · {haceDias(j.ultimo)}</span>
                 </td>
+                {conEstado && <td className="py-2.5 pr-3"><EstadoJugador j={j} /></td>}
                 <td className="py-2.5 pr-3 text-xs text-white tabular-nums text-right">{numero(j.dias)}</td>
                 {conMotivo && (
                   <td className="py-2.5 pr-3 text-[11px] text-[#A0A0B0] max-w-[280px] leading-snug">
@@ -428,7 +521,10 @@ function Listado({
               <Pais codigo={j.pais} />
               <Aparato j={j} />
             </div>
-            <div className="mt-2.5"><Nivel j={j} /></div>
+            <div className="mt-2.5 flex items-end justify-between gap-2">
+              <Nivel j={j} />
+              {conEstado && <EstadoJugador j={j} />}
+            </div>
             <dl className="mt-2.5 grid grid-cols-3 gap-2 text-[11px]">
               <div><dt className="text-zinc-500">Desde</dt><dd className="text-white">{fecha(j.desde)}</dd></div>
               <div><dt className="text-zinc-500">Último día</dt><dd className="text-white">{haceDias(j.ultimo)}</dd></div>
@@ -457,6 +553,7 @@ export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: stri
     <div className="space-y-5">
       <Principal icono={<Download size={16} />} titulo="Descargaron" par={t.tarjetas.descargas} />
       <Principal icono={<Smartphone size={16} />} titulo="La tienen hoy" par={t.tarjetas.tienen} />
+      {t.tarjetas.borraron && <LoBorraron b={t.tarjetas.borraron} />}
 
       <Avisos avisos={t.avisos} />
 
@@ -485,14 +582,16 @@ export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: stri
         </div>
         <PanelFiltros jugadores={t.reales} {...f} />
         <Listado
-          jugadores={lista} conMotivo={false} onMover={onMover} orden={f.orden} onOrdenar={f.ordenarPor}
+          jugadores={lista} conMotivo={false} conEstado onMover={onMover} orden={f.orden} onOrdenar={f.ordenarPor}
           vacio={t.reales.length === 0 ? 'Todavía no hay jugadores reales.' : 'Nadie cumple con estos filtros.'}
         />
         <p className="text-[11px] text-zinc-500 mt-3 flex items-start gap-1.5 leading-snug">
           <Info size={12} className="shrink-0 mt-0.5" />
           Un jugador es una instalación del juego: si alguien lo borra y lo vuelve a bajar, aparece dos veces. El país
           se anota desde el 16/11, cuando el jugador vuelve a abrir el juego. El nivel es hasta dónde llegó, sobre los
-          niveles de la versión que tiene.
+          niveles de la versión que tiene. El estado es una estimación nuestra con la última vez que jugó, no un
+          dato del teléfono: jugando, en los últimos 7 días; dormido, hace entre 7 y 30; seguro lo borró, hace más
+          de 30. Quien llegó al último nivel dice &ldquo;terminó&rdquo;.
         </p>
       </section>
     </div>

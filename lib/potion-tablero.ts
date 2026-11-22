@@ -102,11 +102,32 @@ export interface Separacion {
   motivo?: string
 }
 
+/** Las desinstalaciones de Android según Google Play. Apple no da este dato. */
+export interface Borraron {
+  /** Desde el lanzamiento. `null`: sin dato, con el motivo. */
+  valor: number | null
+  motivo?: string
+  /** Las descargas de Android desde el lanzamiento, para el porcentaje. */
+  descargas: number
+  porcentaje: number | null
+  /** Los últimos 7 y 30 días hasta `fecha`, y desde qué día cuentan. */
+  ult7: number | null
+  ult30: number | null
+  desde7: string | null
+  desde30: string | null
+  /** Días en los que Google no trajo el dato: no se cuentan como 0. */
+  faltan: number
+  /** El último día que publicó Google, `YYYY-MM-DD`. */
+  fecha: string | null
+  atrasado?: string
+}
+
 export interface PotionTablero {
   separacion: Separacion
   tarjetas: {
     descargas: Record<Plataforma, Dato>
     tienen: Record<Plataforma, Dato>
+    borraron: Borraron
     hoy: Record<Plataforma, Dato>
     semana: Record<Plataforma, Dato>
   }
@@ -431,15 +452,19 @@ interface Play {
   ultimaFecha: string | null
   /** La última vez que corrió la copia (el `actualizado_en` más nuevo). */
   copiaEn: string | null
+  /** Las desinstalaciones de cada día, `null` si Google no trajo el dato. */
+  bajas?: { fecha: string; cantidad: number | null }[]
 }
 
 async function leerPlay(admin: SupabaseClient): Promise<Play> {
   const { data, error } = await admin.from('play_install_stats')
-    .select('fecha, instalaciones, base_instalada, actualizado_en')
+    .select('fecha, instalaciones, desinstalaciones, base_instalada, actualizado_en')
     .eq('package_name', paqueteDe('potion')).gte('fecha', DESDE_DIA)
     .order('fecha', { ascending: true }).limit(1000)
   if (error) return { ok: false, motivo: `No se pudo leer play_install_stats: ${error.message}`, total: 0, base: null, ultimaFecha: null, copiaEn: null }
-  const filas = (data ?? []) as { fecha: string; instalaciones: number | null; base_instalada: number | null; actualizado_en: string | null }[]
+  const filas = (data ?? []) as {
+    fecha: string; instalaciones: number | null; desinstalaciones: number | null; base_instalada: number | null; actualizado_en: string | null
+  }[]
   if (filas.length === 0) return { ok: false, motivo: 'Google Play todavía no informó ningún día', total: 0, base: null, ultimaFecha: null, copiaEn: null }
   let total = 0
   let copiaEn: string | null = null
@@ -454,6 +479,48 @@ async function leerPlay(admin: SupabaseClient): Promise<Play> {
     base: conBase.length > 0 ? conBase[conBase.length - 1].base_instalada : null,
     ultimaFecha: filas[filas.length - 1].fecha,
     copiaEn,
+    bajas: filas.map(f => ({ fecha: f.fecha, cantidad: f.desinstalaciones })),
+  }
+}
+
+/**
+ * El cuadro "Lo borraron": las desinstalaciones que informa Google Play
+ * ("Uninstall events" del informe de instalaciones). Son eventos, no
+ * aparatos: quien lo borra, lo vuelve a bajar y lo borra otra vez cuenta dos.
+ * Y entran los aparatos de la prueba cerrada, que ya lo tenían antes del
+ * lanzamiento y lo borraron después.
+ *
+ * Los 7 y 30 días se cuentan hasta el último día que publicó Google, no
+ * hasta hoy: Google publica con días de atraso y, contando hasta hoy, los
+ * últimos días saldrían siempre de menos.
+ */
+function armarBorraron(play: Play, atrasado: string | undefined): Borraron {
+  const vacio = { ult7: null, ult30: null, desde7: null, desde30: null, faltan: 0, porcentaje: null, descargas: play.total }
+  if (!play.ok) return { valor: null, fecha: null, motivo: play.motivo ?? 'Sin datos de Google Play', ...vacio }
+  const bajas = play.bajas ?? []
+  const conDato = bajas.filter(b => b.cantidad !== null)
+  if (conDato.length === 0 || !play.ultimaFecha) {
+    return { valor: null, fecha: play.ultimaFecha, motivo: 'Google Play no trajo desinstalaciones para ningún día', ...vacio }
+  }
+  const sumaDesde = (desde: string) => {
+    const dias = bajas.filter(b => b.fecha >= desde)
+    const con = dias.filter(b => b.cantidad !== null)
+    return con.length === 0 ? null : con.reduce((s, b) => s + (b.cantidad ?? 0), 0)
+  }
+  const desde7 = restarDias(play.ultimaFecha, 6)
+  const desde30 = restarDias(play.ultimaFecha, 29)
+  const valor = conDato.reduce((s, b) => s + (b.cantidad ?? 0), 0)
+  return {
+    valor,
+    descargas: play.total,
+    porcentaje: play.total > 0 ? Math.round((valor / play.total) * 100) : null,
+    ult7: sumaDesde(desde7),
+    ult30: sumaDesde(desde30),
+    desde7,
+    desde30,
+    faltan: bajas.length - conDato.length,
+    fecha: play.ultimaFecha,
+    atrasado,
   }
 }
 
@@ -670,6 +737,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
     tarjetas: {
       descargas: { android: descAndroid, ios: descIos },
       tienen: { android: tieneAndroid, ios: tieneIos },
+      borraron: armarBorraron(play, playAtrasado),
       hoy: tHoy,
       semana: tSemana,
     },
