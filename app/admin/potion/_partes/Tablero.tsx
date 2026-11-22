@@ -1,10 +1,14 @@
 'use client'
 
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
 import {
   AlertTriangle, AlertCircle, Download, Smartphone, CalendarCheck, CalendarDays, Trophy, Sparkles,
-  Info, Bot, FlaskConical, Undo2, Loader2,
+  Info, Bot, FlaskConical, Undo2, Loader2, Layers,
 } from 'lucide-react'
+import {
+  useFiltrosJugadores, filtrar, ordenar, cuantosFiltros, PanelFiltros, Encabezado, NOMBRE_COLUMNA,
+  type Orden, type Columna,
+} from './FiltrosJugadores'
 import { FlagCircle } from '@/components/CountrySelector'
 import { nombrePais } from '@/app/admin/_components/GrillasMetricas'
 import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion } from '@/lib/potion-tablero'
@@ -229,6 +233,34 @@ export function Avisos({ avisos }: { avisos: Alerta[] }) {
   )
 }
 
+/**
+ * La tabla de niveles de `lib/potion-tablero.ts` quedó vieja. Va arriba de
+ * todo y en cualquier pestaña: se sube de nivel casi todas las semanas.
+ */
+export function AvisoNiveles({ avisos }: { avisos: Alerta[] }) {
+  if (avisos.length === 0) return null
+  const hayError = avisos.some(a => a.nivel === 'error')
+  return (
+    <div
+      role="alert"
+      className={`rounded-2xl border-2 px-4 py-4 ${hayError ? 'bg-red-950/60 border-red-500' : 'bg-amber-950/50 border-amber-400'}`}
+    >
+      <p className={`text-base font-bold flex items-center gap-2 ${hayError ? 'text-red-200' : 'text-amber-200'}`}>
+        <Layers size={18} className="shrink-0" />
+        Falta actualizar la tabla de niveles
+      </p>
+      <ul className="mt-2 space-y-2">
+        {avisos.map((a, i) => (
+          <li key={i} className="text-[13px] leading-snug flex gap-2">
+            <span className={`mt-1.5 w-1.5 h-1.5 rounded-full shrink-0 ${a.nivel === 'error' ? 'bg-red-400' : 'bg-amber-400'}`} />
+            <span className={a.nivel === 'error' ? 'text-red-50' : 'text-amber-50'}>{a.texto}</span>
+          </li>
+        ))}
+      </ul>
+    </div>
+  )
+}
+
 function Alertas({ alertas }: { alertas: Alerta[] }) {
   return (
     <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4">
@@ -330,14 +362,20 @@ function Mover({ j, onMover }: { j: Jugador; onMover: (id: string, clase: 'prueb
 }
 
 function Listado({
-  jugadores, conMotivo, onMover, vacio,
+  jugadores, conMotivo, onMover, vacio, orden, onOrdenar,
 }: {
   jugadores: Jugador[]
   conMotivo: boolean
   onMover: (id: string, clase: 'prueba' | 'real' | null) => Promise<void>
   vacio: string
+  /** Con estos dos, los encabezados ordenan la lista. */
+  orden?: Orden
+  onOrdenar?: (c: Columna) => void
 }) {
   if (jugadores.length === 0) return <p className="text-sm text-[#A0A0B0] py-6 text-center">{vacio}</p>
+  const th = (col: Columna, derecha = false) => orden && onOrdenar
+    ? <Encabezado col={col} orden={orden} onOrdenar={onOrdenar} derecha={derecha} />
+    : <th className={`py-2 pr-3 font-medium ${derecha ? 'text-right' : ''}`}>{NOMBRE_COLUMNA[col]}</th>
   return (
     <>
       {/* Compu: tabla */}
@@ -345,12 +383,12 @@ function Listado({
         <table className="w-full text-left">
           <thead>
             <tr className="text-[11px] uppercase tracking-wide text-zinc-500 border-b border-[#2A2A3A]">
-              <th className="py-2 pr-3 font-medium">País</th>
-              <th className="py-2 pr-3 font-medium">Aparato</th>
-              <th className="py-2 pr-3 font-medium">Juega desde</th>
-              <th className="py-2 pr-3 font-medium">Nivel</th>
-              <th className="py-2 pr-3 font-medium">Último día</th>
-              <th className="py-2 pr-3 font-medium text-right">Días jugados</th>
+              {th('pais')}
+              {th('aparato')}
+              {th('desde')}
+              {th('nivel')}
+              {th('ultimo')}
+              {th('dias', true)}
               {conMotivo && <th className="py-2 pr-3 font-medium">Por qué está acá</th>}
               <th className="py-2 font-medium" />
             </tr>
@@ -411,7 +449,10 @@ function Listado({
 // ── Las dos pestañas ───────────────────────────────────────────────────────
 
 export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: string, clase: 'prueba' | 'real' | null) => Promise<void> }) {
-  const terminaron = t.reales.filter(j => j.termino).length
+  const f = useFiltrosJugadores()
+  const lista = useMemo(() => ordenar(filtrar(t.reales, f.filtros), f.orden), [t.reales, f.filtros, f.orden])
+  const filtrando = cuantosFiltros(f.filtros) > 0
+  const terminaron = lista.filter(j => j.termino).length
   return (
     <div className="space-y-5">
       <Principal icono={<Download size={16} />} titulo="Descargaron" par={t.tarjetas.descargas} />
@@ -431,13 +472,22 @@ export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: stri
       <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4">
         <div className="flex flex-wrap items-baseline justify-between gap-2 mb-3">
           <h2 className="text-sm font-semibold text-white">
-            Jugadores reales <span className="text-zinc-500 font-normal">· {numero(t.reales.length)}</span>
+            Jugadores reales{' '}
+            <span className="text-zinc-500 font-normal">
+              · {filtrando ? <><span className="text-white">{numero(lista.length)}</span> de {numero(t.reales.length)}</> : numero(t.reales.length)}
+            </span>
           </h2>
-          <p className="text-[11px] text-zinc-500">
-            {terminaron > 0 ? `${numero(terminaron)} terminaron el juego · ` : ''}el que jugó más recién, primero
-          </p>
+          {terminaron > 0 && (
+            <p className="text-[11px] text-zinc-500">
+              {numero(terminaron)} {filtrando ? 'de estos ' : ''}terminaron el juego
+            </p>
+          )}
         </div>
-        <Listado jugadores={t.reales} conMotivo={false} onMover={onMover} vacio="Todavía no hay jugadores reales." />
+        <PanelFiltros jugadores={t.reales} {...f} />
+        <Listado
+          jugadores={lista} conMotivo={false} onMover={onMover} orden={f.orden} onOrdenar={f.ordenarPor}
+          vacio={t.reales.length === 0 ? 'Todavía no hay jugadores reales.' : 'Nadie cumple con estos filtros.'}
+        />
         <p className="text-[11px] text-zinc-500 mt-3 flex items-start gap-1.5 leading-snug">
           <Info size={12} className="shrink-0 mt-0.5" />
           Un jugador es una instalación del juego: si alguien lo borra y lo vuelve a bajar, aparece dos veces. El país

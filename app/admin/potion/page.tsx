@@ -4,7 +4,7 @@ import { useCallback, useEffect, useRef, useState } from 'react'
 import { Loader2 } from 'lucide-react'
 import type { PotionTablero } from '@/lib/potion-tablero'
 import { RefrescoControl, useRefrescoAlVolver } from '@/app/admin/_components/Refresco'
-import { Jugadores, Prueba, ErrorTablero } from './_partes/Tablero'
+import { Jugadores, Prueba, ErrorTablero, AvisoNiveles } from './_partes/Tablero'
 import { Analisis } from './_partes/Analisis'
 import { DesdeGlynbox } from './_partes/DesdeGlynbox'
 
@@ -110,6 +110,7 @@ export default function PotionPage() {
 
       <div className="px-4 sm:px-6 py-5 sm:py-6 max-w-6xl space-y-5">
         {error && <ErrorTablero texto={error} />}
+        {t && <AvisoNiveles avisos={t.avisosNiveles ?? []} />}
 
         {pestana === 'analisis' ? (
           <Analisis />

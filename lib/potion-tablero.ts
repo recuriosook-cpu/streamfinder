@@ -82,7 +82,7 @@ export interface Jugador {
 }
 
 export interface Alerta {
-  tipo: 'ultimo_nivel' | 'nuevo_ios' | 'copia_apple' | 'copia_google' | 'atrasado' | 'sin_dato' | 'cuadre'
+  tipo: 'ultimo_nivel' | 'nuevo_ios' | 'copia_apple' | 'copia_google' | 'atrasado' | 'sin_dato' | 'cuadre' | 'niveles'
   nivel: 'info' | 'aviso' | 'error'
   texto: string
   /** Cuándo pasó, ISO. */
@@ -110,8 +110,10 @@ export interface PotionTablero {
     hoy: Record<Plataforma, Dato>
     semana: Record<Plataforma, Dato>
   }
-  /** Lo que falla o está atrasado: el aviso de arriba de todo. */
+  /** Lo que falla o está atrasado. */
   avisos: Alerta[]
+  /** La tabla de niveles quedó vieja: va arriba de todo, en cualquier pestaña. */
+  avisosNiveles: Alerta[]
   /** Lo que pasó con los jugadores: último nivel, iPhone nuevos. */
   alertas: Alerta[]
   reales: Jugador[]
@@ -133,14 +135,21 @@ const DESDE_DIA = LANZAMIENTO.slice(0, 10)
  *
  *   - Hasta la 1.0.0 (el lanzamiento, 13/10): 600.
  *   - Desde la 1.0.7 (19/10): 1000. La 1.3.0 también trae 1000.
+ *   - Desde la 1.4.0 (19/11): 1500.
  *
- * AL PUBLICAR UNA VERSIÓN CON MÁS NIVELES HAY QUE AGREGARLA ACÁ. Si alguien
- * aparece más allá del total de su versión (la tabla quedó vieja), su total
- * pasa a "sin dato" en vez de decir que terminó.
+ * AL PUBLICAR UNA VERSIÓN NUEVA HAY QUE AGREGARLA ACÁ, aunque no traiga
+ * niveles nuevos (con el mismo total que la anterior). Si no, el panel avisa
+ * arriba de todo (`revisarTablaDeNiveles`):
+ *
+ *   - en amarillo, apenas alguien juega con una versión más nueva que la
+ *     última de la tabla;
+ *   - en rojo, si alguien pasó el total que la tabla le da a su versión. Ese
+ *     jugador muestra "sin dato" en vez de decir que terminó.
  */
 const NIVELES_POR_VERSION: { desde: string; niveles: number }[] = [
   { desde: '1.0.0', niveles: 600 },
   { desde: '1.0.7', niveles: 1000 },
+  { desde: '1.4.0', niveles: 1500 },
 ]
 
 /**
@@ -194,6 +203,50 @@ export function nivelesDeLaVersion(version: string | null | undefined): number |
   let total: number | null = null
   for (const t of NIVELES_POR_VERSION) if (compararVersiones(v, t.desde) >= 0) total = t.niveles
   return total
+}
+
+/**
+ * Los avisos de que la tabla de niveles quedó vieja. Mira a todos los
+ * aparatos menos los de la web: los de prueba suelen ser los primeros en
+ * tener la versión nueva, así que avisan antes.
+ */
+function revisarTablaDeNiveles(crudos: AparatoCrudo[]): Alerta[] {
+  const ultima = NIVELES_POR_VERSION[NIVELES_POR_VERSION.length - 1]
+  const nuevas = new Map<string, number>()
+  const pasados = new Map<string, { tabla: number; nivel: number; jugadores: number }>()
+  for (const a of crudos) {
+    if (a.plataforma === 'web') continue
+    const v = nombreDeVersion(a.version)
+    if (!/^\d+\.\d+\.\d+$/.test(v)) continue
+    if (compararVersiones(v, ultima.desde) > 0) nuevas.set(v, (nuevas.get(v) ?? 0) + 1)
+    const total = nivelesDeLaVersion(v)
+    if (total === null) continue
+    // Pasado el último nivel el juego informa uno más: eso no es pasarse.
+    const nivel = Math.max((a.nivelActual ?? 0) - 1, a.maxGanado ?? 0)
+    if (nivel > total) {
+      const p = pasados.get(v)
+      if (p) { p.jugadores++; p.nivel = Math.max(p.nivel, nivel) } else pasados.set(v, { tabla: total, nivel, jugadores: 1 })
+    }
+  }
+  const fmt = (n: number) => n.toLocaleString('es-AR')
+  const ordenar = (a: string, b: string) => compararVersiones(b, a)
+  const avisos: Alerta[] = []
+  for (const v of [...pasados.keys()].sort(ordenar)) {
+    const p = pasados.get(v)!
+    avisos.push({
+      tipo: 'niveles', nivel: 'error', fecha: null,
+      texto: `Falta cargar los niveles de la ${v}: ${p.jugadores === 1 ? 'un jugador ya pasó' : `${p.jugadores} jugadores ya pasaron`} el nivel ${fmt(p.tabla)} (el más lejos ganó el ${fmt(p.nivel)}), que es el último según la tabla. Agregá la ${v} con su total en NIVELES_POR_VERSION (lib/potion-tablero.ts). Mientras tanto su nivel dice "sin dato".`,
+    })
+  }
+  const soloNuevas = [...nuevas.keys()].filter(v => !pasados.has(v)).sort(ordenar)
+  if (soloNuevas.length > 0) {
+    const lista = soloNuevas.map(v => `${v} (${nuevas.get(v) === 1 ? '1 aparato' : `${nuevas.get(v)} aparatos`})`).join(', ')
+    avisos.push({
+      tipo: 'niveles', nivel: 'aviso', fecha: null,
+      texto: `Hay quien juega con ${soloNuevas.length === 1 ? 'una versión que no está' : 'versiones que no están'} en la tabla de niveles: ${lista}. La tabla llega hasta la ${ultima.desde} (${fmt(ultima.niveles)} niveles). Agregá ${soloNuevas.length === 1 ? 'esa versión' : 'esas versiones'} en NIVELES_POR_VERSION (lib/potion-tablero.ts) con su total, aunque no traiga${soloNuevas.length === 1 ? '' : 'n'} niveles nuevos.`,
+    })
+  }
+  return avisos
 }
 
 /** El momento de la corrida de hoy, o de ayer si la de hoy todavía no tocaba. */
@@ -344,8 +397,8 @@ function clasificar(
 function aJugador(a: AparatoCrudo, c: ReturnType<typeof clasificar>): Jugador {
   let total = nivelesDeLaVersion(a.version)
   // La tabla de niveles quedó vieja para esta versión: mejor "sin dato" que
-  // decir que terminó.
-  if (total !== null && (a.nivelActual ?? 0) > total + 1) total = null
+  // decir que terminó. Misma regla que `revisarTablaDeNiveles`.
+  if (total !== null && Math.max((a.nivelActual ?? 0) - 1, a.maxGanado ?? 0) > total) total = null
   const termino = total !== null && a.maxGanado !== null && a.maxGanado >= total
   const plataforma = a.plataforma === 'ios' || a.plataforma === 'android' || a.plataforma === 'web' ? a.plataforma : 'android'
   return {
@@ -479,6 +532,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   // ── Jugadores ──
   let jugadores: Jugador[] = []
   let ultimoEvento: string | null = null
+  let avisosNiveles: Alerta[] = []
   const eventosMotivo = crudo.error !== undefined ? `No se pudieron leer los eventos del juego: ${crudo.error}` : null
   if (eventosMotivo) {
     avisos.push({ tipo: 'sin_dato', nivel: 'error', texto: eventosMotivo, fecha: null })
@@ -487,6 +541,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
     if (!mapaIos) {
       avisos.push({ tipo: 'sin_dato', nivel: 'aviso', texto: 'No se pudieron leer las versiones de la App Store: los iPhone de TestFlight cuentan como reales hasta que vuelva.', fecha: null })
     }
+    avisosNiveles = revisarTablaDeNiveles(crudo.data)
     const robots = robotsProbables(crudo.data)
     jugadores = crudo.data.map(a => aJugador(a, clasificar(a, robots, mapaIos)))
     for (const j of jugadores) if (!ultimoEvento || j.ultimo > ultimoEvento) ultimoEvento = j.ultimo
@@ -619,6 +674,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
       semana: tSemana,
     },
     avisos,
+    avisosNiveles,
     alertas,
     reales,
     prueba,
