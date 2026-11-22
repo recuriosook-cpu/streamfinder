@@ -130,6 +130,8 @@ export interface PotionTablero {
     borraron: Borraron
     hoy: Record<Plataforma, Dato>
     semana: Record<Plataforma, Dato>
+    /** Abrieron el juego en los últimos 30 días, hoy incluido. */
+    mes: Record<Plataforma, Dato>
   }
   /** Lo que falla o está atrasado. */
   avisos: Alerta[]
@@ -578,6 +580,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
   const ahora = Date.now()
   const hoy = diaAR(ahora)
   const hace7 = restarDias(hoy, 6)
+  const hace30 = restarDias(hoy, 29)
   const avisos: Alerta[] = []
   const alertas: Alerta[] = []
 
@@ -648,6 +651,8 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
     'Abrieron el juego desde las 0 h de Argentina')
   const tSemana = deEventos(p => realesDe(p).filter(j => diaAR(Date.parse(j.ultimo)) >= hace7).length,
     'Abrieron el juego en los últimos 7 días, hoy incluido')
+  const tMes = deEventos(p => realesDe(p).filter(j => diaAR(Date.parse(j.ultimo)) >= hace30).length,
+    'Abrieron el juego en los últimos 30 días, hoy incluido')
 
   // ── Descargas y "tienen el juego" ──
   const playAtrasado = play.ultimaFecha && diasEntre(play.ultimaFecha, hoy) > PLAY_ATRASADO_DIAS
@@ -740,6 +745,7 @@ export async function armarTablero(potion: SupabaseClient | null, admin: Supabas
       borraron: armarBorraron(play, playAtrasado),
       hoy: tHoy,
       semana: tSemana,
+      mes: tMes,
     },
     avisos,
     avisosNiveles,

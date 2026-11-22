@@ -2,8 +2,8 @@
 
 import { useMemo, useState } from 'react'
 import {
-  AlertTriangle, AlertCircle, Download, Smartphone, CalendarCheck, CalendarDays, Trophy, Sparkles,
-  Info, Bot, FlaskConical, Undo2, Loader2, Layers, Trash2,
+  AlertTriangle, AlertCircle, Download, Smartphone, CalendarDays, Trophy, Sparkles,
+  Info, Bot, FlaskConical, Undo2, Loader2, Layers,
 } from 'lucide-react'
 import {
   useFiltrosJugadores, filtrar, ordenar, cuantosFiltros, PanelFiltros, Encabezado, NOMBRE_COLUMNA, estadoDe,
@@ -11,7 +11,7 @@ import {
 } from './FiltrosJugadores'
 import { FlagCircle } from '@/components/CountrySelector'
 import { nombrePais } from '@/app/admin/_components/GrillasMetricas'
-import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion, Borraron } from '@/lib/potion-tablero'
+import type { PotionTablero, Dato, Jugador, Alerta, Plataforma, Separacion } from '@/lib/potion-tablero'
 import { numero } from './piezas'
 
 /**
@@ -44,58 +44,12 @@ function haceDias(iso: string): string {
   return n <= 0 ? 'hoy' : n === 1 ? 'ayer' : `hace ${n} días`
 }
 
-const NOMBRE: Record<Plataforma, string> = { android: 'Android', ios: 'iPhone' }
 const COLOR: Record<Plataforma, string> = { android: 'text-emerald-400', ios: 'text-sky-400' }
 
-// ── Tarjetas ───────────────────────────────────────────────────────────────
-
-function Valor({ plataforma, d }: { plataforma: Plataforma; d: Dato }) {
-  return (
-    <div className="min-w-0">
-      <p className={`text-[11px] font-semibold uppercase tracking-wide ${COLOR[plataforma]}`}>{NOMBRE[plataforma]}</p>
-      {d.valor === null ? (
-        <>
-          <p className="text-xl font-bold text-amber-400 leading-tight mt-0.5">sin dato</p>
-          <p className="text-[11px] text-amber-200/80 leading-snug mt-1 break-words">{d.motivo}</p>
-        </>
-      ) : (
-        <>
-          <p className="text-3xl sm:text-4xl font-black text-white tabular-nums leading-none mt-1">{numero(d.valor)}</p>
-          <p className={`text-[11px] mt-1.5 leading-snug ${d.atrasado ? 'text-amber-400' : 'text-zinc-500'}`}>
-            {d.fecha ? (d.tipoFecha === 'dia' ? `dato del ${diaDeDato(d.fecha)}` : `al ${fecha(d.fecha, true)}`) : '—'}
-            {d.atrasado && <> · atrasado</>}
-          </p>
-        </>
-      )}
-    </div>
-  )
-}
-
-function Tarjeta({ icono, titulo, par }: { icono: React.ReactNode; titulo: string; par: Record<Plataforma, Dato> }) {
-  const nota = par.android.nota && par.android.nota === par.ios.nota ? par.android.nota : null
-  return (
-    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4 flex flex-col min-w-0">
-      <div className="flex items-center gap-2 mb-3">
-        <span className="w-8 h-8 rounded-lg bg-[#FFFD02]/10 text-[#FFFD02] flex items-center justify-center shrink-0">{icono}</span>
-        <h2 className="text-sm font-semibold text-white leading-tight">{titulo}</h2>
-      </div>
-      <div className="grid grid-cols-2 gap-3">
-        <Valor plataforma="android" d={par.android} />
-        <Valor plataforma="ios" d={par.ios} />
-      </div>
-      <div className="mt-auto pt-3 space-y-1">
-        {nota ? <p className="text-[11px] text-zinc-500 leading-snug">{nota}</p> : (
-          <>
-            {par.android.nota && <p className="text-[11px] text-zinc-500 leading-snug"><span className={COLOR.android}>Android:</span> {par.android.nota}</p>}
-            {par.ios.nota && <p className="text-[11px] text-zinc-500 leading-snug"><span className={COLOR.ios}>iPhone:</span> {par.ios.nota}</p>}
-          </>
-        )}
-      </div>
-    </section>
-  )
-}
-
-// ── Lo de arriba de todo: descargaron y la tienen hoy ───────────────────────
+// ── Las tres tarjetas de arriba ────────────────────────────────────────────
+//
+// Con la forma de las del Resumen de Glynbox: un número grande, qué es, el
+// detalle renglón por renglón y, al final, las aclaraciones en gris chico.
 
 function diasDeAtraso(dia: string): number {
   const hoy = new Date().toLocaleDateString('en-CA', { timeZone: ZONA })
@@ -113,111 +67,126 @@ function deCuando(d: Dato): string {
   return `Último día que mandó: ${diaDeDato(d.fecha)} · ${n <= 0 ? 'al día' : n === 1 ? '1 día de atraso' : `${n} días de atraso`}`
 }
 
-function Numero({ etiqueta, color, d }: { etiqueta: string; color: string; d: Dato }) {
-  return (
-    <div className="min-w-0 flex sm:block items-start gap-4">
-      <div className="shrink-0 w-24 sm:w-auto">
-        <p className={`text-[11px] font-semibold uppercase tracking-wide ${color}`}>{etiqueta}</p>
-        <p className={`font-black tabular-nums leading-none mt-1 ${d.valor === null ? 'text-xl text-amber-400' : 'text-3xl sm:text-4xl text-white'}`}>
-          {d.valor === null ? 'sin dato' : numero(d.valor)}
-        </p>
-      </div>
-      <p className={`text-[12px] leading-snug mt-1 sm:mt-2 ${d.valor === null || d.atrasado ? 'text-amber-300' : 'text-zinc-400'}`}>
-        {d.valor === null ? d.motivo : <>{d.nota}.{d.fecha && <span className="block mt-0.5">{deCuando(d)}</span>}</>}
-      </p>
-    </div>
-  )
+/** "al 17/11 (5 días de atraso)": el atraso sólo si es más que el normal. */
+function alDia(d: Dato): string {
+  if (!d.fecha) return ''
+  if (d.tipoFecha === 'momento') return `al ${fecha(d.fecha, true)}`
+  const n = diasDeAtraso(d.fecha)
+  return `al ${diaDeDato(d.fecha)}${d.atrasado ? ` (${n} días de atraso)` : ''}`
 }
 
-function sumar(a: Dato, b: Dato): Dato {
+/** Android más iPhone. Si falta uno, "sin dato" con el porqué: nunca una suma a medias. */
+function suma(a: Dato, b: Dato): { valor: number | null; motivo?: string } {
   if (a.valor === null || b.valor === null) {
-    return { valor: null, fecha: null, tipoFecha: 'dia', motivo: `Falta ${a.valor === null ? 'Android' : 'iPhone'}: no se puede sumar` }
+    return { valor: null, motivo: `Falta el dato de ${a.valor === null ? 'Android' : 'iPhone'}: no se puede sumar.` }
   }
-  const cuando = (d: Dato) => (d.fecha ? (d.tipoFecha === 'dia' ? `al ${diaDeDato(d.fecha)}` : 'de hoy') : 'sin fecha')
-  return {
-    valor: a.valor + b.valor, fecha: null, tipoFecha: 'dia', atrasado: a.atrasado || b.atrasado,
-    nota: `Suma Android (${cuando(a)}) más iPhone (${cuando(b)}): cada uno con su fecha`,
-  }
+  return { valor: a.valor + b.valor }
 }
 
-function Principal({ titulo, icono, par }: { titulo: string; icono: React.ReactNode; par: Record<Plataforma, Dato> }) {
+/** Un renglón de la tarjeta: el número en blanco y qué es. */
+function Renglon({ n, children }: { n: number | null; children: React.ReactNode }) {
   return (
-    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4 sm:p-5 min-w-0">
-      <h2 className="text-base font-bold text-white flex items-center gap-2 mb-4">
-        <span className="w-8 h-8 rounded-lg bg-[#FFFD02]/10 text-[#FFFD02] flex items-center justify-center shrink-0">{icono}</span>
-        {titulo}
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-        <Numero etiqueta="Android" color={COLOR.android} d={par.android} />
-        <Numero etiqueta="iPhone" color={COLOR.ios} d={par.ios} />
-        <Numero etiqueta="Total" color="text-[#FFFD02]" d={sumar(par.android, par.ios)} />
-      </div>
+    <li>
+      {n === null ? <span className="text-amber-400">sin dato</span> : <span className="text-white">{numero(n)}</span>} {children}
+    </li>
+  )
+}
+
+function TarjetaResumen({
+  icono, color, valor, motivo, porcentaje, titulo, children, notas,
+}: {
+  icono: React.ReactNode
+  color: string
+  valor: number | null
+  motivo?: string
+  porcentaje?: number | null
+  titulo: string
+  children: React.ReactNode
+  notas: (string | false | null | undefined)[]
+}) {
+  const visibles = notas.filter((n): n is string => Boolean(n))
+  return (
+    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-6 flex flex-col min-w-0">
+      <div className={`w-11 h-11 rounded-xl flex items-center justify-center mb-4 ${color}`}>{icono}</div>
+      {valor === null ? (
+        <p className="text-3xl font-black text-amber-400">sin dato</p>
+      ) : (
+        <p className="text-3xl font-black text-white tabular-nums">
+          {numero(valor)}
+          {porcentaje != null && <span className="text-base font-bold text-emerald-400 ml-2">{porcentaje}%</span>}
+        </p>
+      )}
+      <h2 className="text-sm text-[#A0A0B0] mt-1 font-medium">{titulo}</h2>
+      {valor === null && motivo && <p className="text-xs text-amber-300 mt-0.5">{motivo}</p>}
+      <ul className="mt-2 space-y-0.5 text-xs text-[#A0A0B0] tabular-nums">{children}</ul>
+      {visibles.length > 0 && (
+        <div className="mt-auto pt-3 space-y-1">
+          {visibles.map(n => <p key={n} className="text-[11px] leading-snug text-[#6B6B80]">{n}</p>)}
+        </div>
+      )}
     </section>
   )
 }
 
-/** "Lo borraron": sólo Android, con las desinstalaciones que informa Google Play. */
-function LoBorraron({ b }: { b: Borraron }) {
-  const atraso = b.fecha ? diasDeAtraso(b.fecha) : null
+function TarjetasDeArriba({ t }: { t: PotionTablero }) {
+  const { descargas, tienen, borraron: b, mes, semana, hoy } = t.tarjetas
+  const bajadas = suma(descargas.android, descargas.ios)
+  const loTienen = suma(tienen.android, tienen.ios)
+  const jugaron = suma(mes.android, mes.ios)
+  const porcentaje = loTienen.valor !== null && bajadas.valor ? Math.round((loTienen.valor / bajadas.valor) * 100) : null
+  const sinDato = (d: Dato, donde: string) => d.valor === null && `${donde}: ${d.motivo}`
+
   return (
-    <section className="bg-[#13131A] border border-[#2A2A3A] rounded-2xl p-4 sm:p-5 min-w-0">
-      <h2 className="text-base font-bold text-white flex items-center gap-2 mb-4">
-        <span className="w-8 h-8 rounded-lg bg-[#FFFD02]/10 text-[#FFFD02] flex items-center justify-center shrink-0"><Trash2 size={16} /></span>
-        Lo borraron
-      </h2>
-      <div className="grid grid-cols-1 sm:grid-cols-3 gap-4 sm:gap-5">
-        <div className="min-w-0 sm:col-span-2 flex sm:block items-start gap-4">
-          <div className="shrink-0 w-24 sm:w-auto">
-            <p className={`text-[11px] font-semibold uppercase tracking-wide ${COLOR.android}`}>Android</p>
-            {b.valor === null ? (
-              <p className="text-xl font-black text-amber-400 leading-none mt-1">sin dato</p>
-            ) : (
-              <p className="leading-none mt-1">
-                <span className="text-3xl sm:text-4xl font-black text-white tabular-nums">{numero(b.valor)}</span>
-                {b.porcentaje !== null && (
-                  <span className="text-lg sm:text-xl font-bold text-zinc-300 tabular-nums ml-2">{b.porcentaje} %</span>
-                )}
-              </p>
-            )}
-          </div>
-          <div className={`text-[12px] leading-snug mt-1 sm:mt-2 ${b.valor === null || b.atrasado ? 'text-amber-300' : 'text-zinc-400'}`}>
-            {b.valor === null ? b.motivo : (
-              <>
-                <p>
-                  Desinstalaciones desde el lanzamiento (13/10)
-                  {b.porcentaje !== null && <>, sobre {numero(b.descargas)} descargas</>}.
-                </p>
-                <p className="mt-1.5 flex flex-wrap gap-x-4 gap-y-1 text-zinc-300">
-                  <span>Últimos 7 días: <span className="text-white font-semibold tabular-nums">{b.ult7 === null ? 'sin dato' : numero(b.ult7)}</span></span>
-                  <span>Últimos 30 días: <span className="text-white font-semibold tabular-nums">{b.ult30 === null ? 'sin dato' : numero(b.ult30)}</span></span>
-                </p>
-                {b.fecha && (
-                  <p className="mt-1">
-                    Hasta el {diaDeDato(b.fecha)}, el último día que publicó Google
-                    {atraso !== null && ` · ${atraso <= 0 ? 'al día' : atraso === 1 ? '1 día de atraso' : `${atraso} días de atraso`}`}
-                  </p>
-                )}
-                {b.faltan > 0 && (
-                  <p className="mt-1 text-amber-300">
-                    A {b.faltan === 1 ? 'un día le falta' : `${b.faltan} días les falta`} el dato de Google: no se cuenta{b.faltan === 1 ? '' : 'n'}.
-                  </p>
-                )}
-              </>
-            )}
-          </div>
-        </div>
-        <div className="min-w-0 flex sm:block items-start gap-4">
-          <p className={`shrink-0 w-24 sm:w-auto text-[11px] font-semibold uppercase tracking-wide ${COLOR.ios}`}>iPhone</p>
-          <p className="text-[12px] text-zinc-400 leading-snug mt-1 sm:mt-2">
-            Apple no informa cuántos tienen la app ni cuántos la borran: este cuadro es sólo de Android.
-          </p>
-        </div>
-      </div>
-      <p className="text-[11px] text-zinc-500 mt-4 leading-snug">
-        Lo cuenta Google Play. Son eventos, no aparatos: quien lo borra, lo vuelve a bajar y lo borra otra vez cuenta
-        dos. Incluye los aparatos de la prueba cerrada, que lo tenían desde antes del lanzamiento y lo borraron después.
-      </p>
-    </section>
+    <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+      <TarjetaResumen
+        icono={<Download size={20} />} color="text-[#FFFD02] bg-[#FFFD02]/10"
+        valor={bajadas.valor} motivo={bajadas.motivo} titulo="Se bajaron el juego"
+        notas={[
+          'Desde el lanzamiento (13/10). Google publica con 2 o 3 días de atraso; Apple, con uno.',
+          sinDato(descargas.android, 'Android'),
+          sinDato(descargas.ios, 'iPhone'),
+        ]}
+      >
+        <Renglon n={descargas.android.valor}>en Android, según Google{descargas.android.fecha && ` · ${alDia(descargas.android)}`}</Renglon>
+        <Renglon n={descargas.ios.valor}>en iPhone, según Apple{descargas.ios.fecha && ` · ${alDia(descargas.ios)}`}</Renglon>
+      </TarjetaResumen>
+
+      <TarjetaResumen
+        icono={<Smartphone size={20} />} color="text-emerald-400 bg-emerald-500/10"
+        valor={loTienen.valor} motivo={loTienen.motivo} porcentaje={porcentaje} titulo="Todavía lo tienen"
+        notas={[
+          porcentaje !== null && 'El porcentaje es sobre las descargas.',
+          'Apple no informa cuántos tienen la app: en iPhone contamos los que abrieron el juego en los últimos 30 días.',
+          'Las desinstalaciones de Google son eventos, no aparatos (quien lo borra dos veces cuenta dos), e incluyen los aparatos de la prueba cerrada.',
+          b.fecha && `Datos de Google ${alDia({ valor: 0, fecha: b.fecha, tipoFecha: 'dia', atrasado: b.atrasado })}.`,
+          b.faltan > 0 && `A ${b.faltan === 1 ? 'un día le falta' : `${b.faltan} días les falta`} el dato de desinstalaciones de Google: no se cuenta${b.faltan === 1 ? '' : 'n'}.`,
+          sinDato(tienen.android, 'Android'),
+          sinDato(tienen.ios, 'iPhone'),
+          b.valor === null && `Desinstalaciones: ${b.motivo}`,
+        ]}
+      >
+        <Renglon n={tienen.android.valor}>en Android, según Google</Renglon>
+        <Renglon n={tienen.ios.valor}>en iPhone, abrieron en 30 días</Renglon>
+        <Renglon n={b.valor}>lo desinstalaron (Android, según Google)</Renglon>
+        {b.valor !== null && b.fecha && (
+          <li className="pl-3 text-[11px] text-[#6B6B80]">
+            {b.ult7 ?? 'sin dato'} en los últimos 7 días · {b.ult30 ?? 'sin dato'} en los últimos 30 (hasta el {diaDeDato(b.fecha)})
+          </li>
+        )}
+      </TarjetaResumen>
+
+      <TarjetaResumen
+        icono={<CalendarDays size={20} />} color="text-blue-400 bg-blue-500/10"
+        valor={jugaron.valor} motivo={jugaron.motivo} titulo="Jugaron en los últimos 30 días"
+        notas={[
+          'Jugadores reales, sin robots ni aparatos de prueba: Android e iPhone, según el juego.',
+          mes.android.fecha && deCuando(mes.android),
+        ]}
+      >
+        <Renglon n={suma(semana.android, semana.ios).valor}>en los últimos 7 días</Renglon>
+        <Renglon n={suma(hoy.android, hoy.ios).valor}>hoy</Renglon>
+      </TarjetaResumen>
+    </div>
   )
 }
 
@@ -551,18 +520,12 @@ export function Jugadores({ t, onMover }: { t: PotionTablero; onMover: (id: stri
   const terminaron = lista.filter(j => j.termino).length
   return (
     <div className="space-y-5">
-      <Principal icono={<Download size={16} />} titulo="Descargaron" par={t.tarjetas.descargas} />
-      <Principal icono={<Smartphone size={16} />} titulo="La tienen hoy" par={t.tarjetas.tienen} />
-      {t.tarjetas.borraron && <LoBorraron b={t.tarjetas.borraron} />}
+      <TarjetasDeArriba t={t} />
 
       <Avisos avisos={t.avisos} />
 
       <PersonasYRobots s={t.separacion} />
 
-      <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-        <Tarjeta icono={<CalendarCheck size={16} />} titulo="Jugaron hoy" par={t.tarjetas.hoy} />
-        <Tarjeta icono={<CalendarDays size={16} />} titulo="Jugaron en la semana" par={t.tarjetas.semana} />
-      </div>
 
       <Alertas alertas={t.alertas} />
 
