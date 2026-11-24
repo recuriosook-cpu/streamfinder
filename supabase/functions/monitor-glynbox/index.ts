@@ -61,6 +61,16 @@ const TOLERANCIA_FRANJA_HORAS = 1.5
 const ACCIONES_FRENADAS = new Set(['deny', 'challenge', 'rate_limit'])
 /** Pedidos frenados por hora, como mínimo, para hablar de un robot frenado. */
 const UMBRAL_FRENADOS_HORA = 3000
+/**
+ * Un día con el doble de invocaciones sólo cuenta "con robot" si además hubo
+ * muchos bots en nuestras métricas (visitantes bot de page_view, de
+ * `analytics_dia_evento`) o el monitor vio ese día al firewall frenando de
+ * más. Lo normal: menos del 1% de visitantes bot; los días del robot del
+ * 19 al 22/11/2026, entre 19% y 53%. El 16 y 17/11 (un video y un récord de
+ * registros) duplicaron las invocaciones con 0% de bots: tráfico real.
+ */
+const UMBRAL_BOTS_DIA_PROPORCION = 0.15
+const UMBRAL_BOTS_DIA_MIN = 150
 
 /** Bots, en la ventana de 8 horas. */
 const HORAS_BOTS = 8
@@ -175,10 +185,12 @@ async function vercel(token: string, ruta: string, init?: RequestInit): Promise<
  *
  * La proyección usa el ritmo de los últimos 2 días cerrados. Un día cerrado
  * es "con robot" si tuvo más del doble de invocaciones que la mediana de los
- * 14 anteriores; si hubo alguno en el ciclo, se proyecta también con el ritmo
- * de los últimos 2 días sin robot (lo gastado se cuenta igual: ya se gastó).
+ * 14 anteriores Y además hubo señales de robot ese día (ver
+ * `senalesDeRobotPorDia`); si hubo alguno en el ciclo, se proyecta también
+ * con el ritmo de los últimos 2 días sin robot (lo gastado se cuenta igual:
+ * ya se gastó).
  */
-async function revisarGasto(token: string, alertas: Alerta[]) {
+async function revisarGasto(token: string, admin: SupabaseClient, alertas: Alerta[]) {
   const { inicio, fin } = cicloActual()
   // 30 días antes del ciclo, para tener lo normal de cada día y marcar robots.
   const desde = sumarDias(inicio, -30)
@@ -206,12 +218,17 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
   const completos = delCiclo.filter((d) => d.completo)
 
   // Días con robot: más del doble de invocaciones que la mediana de los 14
-  // anteriores (con al menos 7 para comparar).
+  // anteriores (con al menos 7 para comparar) y alguna señal de robot. Un
+  // pico sin señales es tráfico real.
+  const senales = await senalesDeRobotPorDia(admin, desde)
   const conRobot = new Set<string>()
+  const picosReales: string[] = []
   todosCompletos.forEach((d, i) => {
     const previos = todosCompletos.slice(Math.max(0, i - 14), i)
     const base = previos.length >= 7 ? mediana(previos.map((p) => p.invocaciones)) : null
-    if (base && d.invocaciones > FACTOR_PICO * base) conRobot.add(d.dia)
+    if (!base || d.invocaciones <= FACTOR_PICO * base) return
+    if (senales.has(d.dia)) conRobot.add(d.dia)
+    else picosReales.push(d.dia)
   })
   const robotEnCiclo = completos.filter((d) => conRobot.has(d.dia)).map((d) => d.dia)
 
@@ -275,7 +292,8 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
     ritmo_esperado_usd_dia: +ritmoEsperado.toFixed(3),
     esperado_a_la_fecha_usd: +esperadoALaFecha.toFixed(3),
     proyeccion_usd: +proyeccion.toFixed(3),
-    dias_con_robot_en_el_ciclo: robotEnCiclo,
+    dias_con_robot_en_el_ciclo: robotEnCiclo.map((dia) => ({ dia, senales: senales.get(dia) })),
+    picos_sin_senales_de_robot: picosReales.filter((dia) => dia >= inicio),
     dias_del_ritmo_sin_robot: ritmoSinRobot !== null ? diasSinRobot.map((d) => d.dia) : null,
     ritmo_sin_robot_usd_dia: ritmoSinRobot !== null ? +ritmoSinRobot.toFixed(3) : null,
     proyeccion_sin_robot_usd: proyeccionSinRobot !== null ? +proyeccionSinRobot.toFixed(3) : null,
@@ -283,6 +301,51 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
     base_invocaciones_dia: baseInvocaciones,
     base_pedidos_dia: basePedidos,
   }
+}
+
+/**
+ * Por día (fecha de Buenos Aires, que coincide casi con el día de Vercel, de
+ * 04:00 a 04:00), las señales de robot:
+ *   · bots: proporción de visitantes bot en page_view, de los resúmenes
+ *     (`analytics_dia_evento` guarda bots y personas para siempre, aunque los
+ *     eventos de bots se borren a los 3 días);
+ *   · firewall: algún chequeo del monitor de ese día con `frenados_altos`
+ *     (sólo hay desde el 23/11/2026; antes, sólo cuenta lo de bots).
+ */
+async function senalesDeRobotPorDia(admin: SupabaseClient, desde: string): Promise<Map<string, string[]>> {
+  const senales = new Map<string, string[]>()
+  const agregar = (dia: string, s: string) => senales.set(dia, [...(senales.get(dia) ?? []), s])
+
+  const { data: eventos, error } = await admin
+    .from('analytics_dia_evento')
+    .select('dia, is_bot, personas')
+    .eq('name', 'page_view')
+    .gte('dia', desde)
+  if (error) throw new Error(`analytics_dia_evento: ${error.message}`)
+  const porDia = new Map<string, { bot: number; humano: number }>()
+  for (const e of (eventos ?? []) as { dia: string; is_bot: boolean; personas: number }[]) {
+    const d = porDia.get(e.dia) ?? { bot: 0, humano: 0 }
+    if (e.is_bot) d.bot += e.personas
+    else d.humano += e.personas
+    porDia.set(e.dia, d)
+  }
+  for (const [dia, d] of porDia) {
+    const proporcion = d.bot / (d.bot + d.humano || 1)
+    if (d.bot >= UMBRAL_BOTS_DIA_MIN && proporcion >= UMBRAL_BOTS_DIA_PROPORCION) {
+      agregar(dia, `bots ${Math.round(proporcion * 100)}%`)
+    }
+  }
+
+  const { data: chequeos } = await admin
+    .from('monitor_chequeos')
+    .select('creado_en, datos')
+    .gte('creado_en', `${desde}T00:00:00Z`)
+  for (const c of (chequeos ?? []) as { creado_en: string; datos: { vercel_trafico?: { frenados_altos?: boolean } } }[]) {
+    if (c.datos?.vercel_trafico?.frenados_altos !== true) continue
+    const dia = new Date(Date.parse(c.creado_en) - 3 * 3_600_000).toISOString().slice(0, 10)
+    if (!senales.get(dia)?.includes('firewall')) agregar(dia, 'firewall')
+  }
+  return senales
 }
 
 /** Una consulta a /metrics/v1. Las fechas tienen que ir en segundos enteros. */
@@ -639,7 +702,7 @@ Deno.serve(async (req) => {
   await Promise.all([
     (async () => {
       if (!vercelToken) { fallas.push({ fuente: 'vercel', error: 'falta el secreto VERCEL_TOKEN' }); return }
-      await intentar('vercel_gasto', () => revisarGasto(vercelToken, alertas))
+      await intentar('vercel_gasto', () => revisarGasto(vercelToken, admin, alertas))
       await intentar('vercel_trafico', () => revisarTrafico(vercelToken, admin, alertas))
     })(),
     intentar('bots', () => revisarBots(admin, alertas)),
