@@ -10,13 +10,16 @@
 //
 // Revisa:
 //   · Vercel — gasto del ciclo contra el crédito de 20 USD (cargos diarios de
-//     /v1/billing/charges), pedidos de las últimas 3 horas y funciones de la
-//     última media hora (/metrics/v1) contra lo normal.
+//     /v1/billing/charges, proyectado con los últimos 2 días cerrados), pedidos
+//     de las últimas 3 horas y funciones de la última media hora (/metrics/v1)
+//     contra la misma franja horaria de los 7 días anteriores. Lo que frena el
+//     firewall (deny, challenge) no cuenta como tráfico: va aparte.
 //   · Lo nuestro — ráfagas y proporción de bots (`monitor_metricas_propias`)
 //     e inicios de sesión fallidos de Supabase Auth (logs, Management API).
 //
 // Si algo se dispara, un push a la app de fd_lage y Ferlageok (Expo, igual que
 // lib/expo-push.ts). Cada alerta tiene una clave y no se repite antes de 8 h.
+// Si hay un robot, la primera línea dice si lo frena el firewall o si pasa.
 // Cada chequeo queda en `monitor_chequeos`; el Resumen del panel muestra el
 // último.
 //
@@ -41,6 +44,23 @@ const CREDITO_USD = 20
 const TOPE_PROYECCION_USD = 22
 /** "Más del doble de lo normal". */
 const FACTOR_PICO = 2
+/** Días cerrados con los que se calcula el ritmo de gasto. */
+const DIAS_RITMO = 2
+/**
+ * Lo normal de pedidos y funciones sale de la misma franja horaria de los 7
+ * días anteriores (de noche hay más tráfico que de día). Un chequeo viejo
+ * cuenta como "la misma franja" si se hizo a esta hora ± 90 minutos.
+ */
+const DIAS_FRANJA = 7
+const TOLERANCIA_FRANJA_HORAS = 1.5
+/**
+ * Lo que el firewall rechaza o traba con desafío (Bot Protection, Challenge,
+ * límite de pedidos) no llega a las funciones ni se cobra como uso: no cuenta
+ * como tráfico, sólo se informa.
+ */
+const ACCIONES_FRENADAS = new Set(['deny', 'challenge', 'rate_limit'])
+/** Pedidos frenados por hora, como mínimo, para hablar de un robot frenado. */
+const UMBRAL_FRENADOS_HORA = 3000
 
 /** Bots, en la ventana de 8 horas. */
 const HORAS_BOTS = 8
@@ -89,6 +109,9 @@ type Dia = {
 
 const usd = (n: number) => `${n.toLocaleString('es-AR', { minimumFractionDigits: 2, maximumFractionDigits: 2 })} USD`
 const num = (n: number) => Math.round(n).toLocaleString('es-AR')
+const veces = (n: number) => n.toLocaleString('es-AR', { maximumFractionDigits: 1 })
+/** "2026-11-21" → "21/11". */
+const ddmm = (dia: string) => `${dia.slice(8)}/${dia.slice(5, 7)}`
 
 function mediana(xs: number[]): number | null {
   const v = xs.filter((x) => Number.isFinite(x)).sort((a, b) => a - b)
@@ -149,10 +172,16 @@ async function vercel(token: string, ruta: string, init?: RequestInit): Promise<
  * de Vercel arranca a las 00:00 de California). `EffectiveCost` es lo
  * consumido; `BilledCost`, lo que se cobra fuera del crédito. La licencia Pro
  * (0,65 USD por día) va aparte del uso: no cuenta para la proyección.
+ *
+ * La proyección usa el ritmo de los últimos 2 días cerrados. Un día cerrado
+ * es "con robot" si tuvo más del doble de invocaciones que la mediana de los
+ * 14 anteriores; si hubo alguno en el ciclo, se proyecta también con el ritmo
+ * de los últimos 2 días sin robot (lo gastado se cuenta igual: ya se gastó).
  */
 async function revisarGasto(token: string, alertas: Alerta[]) {
   const { inicio, fin } = cicloActual()
-  const desde = sumarDias(inicio, -16)
+  // 30 días antes del ciclo, para tener lo normal de cada día y marcar robots.
+  const desde = sumarDias(inicio, -30)
   const hasta = new Date(Date.now() + 86_400_000).toISOString()
   const res = await vercel(token, `/v1/billing/charges?from=${desde}T00:00:00.000Z&to=${hasta}`)
   const texto = await res.text()
@@ -172,26 +201,48 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
     porDia.set(dia, d)
   }
   const dias = [...porDia.values()].sort((a, b) => a.dia.localeCompare(b.dia))
+  const todosCompletos = dias.filter((d) => d.completo)
   const delCiclo = dias.filter((d) => d.dia >= inicio && d.dia < fin)
   const completos = delCiclo.filter((d) => d.completo)
 
+  // Días con robot: más del doble de invocaciones que la mediana de los 14
+  // anteriores (con al menos 7 para comparar).
+  const conRobot = new Set<string>()
+  todosCompletos.forEach((d, i) => {
+    const previos = todosCompletos.slice(Math.max(0, i - 14), i)
+    const base = previos.length >= 7 ? mediana(previos.map((p) => p.invocaciones)) : null
+    if (base && d.invocaciones > FACTOR_PICO * base) conRobot.add(d.dia)
+  })
+  const robotEnCiclo = completos.filter((d) => conRobot.has(d.dia)).map((d) => d.dia)
+
+  const promedio = (ds: Dia[]) => (ds.length ? ds.reduce((s, d) => s + d.uso, 0) / ds.length : 0)
   const totalDias = diasEntre(inicio, fin)
+  const faltan = totalDias - completos.length
   const gastado = delCiclo.reduce((s, d) => s + d.uso, 0)
   const gastadoCompletos = completos.reduce((s, d) => s + d.uso, 0)
   const cobrado = delCiclo.reduce((s, d) => s + d.cobrado, 0)
-  const ultimos3 = completos.slice(-3)
-  const ritmo = ultimos3.length ? ultimos3.reduce((s, d) => s + d.uso, 0) / ultimos3.length : 0
-  const proyeccion = gastadoCompletos + ritmo * (totalDias - completos.length)
+  const diasRitmo = todosCompletos.slice(-DIAS_RITMO)
+  const ritmo = promedio(diasRitmo)
+  const proyeccion = gastadoCompletos + ritmo * faltan
+  const diasSinRobot = todosCompletos.filter((d) => !conRobot.has(d.dia)).slice(-DIAS_RITMO)
+  const ritmoSinRobot = robotEnCiclo.length ? promedio(diasSinRobot) : null
+  const proyeccionSinRobot = ritmoSinRobot !== null ? gastadoCompletos + ritmoSinRobot * faltan : null
   const esperadoALaFecha = (CREDITO_USD * completos.length) / totalDias
   const ritmoEsperado = CREDITO_USD / totalDias
 
   if (proyeccion > TOPE_PROYECCION_USD) {
+    const sinRobot =
+      proyeccionSinRobot !== null
+        ? ` Sin contar los días con robot (${robotEnCiclo.map(ddmm).join(', ')}): ` +
+          `${usd(ritmoSinRobot!)} por día y el ciclo cerraría en ${usd(proyeccionSinRobot)}.`
+        : ''
     alertas.push({
       clave: 'vercel-gasto',
       texto:
-        `Vercel: a este ritmo el ciclo cierra en ${usd(proyeccion)} (el crédito es de ${CREDITO_USD}). ` +
-        `Van ${usd(gastadoCompletos)} en ${completos.length} días cerrados (lo esperado a esta altura: ${usd(esperadoALaFecha)}); ` +
-        `los últimos días, ${usd(ritmo)} por día contra ${usd(ritmoEsperado)}.`,
+        `Vercel: al ritmo de los últimos ${diasRitmo.length} días cerrados (${usd(ritmo)} por día, lo esperado es ${usd(ritmoEsperado)}) ` +
+        `el ciclo cierra en ${usd(proyeccion)} (el crédito es de ${CREDITO_USD}). ` +
+        `Van ${usd(gastadoCompletos)} en ${completos.length} días cerrados (lo esperado a esta altura: ${usd(esperadoALaFecha)}).` +
+        sinRobot,
     })
   }
   if (cobrado >= 0.01) {
@@ -202,7 +253,6 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
   }
 
   // Invocaciones del último día completo contra la mediana de los 14 anteriores.
-  const todosCompletos = dias.filter((d) => d.completo)
   const ayer = todosCompletos.at(-1)
   const previos = todosCompletos.slice(-15, -1)
   const baseInvocaciones = mediana(previos.map((d) => d.invocaciones))
@@ -211,8 +261,8 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
     alertas.push({
       clave: 'vercel-invocaciones-dia',
       texto:
-        `Vercel: ${num(ayer.invocaciones)} invocaciones de funciones el ${ayer.dia.slice(8)}/${ayer.dia.slice(5, 7)}, ` +
-        `${(ayer.invocaciones / baseInvocaciones).toLocaleString('es-AR', { maximumFractionDigits: 1 })} veces lo normal (${num(baseInvocaciones)} por día).`,
+        `Vercel: ${num(ayer.invocaciones)} invocaciones de funciones el ${ddmm(ayer.dia)}, ` +
+        `${veces(ayer.invocaciones / baseInvocaciones)} veces lo normal (${num(baseInvocaciones)} por día).`,
     })
   }
 
@@ -220,10 +270,15 @@ async function revisarGasto(token: string, alertas: Alerta[]) {
     ciclo: { inicio, fin, dias: totalDias, dias_completos: completos.length },
     gastado_usd: +gastado.toFixed(3),
     cobrado_usd: +cobrado.toFixed(3),
+    dias_del_ritmo: diasRitmo.map((d) => d.dia),
     ritmo_usd_dia: +ritmo.toFixed(3),
     ritmo_esperado_usd_dia: +ritmoEsperado.toFixed(3),
     esperado_a_la_fecha_usd: +esperadoALaFecha.toFixed(3),
     proyeccion_usd: +proyeccion.toFixed(3),
+    dias_con_robot_en_el_ciclo: robotEnCiclo,
+    dias_del_ritmo_sin_robot: ritmoSinRobot !== null ? diasSinRobot.map((d) => d.dia) : null,
+    ritmo_sin_robot_usd_dia: ritmoSinRobot !== null ? +ritmoSinRobot.toFixed(3) : null,
+    proyeccion_sin_robot_usd: proyeccionSinRobot !== null ? +proyeccionSinRobot.toFixed(3) : null,
     ultimo_dia: ayer ? { dia: ayer.dia, invocaciones: ayer.invocaciones, pedidos: ayer.pedidos, uso_usd: +ayer.uso.toFixed(3) } : null,
     base_invocaciones_dia: baseInvocaciones,
     base_pedidos_dia: basePedidos,
@@ -252,74 +307,123 @@ async function metrica(
   return j.summary ?? []
 }
 
+/** Pedidos por acción del firewall → los que pasan y los frenados, por hora. */
+function separarAcciones(acciones: Record<string, number>, horas: number) {
+  let pasan = 0
+  let frenados = 0
+  for (const [accion, n] of Object.entries(acciones)) {
+    if (ACCIONES_FRENADAS.has(accion)) frenados += n
+    else pasan += n
+  }
+  return { pasan: pasan / horas, frenados: frenados / horas }
+}
+
+async function pedidosPorAccion(token: string, desdeMs: number, hastaMs: number) {
+  const filas = await metrica(token, 'vercel.request.count', desdeMs, hastaMs, ['wafAction'])
+  const acciones: Record<string, number> = {}
+  for (const f of filas) acciones[f.dimensions.wafAction || 'ninguna'] = f.values.v ?? 0
+  return acciones
+}
+
+type TraficoGuardado = { pedidos_3h_por_accion?: Record<string, number>; funciones_hora?: number }
+
 /**
- * Pedidos de las últimas 3 horas y funciones de la última media hora.
+ * Pedidos de las últimas 3 horas y funciones de la última media hora,
+ * contra la misma franja horaria de los 7 días anteriores.
  *
  * Sin Observability Plus, /metrics/v1 deja mirar 24 h de pedidos (sin
- * filtros, pero sí agrupar) y sólo 30 minutos de funciones. Los pedidos que
- * el firewall rechaza (`deny`) no se cobran: se informan pero no cuentan.
+ * filtros, pero sí agrupar) y sólo 30 minutos de funciones. Por eso lo normal
+ * sale de:
+ *   · pedidos: la misma franja de ayer, medida ahora (todavía entra en las
+ *     24 h), y los chequeos del monitor de esta misma hora de hace 2 a 7 días;
+ *   · funciones: los chequeos del monitor de esta misma hora de hace 1 a 7
+ *     días (las de la métrica no se pueden comparar con las facturadas).
  *
- * Lo normal de los pedidos sale de los cargos diarios ("CDN Requests", que
- * coincide con los pedidos no rechazados). Las funciones de la métrica no se
- * pueden comparar con las facturadas (la factura cuenta más cosas), así que
- * lo normal sale de los chequeos anteriores del propio monitor.
+ * Los pedidos que el firewall rechaza o traba con desafío no cuentan como
+ * tráfico (no llegan a las funciones ni se cobran): se informan aparte.
  */
-async function revisarTrafico(
-  token: string,
-  admin: SupabaseClient,
-  basePedidosDia: number | null,
-  alertas: Alerta[]
-) {
+async function revisarTrafico(token: string, admin: SupabaseClient, alertas: Alerta[]) {
   const ahora = Date.now()
-  const porAccion = await metrica(token, 'vercel.request.count', ahora - 3 * 3_600_000, ahora, ['wafAction'])
-  const acciones: Record<string, number> = {}
-  for (const f of porAccion) acciones[f.dimensions.wafAction || 'ninguna'] = f.values.v ?? 0
-  const rechazados = acciones.deny ?? 0
-  const total = Object.values(acciones).reduce((s, n) => s + n, 0)
-  const pedidosHora = (total - rechazados) / 3
-  const basePedidosHora = basePedidosDia ? basePedidosDia / 24 : null
+  const H = 3_600_000
+
+  const acciones = await pedidosPorAccion(token, ahora - 3 * H, ahora)
+  const { pasan: pedidosHora, frenados: frenadosHora } = separarAcciones(acciones, 3)
+  const frenadosPorAccion = Object.fromEntries(
+    Object.entries(acciones).filter(([a]) => ACCIONES_FRENADAS.has(a)).map(([a, n]) => [a, Math.round(n / 3)])
+  )
+
+  // La misma franja de ayer. Unos minutos de margen: la API rechaza lo que
+  // arranque antes de 24 h atrás.
+  const margen = 5 * 60_000
+  const ayer = separarAcciones(await pedidosPorAccion(token, ahora - 24 * H + margen, ahora - 21 * H + margen), 3)
+
+  const funciones = await metrica(token, 'vercel.function_invocation.count', ahora - 29 * 60_000, ahora)
+  const funcionesHora = ((funciones[0]?.values.v ?? 0) * 60) / 29
+
+  // Chequeos anteriores hechos a esta misma hora (± 90 min), de 1 a 7 días atrás.
+  const { data: previos } = await admin
+    .from('monitor_chequeos')
+    .select('creado_en, datos')
+    .gte('creado_en', new Date(ahora - (DIAS_FRANJA * 24 + 2) * H).toISOString())
+    .lte('creado_en', new Date(ahora - 20 * H).toISOString())
+    .order('creado_en', { ascending: false })
+  const franja = (previos ?? []).flatMap((p: { creado_en: string; datos: { vercel_trafico?: TraficoGuardado } }) => {
+    const horas = (ahora - Date.parse(p.creado_en)) / H
+    const dias = Math.round(horas / 24)
+    if (dias < 1 || dias > DIAS_FRANJA || Math.abs(horas - dias * 24) > TOLERANCIA_FRANJA_HORAS) return []
+    const t = p.datos?.vercel_trafico
+    return t ? [{ dias, t }] : []
+  })
+
+  const muestrasPedidos = [
+    ayer,
+    ...franja
+      .filter((f) => f.dias >= 2 && f.t.pedidos_3h_por_accion)
+      .map((f) => separarAcciones(f.t.pedidos_3h_por_accion!, 3)),
+  ]
+  const basePedidosHora = mediana(muestrasPedidos.map((m) => m.pasan))
+  const baseFrenadosHora = mediana(muestrasPedidos.map((m) => m.frenados))
+
+  const muestrasFunciones = franja
+    .map((f) => f.t.funciones_hora)
+    .filter((x): x is number => typeof x === 'number')
+  const baseFunciones = muestrasFunciones.length >= 2 ? mediana(muestrasFunciones) : null
+
+  const datoFrenados = `Aparte, el firewall frenó ${num(frenadosHora)} por hora (no se cobran como funciones).`
 
   if (basePedidosHora && pedidosHora > FACTOR_PICO * basePedidosHora) {
     alertas.push({
       clave: 'vercel-pedidos',
       texto:
-        `Vercel: ${num(pedidosHora)} pedidos por hora en las últimas 3 h, ` +
-        `${(pedidosHora / basePedidosHora).toLocaleString('es-AR', { maximumFractionDigits: 1 })} veces lo normal (${num(basePedidosHora)}). ` +
-        `El firewall rechazó además ${num(rechazados / 3)} por hora.`,
+        `Vercel: ${num(pedidosHora)} pedidos por hora pasaron el firewall en las últimas 3 h, ` +
+        `${veces(pedidosHora / basePedidosHora)} veces lo normal a esta hora (${num(basePedidosHora)}). ${datoFrenados}`,
     })
   }
-
-  const funciones = await metrica(token, 'vercel.function_invocation.count', ahora - 29 * 60_000, ahora)
-  const funcionesHora = ((funciones[0]?.values.v ?? 0) * 60) / 29
-
-  const { data: previos } = await admin
-    .from('monitor_chequeos')
-    .select('datos')
-    .gte('creado_en', new Date(ahora - 14 * 86_400_000).toISOString())
-    .order('creado_en', { ascending: false })
-    .limit(42)
-  const historia = (previos ?? [])
-    .map((p: { datos: { vercel_trafico?: { funciones_hora?: number } } }) => p.datos?.vercel_trafico?.funciones_hora)
-    .filter((x): x is number => typeof x === 'number')
-  const baseFunciones = historia.length >= 3 ? mediana(historia) : null
 
   if (baseFunciones && funcionesHora > FACTOR_PICO * baseFunciones) {
     alertas.push({
       clave: 'vercel-funciones',
       texto:
         `Vercel: ${num(funcionesHora)} invocaciones de funciones por hora en la última media hora, ` +
-        `${(funcionesHora / baseFunciones).toLocaleString('es-AR', { maximumFractionDigits: 1 })} veces lo normal (${num(baseFunciones)}).`,
+        `${veces(funcionesHora / baseFunciones)} veces lo normal a esta hora (${num(baseFunciones)}).`,
     })
   }
+
+  const frenadosAltos =
+    frenadosHora >= UMBRAL_FRENADOS_HORA && (!baseFrenadosHora || frenadosHora > FACTOR_PICO * baseFrenadosHora)
 
   return {
     pedidos_3h_por_accion: acciones,
     pedidos_hora: Math.round(pedidosHora),
-    rechazados_hora: Math.round(rechazados / 3),
-    base_pedidos_hora: basePedidosHora ? Math.round(basePedidosHora) : null,
+    frenados_hora: Math.round(frenadosHora),
+    frenados_hora_por_accion: frenadosPorAccion,
+    frenados_altos: frenadosAltos,
+    base_pedidos_hora: basePedidosHora !== null ? Math.round(basePedidosHora) : null,
+    base_frenados_hora: baseFrenadosHora !== null ? Math.round(baseFrenadosHora) : null,
+    muestras_pedidos: muestrasPedidos.length,
     funciones_hora: Math.round(funcionesHora),
-    base_funciones_hora: baseFunciones ? Math.round(baseFunciones) : null,
-    chequeos_en_la_base_de_funciones: historia.length,
+    base_funciones_hora: baseFunciones !== null ? Math.round(baseFunciones) : null,
+    muestras_funciones: muestrasFunciones.length,
   }
 }
 
@@ -455,6 +559,41 @@ async function mandarPush(admin: SupabaseClient, titulo: string, cuerpo: string)
   return ok
 }
 
+// ── Robot: frenado o pasando ───────────────────────────────────────────────
+
+type Trafico = Awaited<ReturnType<typeof revisarTrafico>>
+
+/**
+ * Una línea para el principio del push: si hay un robot, ¿lo frena el
+ * firewall o llega a las funciones?
+ *   · pasando: los pedidos que pasan el firewall o las invocaciones están por
+ *     arriba del doble de lo normal a esta hora;
+ *   · frenado: hay señales de robot (ráfagas o bots en nuestras métricas, o
+ *     muchos más pedidos frenados que lo normal) pero lo que pasa está normal.
+ */
+function estadoRobot(alertas: Alerta[], t: Trafico | undefined): { estado: 'pasando' | 'frenado' | 'no'; linea: string | null } {
+  const claves = new Set(alertas.map((a) => a.clave))
+  const pasando = claves.has('vercel-pedidos') || claves.has('vercel-funciones')
+  if (pasando && t) {
+    const base = t.base_pedidos_hora ? ` (${veces(t.pedidos_hora / t.base_pedidos_hora)} veces lo normal a esta hora)` : ''
+    return {
+      estado: 'pasando',
+      linea: `🔴 Robot pasando: ${num(t.pedidos_hora)} pedidos/h llegan a las funciones${base}.`,
+    }
+  }
+  const senales = claves.has('bots-rafaga') || claves.has('bots-proporcion') || t?.frenados_altos === true
+  if (senales && !t) {
+    return { estado: 'no', linea: '⚪ Robot detectado; no se pudo leer Vercel para saber si lo frena el firewall.' }
+  }
+  if (senales && t) {
+    return {
+      estado: 'frenado',
+      linea: `🟢 Robot detectado pero frenado por el firewall: ${num(t.frenados_hora)} pedidos/h trabados, lo que pasa está normal (${num(t.pedidos_hora)}/h).`,
+    }
+  }
+  return { estado: 'no', linea: null }
+}
+
 // ── Handler ────────────────────────────────────────────────────────────────
 
 Deno.serve(async (req) => {
@@ -501,8 +640,7 @@ Deno.serve(async (req) => {
     (async () => {
       if (!vercelToken) { fallas.push({ fuente: 'vercel', error: 'falta el secreto VERCEL_TOKEN' }); return }
       await intentar('vercel_gasto', () => revisarGasto(vercelToken, alertas))
-      const base = (datos.vercel_gasto as { base_pedidos_dia?: number | null } | undefined)?.base_pedidos_dia ?? null
-      await intentar('vercel_trafico', () => revisarTrafico(vercelToken, admin, base, alertas))
+      await intentar('vercel_trafico', () => revisarTrafico(vercelToken, admin, alertas))
     })(),
     intentar('bots', () => revisarBots(admin, alertas)),
     (async () => {
@@ -519,6 +657,8 @@ Deno.serve(async (req) => {
   ]
 
   const estado = alertas.length ? 'alerta' : fallas.length ? 'error' : 'normal'
+  const robot = estadoRobot(alertas, datos.vercel_trafico as Trafico | undefined)
+  datos.robot = robot
 
   if (pedido.prueba) {
     // Cómo llegaron los tokens, sin mostrarlos: largo y caracteres fuera de [A-Za-z0-9_-].
@@ -540,7 +680,9 @@ Deno.serve(async (req) => {
   if (nuevas.length) {
     const titulo = nuevas.length === 1 ? 'Glynbox: alerta del monitor' : `Glynbox: ${nuevas.length} alertas del monitor`
     try {
-      pushEnviados = await mandarPush(admin, titulo, nuevas.map((a) => `• ${a.texto}`).join('\n'))
+      const lineas = nuevas.map((a) => `• ${a.texto}`)
+      if (robot.linea) lineas.unshift(robot.linea)
+      pushEnviados = await mandarPush(admin, titulo, lineas.join('\n'))
       // Si no llegó a ningún aparato, no se marca: se vuelve a intentar en el
       // próximo chequeo.
       if (pushEnviados > 0) avisadas = nuevas.map((a) => a.clave)
