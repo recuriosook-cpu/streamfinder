@@ -110,7 +110,6 @@ type Dia = {
   dia: string
   completo: boolean
   uso: number          // USD de uso (sin la licencia Pro)
-  cobrado: number      // USD cobrados aparte del crédito (todo, licencia incluida)
   invocaciones: number
   pedidos: number
 }
@@ -204,10 +203,9 @@ async function revisarGasto(token: string, admin: SupabaseClient, alertas: Alert
   for (const f of filas) {
     const dia = f.ChargePeriodStart.slice(0, 10)
     const d = porDia.get(dia) ?? {
-      dia, completo: Date.parse(f.ChargePeriodEnd) <= ahora, uso: 0, cobrado: 0, invocaciones: 0, pedidos: 0,
+      dia, completo: Date.parse(f.ChargePeriodEnd) <= ahora, uso: 0, invocaciones: 0, pedidos: 0,
     }
     if (f.ChargeCategory === 'Usage') d.uso += f.EffectiveCost
-    d.cobrado += f.BilledCost
     if (f.ServiceName === 'Function Invocations') d.invocaciones += f.ConsumedQuantity ?? 0
     if (f.ServiceName === 'CDN Requests') d.pedidos += f.ConsumedQuantity ?? 0
     porDia.set(dia, d)
@@ -237,7 +235,12 @@ async function revisarGasto(token: string, admin: SupabaseClient, alertas: Alert
   const faltan = totalDias - completos.length
   const gastado = delCiclo.reduce((s, d) => s + d.uso, 0)
   const gastadoCompletos = completos.reduce((s, d) => s + d.uso, 0)
-  const cobrado = delCiclo.reduce((s, d) => s + d.cobrado, 0)
+  // Lo que se paga aparte: el uso que pasa el crédito incluido (lo que la
+  // página de uso de Vercel muestra como Infrastructure menos Credits
+  // Applied). La licencia Pro no cuenta. No se usa `BilledCost`: mezcla la
+  // licencia prorrateada con centavos sueltos de uso y no coincide con nada
+  // de la factura (el 24/11/2026 sumaba 2,97 USD con el uso en 12 de 20).
+  const cobrado = Math.max(0, gastado - CREDITO_USD)
   const diasRitmo = todosCompletos.slice(-DIAS_RITMO)
   const ritmo = promedio(diasRitmo)
   const proyeccion = gastadoCompletos + ritmo * faltan
@@ -265,7 +268,9 @@ async function revisarGasto(token: string, admin: SupabaseClient, alertas: Alert
   if (cobrado >= 0.01) {
     alertas.push({
       clave: 'vercel-cobro',
-      texto: `Vercel ya cobró ${usd(cobrado)} aparte del crédito en este ciclo (desde el ${inicio.slice(8)}/${inicio.slice(5, 7)}).`,
+      texto:
+        `Vercel: el uso del ciclo (desde el ${ddmm(inicio)}) va en ${usd(gastado)} y pasó el crédito de ${CREDITO_USD}: ` +
+        `${usd(cobrado)} se cobran aparte (sin contar la licencia Pro).`,
     })
   }
 
