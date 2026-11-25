@@ -1,3 +1,4 @@
 google.com, pub-7004694054304140, DIRECT, f08c47fec0942fa0
 vungle.com, 6afe85ea915797d858e03e51, DIRECT, c107d686becd2d77
 inmobi.com, 9de9adc174cc4ce48587be66e6cf9356, DIRECT, 83e75a7ae333ca9d
+rubiconproject.com, 22884, DIRECT, 0bfd66d529a55807
